@@ -6,6 +6,16 @@ const MapArea = require('../models/MapArea');
 
 const START_THRESHOLD = 20;
 
+function applyRest(player) {
+  if (player.restStart) {
+    const sec = Math.floor((Date.now() - player.restStart) / 1000);
+    if (sec > 0) {
+      player.sp = Math.min(player.msp, player.sp + sec * 12);
+    }
+    player.restStart = 0;
+  }
+}
+
 exports.enter = async (req, res) => {
   try {
     const user = req.user;
@@ -52,12 +62,13 @@ exports.move = async (req, res) => {
     if (!info || info.gamestate < START_THRESHOLD) {
       return res.status(400).json({ msg: '游戏未开始' });
     }
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
-    player.pls = pls;
-    await player.save();
-    const area = await MapArea.findOne({ pid: pls });
-    const name = area ? area.name : pls;
+  const player = await Player.findOne({ pid, uid: req.user._id });
+  if (!player) return res.status(404).json({ msg: '玩家不存在' });
+  applyRest(player);
+  player.pls = pls;
+  await player.save();
+  const area = await MapArea.findOne({ pid: pls });
+  const name = area ? area.name : pls;
     res.json({ msg: `移动到${name}`, player });
   } catch (err) {
     console.error(err);
@@ -72,10 +83,13 @@ exports.search = async (req, res) => {
     if (!info || info.gamestate < START_THRESHOLD) {
       return res.status(400).json({ msg: '游戏未开始' });
     }
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+  const player = await Player.findOne({ pid, uid: req.user._id });
+  if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-    let log = '';
+  applyRest(player);
+  player.sp = Math.max(player.sp - 12, 0);
+
+  let log = '';
 
     if (player.pls === 7 && Math.random() < 0.5) {
       const dmg = Math.floor(Math.random() * 10) + 1;
@@ -157,12 +171,11 @@ exports.list = async (req, res) => {
 exports.rest = async (req, res) => {
   try {
     const { pid } = req.body;
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
-    player.hp = player.mhp;
-    player.sp = player.msp;
-    await player.save();
-    res.json({ msg: '你休息了一会儿。', player });
+  const player = await Player.findOne({ pid, uid: req.user._id });
+  if (!player) return res.status(404).json({ msg: '玩家不存在' });
+  player.restStart = Date.now();
+  await player.save();
+  res.json({ msg: '开始休息', player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '休息失败' });

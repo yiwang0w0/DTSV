@@ -3,8 +3,12 @@
     <h2>地图</h2>
     <el-descriptions v-if="info" border :column="2" style="margin-bottom:8px">
       <el-descriptions-item label="位置">{{ places[info.pls] }}</el-descriptions-item>
-      <el-descriptions-item label="生命">{{ info.hp }}/{{ info.mhp }}</el-descriptions-item>
-      <el-descriptions-item label="体力">{{ info.sp }}/{{ info.msp }}</el-descriptions-item>
+      <el-descriptions-item label="生命">
+        <el-progress :percentage="hpPercent" :text-inside="true" />
+      </el-descriptions-item>
+      <el-descriptions-item label="体力">
+        <el-progress :percentage="spPercent" :text-inside="true" />
+      </el-descriptions-item>
     </el-descriptions>
     <el-select v-model="target" placeholder="选择地点" style="width: 200px">
       <el-option v-for="(n,i) in places" :key="i" :label="n" :value="i" />
@@ -19,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import Inventory from '../components/Inventory.vue'
 import { move, search, getStatus, getMapAreas, rest } from '../api'
 import { playerId } from '../store/user'
@@ -29,6 +33,13 @@ import { mapAreas as places } from '../store/map'
 const target = ref(0)
 const log = ref('')
 const showBag = ref(false)
+
+const hpPercent = computed(() =>
+  info.value ? Math.round((info.value.hp / info.value.mhp) * 100) : 0
+)
+const spPercent = computed(() =>
+  info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
+)
 
 async function fetchStatus() {
   if (!playerId.value) return
