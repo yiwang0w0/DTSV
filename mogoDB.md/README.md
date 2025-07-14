@@ -110,6 +110,10 @@
    db.roomlisteners.createIndex({ port: 1 })
    db.histories.createIndex({ gid: 1 })
    ```
+4. 创建 `mapareas` 集合并建立唯一索引：
+   ```javascript
+   db.mapareas.createIndex({ pid: 1 }, { unique: true })
+   ```
 
 上述集合结构请参考 `backend/src/models` 中的同名模型文件。
 
