@@ -17,5 +17,6 @@ router.get('/players', auth, playerController.list);
 router.post('/rest', auth, playerController.rest);
 router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
+router.post('/pick', auth, playerController.pickItem);
 
 module.exports = router;

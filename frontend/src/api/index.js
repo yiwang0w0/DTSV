@@ -37,6 +37,7 @@ export const getMapAreas = () => api.get('/game/mapareas')
 export const rest = pid => api.post('/game/rest', { pid })
 export const useItem = (pid, index) => api.post('/game/use', { pid, index })
 export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
+export const pickItem = (pid, iid) => api.post('/game/pick', { pid, iid })
 
 export const adminList = col => api.get(`/admin/${col}`)
 export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)

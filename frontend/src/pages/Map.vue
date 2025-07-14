@@ -48,7 +48,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { move, search, getStatus, getMapAreas, rest } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -107,6 +107,13 @@ async function doSearch() {
     const { data } = await search(playerId.value)
     log.value = data.log
     info.value = data.player
+    if (data.item) {
+      if (confirm(`发现 ${data.item.itm} ，是否拾取？`)) {
+        const res = await pickItem(playerId.value, data.item._id)
+        info.value = res.data.player
+        log.value += `<br>获得了${data.item.itm}`
+      }
+    }
   } catch (e) {
     alert(e.response?.data?.msg || '搜索失败')
   }

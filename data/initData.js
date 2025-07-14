@@ -16,4 +16,11 @@ if (shopitems.length) {
   db.shopitems.insertMany(shopitems);
 }
 
+// 导入 mapitems
+var mapitems = JSON.parse(cat('./mapitems.json'));
+if (mapitems.length) {
+  db.mapitems.remove({});
+  db.mapitems.insertMany(mapitems);
+}
+
 print('数据导入完成');
