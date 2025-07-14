@@ -2,6 +2,9 @@ const GameInfo = require('../models/GameInfo');
 const History = require('../models/History');
 const MapArea = require('../models/MapArea');
 const Player = require('../models/Player');
+const MapItem = require('../models/MapItem');
+const fs = require('fs');
+const path = require('path');
 
 exports.getInfo = async (req, res) => {
   try {
@@ -53,6 +56,19 @@ exports.startGame = async (req, res) => {
       info.areawarn = 0;
       await info.save();
     }
+
+    // 初始化地图物品
+    try {
+      const file = path.join(__dirname, '../../../data/mapitems.json');
+      const items = JSON.parse(fs.readFileSync(file));
+      await MapItem.deleteMany({});
+      if (items && items.length) {
+        await MapItem.insertMany(items);
+      }
+    } catch (e) {
+      console.error('初始化地图物品失败', e);
+    }
+
     res.json({ msg: '游戏已开始', gamestate: info.gamestate });
   } catch (err) {
     console.error(err);
