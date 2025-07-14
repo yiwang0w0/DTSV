@@ -91,6 +91,8 @@ cd dts-sample-mongo-vue
   npm run dev
   # 默认监听 3000 端口
   ```
+  或者 node src/app.js
+
 
 ### 3. 前端环境搭建
 
