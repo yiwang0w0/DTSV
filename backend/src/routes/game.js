@@ -12,5 +12,6 @@ router.post('/enter', auth, playerController.enter);
 router.post('/move', auth, playerController.move);
 router.post('/search', auth, playerController.search);
 router.get('/status', auth, playerController.status);
+router.get('/players', auth, playerController.list);
 
 module.exports = router;
