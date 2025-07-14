@@ -16,6 +16,22 @@ function applyRest(player) {
   }
 }
 
+function reduceItem(player, idx) {
+  let cnt = player[`itms${idx}`];
+  if (cnt !== '∞') {
+    const num = parseInt(cnt, 10) - 1;
+    if (num <= 0) {
+      player[`itm${idx}`] = '';
+      player[`itmk${idx}`] = '';
+      player[`itme${idx}`] = 0;
+      player[`itms${idx}`] = '0';
+      player[`itmsk${idx}`] = '';
+    } else {
+      player[`itms${idx}`] = String(num);
+    }
+  }
+}
+
 exports.enter = async (req, res) => {
   try {
     const user = req.user;
@@ -223,16 +239,70 @@ exports.useItem = async (req, res) => {
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
     const name = player[`itm${index}`];
+    const kind = player[`itmk${index}`];
+    const effect = player[`itme${index}`];
     if (!name) return res.status(400).json({ msg: '物品不存在' });
-    // 简易效果：使用后恢复少量生命并删除
-    player.hp = Math.min(player.mhp, player.hp + 10);
-    player[`itm${index}`] = '';
-    player[`itmk${index}`] = '';
-    player[`itme${index}`] = 0;
-    player[`itms${index}`] = '0';
-    player[`itmsk${index}`] = '';
+
+    let log = '';
+
+    if (kind.startsWith('HS')) {
+      const add = Math.min(player.msp - player.sp, effect);
+      if (add > 0) {
+        player.sp += add;
+        log = `使用了${name}，恢复了${add}点体力。`;
+        reduceItem(player, index);
+      } else {
+        log = '你的体力不需要恢复。';
+      }
+    } else if (kind.startsWith('HH')) {
+      const add = Math.min(player.mhp - player.hp, effect);
+      if (add > 0) {
+        player.hp += add;
+        log = `使用了${name}，恢复了${add}点生命。`;
+        reduceItem(player, index);
+      } else {
+        log = '你的生命不需要恢复。';
+      }
+    } else if (kind.startsWith('HB')) {
+      const h = Math.min(player.mhp - player.hp, effect);
+      const s = Math.min(player.msp - player.sp, effect);
+      if (h > 0 || s > 0) {
+        player.hp += h;
+        player.sp += s;
+        log = `使用了${name}，恢复了${h}点生命和${s}点体力。`;
+        reduceItem(player, index);
+      } else {
+        log = '你的状态不需要恢复。';
+      }
+    } else if (name.includes('磨刀石')) {
+      if (player.wepk && player.wepk.startsWith('WK') && !player.wepsk.includes('Z')) {
+        const success = Math.random() >= 0.15;
+        if (success) {
+          player.wepe += effect;
+          if (!player.wep.startsWith('锋利的')) player.wep = '锋利的' + player.wep;
+          log = `使用了${name}，${player.wep}的攻击力变成了${player.wepe}。`;
+        } else {
+          player.wepe -= Math.ceil(effect / 2);
+          if (player.wepe <= 0) {
+            log = `${name}使用失败，${player.wep}损坏了！`;
+            player.wep = player.wepk = player.wepsk = '';
+            player.wepe = 0;
+            player.weps = '0';
+          } else {
+            log = `${name}使用失败，${player.wep}的攻击力变成了${player.wepe}。`;
+          }
+        }
+        reduceItem(player, index);
+      } else {
+        log = '你没装备锐器，不能使用磨刀石。';
+      }
+    } else {
+      log = `你使用了${name}，但是什么也没有发生。`;
+      reduceItem(player, index);
+    }
+
     await player.save();
-    res.json({ msg: `使用了${name}`, player });
+    res.json({ msg: log, player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '使用失败' });
