@@ -69,6 +69,14 @@ exports.startGame = async (req, res) => {
       console.error('初始化地图物品失败', e);
     }
 
+    // 开局前清理旧玩家数据
+    try {
+      await Player.deleteMany({});
+      await require('../models/User').updateMany({}, { lastgame: 0, lastpid: 0 });
+    } catch (e) {
+      console.error('清理旧玩家数据失败', e);
+    }
+
     res.json({ msg: '游戏已开始', gamestate: info.gamestate });
   } catch (err) {
     console.error(err);
@@ -101,6 +109,13 @@ exports.stopGame = async (req, res) => {
       info.gamestate = 0;
       info.starttime = 0;
       await info.save();
+    }
+    // 归档后清理玩家与用户关联
+    try {
+      await Player.deleteMany({});
+      await require('../models/User').updateMany({}, { lastgame: 0, lastpid: 0 });
+    } catch (e) {
+      console.error('清理玩家数据失败', e);
     }
     res.json({ msg: '游戏已停止', gamestate: info.gamestate });
   } catch (err) {
