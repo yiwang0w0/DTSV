@@ -130,6 +130,10 @@ async function manualStop() {
   try {
     await stopGame()
     fetchGameInfo()
+    playerId.value = ''
+    playerInfo.value = null
+    logs.value = []
+    localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '操作失败')
   }
