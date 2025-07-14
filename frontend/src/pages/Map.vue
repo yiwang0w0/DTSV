@@ -48,7 +48,8 @@ async function doMove() {
     log.value = data.msg
     info.value = data.player
   } catch (e) {
-    alert(e.response?.data?.msg || '移动失败')
+    const msg = e.response?.data?.msg
+    alert(msg || '移动失败')
   }
 }
 
@@ -59,7 +60,8 @@ async function doSearch() {
     log.value = data.log
     info.value = data.player
   } catch (e) {
-    alert(e.response?.data?.msg || '搜索失败')
+    const msg = e.response?.data?.msg
+    alert(msg || '搜索失败')
   }
 }
 </script>

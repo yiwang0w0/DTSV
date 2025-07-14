@@ -4,11 +4,16 @@ const MapTrap = require('../models/MapTrap');
 const GameInfo = require('../models/GameInfo');
 const { plsinfo } = require('../config/map');
 
+const START_THRESHOLD = 20;
+
 exports.enter = async (req, res) => {
   try {
     const user = req.user;
     const info = await GameInfo.findOne();
-    const gid = info ? info.gamenum : 0;
+    if (!info || info.gamestate < START_THRESHOLD) {
+      return res.status(400).json({ msg: '游戏未开始' });
+    }
+    const gid = info.gamenum;
 
     let player = null;
     if (user.lastgame === gid && user.lastpid) {
@@ -43,6 +48,10 @@ exports.enter = async (req, res) => {
 exports.move = async (req, res) => {
   try {
     const { pid, pls } = req.body;
+    const info = await GameInfo.findOne();
+    if (!info || info.gamestate < START_THRESHOLD) {
+      return res.status(400).json({ msg: '游戏未开始' });
+    }
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     player.pls = pls;
@@ -57,6 +66,10 @@ exports.move = async (req, res) => {
 exports.search = async (req, res) => {
   try {
     const { pid } = req.body;
+    const info = await GameInfo.findOne();
+    if (!info || info.gamestate < START_THRESHOLD) {
+      return res.status(400).json({ msg: '游戏未开始' });
+    }
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
