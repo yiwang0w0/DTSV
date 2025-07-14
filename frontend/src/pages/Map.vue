@@ -10,7 +10,10 @@
           <p>攻击力：{{ info.att }}</p>
           <p>防御力：{{ info.def }}</p>
           <p>等级：{{ info.lvl }}</p>
+          <p>经验值：{{ info.exp }}</p>
           <p>金钱：{{ info.money }}</p>
+          <p>熟练度：殴{{ info.wp }} 斩{{ info.wk }} 射{{ info.wg }} 投{{ info.wc }} 爆{{ info.wd }} 灵{{ info.wf }}</p>
+          <p>受伤：{{ injuries }}</p>
         </el-card>
 
         <!-- 已装备列表（无标题） -->
@@ -99,6 +102,12 @@ const hpPercent = computed(() =>
 const spPercent = computed(() =>
   info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
 )
+const injuries = computed(() => {
+  if (!info.value || !info.value.inf) return '无'
+  const map = { b: '胸', h: '头', a: '腕', f: '足' }
+  const arr = [...info.value.inf].map(c => map[c]).filter(Boolean)
+  return arr.length ? arr.join('、') : '无'
+})
 
 const equipRows = computed(() => {
   if (!info.value) return []
