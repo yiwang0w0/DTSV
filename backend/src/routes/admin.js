@@ -21,6 +21,27 @@ const models = {
 router.use(auth);
 router.use(checkAdmin);
 
+router.get('/maps/fieldmeta', (req, res) => {
+  const meta = fieldsMeta['maps'] || [];
+  res.json(meta);
+});
+
+router.get('/maps', async (req, res) => {
+  try {
+    const players = await models.players.find({}, 'pid name pls');
+    const grouped = {};
+    players.forEach(p => {
+      if (!grouped[p.pls]) grouped[p.pls] = [];
+      grouped[p.pls].push({ pid: p.pid, name: p.name });
+    });
+    const result = Object.keys(grouped).map(pls => ({ pls: Number(pls), players: grouped[pls] }));
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '获取失败' });
+  }
+});
+
 function getModel(name) {
   return models[name];
 }

@@ -4,16 +4,16 @@
     <el-select v-model="collection" placeholder="选择集合" style="width: 200px">
       <el-option v-for="c in collections" :key="c.value" :label="c.label" :value="c.value" />
     </el-select>
-    <el-button type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
+    <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
     <el-table :data="items" style="margin-top: 20px" row-key="_id">
       <el-table-column prop="_id" label="ID" width="230" />
       <el-table-column v-for="f in fieldMeta" :key="f.name" :prop="f.name" :label="f.label">
         <template #default="{ row }">
           <span>{{ row[f.name] }}</span>
-          <el-button size="small" text @click="openFieldEdit(row, f)">编辑</el-button>
+          <el-button v-if="!isMaps" size="small" text @click="openFieldEdit(row, f)">编辑</el-button>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120">
+      <el-table-column v-if="!isMaps" label="操作" width="120">
         <template #default="{ row }">
           <el-button size="small" type="danger" @click="remove(row)">删除</el-button>
         </template>
@@ -53,13 +53,14 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import {
   adminList,
   adminCreate,
   adminUpdate,
   adminDelete,
-  adminFieldMeta
+  adminFieldMeta,
+  adminMaps
 } from '../api'
 
 const collections = [
@@ -73,7 +74,8 @@ const collections = [
   { label: '房间监听', value: 'roomlisteners' },
   { label: '历史记录', value: 'histories' },
   { label: '游戏信息', value: 'gameinfos' },
-  { label: '用户', value: 'users' }
+  { label: '用户', value: 'users' },
+  { label: '地图', value: 'maps' }
 ]
 
 const collection = ref('')
@@ -87,6 +89,7 @@ const editValue = ref('')
 
 const createDialogVisible = ref(false)
 const createData = ref({})
+const isMaps = computed(() => collection.value === 'maps')
 
 watch(collection, () => {
   fetchFieldMeta()
@@ -106,8 +109,17 @@ async function fetchFieldMeta() {
 async function fetchItems() {
   if (!collection.value) return
   try {
-    const { data } = await adminList(collection.value)
-    items.value = data
+    if (collection.value === 'maps') {
+      const { data } = await adminMaps()
+      items.value = data.map(d => ({
+        _id: d.pls,
+        pls: d.pls,
+        players: d.players.map(p => `${p.name}(${p.pid})`).join(', ')
+      }))
+    } else {
+      const { data } = await adminList(collection.value)
+      items.value = data
+    }
   } catch (e) {
     alert(e.response?.data?.msg || '加载失败')
   }
