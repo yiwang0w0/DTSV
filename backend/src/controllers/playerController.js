@@ -87,7 +87,8 @@ exports.search = async (req, res) => {
   if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
   applyRest(player);
-  player.sp = Math.max(player.sp - 12, 0);
+  const spCost = 15;
+  player.sp = Math.max(player.sp - spCost, 0);
 
   let log = '';
 
@@ -107,30 +108,54 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    const item = await MapItem.findOne({ pls: player.pls });
-    if (item) {
-      for (let i = 0; i < 5; i++) {
-        if (!player[`itm${i}`]) {
-          player[`itm${i}`] = item.itm;
-          player[`itmk${i}`] = item.itmk;
-          player[`itme${i}`] = item.itme;
-          player[`itms${i}`] = item.itms;
-          player[`itmsk${i}`] = item.itmsk;
-          await MapItem.deleteOne({ _id: item._id });
-          log += `你找到了${item.itm}。<br>`;
-          break;
-        }
+    let foundItem = null;
+    if (Math.random() < 0.6) {
+      const items = await MapItem.find({ pls: player.pls });
+      if (items.length) {
+        foundItem = items[Math.floor(Math.random() * items.length)];
+        log += `你找到了${foundItem.itm}。<br>`;
       }
-      await player.save();
-      return res.json({ log, player });
+    }
+
+    await player.save();
+    if (foundItem) {
+      return res.json({ log, player, item: foundItem });
     }
 
     log += '但是没有发现任何东西。';
-    await player.save();
     res.json({ log, player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '搜索失败' });
+  }
+};
+
+exports.pickItem = async (req, res) => {
+  try {
+    const { pid, iid } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    const item = await MapItem.findOne({ _id: iid, pls: player.pls });
+    if (!item) return res.status(404).json({ msg: '物品不存在' });
+    let slot = -1;
+    for (let i = 0; i < 5; i++) {
+      if (!player[`itm${i}`]) {
+        slot = i;
+        break;
+      }
+    }
+    if (slot === -1) return res.status(400).json({ msg: '背包已满' });
+    player[`itm${slot}`] = item.itm;
+    player[`itmk${slot}`] = item.itmk;
+    player[`itme${slot}`] = item.itme;
+    player[`itms${slot}`] = item.itms;
+    player[`itmsk${slot}`] = item.itmsk;
+    await item.deleteOne();
+    await player.save();
+    res.json({ msg: `获得了${item.itm}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '拾取失败' });
   }
 };
 
