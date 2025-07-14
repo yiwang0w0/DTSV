@@ -59,6 +59,11 @@ import { logs } from '../store/logs'
 const target = ref(0)
 const log = ref('')
 
+function addLog(message) {
+  log.value = message
+  if (message) logs.value.unshift(message)
+}
+
 const hpPercent = computed(() =>
   info.value ? Math.round((info.value.hp / info.value.mhp) * 100) : 0
 )
@@ -66,9 +71,6 @@ const spPercent = computed(() =>
   info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
 )
 
-watch(log, val => {
-  if (val) logs.value.unshift(val)
-})
 
 async function fetchStatus() {
   if (!playerId.value) return
@@ -95,8 +97,8 @@ async function doMove() {
   if (!playerId.value) return
   try {
     const { data } = await move(playerId.value, target.value)
-    log.value = data.msg
     info.value = data.player
+    addLog(data.msg)
   } catch (e) {
     alert(e.response?.data?.msg || '移动失败')
   }
@@ -106,13 +108,13 @@ async function doSearch() {
   if (!playerId.value) return
   try {
     const { data } = await search(playerId.value)
-    log.value = data.log
     info.value = data.player
+    let message = data.log
     if (data.item) {
       if (confirm(`发现${data.item.itm}，是否拾取？`)) {
         try {
           const ret = await pickItem(playerId.value, data.item._id)
-          log.value += `<br>${ret.data.msg}`
+          message += `<br>${ret.data.msg}`
           info.value = ret.data.player
         } catch (e) {
           const msg = e.response?.data?.msg
@@ -120,6 +122,7 @@ async function doSearch() {
         }
       }
     }
+    addLog(message)
   } catch (e) {
     alert(e.response?.data?.msg || '搜索失败')
   }
@@ -129,8 +132,8 @@ async function doRest() {
   if (!playerId.value) return
   try {
     const { data } = await rest(playerId.value)
-    log.value = data.msg
     info.value = data.player
+    addLog(data.msg)
   } catch (e) {
     alert(e.response?.data?.msg || '休息失败')
   }
