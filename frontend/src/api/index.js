@@ -38,6 +38,7 @@ export const rest = pid => api.post('/game/rest', { pid })
 export const pickItem = (pid, itemId) => api.post('/game/pick', { pid, itemId })
 export const useItem = (pid, index) => api.post('/game/use', { pid, index })
 export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
+export const unequipItem = (pid, slot) => api.post('/game/unequip', { pid, slot })
 
 export const adminList = (col, params = {}) => api.get(`/admin/${col}`, { params })
 export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)

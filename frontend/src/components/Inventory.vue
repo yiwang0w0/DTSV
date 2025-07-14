@@ -9,10 +9,12 @@
       <h4 style="margin-top:10px">物品栏</h4>
       <el-table :data="items" style="width:100%">
         <el-table-column prop="name" label="物品" />
+        <el-table-column prop="type" label="类型" width="90" />
+        <el-table-column prop="effect" label="效果" width="90" />
         <el-table-column label="操作" width="150">
           <template #default="scope">
-            <el-button size="small" @click="equip(scope.$index)" :disabled="!scope.row.name">装备</el-button>
-            <el-button size="small" @click="useIt(scope.$index)" :disabled="!scope.row.name">使用</el-button>
+            <el-button size="small" @click="equip(scope.$index)" :disabled="scope.row.disableEquip">装备</el-button>
+            <el-button size="small" @click="useIt(scope.$index)" :disabled="scope.row.disableUse">使用</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -35,11 +37,38 @@ const visible = computed({
   set: v => emit('update:modelValue', v)
 })
 
+function getType(kind) {
+  if (!kind) return ''
+  if (kind.startsWith('HB')) return '命体恢复'
+  if (kind.startsWith('HS')) return '体力恢复'
+  if (kind.startsWith('HH') || kind.startsWith('HR')) return '生命恢复'
+  if (kind.startsWith('W')) return '武器'
+  if (kind.startsWith('DB')) return '身体装备'
+  if (kind.startsWith('DH')) return '头部装备'
+  if (kind.startsWith('DA')) return '手部装备'
+  if (kind.startsWith('DF')) return '腿部装备'
+  if (kind.startsWith('A')) return '饰品'
+  return '其他'
+}
+
+function isEquip(kind) {
+  return /^(W|DB|DH|DA|DF|A)/.test(kind)
+}
+
 const items = computed(() => {
   const res = []
   if (!info.value) return res
   for (let i = 0; i < 5; i++) {
-    res.push({ name: info.value[`itm${i}`] || '' })
+    const name = info.value[`itm${i}`] || ''
+    const kind = info.value[`itmk${i}`] || ''
+    const effect = info.value[`itme${i}`]
+    res.push({
+      name,
+      type: getType(kind),
+      effect: effect,
+      disableEquip: !name || !isEquip(kind),
+      disableUse: !name || isEquip(kind)
+    })
   }
   return res
 })

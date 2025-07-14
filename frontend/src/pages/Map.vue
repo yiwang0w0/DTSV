@@ -21,6 +21,11 @@
             <el-table-column prop="attr" label="属性" width="80" />
             <el-table-column prop="effect" label="效果" width="80" />
             <el-table-column prop="dur" label="耐久" width="80" />
+            <el-table-column label="操作" width="80">
+              <template #default="scope">
+                <el-button size="small" @click="unequip(scope.row.field)" :disabled="!scope.row.name">卸下</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-card>
 
@@ -74,7 +79,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import InventoryPanel from '../components/InventoryPanel.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, unequipItem } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -98,12 +103,12 @@ const spPercent = computed(() =>
 const equipRows = computed(() => {
   if (!info.value) return []
   return [
-    { slot: '武器', name: info.value.wep, attr: info.value.wepk, effect: info.value.wepe, dur: info.value.weps },
-    { slot: '身体', name: info.value.arb, attr: info.value.arbk, effect: info.value.arbe, dur: info.value.arbs },
-    { slot: '头部', name: info.value.arh, attr: info.value.arhk, effect: info.value.arhe, dur: info.value.arhs },
-    { slot: '手部', name: info.value.ara, attr: info.value.arak, effect: info.value.arae, dur: info.value.aras },
-    { slot: '腿部', name: info.value.arf, attr: info.value.arfk, effect: info.value.arfe, dur: info.value.arfs },
-    { slot: '装饰', name: info.value.art, attr: info.value.artk, effect: info.value.arte, dur: info.value.arts }
+    { slot: '武器', field: 'wep', name: info.value.wep, attr: info.value.wepk, effect: info.value.wepe, dur: info.value.weps },
+    { slot: '身体', field: 'arb', name: info.value.arb, attr: info.value.arbk, effect: info.value.arbe, dur: info.value.arbs },
+    { slot: '头部', field: 'arh', name: info.value.arh, attr: info.value.arhk, effect: info.value.arhe, dur: info.value.arhs },
+    { slot: '手部', field: 'ara', name: info.value.ara, attr: info.value.arak, effect: info.value.arae, dur: info.value.aras },
+    { slot: '腿部', field: 'arf', name: info.value.arf, attr: info.value.arfk, effect: info.value.arfe, dur: info.value.arfs },
+    { slot: '装饰', field: 'art', name: info.value.art, attr: info.value.artk, effect: info.value.arte, dur: info.value.arts }
   ]
 })
 
@@ -127,6 +132,17 @@ onMounted(() => {
   if (info.value) target.value = info.value.pls
   else fetchStatus()
 })
+
+async function unequip(field) {
+  if (!playerId.value) return
+  try {
+    const { data } = await unequipItem(playerId.value, field)
+    info.value = data.player
+    addLog(data.msg)
+  } catch (e) {
+    alert(e.response?.data?.msg || '卸下失败')
+  }
+}
 
 async function doMove() {
   if (!playerId.value) return
