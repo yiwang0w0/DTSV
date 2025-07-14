@@ -60,7 +60,11 @@ router.get('/:collection', async (req, res) => {
   const Model = getModel(req.params.collection);
   if (!Model) return res.status(404).json({ msg: '集合不存在' });
   try {
-    const docs = await Model.find().limit(100);
+    const filter = {};
+    if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
+      filter.pls = Number(req.query.pls);
+    }
+    const docs = await Model.find(filter).limit(100);
     res.json(docs);
   } catch (err) {
     console.error(err);

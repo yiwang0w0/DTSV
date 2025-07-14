@@ -39,7 +39,7 @@ export const pickItem = (pid, itemId) => api.post('/game/pick', { pid, itemId })
 export const useItem = (pid, index) => api.post('/game/use', { pid, index })
 export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
 
-export const adminList = col => api.get(`/admin/${col}`)
+export const adminList = (col, params = {}) => api.get(`/admin/${col}`, { params })
 export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)
 export const adminUpdate = (col, id, data) => api.put(`/admin/${col}/${id}`, data)
 export const adminDelete = (col, id) => api.delete(`/admin/${col}/${id}`)

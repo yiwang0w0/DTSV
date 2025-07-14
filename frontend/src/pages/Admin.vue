@@ -4,6 +4,15 @@
     <el-select v-model="collection" placeholder="选择集合" style="width: 200px">
       <el-option v-for="c in collections" :key="c.value" :label="c.label" :value="c.value" />
     </el-select>
+    <el-select
+      v-if="collection === 'mapitems'"
+      v-model="areaFilter"
+      placeholder="区域过滤"
+      style="width: 160px; margin-left:10px"
+    >
+      <el-option :label="'全部'" :value="-1" />
+      <el-option v-for="(n,i) in mapAreas" :key="i" :label="n" :value="i" />
+    </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
     <el-table :data="items" style="margin-top: 20px" row-key="_id">
       <el-table-column prop="_id" label="ID" width="230" />
@@ -95,11 +104,15 @@ const editValue = ref('')
 const createDialogVisible = ref(false)
 const createData = ref({})
 const isMaps = computed(() => collection.value === 'maps')
+const areaFilter = ref(-1)
 
 watch(collection, () => {
   fetchFieldMeta()
   fetchItems()
 }, { immediate: true })
+watch(areaFilter, () => {
+  if (collection.value === 'mapitems') fetchItems()
+})
 
 async function fetchFieldMeta() {
   if (!collection.value) return
@@ -129,6 +142,17 @@ async function fetchItems() {
         const res = await getMapAreas()
         mapAreas.value = res.data
       } catch {}
+    } else if (collection.value === 'mapitems') {
+      if (!mapAreas.value.length) {
+        try {
+          const res = await getMapAreas()
+          mapAreas.value = res.data
+        } catch {}
+      }
+      const params = {}
+      if (areaFilter.value !== -1) params.pls = areaFilter.value
+      const { data } = await adminList('mapitems', params)
+      items.value = data
     } else {
       const { data } = await adminList(collection.value)
       if (collection.value === 'players') {
