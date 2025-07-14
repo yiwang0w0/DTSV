@@ -60,13 +60,32 @@ histories: [
   { name: 'endtime', label: '结束时间戳', type: 'number' }
 ],
 gameinfos: [
+  { name: 'version', label: '版本', type: 'text' },
   { name: 'gamenum', label: '局数', type: 'number' },
+  { name: 'gametype', label: '模式', type: 'number' },
   { name: 'gamestate', label: '状态', type: 'select', options: ['未开始', '进行中', '已结束'] },
+  { name: 'groomid', label: '房间ID', type: 'number' },
+  { name: 'groomtype', label: '房间类型', type: 'number' },
+  { name: 'groomstatus', label: '房间状态', type: 'number' },
   { name: 'starttime', label: '开始时间', type: 'number' },
+  { name: 'afktime', label: '离线时间', type: 'number' },
+  { name: 'validnum', label: '有效人数', type: 'number' },
   { name: 'alivenum', label: '存活人数', type: 'number' },
-  { name: 'arealist', label: '禁区列表', type: 'text' },
+  { name: 'deathnum', label: '死亡数', type: 'number' },
+  { name: 'combonum', label: '连杀数', type: 'number' },
+  { name: 'weather', label: '天气', type: 'number' },
+  { name: 'hack', label: '禁区解除', type: 'number' },
+  { name: 'hdamage', label: '最高伤害', type: 'number' },
+  { name: 'hplayer', label: '伤害玩家', type: 'text' },
+  { name: 'winmode', label: '胜利模式', type: 'number' },
   { name: 'winner', label: '胜利者', type: 'text' },
-  { name: 'winmode', label: '胜利模式', type: 'number' }
+  { name: 'areanum', label: '已有禁区数', type: 'number' },
+  { name: 'areatime', label: '禁区时间', type: 'number' },
+  { name: 'areawarn', label: '禁区警告', type: 'number' },
+  { name: 'arealist', label: '禁区列表', type: 'text' },
+  { name: 'noisevars', label: '噪音参数', type: 'text' },
+  { name: 'roomvars', label: '房间变量', type: 'text' },
+  { name: 'gamevars', label: '游戏变量', type: 'text' }
 ],
 
 
