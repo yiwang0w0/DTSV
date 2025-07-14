@@ -1,4 +1,5 @@
 const GameInfo = require('../models/GameInfo');
+const History = require('../models/History');
 
 exports.getInfo = async (req, res) => {
   try {
@@ -54,7 +55,24 @@ exports.stopGame = async (req, res) => {
     if (!info) {
       info = await GameInfo.create({ version: '1.0', gamestate: 0 });
     } else {
+      const now = Math.floor(Date.now() / 1000);
+      // 若游戏正在进行，归档历史记录
+      if (info.gamestate > 10 && info.starttime) {
+        await History.create({
+          gid: info.gamenum,
+          wmode: 6,
+          winner: '',
+          gametype: info.gametype,
+          vnum: info.validnum,
+          gtime: now - info.starttime,
+          gstime: info.starttime,
+          getime: now,
+          hdmg: info.hdamage,
+          hdp: info.hplayer
+        });
+      }
       info.gamestate = 0;
+      info.starttime = 0;
       await info.save();
     }
     res.json({ msg: '游戏已停止', gamestate: info.gamestate });
