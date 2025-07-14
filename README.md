@@ -124,6 +124,8 @@ npm run dev
 cd mogoDB.md
 mongoimport --db dts --collection gameinfos --file ../data/gameinfo.json --jsonArray
 mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
+mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
+mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
 ```
 
 也可以在 `mongo` shell 中执行 `data/initData.js` 脚本一次完成导入：
@@ -132,8 +134,8 @@ mongoimport --db dts --collection shopitems --file ../data/shopitems.json --json
 mongo ../data/initData.js
 ```
 
-导入完成后即可获得与原作一致的基础游戏信息及商店物品。
-此外，还需在 `mapareas` 集合中初始化地图区域信息，可在 `mongo` shell 中执行 `mogoDB.md/mapareas.md` 提供的示例语句。
+导入完成后即可获得与原作一致的基础游戏信息、地图区域以及示例物品池。
+如需手动添加地图或物品，可参照 `mogoDB.md/mapareas.md` 和 `mogoDB.md/mapitems.md` 的说明。
 
 ---
 

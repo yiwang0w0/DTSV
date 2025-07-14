@@ -16,4 +16,6 @@ db.mapitems.insertMany([
 mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
 ```
 
-以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需修改。
+该文件内已包含与 `mapareas.json` 对应的三张地图示例物品池，可在后台管理界面实时增删改查。
+
+以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需调整。
