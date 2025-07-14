@@ -95,7 +95,7 @@ exports.search = async (req, res) => {
 
     const item = await MapItem.findOne({ pls: player.pls });
     if (item) {
-      for (let i = 0; i <= 6; i++) {
+      for (let i = 0; i < 5; i++) {
         if (!player[`itm${i}`]) {
           player[`itm${i}`] = item.itm;
           player[`itmk${i}`] = item.itmk;
@@ -151,5 +151,106 @@ exports.list = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '获取玩家列表失败' });
+  }
+};
+
+exports.rest = async (req, res) => {
+  try {
+    const { pid } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    player.hp = player.mhp;
+    player.sp = player.msp;
+    await player.save();
+    res.json({ msg: '你休息了一会儿。', player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '休息失败' });
+  }
+};
+
+exports.useItem = async (req, res) => {
+  try {
+    const { pid, index } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
+    const name = player[`itm${index}`];
+    if (!name) return res.status(400).json({ msg: '物品不存在' });
+    // 简易效果：使用后恢复少量生命并删除
+    player.hp = Math.min(player.mhp, player.hp + 10);
+    player[`itm${index}`] = '';
+    player[`itmk${index}`] = '';
+    player[`itme${index}`] = 0;
+    player[`itms${index}`] = '0';
+    player[`itmsk${index}`] = '';
+    await player.save();
+    res.json({ msg: `使用了${name}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '使用失败' });
+  }
+};
+
+exports.equip = async (req, res) => {
+  try {
+    const { pid, index } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
+    const name = player[`itm${index}`];
+    const kind = player[`itmk${index}`];
+    if (!name) return res.status(400).json({ msg: '物品不存在' });
+
+    if (kind.startsWith('W')) {
+      player.wep = name;
+      player.wepk = kind;
+      player.wepe = player[`itme${index}`];
+      player.weps = player[`itms${index}`];
+      player.wepsk = player[`itmsk${index}`];
+    } else if (kind.startsWith('DB')) {
+      player.arb = name;
+      player.arbk = kind;
+      player.arbe = player[`itme${index}`];
+      player.arbs = player[`itms${index}`];
+      player.arbsk = player[`itmsk${index}`];
+    } else if (kind.startsWith('DH')) {
+      player.arh = name;
+      player.arhk = kind;
+      player.arhe = player[`itme${index}`];
+      player.arhs = player[`itms${index}`];
+      player.arhsk = player[`itmsk${index}`];
+    } else if (kind.startsWith('DA')) {
+      player.ara = name;
+      player.arak = kind;
+      player.arae = player[`itme${index}`];
+      player.aras = player[`itms${index}`];
+      player.arask = player[`itmsk${index}`];
+    } else if (kind.startsWith('DF')) {
+      player.arf = name;
+      player.arfk = kind;
+      player.arfe = player[`itme${index}`];
+      player.arfs = player[`itms${index}`];
+      player.arfsk = player[`itmsk${index}`];
+    } else if (kind.startsWith('A')) {
+      player.art = name;
+      player.artk = kind;
+      player.arte = player[`itme${index}`];
+      player.arts = player[`itms${index}`];
+      player.artsk = player[`itmsk${index}`];
+    } else {
+      return res.status(400).json({ msg: '无法装备该物品' });
+    }
+
+    player[`itm${index}`] = '';
+    player[`itmk${index}`] = '';
+    player[`itme${index}`] = 0;
+    player[`itms${index}`] = '0';
+    player[`itmsk${index}`] = '';
+    await player.save();
+    res.json({ msg: `装备了${name}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '装备失败' });
   }
 };
