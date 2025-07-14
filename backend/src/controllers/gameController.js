@@ -1,11 +1,21 @@
 const GameInfo = require('../models/GameInfo');
 const History = require('../models/History');
 const MapArea = require('../models/MapArea');
+const Player = require('../models/Player');
 
 exports.getInfo = async (req, res) => {
   try {
     const info = await GameInfo.findOne();
     if (info) {
+      const [validnum, alivenum, deathnum] = await Promise.all([
+        Player.countDocuments({ type: 0 }),
+        Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
+        Player.countDocuments({ type: 0, hp: { $lte: 0 } })
+      ]);
+      info.validnum = validnum;
+      info.alivenum = alivenum;
+      info.deathnum = deathnum;
+      await info.save();
       const data = info.toObject();
       data.now = Date.now();
       res.json(data);
