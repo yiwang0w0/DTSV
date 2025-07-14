@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Player = require('../models/Player');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -91,12 +92,23 @@ exports.refresh = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    let uid = null;
     if (refreshToken) {
       try {
         const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        await User.findByIdAndUpdate(payload.id, { refreshToken: '' });
+        uid = payload.id;
+        await User.findByIdAndUpdate(uid, { refreshToken: '' });
       } catch (e) {
         // ignore invalid token
+      }
+    }
+    if (uid) {
+      const user = await User.findById(uid);
+      if (user && user.lastpid) {
+        await Player.updateOne(
+          { pid: user.lastpid, uid },
+          { $set: { state: 0 } }
+        );
       }
     }
     res.json({ msg: '已退出' });
