@@ -45,6 +45,11 @@ maptraps: [
   { name: 'itms', label: '用途/次数', type: 'text' },
   { name: 'pls', label: '布设区域', type: 'number' }
 ],
+  mapareas: [
+    { name: 'pid', label: '区域ID', type: 'number' },
+    { name: 'name', label: '区域名', type: 'text' },
+    { name: 'danger', label: '危险度', type: 'number' }
+  ],
 newsinfos: [
   { name: 'nid', label: '新闻ID', type: 'number' },
   { name: 'news', label: '内容', type: 'text' },

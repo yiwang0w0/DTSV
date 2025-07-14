@@ -79,7 +79,8 @@ const collections = [
   { label: '历史记录', value: 'histories' },
   { label: '游戏信息', value: 'gameinfos' },
   { label: '用户', value: 'users' },
-  { label: '地图', value: 'maps' }
+  { label: '地图', value: 'maps' },
+  { label: '地图区域', value: 'mapareas' }
 ]
 
 const collection = ref('')
@@ -121,6 +122,13 @@ async function fetchItems() {
         name: d.name,
         players: d.players.map(p => `${p.name}(${p.pid})`).join(', ')
       }))
+    } else if (collection.value === 'mapareas') {
+      const { data } = await adminList('mapareas')
+      items.value = data
+      try {
+        const res = await getMapAreas()
+        mapAreas.value = res.data
+      } catch {}
     } else {
       const { data } = await adminList(collection.value)
       if (collection.value === 'players') {
