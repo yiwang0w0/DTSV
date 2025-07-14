@@ -1,6 +1,6 @@
 # mapareas 集合示例
 
-原作在 `map.config.php` 或 `mapname.config.php` 中定义的地图区域，现在独立存入 `mapareas` 集合。以下是基本插入示例：
+原作在 `map.config.php` 中定义了全部 35 个地图区域，这些数据现在独立存入 `mapareas` 集合。以下是基本插入示例：
 
 ```javascript
 use dts;
@@ -19,7 +19,7 @@ db.mapareas.insertMany([
 db.mapareas.createIndex({ pid: 1 }, { unique: true })
 ```
 
-也可以直接导入项目根目录 `data/mapareas.json` 提供的示例数据：
+也可以直接导入项目根目录 `data/mapareas.json` 提供的完整地图数据：
 
 ```bash
 mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
