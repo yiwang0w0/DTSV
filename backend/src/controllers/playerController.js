@@ -12,7 +12,7 @@ exports.enter = async (req, res) => {
 
     let player = null;
     if (user.lastgame === gid && user.lastpid) {
-      player = await Player.findOne({ pid: user.lastpid });
+      player = await Player.findOne({ pid: user.lastpid, uid: user._id });
     }
 
     if (!player) {
@@ -20,6 +20,7 @@ exports.enter = async (req, res) => {
       const pid = last ? last.pid + 1 : 1;
       player = await Player.create({
         pid,
+        uid: user._id,
         name: user.username,
         pls: 0,
         hp: 100,
@@ -42,7 +43,7 @@ exports.enter = async (req, res) => {
 exports.move = async (req, res) => {
   try {
     const { pid, pls } = req.body;
-    const player = await Player.findOne({ pid });
+    const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     player.pls = pls;
     await player.save();
@@ -56,7 +57,7 @@ exports.move = async (req, res) => {
 exports.search = async (req, res) => {
   try {
     const { pid } = req.body;
-    const player = await Player.findOne({ pid });
+    const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
     let log = '';
@@ -107,7 +108,7 @@ exports.search = async (req, res) => {
 exports.status = async (req, res) => {
   try {
     const { pid } = req.query;
-    const player = await Player.findOne({ pid });
+    const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     res.json(player);
   } catch (err) {
@@ -122,7 +123,7 @@ exports.list = async (req, res) => {
     const gid = info ? info.gamenum : 0;
     const users = await require('../models/User').find({ lastgame: gid, lastpid: { $gt: 0 } }, 'username lastpid');
     const pids = users.map(u => u.lastpid);
-    const players = await Player.find({ pid: { $in: pids } }, 'pid name hp');
+    const players = await Player.find({ pid: { $in: pids }, uid: req.user._id }, 'pid name hp');
     const map = {};
     players.forEach(p => { map[p.pid] = p; });
     const list = users.map(u => {
