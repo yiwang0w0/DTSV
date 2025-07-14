@@ -1,5 +1,6 @@
 const GameInfo = require('../models/GameInfo');
 const History = require('../models/History');
+const MapArea = require('../models/MapArea');
 
 exports.getInfo = async (req, res) => {
   try {
@@ -79,5 +80,15 @@ exports.stopGame = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '停止游戏失败' });
+  }
+};
+
+exports.mapAreas = async (req, res) => {
+  try {
+    const areas = await MapArea.find({}, 'pid name').sort({ pid: 1 });
+    res.json(areas.map(a => a.name));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '获取地图列表失败' });
   }
 };

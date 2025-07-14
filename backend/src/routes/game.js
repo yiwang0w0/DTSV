@@ -7,6 +7,7 @@ const auth = require('../middlewares/auth');
 router.get('/info', gameController.getInfo);
 router.post('/start', gameController.startGame);
 router.post('/stop', gameController.stopGame);
+router.get('/mapareas', gameController.mapAreas);
 
 router.post('/enter', auth, playerController.enter);
 router.post('/move', auth, playerController.move);

@@ -33,6 +33,7 @@ export const move = (pid, pls) => api.post('/game/move', { pid, pls })
 export const search = pid => api.post('/game/search', { pid })
 export const getStatus = pid => api.get('/game/status', { params: { pid } })
 export const getPlayers = () => api.get('/game/players')
+export const getMapAreas = () => api.get('/game/mapareas')
 
 export const adminList = col => api.get(`/admin/${col}`)
 export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)

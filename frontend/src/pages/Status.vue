@@ -11,9 +11,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getStatus } from '../api'
+import { getStatus, getMapAreas } from '../api'
 import { playerId } from '../store/user'
-import places from '../utils/places'
+import { mapAreas as places } from '../store/map'
 
 const info = ref(null)
 const place = computed(() => info.value ? places[info.value.pls] : '')
@@ -28,7 +28,14 @@ async function fetch() {
   }
 }
 
-onMounted(fetch)
+onMounted(() => {
+  if (!places.value.length) {
+    getMapAreas().then(({ data }) => {
+      places.value = data
+    }).catch(() => {})
+  }
+  fetch()
+})
 </script>
 
 <style scoped>
