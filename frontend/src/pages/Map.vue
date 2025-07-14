@@ -69,11 +69,32 @@
           <el-button @click="doRest">休息</el-button>
         </div>
 
+        <!-- 搜索结果 -->
+        <div v-if="foundItem" class="card-section search-result">
+          <p>发现 {{ foundItem.itm }}</p>
+          <el-button size="small" @click="pickFound">拾取</el-button>
+          <el-button size="small" v-if="isEquip(foundItem.itmk)" @click="equipFound">装备</el-button>
+        </div>
+
         <!-- 最新日志 -->
         <p v-if="log" v-html="log" class="log-current" />
 
         <!-- 背包面板 -->
         <InventoryPanel />
+
+        <el-dialog v-model="replaceVisible" title="选择替换物品" width="400px">
+          <el-table :data="bagItems" style="width:100%">
+            <el-table-column prop="name" label="物品" />
+            <el-table-column prop="type" label="类型" width="90" />
+            <el-table-column prop="effect" label="效果" width="70" />
+            <el-table-column prop="uses" label="耐久" width="60" />
+            <el-table-column label="操作" width="80">
+              <template #default="scope">
+                <el-button size="small" @click="doReplace(scope.$index)">替换</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-dialog>
       </div>
     </div>
   </div>
@@ -82,7 +103,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import InventoryPanel from '../components/InventoryPanel.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, unequipItem } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -90,6 +111,45 @@ import { logs } from '../store/logs'
 
 const target = ref(0)
 const log = ref('')
+const foundItem = ref(null)
+const replaceVisible = ref(false)
+let replaceItemId = null
+
+function getType(kind) {
+  if (!kind) return ''
+  if (kind.startsWith('HB')) return '命体恢复'
+  if (kind.startsWith('HS')) return '体力恢复'
+  if (kind.startsWith('HH') || kind.startsWith('HR')) return '生命恢复'
+  if (kind.startsWith('W')) return '武器'
+  if (kind.startsWith('DB')) return '身体装备'
+  if (kind.startsWith('DH')) return '头部装备'
+  if (kind.startsWith('DA')) return '手部装备'
+  if (kind.startsWith('DF')) return '腿部装备'
+  if (kind.startsWith('A')) return '饰品'
+  return '其他'
+}
+
+function isEquip(kind) {
+  return /^(W|DB|DH|DA|DF|A)/.test(kind)
+}
+
+const bagItems = computed(() => {
+  const res = []
+  if (!info.value) return res
+  for (let i = 0; i < 5; i++) {
+    const name = info.value[`itm${i}`] || ''
+    const kind = info.value[`itmk${i}`] || ''
+    const effect = info.value[`itme${i}`]
+    const uses = info.value[`itms${i}`]
+    res.push({
+      name,
+      type: getType(kind),
+      effect,
+      uses
+    })
+  }
+  return res
+})
 
 function addLog(message) {
   log.value = message
@@ -169,20 +229,8 @@ async function doSearch() {
   try {
     const { data } = await search(playerId.value)
     info.value = data.player
-    let message = data.log
-    if (data.item) {
-      if (confirm(`发现${data.item.itm}，是否拾取？`)) {
-        try {
-          const ret = await pickItem(playerId.value, data.item._id)
-          message += `<br>${ret.data.msg}`
-          info.value = ret.data.player
-        } catch (e) {
-          const msg = e.response?.data?.msg
-          alert(msg || '拾取失败')
-        }
-      }
-    }
-    addLog(message)
+    foundItem.value = data.item || null
+    addLog(data.log)
   } catch (e) {
     alert(e.response?.data?.msg || '搜索失败')
   }
@@ -196,6 +244,49 @@ async function doRest() {
     addLog(data.msg)
   } catch (e) {
     alert(e.response?.data?.msg || '休息失败')
+  }
+}
+
+async function pickFound() {
+  if (!playerId.value || !foundItem.value) return
+  try {
+    const { data } = await pickItem(playerId.value, foundItem.value._id)
+    info.value = data.player
+    addLog(data.msg)
+    foundItem.value = null
+  } catch (e) {
+    const msg = e.response?.data?.msg
+    if (msg === '物品栏已满') {
+      replaceItemId = foundItem.value._id
+      replaceVisible.value = true
+    } else {
+      alert(msg || '拾取失败')
+    }
+  }
+}
+
+async function equipFound() {
+  if (!playerId.value || !foundItem.value) return
+  try {
+    const { data } = await pickEquip(playerId.value, foundItem.value._id)
+    info.value = data.player
+    addLog(data.msg)
+    foundItem.value = null
+  } catch (e) {
+    alert(e.response?.data?.msg || '装备失败')
+  }
+}
+
+async function doReplace(index) {
+  if (!playerId.value || replaceItemId === null) return
+  try {
+    const { data } = await pickReplace(playerId.value, replaceItemId, index)
+    info.value = data.player
+    addLog(data.msg)
+    replaceVisible.value = false
+    foundItem.value = null
+  } catch (e) {
+    alert(e.response?.data?.msg || '拾取失败')
   }
 }
 </script>
@@ -271,5 +362,9 @@ async function doRest() {
 .log-item {
   padding: 4px 0;
   border-bottom: 1px solid #eee;
+}
+
+.search-result {
+  background: #fdfdfd;
 }
 </style>

@@ -16,6 +16,8 @@ router.get('/status', auth, playerController.status);
 router.get('/players', auth, playerController.list);
 router.post('/rest', auth, playerController.rest);
 router.post('/pick', auth, playerController.pickItem);
+router.post('/pickreplace', auth, playerController.pickReplace);
+router.post('/pickequip', auth, playerController.pickEquip);
 router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
 router.post('/unequip', auth, playerController.unequip);
