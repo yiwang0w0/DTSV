@@ -2,8 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../pages/Home.vue'
 import Mail from '../pages/Mail.vue'
 import Profile from '../pages/Profile.vue'
-import EnterGame from '../pages/EnterGame.vue'
-import Map from '../pages/Map.vue'
+import Start from '../pages/Start.vue'
+import Game from '../pages/Game.vue'
 import Status from '../pages/Status.vue'
 import Alive from '../pages/Alive.vue'
 import Victory from '../pages/Victory.vue'
@@ -15,8 +15,8 @@ const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/mail', name: 'Mail', component: Mail },
   { path: '/profile', name: 'Profile', component: Profile },
-  { path: '/game', name: 'EnterGame', component: EnterGame },
-  { path: '/map', name: 'Map', component: Map },
+  { path: '/start', name: 'Start', component: Start },
+  { path: '/game', name: 'Game', component: Game },
   { path: '/status', name: 'Status', component: Status },
   { path: '/alive', name: 'Alive', component: Alive },
   { path: '/victory', name: 'Victory', component: Victory },

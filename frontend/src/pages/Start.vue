@@ -6,10 +6,11 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { enterGame, getStatus } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo } from '../store/player'
-import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
@@ -20,11 +21,22 @@ async function start() {
     localStorage.setItem('playerId', data.pid)
     const status = await getStatus(data.pid)
     playerInfo.value = status.data
-    router.push('/map')
+    router.push('/game')
   } catch (e) {
     alert(e.response?.data?.msg || '进入失败')
   }
 }
+
+onMounted(async () => {
+  if (!playerId.value) return
+  try {
+    const { data } = await getStatus(playerId.value)
+    playerInfo.value = data
+    router.replace('/game')
+  } catch (e) {
+    // ignore if player not found
+  }
+})
 </script>
 
 <style scoped>
