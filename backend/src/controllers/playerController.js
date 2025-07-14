@@ -296,6 +296,9 @@ exports.useItem = async (req, res) => {
       } else {
         log = '你没装备锐器，不能使用磨刀石。';
       }
+    } else if (kind.startsWith('X')) {
+      // 合成素材不会产生效果，也不会消耗
+      log = `你使用了${name}，但是什么也没有发生。`;
     } else {
       log = `你使用了${name}，但是什么也没有发生。`;
       reduceItem(player, index);
@@ -319,44 +322,73 @@ exports.equip = async (req, res) => {
     const kind = player[`itmk${index}`];
     if (!name) return res.status(400).json({ msg: '物品不存在' });
 
+    let slotName = '';
     if (kind.startsWith('W')) {
+      slotName = 'wep';
+    } else if (kind.startsWith('DB')) {
+      slotName = 'arb';
+    } else if (kind.startsWith('DH')) {
+      slotName = 'arh';
+    } else if (kind.startsWith('DA')) {
+      slotName = 'ara';
+    } else if (kind.startsWith('DF')) {
+      slotName = 'arf';
+    } else if (kind.startsWith('A')) {
+      slotName = 'art';
+    } else {
+      return res.status(400).json({ msg: '无法装备该物品' });
+    }
+
+    if (player[slotName]) {
+      let empty = -1;
+      for (let i = 0; i < 5; i++) {
+        if (!player[`itm${i}`]) { empty = i; break; }
+      }
+      if (empty === -1) return res.status(400).json({ msg: '物品栏已满，无法替换装备' });
+
+      player[`itm${empty}`] = player[slotName];
+      player[`itmk${empty}`] = player[`${slotName}k`];
+      player[`itme${empty}`] = player[`${slotName}e`];
+      player[`itms${empty}`] = player[`${slotName}s`];
+      player[`itmsk${empty}`] = player[`${slotName}sk`];
+    }
+
+    if (slotName === 'wep') {
       player.wep = name;
       player.wepk = kind;
       player.wepe = player[`itme${index}`];
       player.weps = player[`itms${index}`];
       player.wepsk = player[`itmsk${index}`];
-    } else if (kind.startsWith('DB')) {
+    } else if (slotName === 'arb') {
       player.arb = name;
       player.arbk = kind;
       player.arbe = player[`itme${index}`];
       player.arbs = player[`itms${index}`];
       player.arbsk = player[`itmsk${index}`];
-    } else if (kind.startsWith('DH')) {
+    } else if (slotName === 'arh') {
       player.arh = name;
       player.arhk = kind;
       player.arhe = player[`itme${index}`];
       player.arhs = player[`itms${index}`];
       player.arhsk = player[`itmsk${index}`];
-    } else if (kind.startsWith('DA')) {
+    } else if (slotName === 'ara') {
       player.ara = name;
       player.arak = kind;
       player.arae = player[`itme${index}`];
       player.aras = player[`itms${index}`];
       player.arask = player[`itmsk${index}`];
-    } else if (kind.startsWith('DF')) {
+    } else if (slotName === 'arf') {
       player.arf = name;
       player.arfk = kind;
       player.arfe = player[`itme${index}`];
       player.arfs = player[`itms${index}`];
       player.arfsk = player[`itmsk${index}`];
-    } else if (kind.startsWith('A')) {
+    } else if (slotName === 'art') {
       player.art = name;
       player.artk = kind;
       player.arte = player[`itme${index}`];
       player.arts = player[`itms${index}`];
       player.artsk = player[`itmsk${index}`];
-    } else {
-      return res.status(400).json({ msg: '无法装备该物品' });
     }
 
     player[`itm${index}`] = '';

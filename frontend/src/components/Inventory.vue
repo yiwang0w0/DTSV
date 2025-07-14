@@ -10,7 +10,8 @@
       <el-table :data="items" style="width:100%">
         <el-table-column prop="name" label="物品" />
         <el-table-column prop="type" label="类型" width="90" />
-        <el-table-column prop="effect" label="效果" width="90" />
+        <el-table-column prop="effect" label="效果" width="70" />
+        <el-table-column prop="uses" label="耐久" width="60" />
         <el-table-column label="操作" width="150">
           <template #default="scope">
             <el-button size="small" @click="equip(scope.$index)" :disabled="scope.row.disableEquip">装备</el-button>
@@ -62,10 +63,12 @@ const items = computed(() => {
     const name = info.value[`itm${i}`] || ''
     const kind = info.value[`itmk${i}`] || ''
     const effect = info.value[`itme${i}`]
+    const uses = info.value[`itms${i}`]
     res.push({
       name,
       type: getType(kind),
       effect: effect,
+      uses: uses,
       disableEquip: !name || !isEquip(kind),
       disableUse: !name || isEquip(kind)
     })
