@@ -90,6 +90,8 @@ exports.search = async (req, res) => {
   const spCost = 15;
   player.sp = Math.max(player.sp - spCost, 0);
 
+  const ITEM_FIND_RATE = 0.6;
+
   let log = '';
 
     if (player.pls === 7 && Math.random() < 0.5) {
@@ -108,13 +110,13 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    let foundItem = null;
-    if (Math.random() < 0.6) {
-      const items = await MapItem.find({ pls: player.pls });
-      if (items.length) {
-        foundItem = items[Math.floor(Math.random() * items.length)];
-        log += `你找到了${foundItem.itm}。<br>`;
-      }
+    const items = await MapItem.find({ pls: player.pls });
+    if (items.length && Math.random() < ITEM_FIND_RATE) {
+      const item = items[Math.floor(Math.random() * items.length)];
+      log += `你发现了${item.itm}。<br>`;
+      await player.save();
+      return res.json({ log, player, item });
+
     }
 
     await player.save();
@@ -204,6 +206,35 @@ exports.rest = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '休息失败' });
+  }
+};
+
+exports.pickItem = async (req, res) => {
+  try {
+    const { pid, itemId } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+
+    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
+    if (!item) return res.status(400).json({ msg: '物品不存在' });
+
+    let slot = -1;
+    for (let i = 0; i < 5; i++) {
+      if (!player[`itm${i}`]) { slot = i; break; }
+    }
+    if (slot === -1) return res.status(400).json({ msg: '物品栏已满' });
+
+    player[`itm${slot}`] = item.itm;
+    player[`itmk${slot}`] = item.itmk;
+    player[`itme${slot}`] = item.itme;
+    player[`itms${slot}`] = item.itms;
+    player[`itmsk${slot}`] = item.itmsk;
+    await item.deleteOne();
+    await player.save();
+    res.json({ msg: `获得了${item.itm}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '拾取失败' });
   }
 };
 

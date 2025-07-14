@@ -47,8 +47,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import InventoryPanel from '../components/InventoryPanel.vue'
 import { move, search, getStatus, getMapAreas, rest, pickItem } from '../api'
+
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -108,10 +110,15 @@ async function doSearch() {
     log.value = data.log
     info.value = data.player
     if (data.item) {
-      if (confirm(`发现 ${data.item.itm} ，是否拾取？`)) {
-        const res = await pickItem(playerId.value, data.item._id)
-        info.value = res.data.player
-        log.value += `<br>获得了${data.item.itm}`
+      if (confirm(`发现${data.item.itm}，是否拾取？`)) {
+        try {
+          const ret = await pickItem(playerId.value, data.item._id)
+          log.value += `<br>${ret.data.msg}`
+          info.value = ret.data.player
+        } catch (e) {
+          const msg = e.response?.data?.msg
+          alert(msg || '拾取失败')
+        }
       }
     }
   } catch (e) {
