@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String, default: '' },
   role: { type: String, default: 'user' },
   refreshToken: { type: String, default: '' },
+  lastgame: { type: Number, default: 0 },
+  lastpid: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

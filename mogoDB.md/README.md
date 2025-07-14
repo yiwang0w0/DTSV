@@ -120,6 +120,22 @@
 2. 执行以下命令导入初始数据：
    ```bash
    mongoimport --db dts --collection gameinfos --file ../data/gameinfo.json --jsonArray
-   mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
-   ```
+ mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
+  ```
 3. 导入完成后即可获得与原作一致的基础记录与商店物品。
+
+## 单局玩家绑定字段
+为用户集合新增 `lastgame` 与 `lastpid` 字段以记录当前游戏局及绑定的玩家：
+1. 进入 MongoDB shell：`mongo`
+2. 切换数据库：`use dts`
+3. 执行以下更新：
+   ```javascript
+   db.users.updateMany(
+     { lastgame: { $exists: false } },
+     { $set: { lastgame: 0 } }
+   )
+   db.users.updateMany(
+     { lastpid: { $exists: false } },
+     { $set: { lastpid: 0 } }
+   )
+   ```

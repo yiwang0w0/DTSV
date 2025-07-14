@@ -1,21 +1,37 @@
 const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
+const GameInfo = require('../models/GameInfo');
 const { plsinfo } = require('../config/map');
 
 exports.enter = async (req, res) => {
   try {
-    const last = await Player.findOne().sort({ pid: -1 });
-    const pid = last ? last.pid + 1 : 1;
-    const player = await Player.create({
-      pid,
-      name: req.user.username,
-      pls: 0,
-      hp: 100,
-      mhp: 100,
-      sp: 100,
-      msp: 100
-    });
+    const user = req.user;
+    const info = await GameInfo.findOne();
+    const gid = info ? info.gamenum : 0;
+
+    let player = null;
+    if (user.lastgame === gid && user.lastpid) {
+      player = await Player.findOne({ pid: user.lastpid });
+    }
+
+    if (!player) {
+      const last = await Player.findOne().sort({ pid: -1 });
+      const pid = last ? last.pid + 1 : 1;
+      player = await Player.create({
+        pid,
+        name: user.username,
+        pls: 0,
+        hp: 100,
+        mhp: 100,
+        sp: 100,
+        msp: 100
+      });
+      user.lastgame = gid;
+      user.lastpid = pid;
+      await user.save();
+    }
+
     res.json({ pid: player.pid, pls: player.pls });
   } catch (err) {
     console.error(err);
