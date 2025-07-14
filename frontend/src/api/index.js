@@ -40,4 +40,7 @@ export const adminDelete = (col, id) => api.delete(`/admin/${col}/${id}`)
 export const adminFieldMeta = col => api.get(`/admin/${col}/fieldmeta`)
 export const adminMaps = () => api.get('/admin/maps')
 
+export const getProfile = () => api.get('/user/profile')
+export const updateProfile = data => api.put('/user/profile', data)
+
 export default api

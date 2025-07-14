@@ -40,6 +40,18 @@
    )
    ```
 
+## 头像字段
+新增 `avatar` 字段用于存储头像地址，如已有文档需执行：
+1. 进入 MongoDB shell：`mongo`
+2. 切换数据库：`use dts`
+3. 初始化字段：
+   ```javascript
+   db.users.updateMany(
+     { avatar: { $exists: false } },
+     { $set: { avatar: '' } }
+   )
+   ```
+
 ## 游戏信息集合
 1. 进入 MongoDB shell：`mongo`
 2. 切换数据库：`use dts`
