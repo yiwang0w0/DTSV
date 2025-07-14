@@ -6,8 +6,9 @@
 </template>
 
 <script setup>
-import { enterGame } from '../api'
+import { enterGame, getStatus } from '../api'
 import { playerId } from '../store/user'
+import { playerInfo } from '../store/player'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -17,6 +18,8 @@ async function start() {
     const { data } = await enterGame()
     playerId.value = data.pid
     localStorage.setItem('playerId', data.pid)
+    const status = await getStatus(data.pid)
+    playerInfo.value = status.data
     router.push('/map')
   } catch (e) {
     alert(e.response?.data?.msg || '进入失败')

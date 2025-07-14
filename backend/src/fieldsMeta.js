@@ -4,6 +4,7 @@ module.exports = {
     { name: 'name', label: '昵称', type: 'text' },
     { name: 'hp', label: '生命值', type: 'number' },
     { name: 'sp', label: '体力', type: 'number' },
+    { name: 'pls', label: '所在区域', type: 'number' },
     { name: 'money', label: '金钱', type: 'number' },
     { name: 'state', label: '状态', type: 'number' }
   ],
@@ -87,6 +88,10 @@ gameinfos: [
   { name: 'roomvars', label: '房间变量', type: 'text' },
   { name: 'gamevars', label: '游戏变量', type: 'text' }
 ],
+  maps: [
+    { name: 'pls', label: '区域', type: 'number' },
+    { name: 'players', label: '玩家列表', type: 'text' }
+  ],
 
 
 
