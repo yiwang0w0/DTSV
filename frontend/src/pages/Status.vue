@@ -9,6 +9,12 @@
       <el-descriptions-item label="体力">
         <el-progress :percentage="spPercent" :text-inside="true" />
       </el-descriptions-item>
+      <el-descriptions-item label="等级">{{ info.lvl }}</el-descriptions-item>
+      <el-descriptions-item label="经验">{{ info.exp }}</el-descriptions-item>
+      <el-descriptions-item label="熟练度">
+        <div v-for="p in profs" :key="p.label">{{ p.label }}: {{ p.val }}</div>
+      </el-descriptions-item>
+      <el-descriptions-item label="受伤部位">{{ injuries }}</el-descriptions-item>
     </el-descriptions>
   </div>
 </template>
@@ -27,6 +33,23 @@ const hpPercent = computed(() =>
 const spPercent = computed(() =>
   info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
 )
+const profs = computed(() => {
+  if (!info.value) return []
+  return [
+    { label: '殴', val: info.value.wp },
+    { label: '斩', val: info.value.wk },
+    { label: '射', val: info.value.wg },
+    { label: '投', val: info.value.wc },
+    { label: '爆', val: info.value.wd },
+    { label: '灵', val: info.value.wf }
+  ]
+})
+const injuries = computed(() => {
+  if (!info.value || !info.value.inf) return '无'
+  const map = { b: '胸', h: '头', a: '腕', f: '足' }
+  const arr = [...info.value.inf].map(c => map[c]).filter(Boolean)
+  return arr.length ? arr.join('、') : '无'
+})
 
 async function fetch() {
   if (!playerId.value) return
