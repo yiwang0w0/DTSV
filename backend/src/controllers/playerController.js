@@ -62,13 +62,21 @@ exports.move = async (req, res) => {
     if (!info || info.gamestate < START_THRESHOLD) {
       return res.status(400).json({ msg: '游戏未开始' });
     }
-  const player = await Player.findOne({ pid, uid: req.user._id });
-  if (!player) return res.status(404).json({ msg: '玩家不存在' });
-  applyRest(player);
-  player.pls = pls;
-  await player.save();
-  const area = await MapArea.findOne({ pid: pls });
-  const name = area ? area.name : pls;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+
+    applyRest(player);
+
+    const spCost = 15;
+    if (player.sp < spCost) {
+      return res.status(400).json({ msg: '体力不足，不能移动' });
+    }
+    player.sp -= spCost;
+    player.pls = pls;
+    await player.save();
+
+    const area = await MapArea.findOne({ pid: pls });
+    const name = area ? area.name : pls;
     res.json({ msg: `移动到${name}`, player });
   } catch (err) {
     console.error(err);
@@ -88,7 +96,10 @@ exports.search = async (req, res) => {
 
   applyRest(player);
   const spCost = 15;
-  player.sp = Math.max(player.sp - spCost, 0);
+  if (player.sp < spCost) {
+    return res.status(400).json({ msg: '体力不足，不能探索' });
+  }
+  player.sp -= spCost;
 
   const ITEM_FIND_RATE = 0.6;
 
@@ -116,14 +127,9 @@ exports.search = async (req, res) => {
       log += `你发现了${item.itm}。<br>`;
       await player.save();
       return res.json({ log, player, item });
-
     }
 
     await player.save();
-    if (foundItem) {
-      return res.json({ log, player, item: foundItem });
-    }
-
     log += '但是没有发现任何东西。';
     res.json({ log, player });
   } catch (err) {
