@@ -12,3 +12,9 @@ db.mapareas.insertMany([
 ```
 
 字段请参考 `backend/src/models` 中的相关定义，可按需补充更多区域。
+
+创建集合后请为 `pid` 字段建立唯一索引：
+
+```javascript
+db.mapareas.createIndex({ pid: 1 }, { unique: true })
+```
