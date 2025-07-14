@@ -9,7 +9,9 @@
       <el-table-column prop="_id" label="ID" width="230" />
       <el-table-column v-for="f in fieldMeta" :key="f.name" :prop="f.name" :label="f.label">
         <template #default="{ row }">
-          <span>{{ row[f.name] }}</span>
+          <span>
+            {{ (collection === 'players' && f.name === 'pls') ? (mapAreas[row[f.name]] || row[f.name]) : row[f.name] }}
+          </span>
           <el-button v-if="!isMaps" size="small" text @click="openFieldEdit(row, f)">编辑</el-button>
         </template>
       </el-table-column>
@@ -60,8 +62,10 @@ import {
   adminUpdate,
   adminDelete,
   adminFieldMeta,
-  adminMaps
+  adminMaps,
+  getMapAreas
 } from '../api'
+import { mapAreas } from '../store/map'
 
 const collections = [
   { label: '玩家', value: 'players' },
@@ -114,10 +118,19 @@ async function fetchItems() {
       items.value = data.map(d => ({
         _id: d.pls,
         pls: d.pls,
+        name: d.name,
         players: d.players.map(p => `${p.name}(${p.pid})`).join(', ')
       }))
     } else {
       const { data } = await adminList(collection.value)
+      if (collection.value === 'players') {
+        if (!mapAreas.value.length) {
+          try {
+            const res = await getMapAreas()
+            mapAreas.value = res.data
+          } catch {}
+        }
+      }
       items.value = data
     }
   } catch (e) {
