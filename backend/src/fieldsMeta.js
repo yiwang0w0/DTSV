@@ -89,7 +89,8 @@ gameinfos: [
   { name: 'gamevars', label: '游戏变量', type: 'text' }
 ],
   maps: [
-    { name: 'pls', label: '区域', type: 'number' },
+    { name: 'pls', label: '区域ID', type: 'number' },
+    { name: 'name', label: '区域名', type: 'text' },
     { name: 'players', label: '玩家列表', type: 'text' }
   ],
 

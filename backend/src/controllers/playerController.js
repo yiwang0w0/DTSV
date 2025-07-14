@@ -2,7 +2,7 @@ const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const GameInfo = require('../models/GameInfo');
-const { plsinfo } = require('../config/map');
+const MapArea = require('../models/MapArea');
 
 const START_THRESHOLD = 20;
 
@@ -56,7 +56,9 @@ exports.move = async (req, res) => {
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     player.pls = pls;
     await player.save();
-    res.json({ msg: `移动到${plsinfo[pls]}`, player });
+    const area = await MapArea.findOne({ pid: pls });
+    const name = area ? area.name : pls;
+    res.json({ msg: `移动到${name}`, player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '移动失败' });

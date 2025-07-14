@@ -11,6 +11,7 @@ const models = {
   chats: require('../models/Chat'),
   mapitems: require('../models/MapItem'),
   maptraps: require('../models/MapTrap'),
+  mapareas: require('../models/MapArea'),
   newsinfos: require('../models/NewsInfo'),
   roomlisteners: require('../models/RoomListener'),
   histories: require('../models/History'),
@@ -28,14 +29,18 @@ router.get('/maps/fieldmeta', (req, res) => {
 
 router.get('/maps', async (req, res) => {
   try {
-    const players = await models.players.find({}, 'pid name pls');
+    const [players, areas] = await Promise.all([
+      models.players.find({}, 'pid name pls'),
+      models.mapareas.find({}, 'pid name')
+    ]);
+    const nameMap = {};
+    areas.forEach(a => { nameMap[a.pid] = a.name; });
     const grouped = {};
     players.forEach(p => {
-      if (!grouped[p.pls]) grouped[p.pls] = [];
-      grouped[p.pls].push({ pid: p.pid, name: p.name });
+      if (!grouped[p.pls]) grouped[p.pls] = { pls: p.pls, name: nameMap[p.pls] || '' , players: [] };
+      grouped[p.pls].players.push({ pid: p.pid, name: p.name });
     });
-    const result = Object.keys(grouped).map(pls => ({ pls: Number(pls), players: grouped[pls] }));
-    res.json(result);
+    res.json(Object.values(grouped));
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '获取失败' });

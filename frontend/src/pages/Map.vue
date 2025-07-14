@@ -17,10 +17,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { move, search, getStatus } from '../api'
+import { move, search, getStatus, getMapAreas } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
-import places from '../utils/places'
+import { mapAreas as places } from '../store/map'
 
 const target = ref(0)
 const log = ref('')
@@ -37,6 +37,11 @@ async function fetchStatus() {
 }
 
 onMounted(() => {
+  if (!places.value.length) {
+    getMapAreas().then(({ data }) => {
+      places.value = data
+    }).catch(() => {})
+  }
   if (info.value) target.value = info.value.pls
   else fetchStatus()
 })
