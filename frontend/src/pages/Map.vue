@@ -11,19 +11,24 @@
     </el-select>
     <el-button type="primary" @click="doMove" style="margin-left:8px">移动</el-button>
     <el-button @click="doSearch" style="margin-left:8px">搜索</el-button>
+    <el-button @click="doRest" style="margin-left:8px">休息</el-button>
+    <el-button @click="showBag = true" style="margin-left:8px">背包</el-button>
     <p v-html="log" class="log"></p>
+    <Inventory v-model="showBag" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { move, search, getStatus, getMapAreas } from '../api'
+import Inventory from '../components/Inventory.vue'
+import { move, search, getStatus, getMapAreas, rest } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
 
 const target = ref(0)
 const log = ref('')
+const showBag = ref(false)
 
 async function fetchStatus() {
   if (!playerId.value) return
@@ -67,6 +72,18 @@ async function doSearch() {
   } catch (e) {
     const msg = e.response?.data?.msg
     alert(msg || '搜索失败')
+  }
+}
+
+async function doRest() {
+  if (!playerId.value) return
+  try {
+    const { data } = await rest(playerId.value)
+    log.value = data.msg
+    info.value = data.player
+  } catch (e) {
+    const msg = e.response?.data?.msg
+    alert(msg || '休息失败')
   }
 }
 </script>
