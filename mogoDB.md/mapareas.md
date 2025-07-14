@@ -18,3 +18,9 @@ db.mapareas.insertMany([
 ```javascript
 db.mapareas.createIndex({ pid: 1 }, { unique: true })
 ```
+
+也可以直接导入项目根目录 `data/mapareas.json` 提供的示例数据：
+
+```bash
+mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
+```

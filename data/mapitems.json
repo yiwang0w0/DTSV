@@ -1,5 +1,16 @@
 [
   {"iid": 1, "itm": "煤气罐", "itmk": "GBi", "itme": 1, "itms": "10", "itmsk": "", "pls": 0},
+  {"iid": 4, "itm": "精神制剂", "itmk": "HS", "itme": 75, "itms": "1", "itmsk": "", "pls": 0},
+  {"iid": 5, "itm": "伏特加", "itmk": "HS", "itme": 35, "itms": "1", "itmsk": "", "pls": 0},
+  {"iid": 6, "itm": "手枪子弹", "itmk": "GB", "itme": 1, "itms": "12", "itmsk": "", "pls": 0},
+
   {"iid": 2, "itm": "增幅设备", "itmk": "X", "itme": 1, "itms": "1", "itmsk": "", "pls": 1},
-  {"iid": 3, "itm": "手枪子弹", "itmk": "GB", "itme": 1, "itms": "12", "itmsk": "", "pls": 2}
+  {"iid": 7, "itm": "枪械电池", "itmk": "GBe", "itme": 1, "itms": "20", "itmsk": "", "pls": 1},
+  {"iid": 8, "itm": "精神制剂", "itmk": "HS", "itme": 75, "itms": "1", "itmsk": "", "pls": 1},
+  {"iid": 9, "itm": "手枪子弹", "itmk": "GB", "itme": 1, "itms": "12", "itmsk": "", "pls": 1},
+
+  {"iid": 3, "itm": "手枪子弹", "itmk": "GB", "itme": 1, "itms": "12", "itmsk": "", "pls": 2},
+  {"iid": 10, "itm": "棒球", "itmk": "WC", "itme": 12, "itms": "15", "itmsk": "", "pls": 2},
+  {"iid": 11, "itm": "霰弹枪", "itmk": "WG", "itme": 120, "itms": "4", "itmsk": "do", "pls": 2},
+  {"iid": 12, "itm": "地雷", "itmk": "TN", "itme": 200, "itms": "1", "itmsk": "", "pls": 2}
 ]

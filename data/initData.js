@@ -16,6 +16,13 @@ if (shopitems.length) {
   db.shopitems.insertMany(shopitems);
 }
 
+// 导入 mapareas
+var mapareas = JSON.parse(cat('./mapareas.json'));
+if (mapareas.length) {
+  db.mapareas.remove({});
+  db.mapareas.insertMany(mapareas);
+}
+
 // 导入 mapitems
 var mapitems = JSON.parse(cat('./mapitems.json'));
 if (mapitems.length) {
