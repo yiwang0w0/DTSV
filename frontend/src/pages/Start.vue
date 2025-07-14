@@ -11,6 +11,7 @@ import { useRouter } from 'vue-router'
 import { enterGame, getStatus } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo } from '../store/player'
+import { logs } from '../store/logs'
 
 const router = useRouter()
 
@@ -18,9 +19,9 @@ async function start() {
   try {
     const { data } = await enterGame()
     playerId.value = data.pid
-    localStorage.setItem('playerId', data.pid)
     const status = await getStatus(data.pid)
     playerInfo.value = status.data
+    logs.value = []
     router.push('/game')
   } catch (e) {
     const msg = e.response?.data?.msg

@@ -61,7 +61,9 @@ import {
   stopGame,
   logout as logoutApi,
 } from '../api'
-import { user, token, refreshToken } from '../store/user'
+import { user, token, refreshToken, playerId } from '../store/user'
+import { playerInfo } from '../store/player'
+import { logs } from '../store/logs'
 
 const gameInfo = ref({})
 const currentTime = ref(Date.now())
@@ -143,6 +145,11 @@ async function login() {
     localStorage.setItem('user', user.value)
     localStorage.setItem('token', token.value)
     localStorage.setItem('refreshToken', refreshToken.value)
+    // reset player related info
+    playerId.value = ''
+    playerInfo.value = null
+    logs.value = []
+    localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '登录失败')
   }
@@ -158,6 +165,10 @@ async function register() {
     localStorage.setItem('user', user.value)
     localStorage.setItem('token', token.value)
     localStorage.setItem('refreshToken', refreshToken.value)
+    playerId.value = ''
+    playerInfo.value = null
+    logs.value = []
+    localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '注册失败')
   }
@@ -173,9 +184,13 @@ async function logout() {
   user.value = ''
   token.value = ''
   refreshToken.value = ''
+  playerId.value = ''
+  playerInfo.value = null
+  logs.value = []
   localStorage.removeItem('user')
   localStorage.removeItem('token')
   localStorage.removeItem('refreshToken')
+  localStorage.removeItem('playerId')
 }
 </script>
 
