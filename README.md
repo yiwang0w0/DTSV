@@ -221,7 +221,7 @@ npm run lint     # 代码规范检查
   { "msg": "游戏已开始", "gamestate": "active" }
   ```
 
-- **POST `/api/game/stop`**：将 `gamestate` 设为 `inactive`，成功返回：
+- **POST `/api/game/stop`**：强制结束当前游戏并归档历史，对应返回：
 
   ```json
   { "msg": "游戏已停止", "gamestate": "inactive" }
