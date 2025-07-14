@@ -23,7 +23,8 @@ async function start() {
     playerInfo.value = status.data
     router.push('/game')
   } catch (e) {
-    alert(e.response?.data?.msg || '进入失败')
+    const msg = e.response?.data?.msg
+    alert(msg || '进入失败')
   }
 }
 
