@@ -14,21 +14,29 @@
     <el-button @click="doRest" style="margin-left:8px">休息</el-button>
     <el-button @click="showBag = true" style="margin-left:8px">背包</el-button>
     <p v-html="log" class="log"></p>
+    <div class="log-panel" v-if="logs.length">
+      <p v-for="(l,i) in logs" :key="i" v-html="l"></p>
+    </div>
     <Inventory v-model="showBag" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Inventory from '../components/Inventory.vue'
 import { move, search, getStatus, getMapAreas, rest } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
+import { logs } from '../store/logs'
 
 const target = ref(0)
 const log = ref('')
 const showBag = ref(false)
+
+watch(log, val => {
+  if (val) logs.value.unshift(val)
+})
 
 async function fetchStatus() {
   if (!playerId.value) return
@@ -90,4 +98,12 @@ async function doRest() {
 
 <style scoped>
 .page { padding: 20px; }
+.log-panel {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 4px 8px;
+  margin-top: 8px;
+  background: #f8f8f8;
+}
 </style>
