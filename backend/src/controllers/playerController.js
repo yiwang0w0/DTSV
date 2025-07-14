@@ -115,3 +115,23 @@ exports.status = async (req, res) => {
     res.status(500).json({ msg: '获取状态失败' });
   }
 };
+
+exports.list = async (req, res) => {
+  try {
+    const info = await GameInfo.findOne();
+    const gid = info ? info.gamenum : 0;
+    const users = await require('../models/User').find({ lastgame: gid, lastpid: { $gt: 0 } }, 'username lastpid');
+    const pids = users.map(u => u.lastpid);
+    const players = await Player.find({ pid: { $in: pids } }, 'pid name hp');
+    const map = {};
+    players.forEach(p => { map[p.pid] = p; });
+    const list = users.map(u => {
+      const p = map[u.lastpid] || {};
+      return { pid: u.lastpid, name: p.name || '', username: u.username, alive: p.hp > 0 };
+    });
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '获取玩家列表失败' });
+  }
+};
