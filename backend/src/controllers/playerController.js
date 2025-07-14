@@ -138,34 +138,6 @@ exports.search = async (req, res) => {
   }
 };
 
-exports.pickItem = async (req, res) => {
-  try {
-    const { pid, iid } = req.body;
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
-    const item = await MapItem.findOne({ _id: iid, pls: player.pls });
-    if (!item) return res.status(404).json({ msg: '物品不存在' });
-    let slot = -1;
-    for (let i = 0; i < 5; i++) {
-      if (!player[`itm${i}`]) {
-        slot = i;
-        break;
-      }
-    }
-    if (slot === -1) return res.status(400).json({ msg: '背包已满' });
-    player[`itm${slot}`] = item.itm;
-    player[`itmk${slot}`] = item.itmk;
-    player[`itme${slot}`] = item.itme;
-    player[`itms${slot}`] = item.itms;
-    player[`itmsk${slot}`] = item.itmsk;
-    await item.deleteOne();
-    await player.save();
-    res.json({ msg: `获得了${item.itm}`, player });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: '拾取失败' });
-  }
-};
 
 exports.status = async (req, res) => {
   try {
@@ -327,5 +299,40 @@ exports.equip = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '装备失败' });
+  }
+};
+
+exports.unequip = async (req, res) => {
+  try {
+    const { pid, slot } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    const allow = ['wep', 'arb', 'arh', 'ara', 'arf', 'art'];
+    if (!allow.includes(slot)) return res.status(400).json({ msg: '装备栏错误' });
+    const name = player[slot];
+    if (!name) return res.status(400).json({ msg: '没有装备' });
+
+    let empty = -1;
+    for (let i = 0; i < 5; i++) {
+      if (!player[`itm${i}`]) { empty = i; break; }
+    }
+    if (empty === -1) return res.status(400).json({ msg: '物品栏已满' });
+
+    player[`itm${empty}`] = player[slot];
+    player[`itmk${empty}`] = player[`${slot}k`];
+    player[`itme${empty}`] = player[`${slot}e`];
+    player[`itms${empty}`] = player[`${slot}s`];
+    player[`itmsk${empty}`] = player[`${slot}sk`];
+
+    player[slot] = '';
+    player[`${slot}k`] = '';
+    player[`${slot}e`] = 0;
+    player[`${slot}s`] = '0';
+    player[`${slot}sk`] = '';
+    await player.save();
+    res.json({ msg: `卸下了${name}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '卸下失败' });
   }
 };

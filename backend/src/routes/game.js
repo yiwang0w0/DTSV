@@ -18,6 +18,6 @@ router.post('/rest', auth, playerController.rest);
 router.post('/pick', auth, playerController.pickItem);
 router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
-router.post('/pick', auth, playerController.pickItem);
+router.post('/unequip', auth, playerController.unequip);
 
 module.exports = router;
