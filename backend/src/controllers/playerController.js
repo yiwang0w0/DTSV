@@ -438,3 +438,92 @@ exports.unequip = async (req, res) => {
     res.status(500).json({ msg: '卸下失败' });
   }
 };
+
+exports.pickReplace = async (req, res) => {
+  try {
+    const { pid, itemId, index } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
+
+    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
+    if (!item) return res.status(400).json({ msg: '物品不存在' });
+
+    const dropName = player[`itm${index}`];
+    const dropKind = player[`itmk${index}`];
+    const dropEffect = player[`itme${index}`];
+    const dropUses = player[`itms${index}`];
+    const dropSkill = player[`itmsk${index}`];
+
+    if (dropName) {
+      await MapItem.create({
+        itm: dropName,
+        itmk: dropKind,
+        itme: dropEffect,
+        itms: dropUses,
+        itmsk: dropSkill,
+        pls: player.pls
+      });
+    }
+
+    player[`itm${index}`] = item.itm;
+    player[`itmk${index}`] = item.itmk;
+    player[`itme${index}`] = item.itme;
+    player[`itms${index}`] = item.itms;
+    player[`itmsk${index}`] = item.itmsk;
+
+    await item.deleteOne();
+    await player.save();
+    res.json({ msg: `获得了${item.itm}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '拾取失败' });
+  }
+};
+
+exports.pickEquip = async (req, res) => {
+  try {
+    const { pid, itemId } = req.body;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+
+    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
+    if (!item) return res.status(400).json({ msg: '物品不存在' });
+
+    let slotName = '';
+    if (item.itmk.startsWith('W')) slotName = 'wep';
+    else if (item.itmk.startsWith('DB')) slotName = 'arb';
+    else if (item.itmk.startsWith('DH')) slotName = 'arh';
+    else if (item.itmk.startsWith('DA')) slotName = 'ara';
+    else if (item.itmk.startsWith('DF')) slotName = 'arf';
+    else if (item.itmk.startsWith('A')) slotName = 'art';
+    else return res.status(400).json({ msg: '无法装备该物品' });
+
+    if (player[slotName]) {
+      let empty = -1;
+      for (let i = 0; i < 5; i++) {
+        if (!player[`itm${i}`]) { empty = i; break; }
+      }
+      if (empty === -1) return res.status(400).json({ msg: '物品栏已满，无法替换装备' });
+
+      player[`itm${empty}`] = player[slotName];
+      player[`itmk${empty}`] = player[`${slotName}k`];
+      player[`itme${empty}`] = player[`${slotName}e`];
+      player[`itms${empty}`] = player[`${slotName}s`];
+      player[`itmsk${empty}`] = player[`${slotName}sk`];
+    }
+
+    player[slotName] = item.itm;
+    player[`${slotName}k`] = item.itmk;
+    player[`${slotName}e`] = item.itme;
+    player[`${slotName}s`] = item.itms;
+    player[`${slotName}sk`] = item.itmsk;
+
+    await item.deleteOne();
+    await player.save();
+    res.json({ msg: `装备了${item.itm}`, player });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '装备失败' });
+  }
+};

@@ -36,6 +36,10 @@ export const getPlayers = () => api.get('/game/players')
 export const getMapAreas = () => api.get('/game/mapareas')
 export const rest = pid => api.post('/game/rest', { pid })
 export const pickItem = (pid, itemId) => api.post('/game/pick', { pid, itemId })
+export const pickReplace = (pid, itemId, index) =>
+  api.post('/game/pickreplace', { pid, itemId, index })
+export const pickEquip = (pid, itemId) =>
+  api.post('/game/pickequip', { pid, itemId })
 export const useItem = (pid, index) => api.post('/game/use', { pid, index })
 export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
 export const unequipItem = (pid, slot) => api.post('/game/unequip', { pid, slot })
