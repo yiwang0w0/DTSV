@@ -1,11 +1,6 @@
 <template>
   <div>
     <div v-if="info">
-      <h4>装备</h4>
-      <ul>
-        <li>武器：{{ info.wep || '无' }}</li>
-        <li>防具：{{ info.arb || '无' }}</li>
-      </ul>
       <h4 style="margin-top:10px">物品栏</h4>
       <el-table :data="items" style="width:100%">
         <el-table-column prop="name" label="物品" />
