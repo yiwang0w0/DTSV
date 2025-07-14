@@ -118,6 +118,7 @@ const playerSchema = new mongoose.Schema({
   itme6: { type: Number, default: 0 },
   itms6: { type: String, default: '0' },
   itmsk6: { type: String, default: '' },
+  restStart: { type: Number, default: 0 },
   searchmemory: { type: String, default: '' },
   nskill: { type: String, default: '' },
   nskillpara: { type: String, default: '' }
