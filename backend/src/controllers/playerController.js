@@ -122,7 +122,9 @@ exports.status = async (req, res) => {
   try {
     const { pid } = req.query;
     const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (!player) {
+      return res.status(404).json({ msg: '玩家不存在' });
+    }
     res.json(player);
   } catch (err) {
     console.error(err);
