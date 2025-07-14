@@ -28,6 +28,11 @@ export const getGameInfo = () => api.get('/game/info')
 export const startGame = () => api.post('/game/start')
 export const stopGame = () => api.post('/game/stop')
 
+export const enterGame = () => api.post('/game/enter')
+export const move = (pid, pls) => api.post('/game/move', { pid, pls })
+export const search = pid => api.post('/game/search', { pid })
+export const getStatus = pid => api.get('/game/status', { params: { pid } })
+
 export const adminList = col => api.get(`/admin/${col}`)
 export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)
 export const adminUpdate = (col, id, data) => api.put(`/admin/${col}/${id}`, data)
