@@ -55,7 +55,6 @@ import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
 import { logs } from '../store/logs'
-import InventoryPanel from '../components/InventoryPanel.vue'
 
 const target = ref(0)
 const log = ref('')
