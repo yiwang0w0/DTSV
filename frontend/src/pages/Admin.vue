@@ -14,7 +14,14 @@
       <el-option v-for="(n,i) in mapAreas" :key="i" :label="n" :value="i" />
     </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
-    <el-table :data="items" style="margin-top: 20px" row-key="_id">
+    <el-table
+      :data="items"
+      style="margin-top: 20px"
+      row-key="_id"
+      v-infinite-scroll="loadMore"
+      :infinite-scroll-distance="10"
+      v-loading="loading"
+    >
       <el-table-column prop="_id" label="ID" width="230" />
       <el-table-column v-for="f in fieldMeta" :key="f.name" :prop="f.name" :label="f.label">
         <template #default="{ row }">
@@ -95,6 +102,10 @@ const collections = [
 const collection = ref('')
 const fieldMeta = ref([])
 const items = ref([])
+const skip = ref(0)
+const limit = 50
+const loading = ref(false)
+const allLoaded = ref(false)
 
 const fieldDialogVisible = ref(false)
 const editField = ref(null)
@@ -107,11 +118,19 @@ const isMaps = computed(() => collection.value === 'maps')
 const areaFilter = ref(-1)
 
 watch(collection, () => {
+  skip.value = 0
+  allLoaded.value = false
+  items.value = []
   fetchFieldMeta()
   fetchItems()
 }, { immediate: true })
 watch(areaFilter, () => {
-  if (collection.value === 'mapitems') fetchItems()
+  if (collection.value === 'mapitems') {
+    skip.value = 0
+    allLoaded.value = false
+    items.value = []
+    fetchItems()
+  }
 })
 
 async function fetchFieldMeta() {
@@ -124,20 +143,26 @@ async function fetchFieldMeta() {
   }
 }
 
-async function fetchItems() {
-  if (!collection.value) return
+async function fetchItems(append = false) {
+  if (!collection.value || loading.value || allLoaded.value) return
+  loading.value = true
   try {
     if (collection.value === 'maps') {
       const { data } = await adminMaps()
-      items.value = data.map(d => ({
+      const list = data.map(d => ({
         _id: d.pls,
         pls: d.pls,
         name: d.name,
         players: d.players.map(p => `${p.name}(${p.pid})`).join(', ')
       }))
+      items.value = append ? items.value.concat(list) : list
+      if (list.length < limit) allLoaded.value = true
+      skip.value += list.length
     } else if (collection.value === 'mapareas') {
-      const { data } = await adminList('mapareas')
-      items.value = data
+      const { data } = await adminList('mapareas', { skip: skip.value, limit })
+      items.value = append ? items.value.concat(data) : data
+      if (data.length < limit) allLoaded.value = true
+      skip.value += data.length
       try {
         const res = await getMapAreas()
         mapAreas.value = res.data
@@ -149,12 +174,14 @@ async function fetchItems() {
           mapAreas.value = res.data
         } catch {}
       }
-      const params = {}
+      const params = { skip: skip.value, limit }
       if (areaFilter.value !== -1) params.pls = areaFilter.value
       const { data } = await adminList('mapitems', params)
-      items.value = data
+      items.value = append ? items.value.concat(data) : data
+      if (data.length < limit) allLoaded.value = true
+      skip.value += data.length
     } else {
-      const { data } = await adminList(collection.value)
+      const { data } = await adminList(collection.value, { skip: skip.value, limit })
       if (collection.value === 'players') {
         if (!mapAreas.value.length) {
           try {
@@ -163,11 +190,19 @@ async function fetchItems() {
           } catch {}
         }
       }
-      items.value = data
+      items.value = append ? items.value.concat(data) : data
+      if (data.length < limit) allLoaded.value = true
+      skip.value += data.length
     }
   } catch (e) {
     alert(e.response?.data?.msg || '加载失败')
+  } finally {
+    loading.value = false
   }
+}
+
+function loadMore() {
+  fetchItems(true)
 }
 
 function openFieldEdit(row, field) {
@@ -182,6 +217,9 @@ async function saveField() {
   try {
     await adminUpdate(collection.value, editRowId.value, update)
     fieldDialogVisible.value = false
+    skip.value = 0
+    allLoaded.value = false
+    items.value = []
     fetchItems()
   } catch (e) {
     alert(e.response?.data?.msg || '保存失败')
@@ -200,6 +238,9 @@ async function saveCreate() {
   try {
     await adminCreate(collection.value, createData.value)
     createDialogVisible.value = false
+    skip.value = 0
+    allLoaded.value = false
+    items.value = []
     fetchItems()
   } catch (e) {
     alert(e.response?.data?.msg || '保存失败')
@@ -210,6 +251,9 @@ async function remove(row) {
   if (!confirm('确定删除？')) return
   try {
     await adminDelete(collection.value, row._id)
+    skip.value = 0
+    allLoaded.value = false
+    items.value = []
     fetchItems()
   } catch (e) {
     alert(e.response?.data?.msg || '删除失败')

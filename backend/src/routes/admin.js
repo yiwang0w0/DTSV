@@ -64,7 +64,9 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
       filter.pls = Number(req.query.pls);
     }
-    const docs = await Model.find(filter).limit(100);
+    const skip = Number(req.query.skip) || 0;
+    const limit = Number(req.query.limit) || 100;
+    const docs = await Model.find(filter).skip(skip).limit(limit);
     res.json(docs);
   } catch (err) {
     console.error(err);
