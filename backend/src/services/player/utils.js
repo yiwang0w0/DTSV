@@ -2,11 +2,15 @@ const { dropMapItem, restoreMemoryItem } = require('../../utils/item');
 
 function applyRest(player) {
   if (player.restStart) {
-    const sec = Math.floor((Date.now() - player.restStart) / 1000);
+    const now = Date.now();
+    const sec = Math.floor((now - player.restStart) / 1000);
     if (sec > 0) {
       player.sp = Math.min(player.msp, player.sp + sec * 12);
+      player.restStart += sec * 1000;
+      if (player.sp >= player.msp) {
+        player.restStart = 0;
+      }
     }
-    player.restStart = 0;
   }
 }
 

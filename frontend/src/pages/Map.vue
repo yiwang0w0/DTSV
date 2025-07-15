@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import InventoryPanel from '../components/InventoryPanel.vue'
 import PlayerStats from '../components/PlayerStats.vue'
 import EquipmentList from '../components/EquipmentList.vue'
@@ -74,6 +74,7 @@ const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
+let restTimer = null
 
 function setTarget(val) {
   if (target.value !== val) {
@@ -161,12 +162,28 @@ const equipRows = computed(() => {
   ]
 })
 
+function startRestMonitor() {
+  if (restTimer) clearInterval(restTimer)
+  restTimer = setInterval(async () => {
+    if (!playerId.value) return
+    try {
+      const { data } = await getStatus(playerId.value)
+      info.value = data
+      if (!data.restStart) {
+        clearInterval(restTimer)
+        restTimer = null
+      }
+    } catch {}
+  }, 1000)
+}
+
 async function fetchStatus() {
   if (!playerId.value) return
   try {
     const { data } = await getStatus(playerId.value)
     info.value = data
     setTarget(data.pls)
+    if (data.restStart) startRestMonitor()
   } catch {
     info.value = null
   }
@@ -180,6 +197,11 @@ onMounted(() => {
   }
   if (info.value) setTarget(info.value.pls)
   else fetchStatus()
+})
+
+onUnmounted(() => {
+  if (restTimer) clearInterval(restTimer)
+  restTimer = null
 })
 
 async function unequip(field) {
@@ -222,6 +244,7 @@ async function doRest() {
     const { data } = await rest(playerId.value)
     info.value = data.player
     addLog(data.msg)
+    startRestMonitor()
   } catch (e) {
     alert(e.response?.data?.msg || '休息失败')
   }

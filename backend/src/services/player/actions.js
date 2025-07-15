@@ -169,6 +169,8 @@ async function status(user, query) {
     err.status = 400;
     throw err;
   }
+  applyRest(player);
+  await player.save();
   return player;
 }
 
