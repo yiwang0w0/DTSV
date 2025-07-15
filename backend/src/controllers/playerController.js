@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
 const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const GameInfo = require('../models/GameInfo');
 const MapArea = require('../models/MapArea');
+const { dropMapItem } = require('../utils/item');
 
 const START_THRESHOLD = 20;
 
@@ -76,6 +78,7 @@ async function dropMapItem(pls, name, kind, effect, uses, skill) {
     pls
   });
 }
+
 
 exports.enter = async (req, res) => {
   try {
@@ -176,7 +179,7 @@ exports.search = async (req, res) => {
 
     const trap = await MapTrap.findOne({ pls: player.pls });
     if (trap) {
-      await trap.deleteOne();
+      await MapTrap.deleteOne({ _id: trap._id });
       log += `你触发了陷阱【${trap.itm}】！<br>`;
       await player.save();
       return res.json({ log, player });
@@ -249,29 +252,47 @@ exports.rest = async (req, res) => {
 };
 
 exports.pickItem = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { pid, itemId } = req.body;
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    const player = await Player.findOne({ pid, uid: req.user._id }).session(session);
+    if (!player) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ msg: '玩家不存在' });
+    }
 
-    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
-    if (!item) return res.status(400).json({ msg: '物品不存在' });
+    const item = await MapItem.findOne({ _id: itemId }).session(session);
+    if (!item || item.pls !== player.pls) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: '物品不存在' });
+    }
 
     let slot = -1;
     for (let i = 0; i < 5; i++) {
       if (!player[`itm${i}`]) { slot = i; break; }
     }
-    if (slot === -1) return res.status(400).json({ msg: '物品栏已满' });
+    if (slot === -1) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: '物品栏已满' });
+    }
 
     player[`itm${slot}`] = item.itm;
     player[`itmk${slot}`] = item.itmk;
     player[`itme${slot}`] = item.itme;
     player[`itms${slot}`] = item.itms;
     player[`itmsk${slot}`] = item.itmsk;
-    await item.deleteOne();
-    await player.save();
+    await MapItem.deleteOne({ _id: item._id }).session(session);
+    await player.save({ session });
+    await session.commitTransaction();
+    session.endSession();
     res.json({ msg: `获得了${item.itm}`, player });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     console.error(err);
     res.status(500).json({ msg: '拾取失败' });
   }
@@ -525,14 +546,28 @@ exports.unequip = async (req, res) => {
 };
 
 exports.pickReplace = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { pid, itemId, index } = req.body;
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
-    if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
+    const player = await Player.findOne({ pid, uid: req.user._id }).session(session);
+    if (!player) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ msg: '玩家不存在' });
+    }
+    if (index < 0 || index >= 5) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: '物品编号错误' });
+    }
 
-    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
-    if (!item) return res.status(400).json({ msg: '物品不存在' });
+    const item = await MapItem.findOne({ _id: itemId }).session(session);
+    if (!item || item.pls !== player.pls) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ msg: '物品不存在' });
+    }
 
     const dropName = player[`itm${index}`];
     const dropKind = player[`itmk${index}`];
@@ -547,7 +582,8 @@ exports.pickReplace = async (req, res) => {
         dropKind,
         dropEffect,
         dropUses,
-        dropSkill
+        dropSkill,
+        session
       );
     }
 
@@ -557,10 +593,14 @@ exports.pickReplace = async (req, res) => {
     player[`itms${index}`] = item.itms;
     player[`itmsk${index}`] = item.itmsk;
 
-    await item.deleteOne();
-    await player.save();
-    res.json({ msg: `获得了${item.itm}`, player });
+    await MapItem.deleteOne({ _id: item._id }).session(session);
+    await player.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+    res.json({ msg: `获得了${item.itm}`, player, dropName });
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     console.error(err);
     res.status(500).json({ msg: '拾取失败' });
   }
@@ -613,7 +653,7 @@ exports.pickEquip = async (req, res) => {
     player[`${slotName}s`] = item.itms;
     player[`${slotName}sk`] = item.itmsk;
 
-    await item.deleteOne();
+    await MapItem.deleteOne({ _id: item._id });
     await player.save();
     res.json({ msg: `装备了${item.itm}`, player });
   } catch (err) {

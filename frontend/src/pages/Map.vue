@@ -61,8 +61,13 @@
 
         <!-- 行动按钮区 -->
         <div class="action-bar">
-          <el-select v-model="target" placeholder="选择地点" style="width: 180px">
-            <el-option v-for="(n,i) in places" :key="i" :label="n" :value="i" />
+          <el-select
+            v-model="target"
+            placeholder="选择地点"
+            style="width: 180px"
+            @change="onTargetChange"
+          >
+            <el-option v-for="(n, i) in places" :key="i" :label="n" :value="i" />
           </el-select>
           <el-button type="primary" @click="doMove">移动</el-button>
           <el-button @click="doSearch">搜索</el-button>
@@ -79,7 +84,12 @@
         <!-- 背包面板 -->
         <InventoryPanel />
 
-        <el-dialog v-model="replaceVisible" title="选择替换物品" width="400px">
+        <el-dialog
+          v-model="replaceVisible"
+          title="选择替换物品"
+          width="400px"
+          @close="closeReplaceDialog"
+        >
           <el-table :data="bagItems" style="width:100%">
             <el-table-column prop="name" label="物品" />
             <el-table-column prop="type" label="类型" width="90" />
@@ -110,6 +120,20 @@ const target = ref(0)
 const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
+let programmatic = false
+
+function setTarget(val) {
+  programmatic = true
+  target.value = val
+}
+
+function onTargetChange() {
+  if (programmatic) {
+    programmatic = false
+  } else {
+    doMove()
+  }
+}
 
 function getType(kind) {
   if (!kind) return ''
@@ -187,7 +211,7 @@ async function fetchStatus() {
   try {
     const { data } = await getStatus(playerId.value)
     info.value = data
-    target.value = data.pls
+    setTarget(data.pls)
   } catch {
     info.value = null
   }
@@ -199,7 +223,7 @@ onMounted(() => {
       places.value = data
     }).catch(() => {})
   }
-  if (info.value) target.value = info.value.pls
+  if (info.value) setTarget(info.value.pls)
   else fetchStatus()
 })
 
@@ -285,10 +309,17 @@ async function doReplace(index) {
     info.value = data.player
     addLog(data.msg)
     replaceVisible.value = false
+    replaceItemId = null
     foundItem.value = null
   } catch (e) {
     alert(e.response?.data?.msg || '拾取失败')
   }
+}
+
+function closeReplaceDialog() {
+  replaceVisible.value = false
+  replaceItemId = null
+  foundItem.value = null
 }
 </script>
 
