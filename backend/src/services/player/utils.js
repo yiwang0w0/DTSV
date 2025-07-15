@@ -1,11 +1,21 @@
 const { dropMapItem, restoreMemoryItem } = require('../../utils/item');
 
+function updateRest(player) {
+  if (!player.restStart) return;
+  const now = Date.now();
+  const sec = Math.floor((now - player.restStart) / 1000);
+  if (sec <= 0) return;
+  player.sp = Math.min(player.msp, player.sp + sec * 12);
+  if (player.sp >= player.msp) {
+    player.restStart = 0;
+  } else {
+    player.restStart += sec * 1000;
+  }
+}
+
 function applyRest(player) {
+  updateRest(player);
   if (player.restStart) {
-    const sec = Math.floor((Date.now() - player.restStart) / 1000);
-    if (sec > 0) {
-      player.sp = Math.min(player.msp, player.sp + sec * 12);
-    }
     player.restStart = 0;
   }
 }
@@ -73,6 +83,7 @@ function formatPlayer(player) {
 }
 
 module.exports = {
+  updateRest,
   applyRest,
   reduceItem,
   checkAmmoKind,
