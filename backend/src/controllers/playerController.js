@@ -32,6 +32,18 @@ function reduceItem(player, idx) {
   }
 }
 
+async function dropMapItem(pls, name, kind, effect, uses, skill) {
+  if (!name) return;
+  await MapItem.create({
+    itm: name,
+    itmk: kind,
+    itme: effect,
+    itms: uses,
+    itmsk: skill,
+    pls
+  });
+}
+
 exports.enter = async (req, res) => {
   try {
     const user = req.user;
@@ -351,14 +363,14 @@ exports.equip = async (req, res) => {
         player[`itms${empty}`] = player[`${slotName}s`];
         player[`itmsk${empty}`] = player[`${slotName}sk`];
       } else {
-        await MapItem.create({
-          itm: player[slotName],
-          itmk: player[`${slotName}k`],
-          itme: player[`${slotName}e`],
-          itms: player[`${slotName}s`],
-          itmsk: player[`${slotName}sk`],
-          pls: player.pls
-        });
+        await dropMapItem(
+          player.pls,
+          player[slotName],
+          player[`${slotName}k`],
+          player[`${slotName}e`],
+          player[`${slotName}s`],
+          player[`${slotName}sk`]
+        );
       }
     }
 
@@ -465,14 +477,14 @@ exports.pickReplace = async (req, res) => {
     const dropSkill = player[`itmsk${index}`];
 
     if (dropName) {
-      await MapItem.create({
-        itm: dropName,
-        itmk: dropKind,
-        itme: dropEffect,
-        itms: dropUses,
-        itmsk: dropSkill,
-        pls: player.pls
-      });
+      await dropMapItem(
+        player.pls,
+        dropName,
+        dropKind,
+        dropEffect,
+        dropUses,
+        dropSkill
+      );
     }
 
     player[`itm${index}`] = item.itm;
@@ -520,14 +532,14 @@ exports.pickEquip = async (req, res) => {
         player[`itms${empty}`] = player[`${slotName}s`];
         player[`itmsk${empty}`] = player[`${slotName}sk`];
       } else {
-        await MapItem.create({
-          itm: player[slotName],
-          itmk: player[`${slotName}k`],
-          itme: player[`${slotName}e`],
-          itms: player[`${slotName}s`],
-          itmsk: player[`${slotName}sk`],
-          pls: player.pls
-        });
+        await dropMapItem(
+          player.pls,
+          player[slotName],
+          player[`${slotName}k`],
+          player[`${slotName}e`],
+          player[`${slotName}s`],
+          player[`${slotName}sk`]
+        );
       }
     }
 
