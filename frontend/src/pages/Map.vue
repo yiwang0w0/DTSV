@@ -76,9 +76,6 @@
           <el-button size="small" v-if="isEquip(foundItem.itmk)" @click="equipFound">装备</el-button>
         </div>
 
-        <!-- 最新日志 -->
-        <p v-if="log" v-html="log" class="log-current" />
-
         <!-- 背包面板 -->
         <InventoryPanel />
 
@@ -110,7 +107,6 @@ import { mapAreas as places } from '../store/map'
 import { logs } from '../store/logs'
 
 const target = ref(0)
-const log = ref('')
 const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
@@ -152,7 +148,6 @@ const bagItems = computed(() => {
 })
 
 function addLog(message) {
-  log.value = message
   if (message) logs.value.unshift(message)
 }
 
@@ -349,12 +344,6 @@ async function doReplace(index) {
   flex-wrap: wrap;
   align-items: center;
   margin: 16px 0;
-}
-
-.log-current {
-  margin: 12px 0;
-  color: #606266;
-  font-weight: 500;
 }
 
 .log-panel {
