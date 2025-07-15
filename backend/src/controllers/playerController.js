@@ -220,7 +220,7 @@ exports.search = async (req, res) => {
         itm: item.itm,
         itmk: item.itmk,
         itme: item.itme,
-        itms: item.itms,
+        itms: String(item.itms),
         itmsk: item.itmsk,
         pls: item.pls
       });
@@ -479,7 +479,7 @@ exports.equip = async (req, res) => {
           player[slotName],
           player[`${slotName}k`],
           player[`${slotName}e`],
-          player[`${slotName}s`],
+          String(player[`${slotName}s`]),
           player[`${slotName}sk`]
         );
       }
@@ -591,7 +591,7 @@ exports.pickReplace = async (req, res) => {
     const dropName = player[`itm${index}`];
     const dropKind = player[`itmk${index}`];
     const dropEffect = player[`itme${index}`];
-    const dropUses = player[`itms${index}`];
+    const dropUses = String(player[`itms${index}`]);
     const dropSkill = player[`itmsk${index}`];
 
     if (dropName) {
@@ -656,7 +656,7 @@ exports.pickEquip = async (req, res) => {
           player[slotName],
           player[`${slotName}k`],
           player[`${slotName}e`],
-          player[`${slotName}s`],
+          String(player[`${slotName}s`]),
           player[`${slotName}sk`]
         );
       }
