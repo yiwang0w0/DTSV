@@ -106,25 +106,31 @@ async function search(user, body) {
 
   // 3. 遭遇敌人事件
   const enemies = await Player.find({ pls: player.pls, hp: { $gt: 0 }, pid: { $ne: pid } });
-  if (enemies.length && Math.random() < 0.5) {
+  if (enemies.length) {
     const enemy = enemies[Math.floor(Math.random() * enemies.length)];
-    if (enemy.type > 0) {
-      if (Math.random() < 0.5) {
-        const dmg = Math.floor(Math.random() * 10) + 1;
-        player.hp = Math.max(player.hp - dmg, 0);
-        log += `NPC【${enemy.name}】的伏击使你受到${dmg}点伤害！<br>`;
-        if (player.hp <= 0) {
-          player.state = 27;
-          log += '你遭到致命打击！<br>';
+    let chance = 0.5 + (player.sp - enemy.sp) / 200;
+    if (enemy.type > 0) chance -= 0.05;
+    if (chance < 0.05) chance = 0.05;
+    if (chance > 0.95) chance = 0.95;
+    if (Math.random() < chance) {
+      if (enemy.type > 0) {
+        if (enemy.sp > player.sp) {
+          const dmg = Math.floor(Math.random() * 10) + 1;
+          player.hp = Math.max(player.hp - dmg, 0);
+          log += `NPC【${enemy.name}】的伏击使你受到${dmg}点伤害！<br>`;
+          if (player.hp <= 0) {
+            player.state = 27;
+            log += '你遭到致命打击！<br>';
+          }
+        } else {
+          log += `你发现了NPC【${enemy.name}】，可以选择攻击。<br>`;
         }
       } else {
-        log += `你发现了NPC【${enemy.name}】，可以选择攻击。<br>`;
+        log += `你发现了玩家【${enemy.name}】！<br>`;
       }
-    } else {
-      log += `你发现了玩家【${enemy.name}】！<br>`;
+      await player.save();
+      return { log, player, enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
     }
-    await player.save();
-    return { log, player, enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
   }
 
   const items = await MapItem.find({ pls: player.pls });
