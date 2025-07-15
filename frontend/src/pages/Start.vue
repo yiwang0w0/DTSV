@@ -11,7 +11,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { enterGame, getStatus, getClubs } from '../api'
+import { enterGame, getStatus, getDeadStatus, getClubs } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo } from '../store/player'
 import { logs } from '../store/logs'
@@ -24,10 +24,21 @@ async function start() {
   try {
     const { data } = await enterGame({ club: selected.value })
     playerId.value = data.pid
-    const status = await getStatus(data.pid)
-    playerInfo.value = status.data
-    logs.value = []
-    router.push('/game')
+    try {
+      const status = await getStatus(data.pid)
+      playerInfo.value = status.data
+      logs.value = []
+      router.push('/game')
+    } catch (err) {
+      if (err.response?.data?.msg === '你已经死亡') {
+        const res = await getDeadStatus(data.pid)
+        playerInfo.value = res.data
+        logs.value = []
+        router.push('/gameover')
+      } else {
+        throw err
+      }
+    }
   } catch (e) {
     const msg = e.response?.data?.msg
     alert(msg || '进入失败')
@@ -43,7 +54,11 @@ onMounted(async () => {
     playerInfo.value = data
     router.replace('/game')
   } catch (e) {
-    // ignore if player not found
+    if (e.response?.data?.msg === '你已经死亡') {
+      const res = await getDeadStatus(playerId.value)
+      playerInfo.value = res.data
+      router.replace('/gameover')
+    }
   }
 })
 </script>

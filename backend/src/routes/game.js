@@ -14,6 +14,7 @@ router.post('/enter', auth, playerController.enter);
 router.post('/move', auth, playerController.move);
 router.post('/search', auth, playerController.search);
 router.get('/status', auth, playerController.status);
+router.get('/deadstatus', auth, playerController.deadStatus);
 router.get('/players', auth, playerController.list);
 router.post('/rest', auth, playerController.rest);
 router.post('/pick', auth, playerController.pickItem);
