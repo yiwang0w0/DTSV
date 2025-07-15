@@ -56,8 +56,8 @@ exports.enter = async (req, res) => {
         pls: 0,
         hp: 100,
         mhp: 100,
-        sp: 100,
-        msp: 100
+        sp: 200,
+        msp: 200
       });
       user.lastgame = gid;
       user.lastpid = pid;
@@ -83,7 +83,7 @@ exports.move = async (req, res) => {
 
     applyRest(player);
 
-    const spCost = 15;
+    const spCost = 20 + Math.floor(Math.random() * 21) - 10;
     if (player.sp < spCost) {
       return res.status(400).json({ msg: '体力不足，不能移动' });
     }
@@ -111,7 +111,7 @@ exports.search = async (req, res) => {
   if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
   applyRest(player);
-  const spCost = 15;
+  const spCost = 10 + Math.floor(Math.random() * 11) - 5;
   if (player.sp < spCost) {
     return res.status(400).json({ msg: '体力不足，不能探索' });
   }

@@ -4,10 +4,10 @@
     <el-descriptions v-if="info" border :column="2" style="margin-top:10px">
       <el-descriptions-item label="位置">{{ place }}</el-descriptions-item>
       <el-descriptions-item label="生命">
-        <el-progress :percentage="hpPercent" :text-inside="true" />
+        <el-progress :percentage="hpPercent" :format="hpFormat" :text-inside="true" />
       </el-descriptions-item>
       <el-descriptions-item label="体力">
-        <el-progress :percentage="spPercent" :text-inside="true" />
+        <el-progress :percentage="spPercent" :format="spFormat" :text-inside="true" />
       </el-descriptions-item>
       <el-descriptions-item label="等级">{{ info.lvl }}</el-descriptions-item>
       <el-descriptions-item label="经验">{{ info.exp }}</el-descriptions-item>
@@ -33,6 +33,8 @@ const hpPercent = computed(() =>
 const spPercent = computed(() =>
   info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
 )
+const hpFormat = () => info.value ? `${info.value.hp}/${info.value.mhp}` : '0/0'
+const spFormat = () => info.value ? `${info.value.sp}/${info.value.msp}` : '0/0'
 const profs = computed(() => {
   if (!info.value) return []
   return [
