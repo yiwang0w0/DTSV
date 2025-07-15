@@ -1,7 +1,7 @@
 const Player = require('../../models/Player');
 const MapItem = require('../../models/MapItem');
 const { dropMapItem } = require('./utils');
-const { checkAmmoKind, bulletNames, reduceItem } = require('./utils');
+const { checkAmmoKind, bulletNames, reduceItem, formatPlayer } = require('./utils');
 
 async function pickItem(user, body) {
   const { pid, itemId } = body;
@@ -42,7 +42,7 @@ async function pickItem(user, body) {
   player[`itmsk${slot}`] = item.itmsk;
   player.searchmemory = '';
   await player.save();
-  return { msg: `获得了${item.itm}`, player };
+  return { msg: `获得了${item.itm}`, player: formatPlayer(player) };
 }
 
 async function useItem(user, body) {
@@ -164,7 +164,7 @@ async function useItem(user, body) {
   }
 
   await player.save();
-  return { msg: log, player };
+  return { msg: log, player: formatPlayer(player) };
 }
 
 async function equip(user, body) {
@@ -279,7 +279,7 @@ async function equip(user, body) {
   player[`itms${index}`] = '0';
   player[`itmsk${index}`] = '';
   await player.save();
-  return { msg: `装备了${name}`, player };
+  return { msg: `装备了${name}`, player: formatPlayer(player) };
 }
 
 async function unequip(user, body) {
@@ -330,7 +330,7 @@ async function unequip(user, body) {
   player[`${slot}s`] = '0';
   player[`${slot}sk`] = '';
   await player.save();
-  return { msg: `卸下了${name}`, player };
+  return { msg: `卸下了${name}`, player: formatPlayer(player) };
 }
 
 async function pickReplace(user, body) {
@@ -385,7 +385,7 @@ async function pickReplace(user, body) {
   player.searchmemory = '';
 
   await player.save();
-  return { msg: `获得了${item.itm}`, player, dropName };
+  return { msg: `获得了${item.itm}`, player: formatPlayer(player), dropName };
 }
 
 async function pickEquip(user, body) {
@@ -454,7 +454,7 @@ async function pickEquip(user, body) {
 
   player.searchmemory = '';
   await player.save();
-  return { msg: `装备了${item.itm}`, player };
+  return { msg: `装备了${item.itm}`, player: formatPlayer(player) };
 }
 
 module.exports = {
