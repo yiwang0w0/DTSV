@@ -59,11 +59,20 @@ const bulletNames = {
   GBe: '能源弹药'
 };
 
+function formatPlayer(player) {
+  const data = player.toObject ? player.toObject() : { ...player };
+  data.att = data.att + (data.wepe || 0) * 2;
+  data.def = data.def + (data.arbe || 0) + (data.arhe || 0) +
+    (data.arae || 0) + (data.arfe || 0) + (data.arte || 0);
+  return data;
+}
+
 module.exports = {
   applyRest,
   reduceItem,
   checkAmmoKind,
   bulletNames,
   dropMapItem,
-  restoreMemoryItem
+  restoreMemoryItem,
+  formatPlayer
 };

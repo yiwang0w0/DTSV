@@ -4,7 +4,7 @@ const MapArea = require('../../models/MapArea');
 const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
 const { START_THRESHOLD } = require('../../config/constants');
-const { applyRest, restoreMemoryItem } = require('./utils');
+const { applyRest, restoreMemoryItem, formatPlayer } = require('./utils');
 
 async function move(user, body) {
   const { pid, pls } = body;
@@ -41,7 +41,7 @@ async function move(user, body) {
 
   const area = await MapArea.findOne({ pid: pls });
   const name = area ? area.name : pls;
-  return { msg: `移动到${name}`, player };
+  return { msg: `移动到${name}`, player: formatPlayer(player) };
 }
 
 async function search(user, body) {
@@ -83,7 +83,7 @@ async function search(user, body) {
     player.sp = Math.max(player.sp - dmg, 0);
     log += `你脚下一滑摔进池里，消耗${dmg}点体力。<br>`;
     await player.save();
-    return { log, player };
+    return { log, player: formatPlayer(player) };
   }
 
   // 2. 陷阱事件
@@ -100,7 +100,7 @@ async function search(user, body) {
         log += '你被陷阱杀死了！<br>';
       }
       await player.save();
-      return { log, player };
+      return { log, player: formatPlayer(player) };
     }
   }
 
@@ -129,7 +129,7 @@ async function search(user, body) {
         log += `你发现了玩家【${enemy.name}】！<br>`;
       }
       await player.save();
-      return { log, player, enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
+      return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
     }
   }
 
@@ -148,12 +148,12 @@ async function search(user, body) {
     });
     log += `你发现了${item.itm}。<br>`;
     await player.save();
-    return { log, player, item };
+    return { log, player: formatPlayer(player), item };
   }
 
   log += '但是没有发现任何东西。';
   await player.save();
-  return { log, player };
+  return { log, player: formatPlayer(player) };
 }
 
 async function status(user, query) {
@@ -169,7 +169,7 @@ async function status(user, query) {
     err.status = 400;
     throw err;
   }
-  return player;
+  return formatPlayer(player);
 }
 
 async function deadStatus(user, query) {
@@ -212,7 +212,7 @@ async function rest(user, body) {
   }
   player.restStart = Date.now();
   await player.save();
-  return { msg: '开始休息', player };
+  return { msg: '开始休息', player: formatPlayer(player) };
 }
 
 module.exports = { move, search, status, deadStatus, list, rest };
