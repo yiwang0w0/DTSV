@@ -6,6 +6,7 @@ import Start from '../pages/Start.vue'
 import Game from '../pages/Game.vue'
 import Status from '../pages/Status.vue'
 import Victory from '../pages/Victory.vue'
+import GameOver from '../pages/GameOver.vue'
 import Ranking from '../pages/Ranking.vue'
 import Help from '../pages/Help.vue'
 import Admin from '../pages/Admin.vue'
@@ -18,6 +19,7 @@ const routes = [
   { path: '/game', name: 'Game', component: Game },
   { path: '/status', name: 'Status', component: Status },
   { path: '/victory', name: 'Victory', component: Victory },
+  { path: '/gameover', name: 'GameOver', component: GameOver },
   { path: '/ranking', name: 'Ranking', component: Ranking },
   { path: '/help', name: 'Help', component: Help },
   { path: '/admin', name: 'Admin', component: Admin },

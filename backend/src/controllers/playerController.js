@@ -30,6 +30,10 @@ exports.status = (req, res) => {
   handle(() => playerService.status(req.user, req.query), req, res);
 };
 
+exports.deadStatus = (req, res) => {
+  handle(() => playerService.deadStatus(req.user, req.query), req, res);
+};
+
 exports.list = (req, res) => {
   handle(() => playerService.list(req.user), req, res);
 };

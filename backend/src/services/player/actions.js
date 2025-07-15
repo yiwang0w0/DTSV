@@ -172,6 +172,17 @@ async function status(user, query) {
   return player;
 }
 
+async function deadStatus(user, query) {
+  const { pid } = query;
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  return player;
+}
+
 async function list(user) {
   const info = await GameInfo.findOne();
   const gid = info ? info.gamenum : 0;
@@ -204,4 +215,4 @@ async function rest(user, body) {
   return { msg: '开始休息', player };
 }
 
-module.exports = { move, search, status, list, rest };
+module.exports = { move, search, status, deadStatus, list, rest };
