@@ -16,16 +16,27 @@
       </el-descriptions-item>
       <el-descriptions-item label="受伤部位">{{ injuries }}</el-descriptions-item>
     </el-descriptions>
+    <h2 style="margin-top:20px">进行状况</h2>
+    <el-table :data="players" style="width: 100%; margin-top:10px">
+      <el-table-column prop="name" label="角色名" />
+      <el-table-column prop="username" label="用户" />
+      <el-table-column prop="alive" label="存活">
+        <template #default="scope">
+          <span>{{ scope.row.alive ? '是' : '否' }}</span>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getStatus, getMapAreas } from '../api'
+import { getStatus, getMapAreas, getPlayers } from '../api'
 import { playerId } from '../store/user'
 import { mapAreas as places } from '../store/map'
 
 const info = ref(null)
+const players = ref([])
 const place = computed(() => info.value ? places[info.value.pls] : '')
 const hpPercent = computed(() =>
   info.value ? Math.round((info.value.hp / info.value.mhp) * 100) : 0
@@ -61,6 +72,15 @@ async function fetch() {
   }
 }
 
+async function fetchPlayers() {
+  try {
+    const { data } = await getPlayers()
+    players.value = data
+  } catch (e) {
+    players.value = []
+  }
+}
+
 onMounted(() => {
   if (!places.value.length) {
     getMapAreas().then(({ data }) => {
@@ -68,6 +88,7 @@ onMounted(() => {
     }).catch(() => {})
   }
   fetch()
+  fetchPlayers()
 })
 </script>
 

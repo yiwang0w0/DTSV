@@ -18,7 +18,6 @@ const loggedIn = computed(() => !!token.value)
       <el-menu-item v-if="!loggedIn" index="game" @click="router.push('/')">进入游戏</el-menu-item>
       <el-menu-item v-else index="game" @click="router.push('/start')">进入游戏</el-menu-item>
       <el-menu-item index="status" @click="router.push('/status')">进行状况</el-menu-item>
-      <el-menu-item index="alive" @click="router.push('/alive')">当前幸存</el-menu-item>
       <el-menu-item index="victory" @click="router.push('/victory')">历史优胜</el-menu-item>
       <el-menu-item index="ranking" @click="router.push('/ranking')">玩家排行</el-menu-item>
       <el-menu-item index="help" @click="router.push('/help')">游戏帮助</el-menu-item>
