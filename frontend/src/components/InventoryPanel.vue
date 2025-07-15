@@ -48,13 +48,13 @@ const items = computed(() => {
   for (let i = 0; i < 5; i++) {
     const name = info.value[`itm${i}`] || ''
     const kind = info.value[`itmk${i}`] || ''
-    const effect = info.value[`itme${i}`]
-    const uses = info.value[`itms${i}`]
+    const effect = name ? info.value[`itme${i}`] : ''
+    const uses = name ? info.value[`itms${i}`] : ''
     res.push({
       name,
       type: getType(kind),
-      effect: effect,
-      uses: uses,
+      effect,
+      uses,
       disableEquip: !name || !isEquip(kind),
       disableUse: !name || isEquip(kind)
     })
