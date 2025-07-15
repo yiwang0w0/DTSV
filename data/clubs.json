@@ -1,0 +1,7 @@
+[
+  { "cid": 1, "name": "街头霸王", "hp": 20, "sp": 0, "att": 5, "def": 0, "money": 0 },
+  { "cid": 2, "name": "见敌必斩", "hp": 0, "sp": 0, "att": 8, "def": -2, "money": 0 },
+  { "cid": 3, "name": "狙击鹰眼", "hp": 0, "sp": 20, "att": 4, "def": 0, "money": 0 },
+  { "cid": 4, "name": "灌篮高手", "hp": 10, "sp": 10, "att": 3, "def": 1, "money": 0 },
+  { "cid": 5, "name": "拆弹专家", "hp": 0, "sp": 0, "att": 0, "def": 5, "money": 20 }
+]

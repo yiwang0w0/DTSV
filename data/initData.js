@@ -30,4 +30,11 @@ if (mapitems.length) {
   db.mapitems.insertMany(mapitems);
 }
 
+// 导入 clubs
+var clubs = JSON.parse(cat('./clubs.json'));
+if (clubs.length) {
+  db.clubs.remove({});
+  db.clubs.insertMany(clubs);
+}
+
 print('数据导入完成');

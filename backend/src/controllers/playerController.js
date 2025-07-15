@@ -4,6 +4,7 @@ const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const GameInfo = require('../models/GameInfo');
 const MapArea = require('../models/MapArea');
+const Club = require('../models/Club');
 const { dropMapItem } = require('../utils/item');
 
 const START_THRESHOLD = 20;
@@ -67,6 +68,16 @@ const bulletNames = {
   GBe: '能源弹药'
 };
 
+exports.clubs = async (req, res) => {
+  try {
+    const clubs = await Club.find({}, 'cid name');
+    res.json(clubs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '获取职业列表失败' });
+  }
+};
+
 async function dropMapItem(pls, name, kind, effect, uses, skill) {
   if (!name) return;
   await MapItem.create({
@@ -97,15 +108,31 @@ exports.enter = async (req, res) => {
     if (!player) {
       const last = await Player.findOne().sort({ pid: -1 });
       const pid = last ? last.pid + 1 : 1;
+      const { club } = req.body;
+      let base = { hp: 100, sp: 200, att: 0, def: 0, money: 20 };
+      if (club) {
+        const c = await Club.findOne({ cid: club });
+        if (c) {
+          base.hp += c.hp;
+          base.sp += c.sp;
+          base.att += c.att;
+          base.def += c.def;
+          base.money += c.money;
+        }
+      }
       player = await Player.create({
         pid,
         uid: user._id,
         name: user.username,
         pls: 0,
-        hp: 100,
-        mhp: 100,
-        sp: 200,
-        msp: 200
+        hp: base.hp,
+        mhp: base.hp,
+        sp: base.sp,
+        msp: base.sp,
+        att: base.att,
+        def: base.def,
+        money: base.money,
+        club: club || 0
       });
       user.lastgame = gid;
       user.lastpid = pid;
