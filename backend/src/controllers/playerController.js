@@ -143,6 +143,9 @@ exports.move = async (req, res) => {
     }
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
 
     await restoreMemoryItem(player);
 
@@ -175,6 +178,9 @@ exports.search = async (req, res) => {
 
 const player = await Player.findOne({ pid, uid: req.user._id });
 if (!player) return res.status(404).json({ msg: '玩家不存在' });
+if (player.hp <= 0) {
+  return res.status(400).json({ msg: '你已经死亡' });
+}
 
 await restoreMemoryItem(player);
 applyRest(player);
@@ -206,6 +212,10 @@ player.sp -= spCost;
         const dmg = trap.itme || 0;
         player.hp = Math.max(player.hp - dmg, 0);
         log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
+        if (player.hp <= 0) {
+          player.state = 27;
+          log += '你被陷阱杀死了！<br>';
+        }
         await player.save();
         return res.json({ log, player });
       }
@@ -249,6 +259,9 @@ exports.status = async (req, res) => {
     if (!player) {
       return res.status(404).json({ msg: '玩家不存在' });
     }
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
     res.json(player);
   } catch (err) {
     console.error(err);
@@ -281,6 +294,9 @@ exports.rest = async (req, res) => {
     const { pid } = req.body;
   const player = await Player.findOne({ pid, uid: req.user._id });
   if (!player) return res.status(404).json({ msg: '玩家不存在' });
+  if (player.hp <= 0) {
+    return res.status(400).json({ msg: '你已经死亡' });
+  }
   player.restStart = Date.now();
   await player.save();
   res.json({ msg: '开始休息', player });
@@ -296,6 +312,9 @@ exports.pickItem = async (req, res) => {
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) {
       return res.status(404).json({ msg: '玩家不存在' });
+    }
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
     }
 
     const memory = player.searchmemory ? JSON.parse(player.searchmemory) : null;
@@ -332,6 +351,9 @@ exports.useItem = async (req, res) => {
     const { pid, index } = req.body;
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
     if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
     const name = player[`itm${index}`];
     const kind = player[`itmk${index}`];
@@ -444,6 +466,9 @@ exports.equip = async (req, res) => {
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
     if (index < 0 || index >= 5) return res.status(400).json({ msg: '物品编号错误' });
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
     const name = player[`itm${index}`];
     const kind = player[`itmk${index}`];
     if (!name) return res.status(400).json({ msg: '物品不存在' });
@@ -544,6 +569,9 @@ exports.unequip = async (req, res) => {
     const { pid, slot } = req.body;
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
     const allow = ['wep', 'arb', 'arh', 'ara', 'arf', 'art'];
     if (!allow.includes(slot)) return res.status(400).json({ msg: '装备栏错误' });
     const name = player[slot];
@@ -580,6 +608,9 @@ exports.pickReplace = async (req, res) => {
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) {
       return res.status(404).json({ msg: '玩家不存在' });
+    }
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
     }
     if (index < 0 || index >= 5) {
       return res.status(400).json({ msg: '物品编号错误' });
@@ -628,6 +659,9 @@ exports.pickEquip = async (req, res) => {
     const { pid, itemId } = req.body;
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
+    if (player.hp <= 0) {
+      return res.status(400).json({ msg: '你已经死亡' });
+    }
 
     const memory = player.searchmemory ? JSON.parse(player.searchmemory) : null;
     if (!memory || memory.id !== itemId) return res.status(400).json({ msg: '物品不存在' });
