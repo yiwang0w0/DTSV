@@ -69,7 +69,6 @@
           >
             <el-option v-for="(n, i) in places" :key="i" :label="n" :value="i" />
           </el-select>
-          <el-button type="primary" @click="doMove">移动</el-button>
           <el-button @click="doSearch">搜索</el-button>
           <el-button @click="doRest">休息</el-button>
         </div>
@@ -123,8 +122,10 @@ let replaceItemId = null
 let programmatic = false
 
 function setTarget(val) {
-  programmatic = true
-  target.value = val
+  if (target.value !== val) {
+    programmatic = true
+    target.value = val
+  }
 }
 
 function onTargetChange() {
@@ -350,7 +351,7 @@ function closeReplaceDialog() {
   margin-bottom: 20px;
 }
 
-.card-no-title >>> .el-card__header {
+:deep(.card-no-title .el-card__header) {
   display: none;
 }
 
