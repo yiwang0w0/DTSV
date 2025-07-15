@@ -1,7 +1,8 @@
 const Player = require('../../models/Player');
 const MapItem = require('../../models/MapItem');
-const { dropMapItem } = require('./utils');
-const { checkAmmoKind, bulletNames, reduceItem, formatPlayer } = require('./utils');
+const playerUtils = require('./utils');
+const { dropMapItem } = playerUtils;
+const { checkAmmoKind, bulletNames, reduceItem, formatPlayer } = playerUtils;
 
 async function pickItem(user, body) {
   const { pid, itemId } = body;

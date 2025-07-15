@@ -5,7 +5,10 @@ const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
-const { applyRest, restoreMemoryItem, updateRest, formatPlayer } = require('./utils');
+// 引入完整的工具模块，防止部分函数因解构失败而未定义
+const playerUtils = require('./utils');
+const { applyRest, restoreMemoryItem, updateRest } = playerUtils;
+const { formatPlayer } = playerUtils;
 
 
 async function move(user, body) {
