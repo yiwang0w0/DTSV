@@ -172,22 +172,30 @@ exports.search = async (req, res) => {
     if (!info || info.gamestate < START_THRESHOLD) {
       return res.status(400).json({ msg: '游戏未开始' });
     }
-  const player = await Player.findOne({ pid, uid: req.user._id });
-  if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-  await restoreMemoryItem(player);
+const player = await Player.findOne({ pid, uid: req.user._id });
+if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-  applyRest(player);
-  const spCost = 10 + Math.floor(Math.random() * 11) - 5;
-  if (player.sp < spCost) {
-    return res.status(400).json({ msg: '体力不足，不能探索' });
-  }
-  player.sp -= spCost;
+await restoreMemoryItem(player);
 
-  const ITEM_FIND_RATE = 0.6;
+applyRest(player);
 
-  let log = '';
+const spCost = 10 + Math.floor(Math.random() * 11) - 5;
+if (player.sp < spCost) {
+  return res.status(400).json({ msg: '体力不足，不能探索' });
+}
+player.sp -= spCost;
 
+
+    const spCost = 10 + Math.floor(Math.random() * 11) - 5;
+    if (player.sp < spCost) {
+      return res.status(400).json({ msg: '体力不足，不能探索' });
+    }
+    player.sp -= spCost;
+
+    let log = '';
+
+    // 1. 特殊区域事件（摔池子）
     if (player.pls === 7 && Math.random() < 0.5) {
       const dmg = Math.floor(Math.random() * 10) + 1;
       player.sp = Math.max(player.sp - dmg, 0);
@@ -196,9 +204,8 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    const area = await MapArea.findOne({ pid: player.pls });
-    const trapRate = (area && area.danger ? area.danger * 0.05 : 0);
-    if (Math.random() < trapRate) {
+    // 2. 陷阱触发（固定 5% 概率）
+    if (Math.random() < 0.05) {
       const traps = await MapTrap.find({ pls: player.pls });
       if (traps.length) {
         const trap = traps[Math.floor(Math.random() * traps.length)];
@@ -211,8 +218,9 @@ exports.search = async (req, res) => {
       }
     }
 
+    // 3. 掉落物搜索（60% 概率）
     const items = await MapItem.find({ pls: player.pls });
-    if (items.length && Math.random() < ITEM_FIND_RATE) {
+    if (items.length && Math.random() < 0.6) {
       const item = items[Math.floor(Math.random() * items.length)];
       await MapItem.deleteOne({ _id: item._id });
       player.searchmemory = JSON.stringify({
@@ -229,14 +237,16 @@ exports.search = async (req, res) => {
       return res.json({ log, player, item });
     }
 
-    await player.save();
+    // 4. 什么都没有
     log += '但是没有发现任何东西。';
+    await player.save();
     res.json({ log, player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '搜索失败' });
   }
 };
+
 
 
 exports.status = async (req, res) => {
