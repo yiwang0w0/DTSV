@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import InventoryPanel from '../components/InventoryPanel.vue'
 import PlayerStats from '../components/PlayerStats.vue'
@@ -77,10 +77,32 @@ const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
+let restTimer = null
 
 function checkDeath() {
   if (info.value && info.value.hp <= 0) {
     router.replace('/gameover')
+  }
+}
+
+function startRestTimer() {
+  if (restTimer) return
+  restTimer = setInterval(async () => {
+    if (!playerId.value) return
+    try {
+      const { data } = await getStatus(playerId.value)
+      info.value = data
+      if (!data.restStart) {
+        stopRestTimer()
+      }
+    } catch {}
+  }, 1000)
+}
+
+function stopRestTimer() {
+  if (restTimer) {
+    clearInterval(restTimer)
+    restTimer = null
   }
 }
 
@@ -177,6 +199,7 @@ async function fetchStatus() {
     info.value = data
     setTarget(data.pls)
     checkDeath()
+    return data
   } catch {
     info.value = null
   }
@@ -192,8 +215,13 @@ onMounted(() => {
   else fetchStatus()
 })
 
+onUnmounted(() => {
+  stopRestTimer()
+})
+
 async function unequip(field) {
   if (!playerId.value) return
+  stopRestTimer()
   try {
     const { data } = await unequipItem(playerId.value, field)
     info.value = data.player
@@ -205,6 +233,7 @@ async function unequip(field) {
 
 async function doMove() {
   if (!playerId.value) return
+  stopRestTimer()
   try {
     const { data } = await move(playerId.value, target.value)
     info.value = data.player
@@ -217,6 +246,7 @@ async function doMove() {
 
 async function doSearch() {
   if (!playerId.value) return
+  stopRestTimer()
   try {
     const { data } = await search(playerId.value)
     info.value = data.player
@@ -235,6 +265,9 @@ async function doRest() {
     info.value = data.player
     addLog(data.msg)
     checkDeath()
+    if (data.player.restStart) {
+      startRestTimer()
+    }
   } catch (e) {
     alert(e.response?.data?.msg || '休息失败')
   }
@@ -242,6 +275,7 @@ async function doRest() {
 
 async function pickFound() {
   if (!playerId.value || !foundItem.value) return
+  stopRestTimer()
   try {
     const { data } = await pickItem(playerId.value, foundItem.value._id)
     info.value = data.player
@@ -261,6 +295,7 @@ async function pickFound() {
 
 async function equipFound() {
   if (!playerId.value || !foundItem.value) return
+  stopRestTimer()
   try {
     const { data } = await pickEquip(playerId.value, foundItem.value._id)
     info.value = data.player
@@ -274,6 +309,7 @@ async function equipFound() {
 
 async function doReplace(index) {
   if (!playerId.value || replaceItemId === null) return
+  stopRestTimer()
   try {
     const { data } = await pickReplace(playerId.value, replaceItemId, index)
     info.value = data.player

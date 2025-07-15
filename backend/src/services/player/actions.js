@@ -5,7 +5,7 @@ const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
-const { applyRest, restoreMemoryItem } = require('./utils');
+const { applyRest, restoreMemoryItem, updateRest } = require('./utils');
 
 
 async function move(user, body) {
@@ -179,6 +179,8 @@ async function status(user, query) {
     err.status = 400;
     throw err;
   }
+  updateRest(player);
+  await player.save();
   return formatPlayer(player);
 }
 
