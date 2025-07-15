@@ -57,6 +57,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import InventoryPanel from '../components/InventoryPanel.vue'
 import PlayerStats from '../components/PlayerStats.vue'
 import EquipmentList from '../components/EquipmentList.vue'
@@ -69,11 +70,19 @@ import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
 import { logs } from '../store/logs'
 
+const router = useRouter()
+
 const target = ref(0)
 const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
+
+function checkDeath() {
+  if (info.value && info.value.hp <= 0) {
+    router.replace('/gameover')
+  }
+}
 
 function setTarget(val) {
   if (target.value !== val) {
@@ -167,6 +176,7 @@ async function fetchStatus() {
     const { data } = await getStatus(playerId.value)
     info.value = data
     setTarget(data.pls)
+    checkDeath()
   } catch {
     info.value = null
   }
@@ -199,6 +209,7 @@ async function doMove() {
     const { data } = await move(playerId.value, target.value)
     info.value = data.player
     addLog(data.msg)
+    checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '移动失败')
   }
@@ -211,6 +222,7 @@ async function doSearch() {
     info.value = data.player
     foundItem.value = data.item || null
     addLog(data.log)
+    checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '搜索失败')
   }
@@ -222,6 +234,7 @@ async function doRest() {
     const { data } = await rest(playerId.value)
     info.value = data.player
     addLog(data.msg)
+    checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '休息失败')
   }
@@ -234,6 +247,7 @@ async function pickFound() {
     info.value = data.player
     addLog(data.msg)
     foundItem.value = null
+    checkDeath()
   } catch (e) {
     const msg = e.response?.data?.msg
     if (msg === '物品栏已满') {
@@ -252,6 +266,7 @@ async function equipFound() {
     info.value = data.player
     addLog(data.msg)
     foundItem.value = null
+    checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '装备失败')
   }
@@ -266,6 +281,7 @@ async function doReplace(index) {
     replaceVisible.value = false
     replaceItemId = null
     foundItem.value = null
+    checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '拾取失败')
   }

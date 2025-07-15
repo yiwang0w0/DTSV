@@ -7,6 +7,7 @@ const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 const { applyRest, restoreMemoryItem } = require('./utils');
 
+
 async function move(user, body) {
   const { pid, pls } = body;
   await checkDangerAreas();
@@ -48,7 +49,7 @@ async function move(user, body) {
   await player.save();
 
   const name = area ? area.name : pls;
-  return { msg: `移动到${name}`, player };
+  return { msg: `移动到${name}`, player: formatPlayer(player) };
 }
 
 async function search(user, body) {
@@ -91,7 +92,7 @@ async function search(user, body) {
     player.sp = Math.max(player.sp - dmg, 0);
     log += `你脚下一滑摔进池里，消耗${dmg}点体力。<br>`;
     await player.save();
-    return { log, player };
+    return { log, player: formatPlayer(player) };
   }
 
   // 2. 陷阱事件
@@ -108,7 +109,7 @@ async function search(user, body) {
         log += '你被陷阱杀死了！<br>';
       }
       await player.save();
-      return { log, player };
+      return { log, player: formatPlayer(player) };
     }
   }
 
@@ -137,7 +138,7 @@ async function search(user, body) {
         log += `你发现了玩家【${enemy.name}】！<br>`;
       }
       await player.save();
-      return { log, player, enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
+      return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
     }
   }
 
@@ -156,12 +157,12 @@ async function search(user, body) {
     });
     log += `你发现了${item.itm}。<br>`;
     await player.save();
-    return { log, player, item };
+    return { log, player: formatPlayer(player), item };
   }
 
   log += '但是没有发现任何东西。';
   await player.save();
-  return { log, player };
+  return { log, player: formatPlayer(player) };
 }
 
 async function status(user, query) {
@@ -176,6 +177,17 @@ async function status(user, query) {
   if (player.hp <= 0) {
     const err = new Error('你已经死亡');
     err.status = 400;
+    throw err;
+  }
+  return formatPlayer(player);
+}
+
+async function deadStatus(user, query) {
+  const { pid } = query;
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
     throw err;
   }
   return player;
@@ -211,7 +223,7 @@ async function rest(user, body) {
   }
   player.restStart = Date.now();
   await player.save();
-  return { msg: '开始休息', player };
+  return { msg: '开始休息', player: formatPlayer(player) };
 }
 
-module.exports = { move, search, status, list, rest };
+module.exports = { move, search, status, deadStatus, list, rest };
