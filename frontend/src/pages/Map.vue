@@ -79,7 +79,12 @@
         <!-- 背包面板 -->
         <InventoryPanel />
 
-        <el-dialog v-model="replaceVisible" title="选择替换物品" width="400px">
+        <el-dialog
+          v-model="replaceVisible"
+          title="选择替换物品"
+          width="400px"
+          @close="closeReplaceDialog"
+        >
           <el-table :data="bagItems" style="width:100%">
             <el-table-column prop="name" label="物品" />
             <el-table-column prop="type" label="类型" width="90" />
@@ -285,10 +290,17 @@ async function doReplace(index) {
     info.value = data.player
     addLog(data.msg)
     replaceVisible.value = false
+    replaceItemId = null
     foundItem.value = null
   } catch (e) {
     alert(e.response?.data?.msg || '拾取失败')
   }
+}
+
+function closeReplaceDialog() {
+  replaceVisible.value = false
+  replaceItemId = null
+  foundItem.value = null
 }
 </script>
 
