@@ -143,7 +143,7 @@ exports.search = async (req, res) => {
 
     const trap = await MapTrap.findOne({ pls: player.pls });
     if (trap) {
-      await trap.deleteOne();
+      await MapTrap.deleteOne({ _id: trap._id });
       log += `你触发了陷阱【${trap.itm}】！<br>`;
       await player.save();
       return res.json({ log, player });
@@ -235,7 +235,7 @@ exports.pickItem = async (req, res) => {
     player[`itme${slot}`] = item.itme;
     player[`itms${slot}`] = item.itms;
     player[`itmsk${slot}`] = item.itmsk;
-    await item.deleteOne();
+    await MapItem.deleteOne({ _id: item._id });
     await player.save();
     res.json({ msg: `获得了${item.itm}`, player });
   } catch (err) {
@@ -493,7 +493,7 @@ exports.pickReplace = async (req, res) => {
     player[`itms${index}`] = item.itms;
     player[`itmsk${index}`] = item.itmsk;
 
-    await item.deleteOne();
+    await MapItem.deleteOne({ _id: item._id });
     await player.save();
     res.json({ msg: `获得了${item.itm}`, player });
   } catch (err) {
@@ -549,7 +549,7 @@ exports.pickEquip = async (req, res) => {
     player[`${slotName}s`] = item.itms;
     player[`${slotName}sk`] = item.itmsk;
 
-    await item.deleteOne();
+    await MapItem.deleteOne({ _id: item._id });
     await player.save();
     res.json({ msg: `装备了${item.itm}`, player });
   } catch (err) {
