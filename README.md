@@ -17,6 +17,10 @@
 - **消息通信**：WebSocket (实时消息/房间同步)
 - **环境依赖**：Node.js ≥ 18.x, MongoDB ≥ 6.x, Redis ≥ 6.x
 
+项目代码已经按“控制器 / 服务”方式拆分，后端业务逻辑位于 `src/services`，
+前端页面也拆解成多个可复用组件与独立的 API 模块，便于通过接口按需调
+用各项功能。
+
 ---
 
 ## 目录结构
@@ -25,12 +29,13 @@
 /
 ├── backend/               # 后端服务代码
 │   ├── src/
-│   │   ├── controllers/   # 路由与业务逻辑
-│   │   ├── models/        # Mongoose模型
-│   │   ├── routes/        # API接口定义
+│   │   ├── controllers/   # 路由层
+│   │   ├── services/      # 业务逻辑拆分模块
+│   │   ├── models/        # Mongoose 模型
+│   │   ├── routes/        # API 接口定义
 │   │   ├── middlewares/   # 中间件
 │   │   ├── utils/         # 工具方法
-│   │   ├── config/        # 配置文件
+│   │   ├── config/        # 配置文件（含 constants.js）
 │   │   └── app.js         # 入口文件
 │   └── README.md
 ├── frontend/              # 前端源码
@@ -43,7 +48,6 @@
 │   │   ├── utils/
 │   │   └── main.js
 │   └── README.md
-├── docs/                  # 设计与技术文档
 ├── .env                   # 环境变量（示例见.env.example）
 └── README.md              # 本文件
 ```
@@ -242,12 +246,36 @@ npm run lint     # 代码规范检查
 首页游戏信息区域提供“手动开始游戏”和“手动关闭游戏”两个按钮，
 分别调用上述 `/api/game/start` 与 `/api/game/stop` 接口，操作成功后自动刷新状态，可用于调试或管理员手动控制游戏进度。
 
+## 玩家操作 API
+
+- **POST `/api/game/enter`**：进入游戏，参数 `club` 可选，返回 `pid` 与初始位置。
+- **POST `/api/game/move`**：移动至指定区域，需传 `pid`、`pls`。
+- **POST `/api/game/search`**：在当前位置搜索物品或触发事件。
+- **GET `/api/game/status`**：查询指定玩家状态，参数 `pid`。
+- **GET `/api/game/players`**：当前局存活玩家列表。
+- **POST `/api/game/rest`**：原地休息恢复体力，参数 `pid`。
+- **POST `/api/game/pick`**：拾取发现的物品，需 `pid` 与 `itemId`。
+- **POST `/api/game/pickreplace`**：以背包指定格子替换拾取的物品，需 `index`。
+- **POST `/api/game/pickequip`**：直接装备发现的物品。
+- **POST `/api/game/use`**：使用背包物品，需 `index`。
+- **POST `/api/game/equip`**：装备背包物品。
+- **POST `/api/game/unequip`**：卸下装备栏物品，参数 `slot`。
+
 ## 认证 API
 
 - **POST `/api/auth/login`**：登录并返回 `token` 与 `refreshToken`
 - **POST `/api/auth/register`**：注册并返回 `token` 与 `refreshToken`
 - **POST `/api/auth/refresh`**：使用 `refreshToken` 获取新的 `token`
 - **POST `/api/auth/logout`**：注销并清除服务器端的 `refreshToken`
+
+## 管理 API
+
+管理员登录后可通过以下接口管理数据：
+- **GET `/api/admin/:collection`**：分页获取集合文档。
+- **POST `/api/admin/:collection`**：在指定集合创建文档。
+- **PUT `/api/admin/:collection/:id`**：更新指定文档。
+- **DELETE `/api/admin/:collection/:id`**：删除指定文档。
+- **GET `/api/admin/maps`**：查看各地图区域的在线玩家。
 
 ---
 
