@@ -16,7 +16,6 @@
       </el-descriptions-item>
       <el-descriptions-item label="受伤部位">{{ injuries }}</el-descriptions-item>
     </el-descriptions>
-    <h2 style="margin-top:20px">进行状况</h2>
     <el-table :data="players" style="width: 100%; margin-top:10px">
       <el-table-column prop="name" label="角色名" />
       <el-table-column prop="username" label="用户" />
