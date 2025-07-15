@@ -181,20 +181,21 @@ exports.search = async (req, res) => {
     if (!info || info.gamestate < START_THRESHOLD) {
       return res.status(400).json({ msg: '游戏未开始' });
     }
-  const player = await Player.findOne({ pid, uid: req.user._id });
-  if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-  applyRest(player);
-  const spCost = 10 + Math.floor(Math.random() * 11) - 5;
-  if (player.sp < spCost) {
-    return res.status(400).json({ msg: '体力不足，不能探索' });
-  }
-  player.sp -= spCost;
+    const player = await Player.findOne({ pid, uid: req.user._id });
+    if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-  const ITEM_FIND_RATE = 0.6;
+    applyRest(player);
 
-  let log = '';
+    const spCost = 10 + Math.floor(Math.random() * 11) - 5;
+    if (player.sp < spCost) {
+      return res.status(400).json({ msg: '体力不足，不能探索' });
+    }
+    player.sp -= spCost;
 
+    let log = '';
+
+    // 1. 特殊区域事件（摔池子）
     if (player.pls === 7 && Math.random() < 0.5) {
       const dmg = Math.floor(Math.random() * 10) + 1;
       player.sp = Math.max(player.sp - dmg, 0);
@@ -203,55 +204,39 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    const trapCount = await MapTrap.countDocuments({ pls: player.pls });
-    const otherPlayers = await Player.countDocuments({
-      pls: player.pls,
-      pid: { $ne: player.pid },
-      state: { $ne: 16 }
-    });
-    let exr = 0;
-    if (otherPlayers <= 4) exr = 0.5;
-    if (otherPlayers <= 2) exr = 0.9;
-    if (otherPlayers === 1) exr = 1.4;
-    if (otherPlayers === 0) exr = 0.2;
-    const trapRate = (1.5 + trapCount / 4 + exr) / 100;
-
-    if (Math.random() < trapRate) {
-      const escapeRate = (8 + player.lvl / 3) / 100;
-      if (Math.random() >= escapeRate) {
-        const traps = await MapTrap.find({ pls: player.pls });
-        if (traps.length) {
-          const trap = traps[Math.floor(Math.random() * traps.length)];
-          await MapTrap.deleteOne({ _id: trap._id });
-          const dmg = trap.itme || 0;
-          player.hp = Math.max(player.hp - dmg, 0);
-          log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
-          await player.save();
-          return res.json({ log, player });
-        }
-      } else {
-        log += '你侥幸躲过了陷阱。<br>';
+    // 2. 陷阱触发（固定 5% 概率）
+    if (Math.random() < 0.05) {
+      const traps = await MapTrap.find({ pls: player.pls });
+      if (traps.length) {
+        const trap = traps[Math.floor(Math.random() * traps.length)];
+        await MapTrap.deleteOne({ _id: trap._id });
+        const dmg = trap.itme || 0;
+        player.hp = Math.max(player.hp - dmg, 0);
+        log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
         await player.save();
         return res.json({ log, player });
       }
     }
 
+    // 3. 掉落物搜索（60% 概率）
     const items = await MapItem.find({ pls: player.pls });
-    if (items.length && Math.random() < ITEM_FIND_RATE) {
+    if (items.length && Math.random() < 0.6) {
       const item = items[Math.floor(Math.random() * items.length)];
       log += `你发现了${item.itm}。<br>`;
       await player.save();
       return res.json({ log, player, item });
     }
 
-    await player.save();
+    // 4. 什么都没有
     log += '但是没有发现任何东西。';
+    await player.save();
     res.json({ log, player });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '搜索失败' });
   }
 };
+
 
 
 exports.status = async (req, res) => {
