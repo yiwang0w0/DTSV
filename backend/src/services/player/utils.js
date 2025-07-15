@@ -61,9 +61,14 @@ const bulletNames = {
 
 function formatPlayer(player) {
   const data = player.toObject ? player.toObject() : { ...player };
-  data.att = data.att + (data.wepe || 0) * 2;
-  data.def = data.def + (data.arbe || 0) + (data.arhe || 0) +
-    (data.arae || 0) + (data.arfe || 0) + (data.arte || 0);
+  data.att = Number(data.att) + Number(data.wepe || 0) * 2;
+  data.def =
+    Number(data.def) +
+    Number(data.arbe || 0) +
+    Number(data.arhe || 0) +
+    Number(data.arae || 0) +
+    Number(data.arfe || 0) +
+    Number(data.arte || 0);
   return data;
 }
 
