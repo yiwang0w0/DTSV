@@ -10,3 +10,5 @@
    db.clubs.deleteMany({})
    db.clubs.insertMany(JSON.parse(cat('data/clubs.json')))
    ```
+5. 从 `v1.1` 起，后端在启动时会自动检查 `clubs` 集合，若为空则读取
+   `data/clubs.json` 写入默认职业列表，可在日志中看到提示。
