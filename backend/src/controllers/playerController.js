@@ -344,13 +344,22 @@ exports.equip = async (req, res) => {
       for (let i = 0; i < 5; i++) {
         if (!player[`itm${i}`]) { empty = i; break; }
       }
-      if (empty === -1) return res.status(400).json({ msg: '物品栏已满，无法替换装备' });
-
-      player[`itm${empty}`] = player[slotName];
-      player[`itmk${empty}`] = player[`${slotName}k`];
-      player[`itme${empty}`] = player[`${slotName}e`];
-      player[`itms${empty}`] = player[`${slotName}s`];
-      player[`itmsk${empty}`] = player[`${slotName}sk`];
+      if (empty !== -1) {
+        player[`itm${empty}`] = player[slotName];
+        player[`itmk${empty}`] = player[`${slotName}k`];
+        player[`itme${empty}`] = player[`${slotName}e`];
+        player[`itms${empty}`] = player[`${slotName}s`];
+        player[`itmsk${empty}`] = player[`${slotName}sk`];
+      } else {
+        await MapItem.create({
+          itm: player[slotName],
+          itmk: player[`${slotName}k`],
+          itme: player[`${slotName}e`],
+          itms: player[`${slotName}s`],
+          itmsk: player[`${slotName}sk`],
+          pls: player.pls
+        });
+      }
     }
 
     if (slotName === 'wep') {
@@ -504,13 +513,22 @@ exports.pickEquip = async (req, res) => {
       for (let i = 0; i < 5; i++) {
         if (!player[`itm${i}`]) { empty = i; break; }
       }
-      if (empty === -1) return res.status(400).json({ msg: '物品栏已满，无法替换装备' });
-
-      player[`itm${empty}`] = player[slotName];
-      player[`itmk${empty}`] = player[`${slotName}k`];
-      player[`itme${empty}`] = player[`${slotName}e`];
-      player[`itms${empty}`] = player[`${slotName}s`];
-      player[`itmsk${empty}`] = player[`${slotName}sk`];
+      if (empty !== -1) {
+        player[`itm${empty}`] = player[slotName];
+        player[`itmk${empty}`] = player[`${slotName}k`];
+        player[`itme${empty}`] = player[`${slotName}e`];
+        player[`itms${empty}`] = player[`${slotName}s`];
+        player[`itmsk${empty}`] = player[`${slotName}sk`];
+      } else {
+        await MapItem.create({
+          itm: player[slotName],
+          itmk: player[`${slotName}k`],
+          itme: player[`${slotName}e`],
+          itms: player[`${slotName}s`],
+          itmsk: player[`${slotName}sk`],
+          pls: player.pls
+        });
+      }
     }
 
     player[slotName] = item.itm;
