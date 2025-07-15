@@ -5,7 +5,6 @@ import Profile from '../pages/Profile.vue'
 import Start from '../pages/Start.vue'
 import Game from '../pages/Game.vue'
 import Status from '../pages/Status.vue'
-import Alive from '../pages/Alive.vue'
 import Victory from '../pages/Victory.vue'
 import Ranking from '../pages/Ranking.vue'
 import Help from '../pages/Help.vue'
@@ -18,7 +17,6 @@ const routes = [
   { path: '/start', name: 'Start', component: Start },
   { path: '/game', name: 'Game', component: Game },
   { path: '/status', name: 'Status', component: Status },
-  { path: '/alive', name: 'Alive', component: Alive },
   { path: '/victory', name: 'Victory', component: Victory },
   { path: '/ranking', name: 'Ranking', component: Ranking },
   { path: '/help', name: 'Help', component: Help },
