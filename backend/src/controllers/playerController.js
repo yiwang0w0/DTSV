@@ -4,7 +4,7 @@ const MapTrap = require('../models/MapTrap');
 const GameInfo = require('../models/GameInfo');
 const MapArea = require('../models/MapArea');
 const Club = require('../models/Club');
-const { dropMapItem } = require('../utils/item');
+const { dropMapItem, restoreMemoryItem } = require('../utils/item');
 
 const START_THRESHOLD = 20;
 
@@ -77,17 +77,6 @@ exports.clubs = async (req, res) => {
   }
 };
 
-async function dropMapItem(pls, name, kind, effect, uses, skill) {
-  if (!name) return;
-  await MapItem.create({
-    itm: name,
-    itmk: kind,
-    itme: effect,
-    itms: uses,
-    itmsk: skill,
-    pls
-  });
-}
 
 
 exports.enter = async (req, res) => {
@@ -155,6 +144,8 @@ exports.move = async (req, res) => {
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
+    await restoreMemoryItem(player);
+
     applyRest(player);
 
     const spCost = 20 + Math.floor(Math.random() * 21) - 10;
@@ -182,10 +173,19 @@ exports.search = async (req, res) => {
       return res.status(400).json({ msg: '游戏未开始' });
     }
 
-    const player = await Player.findOne({ pid, uid: req.user._id });
-    if (!player) return res.status(404).json({ msg: '玩家不存在' });
+const player = await Player.findOne({ pid, uid: req.user._id });
+if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-    applyRest(player);
+await restoreMemoryItem(player);
+
+applyRest(player);
+
+const spCost = 10 + Math.floor(Math.random() * 11) - 5;
+if (player.sp < spCost) {
+  return res.status(400).json({ msg: '体力不足，不能探索' });
+}
+player.sp -= spCost;
+
 
     const spCost = 10 + Math.floor(Math.random() * 11) - 5;
     if (player.sp < spCost) {
@@ -222,6 +222,16 @@ exports.search = async (req, res) => {
     const items = await MapItem.find({ pls: player.pls });
     if (items.length && Math.random() < 0.6) {
       const item = items[Math.floor(Math.random() * items.length)];
+      await MapItem.deleteOne({ _id: item._id });
+      player.searchmemory = JSON.stringify({
+        id: String(item._id),
+        itm: item.itm,
+        itmk: item.itmk,
+        itme: item.itme,
+        itms: String(item.itms),
+        itmsk: item.itmsk,
+        pls: item.pls
+      });
       log += `你发现了${item.itm}。<br>`;
       await player.save();
       return res.json({ log, player, item });
@@ -295,10 +305,12 @@ exports.pickItem = async (req, res) => {
       return res.status(404).json({ msg: '玩家不存在' });
     }
 
-    const item = await MapItem.findOneAndDelete({ _id: itemId, pls: player.pls });
-    if (!item) {
+    const memory = player.searchmemory ? JSON.parse(player.searchmemory) : null;
+    if (!memory || memory.id !== itemId) {
       return res.status(400).json({ msg: '物品不存在' });
     }
+
+    const item = memory;
 
     let slot = -1;
     for (let i = 0; i < 5; i++) {
@@ -313,6 +325,7 @@ exports.pickItem = async (req, res) => {
     player[`itme${slot}`] = item.itme;
     player[`itms${slot}`] = item.itms;
     player[`itmsk${slot}`] = item.itmsk;
+    player.searchmemory = '';
     await player.save();
     res.json({ msg: `获得了${item.itm}`, player });
   } catch (err) {
@@ -476,7 +489,7 @@ exports.equip = async (req, res) => {
           player[slotName],
           player[`${slotName}k`],
           player[`${slotName}e`],
-          player[`${slotName}s`],
+          String(player[`${slotName}s`]),
           player[`${slotName}sk`]
         );
       }
@@ -579,15 +592,16 @@ exports.pickReplace = async (req, res) => {
       return res.status(400).json({ msg: '物品编号错误' });
     }
 
-    const item = await MapItem.findOneAndDelete({ _id: itemId, pls: player.pls });
-    if (!item) {
+    const memory = player.searchmemory ? JSON.parse(player.searchmemory) : null;
+    if (!memory || memory.id !== itemId) {
       return res.status(400).json({ msg: '物品不存在' });
     }
+    const item = memory;
 
     const dropName = player[`itm${index}`];
     const dropKind = player[`itmk${index}`];
     const dropEffect = player[`itme${index}`];
-    const dropUses = player[`itms${index}`];
+    const dropUses = String(player[`itms${index}`]);
     const dropSkill = player[`itmsk${index}`];
 
     if (dropName) {
@@ -606,6 +620,7 @@ exports.pickReplace = async (req, res) => {
     player[`itme${index}`] = item.itme;
     player[`itms${index}`] = item.itms;
     player[`itmsk${index}`] = item.itmsk;
+    player.searchmemory = '';
 
     await player.save();
     res.json({ msg: `获得了${item.itm}`, player, dropName });
@@ -621,8 +636,9 @@ exports.pickEquip = async (req, res) => {
     const player = await Player.findOne({ pid, uid: req.user._id });
     if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
-    const item = await MapItem.findOne({ _id: itemId, pls: player.pls });
-    if (!item) return res.status(400).json({ msg: '物品不存在' });
+    const memory = player.searchmemory ? JSON.parse(player.searchmemory) : null;
+    if (!memory || memory.id !== itemId) return res.status(400).json({ msg: '物品不存在' });
+    const item = memory;
 
     let slotName = '';
     if (item.itmk.startsWith('W')) slotName = 'wep';
@@ -650,7 +666,7 @@ exports.pickEquip = async (req, res) => {
           player[slotName],
           player[`${slotName}k`],
           player[`${slotName}e`],
-          player[`${slotName}s`],
+          String(player[`${slotName}s`]),
           player[`${slotName}sk`]
         );
       }
@@ -662,7 +678,7 @@ exports.pickEquip = async (req, res) => {
     player[`${slotName}s`] = item.itms;
     player[`${slotName}sk`] = item.itmsk;
 
-    await MapItem.deleteOne({ _id: item._id });
+    player.searchmemory = '';
     await player.save();
     res.json({ msg: `装备了${item.itm}`, player });
   } catch (err) {
