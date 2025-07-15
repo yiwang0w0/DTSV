@@ -3,6 +3,7 @@ const History = require('../models/History');
 const MapArea = require('../models/MapArea');
 const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
+const MapTrap = require('../models/MapTrap');
 const fs = require('fs');
 const path = require('path');
 
@@ -67,6 +68,18 @@ exports.startGame = async (req, res) => {
       }
     } catch (e) {
       console.error('初始化地图物品失败', e);
+    }
+
+    // 初始化地图陷阱
+    try {
+      const file = path.join(__dirname, '../../../data/maptraps.json');
+      const traps = JSON.parse(fs.readFileSync(file));
+      await MapTrap.deleteMany({});
+      if (traps && traps.length) {
+        await MapTrap.insertMany(traps);
+      }
+    } catch (e) {
+      console.error('初始化地图陷阱失败', e);
     }
 
     // 开局前清理旧玩家数据

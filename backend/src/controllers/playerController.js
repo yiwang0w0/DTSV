@@ -177,12 +177,19 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    const trap = await MapTrap.findOne({ pls: player.pls });
-    if (trap) {
-      await MapTrap.deleteOne({ _id: trap._id });
-      log += `你触发了陷阱【${trap.itm}】！<br>`;
-      await player.save();
-      return res.json({ log, player });
+    const area = await MapArea.findOne({ pid: player.pls });
+    const trapRate = (area && area.danger ? area.danger * 0.05 : 0);
+    if (Math.random() < trapRate) {
+      const traps = await MapTrap.find({ pls: player.pls });
+      if (traps.length) {
+        const trap = traps[Math.floor(Math.random() * traps.length)];
+        await MapTrap.deleteOne({ _id: trap._id });
+        const dmg = trap.itme || 0;
+        player.hp = Math.max(player.hp - dmg, 0);
+        log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
+        await player.save();
+        return res.json({ log, player });
+      }
     }
 
     const items = await MapItem.find({ pls: player.pls });
