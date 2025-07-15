@@ -14,64 +14,39 @@
       <el-option v-for="(n,i) in mapAreas" :key="i" :label="n" :value="i" />
     </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
-    <el-table
-      :data="items"
-      style="margin-top: 20px"
-      row-key="_id"
-      v-infinite-scroll="loadMore"
-      :infinite-scroll-distance="10"
-      v-loading="loading"
-    >
-      <el-table-column prop="_id" label="ID" width="230" />
-      <el-table-column v-for="f in fieldMeta" :key="f.name" :prop="f.name" :label="f.label">
-        <template #default="{ row }">
-          <span>
-            {{ (collection === 'players' && f.name === 'pls') ? (mapAreas[row[f.name]] || row[f.name]) : row[f.name] }}
-          </span>
-          <el-button v-if="!isMaps" size="small" text @click="openFieldEdit(row, f)">编辑</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column v-if="!isMaps" label="操作" width="120">
-        <template #default="{ row }">
-          <el-button size="small" type="danger" @click="remove(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-dialog v-model="fieldDialogVisible" :title="'编辑 '+(editField?.label||'')" width="300px">
-      <template v-if="editField">
-        <el-input v-if="editField.type==='text'" v-model="editValue" />
-        <el-input-number v-else-if="editField.type==='number'" v-model="editValue" />
-        <el-select v-else-if="editField.type==='select'" v-model="editValue">
-          <el-option v-for="op in editField.options" :key="op" :label="op" :value="op" />
-        </el-select>
-        <el-input v-else v-model="editValue" />
-      </template>
-      <template #footer>
-        <el-button @click="fieldDialogVisible=false">取消</el-button>
-        <el-button type="primary" @click="saveField">保存</el-button>
-      </template>
-    </el-dialog>
-    <el-dialog v-model="createDialogVisible" title="新建" width="600px">
-      <el-form label-width="80px">
-        <el-form-item v-for="f in fieldMeta" :key="f.name" :label="f.label">
-          <el-input v-if="f.type==='text'" v-model="createData[f.name]" />
-          <el-input-number v-else-if="f.type==='number'" v-model="createData[f.name]" />
-          <el-select v-else-if="f.type==='select'" v-model="createData[f.name]">
-            <el-option v-for="op in f.options" :key="op" :label="op" :value="op" />
-          </el-select>
-          <el-input v-else v-model="createData[f.name]" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialogVisible=false">取消</el-button>
-        <el-button type="primary" @click="saveCreate">保存</el-button>
-      </template>
-    </el-dialog>
+    <TablePanel
+      :items="items"
+      :field-meta="fieldMeta"
+      :is-maps="isMaps"
+      :loading="loading"
+      :map-areas="mapAreas"
+      @load-more="loadMore"
+      @edit="openFieldEdit"
+      @remove="remove"
+    />
+    <FormDialog
+      v-model="fieldDialogVisible"
+      :title="'编辑 '+(editField?.label||'')"
+      :fields="editField ? [editField] : []"
+      :form="editForm"
+      @close="fieldDialogVisible=false"
+      @save="saveField"
+    />
+    <FormDialog
+      v-model="createDialogVisible"
+      title="新建"
+      :fields="fieldMeta"
+      :form="createData"
+      @close="createDialogVisible=false"
+      @save="saveCreate"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import TablePanel from '../components/TablePanel.vue'
+import FormDialog from '../components/FormDialog.vue'
 import {
   adminList,
   adminCreate,
@@ -110,7 +85,7 @@ const allLoaded = ref(false)
 const fieldDialogVisible = ref(false)
 const editField = ref(null)
 const editRowId = ref('')
-const editValue = ref('')
+const editForm = ref({})
 
 const createDialogVisible = ref(false)
 const createData = ref({})
@@ -208,12 +183,12 @@ function loadMore() {
 function openFieldEdit(row, field) {
   editRowId.value = row._id
   editField.value = field
-  editValue.value = row[field.name]
+  editForm.value = { [field.name]: row[field.name] }
   fieldDialogVisible.value = true
 }
 
 async function saveField() {
-  const update = { [editField.value.name]: editValue.value }
+  const update = { [editField.value.name]: editForm.value[editField.value.name] }
   try {
     await adminUpdate(collection.value, editRowId.value, update)
     fieldDialogVisible.value = false

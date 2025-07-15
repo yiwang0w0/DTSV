@@ -4,38 +4,9 @@
     <div class="layout">
       <!-- 左侧区域 -->
       <div class="left-panel">
-        <!-- 玩家数值区（无标题） -->
-        <el-card class="card-section card-no-title" v-if="info">
-          <p>玩家名：{{ info.name }}</p>
-          <p>攻击力：{{ info.att }}</p>
-          <p>防御力：{{ info.def }}</p>
-          <p>等级：{{ info.lvl }}</p>
-          <p>经验值：{{ info.exp }}</p>
-          <p>金钱：{{ info.money }}</p>
-          <p>熟练度：殴{{ info.wp }} 斩{{ info.wk }} 射{{ info.wg }} 投{{ info.wc }} 爆{{ info.wd }} 灵{{ info.wf }}</p>
-          <p>受伤：{{ injuries }}</p>
-        </el-card>
-
-        <!-- 已装备列表（无标题） -->
-        <el-card class="card-section card-no-title" v-if="info">
-          <el-table :data="equipRows" size="small" style="width: 100%">
-            <el-table-column prop="slot" label="装备种类" width="80" />
-            <el-table-column prop="name" label="装备名称" />
-            <el-table-column prop="attr" label="属性" width="80" />
-            <el-table-column prop="effect" label="效果" width="80" />
-            <el-table-column prop="dur" label="耐久" width="80" />
-            <el-table-column label="操作" width="80">
-              <template #default="scope">
-                <el-button size="small" @click="unequip(scope.row.field)" :disabled="!scope.row.name">卸下</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-
-        <!-- 历史日志 -->
-        <el-card class="log-panel" shadow="never" v-if="logs.length">
-          <div v-for="(l, i) in logs" :key="i" v-html="l" class="log-item" />
-        </el-card>
+        <PlayerStats v-if="info" :info="info" :injuries="injuries" />
+        <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" />
+        <LogPanel :logs="logs" />
       </div>
 
       <!-- 右侧区域 -->
@@ -59,48 +30,26 @@
           </el-row>
         </el-card>
 
-        <!-- 行动按钮区 -->
-        <div class="action-bar">
-          <el-select
-            v-model="target"
-            placeholder="选择地点"
-            style="width: 180px"
-            @change="onTargetChange"
-          >
-            <el-option v-for="(n, i) in places" :key="i" :label="n" :value="i" />
-          </el-select>
-          <el-button @click="doSearch">搜索</el-button>
-          <el-button @click="doRest">休息</el-button>
-        </div>
+        <ActionBar
+          v-model="target"
+          :places="places"
+          @change="onTargetChange"
+          @search="doSearch"
+          @rest="doRest"
+        />
 
-        <!-- 搜索结果 -->
-        <div v-if="foundItem" class="card-section search-result">
-          <p>发现 {{ foundItem.itm }}</p>
-          <el-button size="small" @click="pickFound">拾取</el-button>
-          <el-button size="small" v-if="isEquip(foundItem.itmk)" @click="equipFound">装备</el-button>
-        </div>
+        <SearchDialog
+          v-model="replaceVisible"
+          :found-item="foundItem"
+          :bag-items="bagItems"
+          @pick="pickFound"
+          @equip="equipFound"
+          @replace="doReplace"
+          @close="closeReplaceDialog"
+        />
 
         <!-- 背包面板 -->
         <InventoryPanel />
-
-        <el-dialog
-          v-model="replaceVisible"
-          title="选择替换物品"
-          width="400px"
-          @close="closeReplaceDialog"
-        >
-          <el-table :data="bagItems" style="width:100%">
-            <el-table-column prop="name" label="物品" />
-            <el-table-column prop="type" label="类型" width="90" />
-            <el-table-column prop="effect" label="效果" width="70" />
-            <el-table-column prop="uses" label="耐久" width="60" />
-            <el-table-column label="操作" width="80">
-              <template #default="scope">
-                <el-button size="small" @click="doReplace(scope.$index)">替换</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-dialog>
       </div>
     </div>
   </div>
@@ -109,6 +58,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import InventoryPanel from '../components/InventoryPanel.vue'
+import PlayerStats from '../components/PlayerStats.vue'
+import EquipmentList from '../components/EquipmentList.vue'
+import LogPanel from '../components/LogPanel.vue'
+import ActionBar from '../components/ActionBar.vue'
+import SearchDialog from '../components/SearchDialog.vue'
 import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
@@ -351,10 +305,6 @@ function closeReplaceDialog() {
   margin-bottom: 20px;
 }
 
-:deep(.card-no-title .el-card__header) {
-  display: none;
-}
-
 .status-block {
   margin-top: 12px;
 }
@@ -368,30 +318,5 @@ function closeReplaceDialog() {
 .label {
   font-weight: bold;
   margin-right: 8px;
-}
-
-.action-bar {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin: 16px 0;
-}
-
-.log-panel {
-  max-height: 200px;
-  overflow-y: auto;
-  background: #f9f9f9;
-  padding: 10px;
-  margin-bottom: 20px;
-}
-
-.log-item {
-  padding: 4px 0;
-  border-bottom: 1px solid #eee;
-}
-
-.search-result {
-  background: #fdfdfd;
 }
 </style>
