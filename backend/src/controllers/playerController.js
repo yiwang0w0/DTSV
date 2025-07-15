@@ -34,6 +34,51 @@ function reduceItem(player, idx) {
   }
 }
 
+const ammoMap = [
+  { key: 'WJ', kind: 'GBh', num: 4 },
+  { key: 'e', kind: 'GBe', num: 10 },
+  { key: 'w', kind: 'GBe', num: 10 },
+  { key: 'i', kind: 'GBi', num: 10 },
+  { key: 'u', kind: 'GBi', num: 10 },
+  { key: 'r', kind: 'GBr', num: 20 },
+  { key: 'WG', kind: 'GB', num: 6 }
+];
+
+function checkAmmoKind(wepk, wepsk) {
+  let ret = { kind: 'GB', num: 6 };
+  for (const a of ammoMap) {
+    if ((a.key.startsWith('W') && wepk.startsWith(a.key)) ||
+        (!a.key.startsWith('W') && wepsk.includes(a.key))) {
+      ret = { kind: a.kind, num: a.num };
+      if (ret.num <= 10 && wepsk.includes('r')) {
+        ret.num = ret.kind === 'GBh' ? 6 : 12;
+      }
+      break;
+    }
+  }
+  return ret;
+}
+
+const bulletNames = {
+  GB: '手枪弹药',
+  GBr: '机枪弹药',
+  GBi: '气体弹药',
+  GBh: '重型弹药',
+  GBe: '能源弹药'
+};
+
+async function dropMapItem(pls, name, kind, effect, uses, skill) {
+  if (!name) return;
+  await MapItem.create({
+    itm: name,
+    itmk: kind,
+    itme: effect,
+    itms: uses,
+    itmsk: skill,
+    pls
+  });
+}
+
 
 exports.enter = async (req, res) => {
   try {
@@ -316,6 +361,37 @@ exports.useItem = async (req, res) => {
         reduceItem(player, index);
       } else {
         log = '你没装备锐器，不能使用磨刀石。';
+      }
+    } else if (kind.startsWith('GB')) {
+      if (!player.wepk || !(player.wepk.startsWith('WG') || player.wepk.startsWith('WJ'))) {
+        log = '你没有装备枪械，不能使用子弹。';
+      } else if (player.wepsk.includes('o')) {
+        log = `${player.wep}不能装填弹药。`;
+      } else {
+        const { kind: bkind, num: clip } = checkAmmoKind(player.wepk, player.wepsk);
+        if (kind !== bkind) {
+          log = `弹药类型不匹配，需要${bulletNames[bkind] || bkind}。`;
+        } else {
+          let cur = player.weps === '∞' ? clip : parseInt(player.weps, 10);
+          if (cur >= clip) {
+            log = `${player.wep}的弹匣是满的，不能装弹。`;
+          } else {
+            let remain = player[`itms${index}`] === '∞' ? clip : parseInt(player[`itms${index}`], 10);
+            const add = Math.min(remain, clip - cur);
+            if (player[`itms${index}`] !== '∞') {
+              player[`itms${index}`] = String(remain - add);
+              if (parseInt(player[`itms${index}`], 10) <= 0) {
+                player[`itm${index}`] = '';
+                player[`itmk${index}`] = '';
+                player[`itme${index}`] = 0;
+                player[`itms${index}`] = '0';
+                player[`itmsk${index}`] = '';
+              }
+            }
+            player.weps = String(cur + add);
+            log = `为${player.wep}装填了${name}，${player.wep}残弹数增加${add}。`;
+          }
+        }
       }
     } else if (kind.startsWith('X')) {
       // 合成素材不会产生效果，也不会消耗
