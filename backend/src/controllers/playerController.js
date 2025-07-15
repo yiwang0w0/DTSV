@@ -203,16 +203,34 @@ exports.search = async (req, res) => {
       return res.json({ log, player });
     }
 
-    const area = await MapArea.findOne({ pid: player.pls });
-    const trapRate = (area && area.danger ? area.danger * 0.05 : 0);
+    const trapCount = await MapTrap.countDocuments({ pls: player.pls });
+    const otherPlayers = await Player.countDocuments({
+      pls: player.pls,
+      pid: { $ne: player.pid },
+      state: { $ne: 16 }
+    });
+    let exr = 0;
+    if (otherPlayers <= 4) exr = 0.5;
+    if (otherPlayers <= 2) exr = 0.9;
+    if (otherPlayers === 1) exr = 1.4;
+    if (otherPlayers === 0) exr = 0.2;
+    const trapRate = (1.5 + trapCount / 4 + exr) / 100;
+
     if (Math.random() < trapRate) {
-      const traps = await MapTrap.find({ pls: player.pls });
-      if (traps.length) {
-        const trap = traps[Math.floor(Math.random() * traps.length)];
-        await MapTrap.deleteOne({ _id: trap._id });
-        const dmg = trap.itme || 0;
-        player.hp = Math.max(player.hp - dmg, 0);
-        log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
+      const escapeRate = (8 + player.lvl / 3) / 100;
+      if (Math.random() >= escapeRate) {
+        const traps = await MapTrap.find({ pls: player.pls });
+        if (traps.length) {
+          const trap = traps[Math.floor(Math.random() * traps.length)];
+          await MapTrap.deleteOne({ _id: trap._id });
+          const dmg = trap.itme || 0;
+          player.hp = Math.max(player.hp - dmg, 0);
+          log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
+          await player.save();
+          return res.json({ log, player });
+        }
+      } else {
+        log += '你侥幸躲过了陷阱。<br>';
         await player.save();
         return res.json({ log, player });
       }
