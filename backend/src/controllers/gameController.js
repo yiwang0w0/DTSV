@@ -4,6 +4,7 @@ const gameService = require('../services/gameService');
 
 exports.getInfo = async (req, res) => {
   try {
+    await gameService.checkDangerAreas();
     const info = await GameInfo.findOne();
     if (info) {
       const [validnum, alivenum, deathnum] = await Promise.all([

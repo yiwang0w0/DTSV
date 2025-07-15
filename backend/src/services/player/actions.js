@@ -4,10 +4,13 @@ const MapArea = require('../../models/MapArea');
 const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
 const { START_THRESHOLD } = require('../../config/constants');
-const { applyRest, restoreMemoryItem, formatPlayer } = require('./utils');
+const { checkDangerAreas } = require('../gameService');
+const { applyRest, restoreMemoryItem } = require('./utils');
+
 
 async function move(user, body) {
   const { pid, pls } = body;
+  await checkDangerAreas();
   const info = await GameInfo.findOne();
   if (!info || info.gamestate < START_THRESHOLD) {
     const err = new Error('游戏未开始');
@@ -35,17 +38,23 @@ async function move(user, body) {
     err.status = 400;
     throw err;
   }
+  const area = await MapArea.findOne({ pid: pls });
+  if (area && area.danger) {
+    const err = new Error('该区域已成为禁区');
+    err.status = 400;
+    throw err;
+  }
   player.sp -= spCost;
   player.pls = pls;
   await player.save();
 
-  const area = await MapArea.findOne({ pid: pls });
   const name = area ? area.name : pls;
   return { msg: `移动到${name}`, player: formatPlayer(player) };
 }
 
 async function search(user, body) {
   const { pid } = body;
+  await checkDangerAreas();
   const info = await GameInfo.findOne();
   if (!info || info.gamestate < START_THRESHOLD) {
     const err = new Error('游戏未开始');
@@ -158,6 +167,7 @@ async function search(user, body) {
 
 async function status(user, query) {
   const { pid } = query;
+  await checkDangerAreas();
   const player = await Player.findOne({ pid, uid: user._id });
   if (!player) {
     const err = new Error('玩家不存在');
@@ -199,6 +209,7 @@ async function list(user) {
 
 async function rest(user, body) {
   const { pid } = body;
+  await checkDangerAreas();
   const player = await Player.findOne({ pid, uid: user._id });
   if (!player) {
     const err = new Error('玩家不存在');

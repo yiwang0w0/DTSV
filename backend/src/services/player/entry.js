@@ -2,6 +2,7 @@ const Player = require('../../models/Player');
 const GameInfo = require('../../models/GameInfo');
 const Club = require('../../models/Club');
 const { START_THRESHOLD } = require('../../config/constants');
+const { checkDangerAreas } = require('../gameService');
 
 async function clubs() {
   const clubs = await Club.find({}, 'cid name');
@@ -9,6 +10,7 @@ async function clubs() {
 }
 
 async function enter(user, body) {
+  await checkDangerAreas();
   const info = await GameInfo.findOne();
   if (!info || info.gamestate < START_THRESHOLD) {
     const err = new Error('游戏未开始');

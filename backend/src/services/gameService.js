@@ -5,6 +5,7 @@ const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Club = require('../models/Club');
+const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
 
@@ -78,6 +79,17 @@ async function startGame() {
     console.error('清理旧玩家数据失败', e);
   }
 
+  const areas = await MapArea.find({}, 'pid');
+  const ids = areas.map(a => a.pid);
+  for (const id of ids) {
+    await MapArea.updateOne({ pid: id }, { danger: 0 });
+  }
+  ids.sort(() => Math.random() - 0.5);
+  info.arealist = ids.join(',');
+  info.areanum = 0;
+  info.areatime = now + AREA_INTERVAL;
+  await info.save();
+
   return { msg: '游戏已开始', gamestate: info.gamestate };
 }
 
@@ -116,13 +128,45 @@ async function stopGame() {
 }
 
 async function mapAreas() {
-  const areas = await MapArea.find({}, 'pid name').sort({ pid: 1 });
+  const areas = await MapArea.find({ danger: 0 }, 'pid name').sort({ pid: 1 });
   return areas.map(a => a.name);
+}
+
+async function checkDangerAreas() {
+  const info = await GameInfo.findOne();
+  if (!info || info.gamestate < START_THRESHOLD) return;
+  const now = Math.floor(Date.now() / 1000);
+  if (!info.areatime) {
+    info.areatime = info.starttime + AREA_INTERVAL;
+  }
+  const all = info.arealist ? info.arealist.split(',').map(Number) : [];
+  const total = all.length;
+  let changed = false;
+  while (info.areanum < total && now >= info.areatime) {
+    const next = all.slice(info.areanum, info.areanum + AREA_ADD);
+    info.areanum += next.length;
+    info.areatime += AREA_INTERVAL;
+    changed = true;
+    for (const pid of next) {
+      await MapArea.updateOne({ pid }, { danger: 1 });
+      const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
+      for (const p of players) {
+        p.hp = 0;
+        p.state = 11;
+        p.endtime = now;
+        await p.save();
+      }
+    }
+  }
+  if (changed) {
+    await info.save();
+  }
 }
 
 module.exports = {
   ensureDefaultClubs,
   startGame,
   stopGame,
-  mapAreas
+  mapAreas,
+  checkDangerAreas
 };
