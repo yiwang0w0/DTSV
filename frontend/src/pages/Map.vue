@@ -49,12 +49,12 @@
             <el-col :span="24" class="status-block">
               <span class="label">生命：</span>
               <el-progress :percentage="hpPercent" :stroke-width="18" status="success" />
-              <p class="percent-label">{{ hpPercent }}%</p>
+              <p class="percent-label">{{ hpLabel }}</p>
             </el-col>
             <el-col :span="24" class="status-block">
               <span class="label">体力：</span>
               <el-progress :percentage="spPercent" :stroke-width="18" status="warning" />
-              <p class="percent-label">{{ spPercent }}%</p>
+              <p class="percent-label">{{ spLabel }}</p>
             </el-col>
           </el-row>
         </el-card>
@@ -161,6 +161,12 @@ const hpPercent = computed(() =>
 )
 const spPercent = computed(() =>
   info.value ? Math.round((info.value.sp / info.value.msp) * 100) : 0
+)
+const hpLabel = computed(() =>
+  info.value ? `${info.value.hp}/${info.value.mhp}` : '0/0'
+)
+const spLabel = computed(() =>
+  info.value ? `${info.value.sp}/${info.value.msp}` : '0/0'
 )
 const injuries = computed(() => {
   if (!info.value || !info.value.inf) return '无'
