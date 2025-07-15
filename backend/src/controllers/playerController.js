@@ -177,7 +177,6 @@ const player = await Player.findOne({ pid, uid: req.user._id });
 if (!player) return res.status(404).json({ msg: '玩家不存在' });
 
 await restoreMemoryItem(player);
-
 applyRest(player);
 
 const spCost = 10 + Math.floor(Math.random() * 11) - 5;
@@ -186,12 +185,6 @@ if (player.sp < spCost) {
 }
 player.sp -= spCost;
 
-
-    const spCost = 10 + Math.floor(Math.random() * 11) - 5;
-    if (player.sp < spCost) {
-      return res.status(400).json({ msg: '体力不足，不能探索' });
-    }
-    player.sp -= spCost;
 
     let log = '';
 
