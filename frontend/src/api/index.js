@@ -1,58 +1,6 @@
-import axios from 'axios'
-import { token } from '../store/user'
+export { default } from './client'
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api'
-})
-
-api.interceptors.request.use(config => {
-  if (token.value) {
-    config.headers.Authorization = `Bearer ${token.value}`
-  }
-  return config
-})
-
-export const register = (username, password) =>
-  api.post('/auth/register', { username, password })
-
-export const login = (username, password) =>
-  api.post('/auth/login', { username, password })
-
-export const refresh = refreshToken =>
-  api.post('/auth/refresh', { refreshToken })
-
-export const logout = refreshToken =>
-  api.post('/auth/logout', { refreshToken })
-
-export const getGameInfo = () => api.get('/game/info')
-export const startGame = () => api.post('/game/start')
-export const stopGame = () => api.post('/game/stop')
-
-export const enterGame = data => api.post('/game/enter', data)
-export const move = (pid, pls) => api.post('/game/move', { pid, pls })
-export const search = pid => api.post('/game/search', { pid })
-export const getStatus = pid => api.get('/game/status', { params: { pid } })
-export const getPlayers = () => api.get('/game/players')
-export const getMapAreas = () => api.get('/game/mapareas')
-export const getClubs = () => api.get('/game/clubs')
-export const rest = pid => api.post('/game/rest', { pid })
-export const pickItem = (pid, itemId) => api.post('/game/pick', { pid, itemId })
-export const pickReplace = (pid, itemId, index) =>
-  api.post('/game/pickreplace', { pid, itemId, index })
-export const pickEquip = (pid, itemId) =>
-  api.post('/game/pickequip', { pid, itemId })
-export const useItem = (pid, index) => api.post('/game/use', { pid, index })
-export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
-export const unequipItem = (pid, slot) => api.post('/game/unequip', { pid, slot })
-
-export const adminList = (col, params = {}) => api.get(`/admin/${col}`, { params })
-export const adminCreate = (col, data) => api.post(`/admin/${col}`, data)
-export const adminUpdate = (col, id, data) => api.put(`/admin/${col}/${id}`, data)
-export const adminDelete = (col, id) => api.delete(`/admin/${col}/${id}`)
-export const adminFieldMeta = col => api.get(`/admin/${col}/fieldmeta`)
-export const adminMaps = () => api.get('/admin/maps')
-
-export const getProfile = () => api.get('/user/profile')
-export const updateProfile = data => api.put('/user/profile', data)
-
-export default api
+export * from './auth'
+export * from './game'
+export * from './admin'
+export * from './user'
