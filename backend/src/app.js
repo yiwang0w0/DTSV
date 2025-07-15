@@ -2,31 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const redis = require('redis');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
-const Club = require('./models/Club');
-
-async function ensureDefaultClubs() {
-  const count = await Club.countDocuments();
-  if (count === 0) {
-    try {
-      const file = path.join(__dirname, '../../data/clubs.json');
-      const clubs = JSON.parse(fs.readFileSync(file));
-      if (clubs && clubs.length) {
-        await Club.insertMany(clubs);
-        console.log('已导入默认职业列表');
-      }
-    } catch (e) {
-      console.error('导入默认职业列表失败', e);
-    }
-  }
-}
+const gameService = require('./services/gameService');
 
 const app = express();
 app.use(cors());
@@ -36,7 +18,7 @@ const mongoUri = process.env.MONGODB_URI;
 mongoose.connect(mongoUri)
   .then(async () => {
     console.log('MongoDB 已连接');
-    await ensureDefaultClubs();
+    await gameService.ensureDefaultClubs();
   })
   .catch(err => console.error('MongoDB 连接失败', err));
 

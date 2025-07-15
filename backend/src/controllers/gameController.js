@@ -1,11 +1,6 @@
 const GameInfo = require('../models/GameInfo');
-const History = require('../models/History');
-const MapArea = require('../models/MapArea');
 const Player = require('../models/Player');
-const MapItem = require('../models/MapItem');
-const MapTrap = require('../models/MapTrap');
-const fs = require('fs');
-const path = require('path');
+const gameService = require('../services/gameService');
 
 exports.getInfo = async (req, res) => {
   try {
@@ -34,63 +29,8 @@ exports.getInfo = async (req, res) => {
 
 exports.startGame = async (req, res) => {
   try {
-    let info = await GameInfo.findOne();
-    const now = Math.floor(Date.now() / 1000);
-    if (!info) {
-      info = await GameInfo.create({
-        version: '1.0',
-        gamenum: 1,
-        gamestate: 20,
-        starttime: now
-      });
-    } else {
-      info.gamenum += 1;
-      info.gamestate = 20;
-      info.starttime = now;
-      info.afktime = 0;
-      info.validnum = 0;
-      info.alivenum = 0;
-      info.deathnum = 0;
-      info.combonum = 0;
-      info.areanum = 0;
-      info.areatime = 0;
-      info.areawarn = 0;
-      await info.save();
-    }
-
-    // 初始化地图物品
-    try {
-      const file = path.join(__dirname, '../../../data/mapitems.json');
-      const items = JSON.parse(fs.readFileSync(file));
-      await MapItem.deleteMany({});
-      if (items && items.length) {
-        await MapItem.insertMany(items);
-      }
-    } catch (e) {
-      console.error('初始化地图物品失败', e);
-    }
-
-    // 初始化地图陷阱
-    try {
-      const file = path.join(__dirname, '../../../data/maptraps.json');
-      const traps = JSON.parse(fs.readFileSync(file));
-      await MapTrap.deleteMany({});
-      if (traps && traps.length) {
-        await MapTrap.insertMany(traps);
-      }
-    } catch (e) {
-      console.error('初始化地图陷阱失败', e);
-    }
-
-    // 开局前清理旧玩家数据
-    try {
-      await Player.deleteMany({});
-      await require('../models/User').updateMany({}, { lastgame: 0, lastpid: 0 });
-    } catch (e) {
-      console.error('清理旧玩家数据失败', e);
-    }
-
-    res.json({ msg: '游戏已开始', gamestate: info.gamestate });
+    const result = await gameService.startGame();
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '启动游戏失败' });
@@ -99,38 +39,8 @@ exports.startGame = async (req, res) => {
 
 exports.stopGame = async (req, res) => {
   try {
-    let info = await GameInfo.findOne();
-    if (!info) {
-      info = await GameInfo.create({ version: '1.0', gamestate: 0 });
-    } else {
-      const now = Math.floor(Date.now() / 1000);
-      // 若游戏正在进行，归档历史记录
-      if (info.gamestate > 10 && info.starttime) {
-        await History.create({
-          gid: info.gamenum,
-          wmode: 6,
-          winner: '',
-          gametype: info.gametype,
-          vnum: info.validnum,
-          gtime: now - info.starttime,
-          gstime: info.starttime,
-          getime: now,
-          hdmg: info.hdamage,
-          hdp: info.hplayer
-        });
-      }
-      info.gamestate = 0;
-      info.starttime = 0;
-      await info.save();
-    }
-    // 归档后清理玩家与用户关联
-    try {
-      await Player.deleteMany({});
-      await require('../models/User').updateMany({}, { lastgame: 0, lastpid: 0 });
-    } catch (e) {
-      console.error('清理玩家数据失败', e);
-    }
-    res.json({ msg: '游戏已停止', gamestate: info.gamestate });
+    const result = await gameService.stopGame();
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '停止游戏失败' });
@@ -139,8 +49,8 @@ exports.stopGame = async (req, res) => {
 
 exports.mapAreas = async (req, res) => {
   try {
-    const areas = await MapArea.find({}, 'pid name').sort({ pid: 1 });
-    res.json(areas.map(a => a.name));
+    const areas = await gameService.mapAreas();
+    res.json(areas);
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '获取地图列表失败' });
