@@ -23,6 +23,13 @@ if (mapareas.length) {
   db.mapareas.insertMany(mapareas);
 }
 
+// 导入 maptraps
+var maptraps = JSON.parse(cat('./maptraps.json'));
+if (maptraps.length) {
+  db.maptraps.remove({});
+  db.maptraps.insertMany(maptraps);
+}
+
 // 导入 mapitems
 var mapitems = JSON.parse(cat('./mapitems.json'));
 if (mapitems.length) {

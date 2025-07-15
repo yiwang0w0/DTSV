@@ -118,15 +118,18 @@
 上述集合结构请参考 `backend/src/models` 中的同名模型文件。
 
 ## 初始数据导入
-项目提供了 `../data` 目录下的 `gameinfo.json` 与 `shopitems.json`，用于快速初始化数据库。
+项目提供了 `../data` 目录下的 `gameinfo.json`、`shopitems.json`、`mapareas.json`、`mapitems.json` 与 `maptraps.json`，用于快速初始化数据库。
 
 1. 进入项目根目录，确保 MongoDB 服务已启动。
 2. 执行以下命令导入初始数据：
    ```bash
    mongoimport --db dts --collection gameinfos --file ../data/gameinfo.json --jsonArray
- mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
+   mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
+   mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
+   mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
+   mongoimport --db dts --collection maptraps --file ../data/maptraps.json --jsonArray
   ```
-3. 导入完成后即可获得与原作一致的基础记录与商店物品。
+3. 导入完成后即可获得与原作一致的基础记录、商店物品以及地图物品和陷阱数据。
 
 ## 单局玩家绑定字段
 为用户集合新增 `lastgame` 与 `lastpid` 字段以记录当前游戏局及绑定的玩家：
