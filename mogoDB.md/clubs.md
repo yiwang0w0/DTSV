@@ -5,7 +5,7 @@
    ```javascript
    db.clubs.createIndex({ cid: 1 })
    ```
-4. 如果已存在旧数据，可执行以下命令导入默认职业列表：
+4. 如果已存在旧数据，可执行以下命令导入完整职业列表：
    ```javascript
    db.clubs.deleteMany({})
    db.clubs.insertMany(JSON.parse(cat('data/clubs.json')))
