@@ -69,7 +69,3 @@ exports.pickEquip = (req, res) => {
 exports.attack = (req, res) => {
   handle(() => playerService.attack(req.user, req.body), req, res);
 };
-
-exports.escape = (req, res) => {
-  handle(() => playerService.escape(req.user, req.body), req, res);
-};

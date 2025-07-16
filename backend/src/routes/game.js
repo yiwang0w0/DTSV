@@ -24,6 +24,5 @@ router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
 router.post('/unequip', auth, playerController.unequip);
 router.post('/attack', auth, playerController.attack);
-router.post('/escape', auth, playerController.escape);
 
 module.exports = router;

@@ -49,7 +49,7 @@
         />
 
         <!-- 背包面板 -->
-        <InventoryPanel :enemy="enemy" @attack="doAttack" @escape="doEscape" />
+        <InventoryPanel :enemy="enemy" @attack="doAttack" />
       </div>
     </div>
   </div>
@@ -64,7 +64,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, attack, escapeBattle } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, attack } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -342,20 +342,6 @@ async function doAttack() {
     checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '攻击失败')
-  }
-}
-
-async function doEscape() {
-  if (!playerId.value || !enemy.value) return
-  stopRestTimer()
-  try {
-    const { data } = await escapeBattle(playerId.value, enemy.value.pid)
-    info.value = data.player
-    addLog(data.log)
-    if (data.log.includes('成功逃离')) enemy.value = null
-    checkDeath()
-  } catch (e) {
-    alert(e.response?.data?.msg || '逃跑失败')
   }
 }
 </script>
