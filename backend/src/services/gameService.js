@@ -59,6 +59,26 @@ async function spawnTraps(stage) {
   }
 }
 
+let pendingItems = [];
+let repeatItems = [];
+
+async function dropScheduledItems(stage) {
+  const toAdd = [];
+  for (let i = pendingItems.length - 1; i >= 0; i--) {
+    const item = pendingItems[i];
+    if (item.time === stage) {
+      toAdd.push(item);
+      pendingItems.splice(i, 1);
+    }
+  }
+  for (const item of repeatItems) {
+    toAdd.push({ ...item });
+  }
+  if (toAdd.length) {
+    await MapItem.insertMany(toAdd);
+  }
+}
+
 async function ensureDefaultClubs() {
   const count = await Club.countDocuments();
   if (count === 0) {
@@ -228,32 +248,28 @@ async function checkDangerAreas() {
   const total = all.length;
   let changed = false;
 
-  while (info.areanum < total && now >= info.areatime) {
-    const next = all.slice(info.areanum, info.areanum + AREA_ADD);
-    info.areanum += next.length;
-    const stage = Math.ceil(info.areanum / AREA_ADD);
-    info.areatime += AREA_INTERVAL;
-    changed = true;
+while (info.areanum < total && now >= info.areatime) {
+  const next = all.slice(info.areanum, info.areanum + AREA_ADD);
+  info.areanum += next.length;
+  const stage = Math.ceil(info.areanum / AREA_ADD);
+  info.areatime += AREA_INTERVAL;
+  changed = true;
 
-    await spawnTraps(stage);
-    await dropScheduledItems(stage);
+  await spawnTraps(stage);
+  await dropScheduledItems(stage);
 
-    for (const pid of next) {
-      await MapArea.updateOne({ pid }, { danger: 1 });
-      const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
-      for (const p of players) {
-        p.hp = 0;
-        p.state = 11;
-        p.endtime = now;
-        await p.save();
-      }
+  for (const pid of next) {
+    await MapArea.updateOne({ pid }, { danger: 1 });
+    const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
+    for (const p of players) {
+      p.hp = 0;
+      p.state = 11;
+      p.endtime = now;
+      await p.save();
     }
   }
-
-  if (changed) {
-    await info.save();
-  }
 }
+
 
 module.exports = {
   ensureDefaultClubs,
