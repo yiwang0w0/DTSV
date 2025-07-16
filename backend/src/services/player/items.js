@@ -73,6 +73,11 @@ async function useItem(user, body) {
     throw err;
   }
 
+  // 装备类型物品的 "使用" 等同于装备
+  if (/^(W|DB|DH|DA|DF|A)/.test(kind)) {
+    return equip(user, { pid, index });
+  }
+
   let log = '';
 
   if (kind.startsWith('HS')) {
