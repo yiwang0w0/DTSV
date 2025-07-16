@@ -1,7 +1,7 @@
 <template>
   <div class="action-bar">
     <el-select v-model="val" placeholder="选择地点" style="width: 180px" @change="handleChange">
-      <el-option v-for="(n, i) in places" :key="i" :label="n" :value="i" />
+      <el-option v-for="n in places" :key="n.pid" :label="n.name" :value="n.pid" />
     </el-select>
     <el-button @click="$emit('search')">搜索</el-button>
     <el-button @click="$emit('rest')">休息</el-button>

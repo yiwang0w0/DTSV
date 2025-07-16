@@ -11,7 +11,7 @@
       style="width: 160px; margin-left:10px"
     >
       <el-option :label="'全部'" :value="-1" />
-      <el-option v-for="(n,i) in mapAreas" :key="i" :label="n" :value="i" />
+      <el-option v-for="n in mapAreas" :key="n.pid" :label="n.name" :value="n.pid" />
     </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
     <TablePanel
