@@ -79,6 +79,13 @@ let replaceItemId = null
 let programmatic = false
 let restTimer = null
 
+async function refreshMapAreas() {
+  try {
+    const { data } = await getMapAreas()
+    places.value = data
+  } catch {}
+}
+
 function checkDeath() {
   if (info.value && info.value.hp <= 0) {
     router.replace('/gameover')
@@ -196,6 +203,7 @@ async function fetchStatus() {
   if (!playerId.value) return
   try {
     const { data } = await getStatus(playerId.value)
+    await refreshMapAreas()
     info.value = data
     setTarget(data.pls)
     checkDeath()
@@ -206,11 +214,7 @@ async function fetchStatus() {
 }
 
 onMounted(() => {
-  if (!places.value.length) {
-    getMapAreas().then(({ data }) => {
-      places.value = data
-    }).catch(() => {})
-  }
+  refreshMapAreas()
   if (info.value) setTarget(info.value.pls)
   else fetchStatus()
 })
@@ -237,6 +241,7 @@ async function doMove() {
   try {
     const { data } = await move(playerId.value, target.value)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     checkDeath()
   } catch (e) {
@@ -251,6 +256,7 @@ async function doSearch() {
     const { data } = await search(playerId.value)
     info.value = data.player
     foundItem.value = data.item || null
+    await refreshMapAreas()
     addLog(data.log)
     checkDeath()
   } catch (e) {
@@ -263,6 +269,7 @@ async function doRest() {
   try {
     const { data } = await rest(playerId.value)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     checkDeath()
     if (data.player.restStart) {
@@ -279,6 +286,7 @@ async function pickFound() {
   try {
     const { data } = await pickItem(playerId.value, foundItem.value._id)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     foundItem.value = null
     checkDeath()
@@ -299,6 +307,7 @@ async function equipFound() {
   try {
     const { data } = await pickEquip(playerId.value, foundItem.value._id)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     foundItem.value = null
     checkDeath()
@@ -313,6 +322,7 @@ async function doReplace(index) {
   try {
     const { data } = await pickReplace(playerId.value, replaceItemId, index)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     replaceVisible.value = false
     replaceItemId = null
