@@ -44,4 +44,11 @@ if (clubs.length) {
   db.clubs.insertMany(clubs);
 }
 
+// 导入 npcs
+var npcs = JSON.parse(cat('./npcs.json'));
+if (npcs.length) {
+  db.players.remove({ type: { $gt: 0 } });
+  db.players.insertMany(npcs);
+}
+
 print('数据导入完成');
