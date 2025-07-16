@@ -27,9 +27,17 @@ function parseMapItems() {
     const parts = t.split(',');
     if (parts.length < 8) continue;
     const [time, area, num, itm, itmk, itme, itms, itmsk] = parts;
-    if (parseInt(time) !== 0) continue; // only start items
     for (let i = 0; i < parseInt(num); i++) {
-      result.push({ iid: iid++, itm, itmk, itme: Number(itme), itms: itms, itmsk, pls: Number(area) });
+      result.push({
+        iid: iid++,
+        time: Number(time),
+        itm,
+        itmk,
+        itme: Number(itme),
+        itms: itms,
+        itmsk,
+        pls: Number(area)
+      });
     }
   }
   fs.writeFileSync(path.join(__dirname, '../data/mapitems.json'), JSON.stringify(result, null, 2));
