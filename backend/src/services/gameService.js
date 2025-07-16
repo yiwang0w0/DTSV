@@ -59,25 +59,6 @@ async function spawnTraps(stage) {
   }
 }
 
-let pendingItems = [];
-let repeatItems = [];
-
-async function dropScheduledItems(stage) {
-  const toAdd = [];
-  for (let i = pendingItems.length - 1; i >= 0; i--) {
-    const item = pendingItems[i];
-    if (item.time === stage) {
-      toAdd.push(item);
-      pendingItems.splice(i, 1);
-    }
-  }
-  for (const item of repeatItems) {
-    toAdd.push({ ...item });
-  }
-  if (toAdd.length) {
-    await MapItem.insertMany(toAdd);
-  }
-}
 
 async function ensureDefaultClubs() {
   const count = await Club.countDocuments();
@@ -269,6 +250,11 @@ while (info.areanum < total && now >= info.areatime) {
     }
   }
 }
+  if (changed) {
+    await info.save();
+}
+}
+
 
 
 module.exports = {
