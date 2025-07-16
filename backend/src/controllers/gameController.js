@@ -30,7 +30,8 @@ exports.getInfo = async (req, res) => {
 
 exports.startGame = async (req, res) => {
   try {
-    const result = await gameService.startGame();
+    const gametype = parseInt(req.body.gametype || 0, 10);
+    const result = await gameService.startGame(gametype);
     res.json(result);
   } catch (err) {
     console.error(err);

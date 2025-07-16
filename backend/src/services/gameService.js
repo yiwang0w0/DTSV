@@ -25,7 +25,7 @@ async function ensureDefaultClubs() {
   }
 }
 
-async function startGame() {
+async function startGame(gametype = 0) {
   let info = await GameInfo.findOne();
   const now = Math.floor(Date.now() / 1000);
   if (!info) {
@@ -33,12 +33,14 @@ async function startGame() {
       version: '1.0',
       gamenum: 1,
       gamestate: 20,
-      starttime: now
+      starttime: now,
+      gametype
     });
   } else {
     info.gamenum += 1;
     info.gamestate = 20;
     info.starttime = now;
+    info.gametype = gametype;
     info.afktime = 0;
     info.validnum = 0;
     info.alivenum = 0;
@@ -50,8 +52,21 @@ async function startGame() {
     await info.save();
   }
 
+  const instMap = {
+    15: 'instance5',
+    16: 'instance6',
+    17: 'instance7_tutorial',
+    18: 'instance8_proud',
+    19: 'instance9_rush'
+  };
+
+  const baseDir = path.join(__dirname, '../../../data');
+  const instanceDir = instMap[gametype] ? path.join(baseDir, 'instances', instMap[gametype]) : baseDir;
+
   try {
-    const file = path.join(__dirname, '../../../data/mapitems.json');
+    const file = fs.existsSync(path.join(instanceDir, 'mapitem.json')) ?
+      path.join(instanceDir, 'mapitem.json') :
+      path.join(baseDir, 'mapitems.json');
     const items = JSON.parse(fs.readFileSync(file));
     await MapItem.deleteMany({});
     if (items && items.length) {
@@ -62,7 +77,9 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/maptraps.json');
+    const file = fs.existsSync(path.join(instanceDir, 'trapitem.json')) ?
+      path.join(instanceDir, 'trapitem.json') :
+      path.join(baseDir, 'maptraps.json');
     const traps = JSON.parse(fs.readFileSync(file));
     await MapTrap.deleteMany({});
     if (traps && traps.length) {
@@ -80,7 +97,9 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/npcs.json');
+    const file = fs.existsSync(path.join(instanceDir, 'npc.data.json')) ?
+      path.join(instanceDir, 'npc.data.json') :
+      path.join(baseDir, 'npcs.json');
     const npcs = JSON.parse(fs.readFileSync(file));
     if (npcs && npcs.length) {
       await Player.insertMany(npcs);
