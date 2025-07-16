@@ -325,6 +325,91 @@ async function unequip(user, body) {
   return { msg: `卸下了${name}`, player: formatPlayer(player) };
 }
 
+async function dropItem(user, body) {
+  const { pid, index } = body;
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  if (player.hp <= 0) {
+    const err = new Error('你已经死亡');
+    err.status = 400;
+    throw err;
+  }
+  if (index < 0 || index >= 5) {
+    const err = new Error('物品编号错误');
+    err.status = 400;
+    throw err;
+  }
+  const name = player[`itm${index}`];
+  if (!name) {
+    const err = new Error('物品不存在');
+    err.status = 400;
+    throw err;
+  }
+  await dropMapItem(
+    player.pls,
+    name,
+    player[`itmk${index}`],
+    player[`itme${index}`],
+    String(player[`itms${index}`]),
+    player[`itmsk${index}`]
+  );
+  player[`itm${index}`] = '';
+  player[`itmk${index}`] = '';
+  player[`itme${index}`] = 0;
+  player[`itms${index}`] = '0';
+  player[`itmsk${index}`] = '';
+  await player.save();
+  return { msg: `丢弃了${name}`, player: formatPlayer(player) };
+}
+
+async function dropEquip(user, body) {
+  const { pid, slot } = body;
+  const allow = ['wep', 'arb', 'arh', 'ara', 'arf', 'art'];
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  if (player.hp <= 0) {
+    const err = new Error('你已经死亡');
+    err.status = 400;
+    throw err;
+  }
+  if (!allow.includes(slot)) {
+    const err = new Error('装备栏错误');
+    err.status = 400;
+    throw err;
+  }
+  const name = player[slot];
+  if (!name) {
+    const err = new Error('没有装备');
+    err.status = 400;
+    throw err;
+  }
+
+  await dropMapItem(
+    player.pls,
+    player[slot],
+    player[`${slot}k`],
+    player[`${slot}e`],
+    String(player[`${slot}s`]),
+    player[`${slot}sk`]
+  );
+
+  player[slot] = '';
+  player[`${slot}k`] = '';
+  player[`${slot}e`] = 0;
+  player[`${slot}s`] = '0';
+  player[`${slot}sk`] = '';
+  await player.save();
+  return { msg: `丢弃了${name}`, player: formatPlayer(player) };
+}
+
 async function pickReplace(user, body) {
   const { pid, itemId, index } = body;
   const player = await Player.findOne({ pid, uid: user._id });
@@ -455,5 +540,7 @@ module.exports = {
   equip,
   unequip,
   pickReplace,
-  pickEquip
+  pickEquip,
+  dropItem,
+  dropEquip
 };

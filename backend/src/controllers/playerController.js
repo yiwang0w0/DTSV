@@ -69,3 +69,11 @@ exports.pickEquip = (req, res) => {
 exports.attack = (req, res) => {
   handle(() => playerService.attack(req.user, req.body), req, res);
 };
+
+exports.dropItem = (req, res) => {
+  handle(() => playerService.dropItem(req.user, req.body), req, res);
+};
+
+exports.dropEquip = (req, res) => {
+  handle(() => playerService.dropEquip(req.user, req.body), req, res);
+};

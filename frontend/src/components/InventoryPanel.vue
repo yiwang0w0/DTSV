@@ -11,6 +11,7 @@
           <template #default="scope">
             <el-button size="small" @click="equip(scope.$index)" :disabled="scope.row.disableEquip">装备</el-button>
             <el-button size="small" @click="useIt(scope.$index)" :disabled="scope.row.disableUse">使用</el-button>
+            <el-button size="small" @click="drop(scope.$index)" :disabled="!scope.row.name">丢弃</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -30,7 +31,7 @@ const props = defineProps({
 const emit = defineEmits(['attack'])
 import { playerInfo as info } from '../store/player'
 import { playerId } from '../store/user'
-import { equipItem, useItem } from '../api'
+import { equipItem, useItem, dropItem } from '../api'
 
 function getType(kind) {
   if (!kind) return ''
@@ -87,6 +88,16 @@ function useIt(index) {
   }).catch(e => {
     const msg = e.response?.data?.msg
     alert(msg || '使用失败')
+  })
+}
+
+function drop(index) {
+  if (!playerId.value) return
+  dropItem(playerId.value, index).then(({ data }) => {
+    info.value = data.player
+  }).catch(e => {
+    const msg = e.response?.data?.msg
+    alert(msg || '丢弃失败')
   })
 }
 </script>

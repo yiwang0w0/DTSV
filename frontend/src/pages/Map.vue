@@ -5,7 +5,7 @@
       <!-- 左侧区域 -->
       <div class="left-panel">
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
-        <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" />
+        <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
         <LogPanel :logs="logs" />
       </div>
 
@@ -64,7 +64,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, attack } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -79,6 +79,13 @@ let replaceItemId = null
 let programmatic = false
 let restTimer = null
 const enemy = ref(null)
+
+async function refreshMapAreas() {
+  try {
+    const { data } = await getMapAreas()
+    places.value = data
+  } catch {}
+}
 
 function checkDeath() {
   if (info.value && info.value.hp <= 0) {
@@ -197,6 +204,7 @@ async function fetchStatus() {
   if (!playerId.value) return
   try {
     const { data } = await getStatus(playerId.value)
+    await refreshMapAreas()
     info.value = data
     setTarget(data.pls)
     checkDeath()
@@ -207,11 +215,7 @@ async function fetchStatus() {
 }
 
 onMounted(() => {
-  if (!places.value.length) {
-    getMapAreas().then(({ data }) => {
-      places.value = data
-    }).catch(() => {})
-  }
+  refreshMapAreas()
   if (info.value) setTarget(info.value.pls)
   else fetchStatus()
 })
@@ -232,12 +236,25 @@ async function unequip(field) {
   }
 }
 
+async function dropEquipItem(field) {
+  if (!playerId.value) return
+  stopRestTimer()
+  try {
+    const { data } = await dropEquip(playerId.value, field)
+    info.value = data.player
+    addLog(data.msg)
+  } catch (e) {
+    alert(e.response?.data?.msg || '丢弃失败')
+  }
+}
+
 async function doMove() {
   if (!playerId.value) return
   stopRestTimer()
   try {
     const { data } = await move(playerId.value, target.value)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     checkDeath()
   } catch (e) {
@@ -253,6 +270,7 @@ async function doSearch() {
     info.value = data.player
     foundItem.value = data.item || null
     enemy.value = data.enemy || null
+    await refreshMapAreas()
     addLog(data.log)
     checkDeath()
   } catch (e) {
@@ -265,6 +283,7 @@ async function doRest() {
   try {
     const { data } = await rest(playerId.value)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     checkDeath()
     if (data.player.restStart) {
@@ -281,6 +300,7 @@ async function pickFound() {
   try {
     const { data } = await pickItem(playerId.value, foundItem.value._id)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     foundItem.value = null
     checkDeath()
@@ -301,6 +321,7 @@ async function equipFound() {
   try {
     const { data } = await pickEquip(playerId.value, foundItem.value._id)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     foundItem.value = null
     checkDeath()
@@ -315,6 +336,7 @@ async function doReplace(index) {
   try {
     const { data } = await pickReplace(playerId.value, replaceItemId, index)
     info.value = data.player
+    await refreshMapAreas()
     addLog(data.msg)
     replaceVisible.value = false
     replaceItemId = null
