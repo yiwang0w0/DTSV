@@ -218,28 +218,12 @@ async function equip(user, body) {
     throw err;
   }
 
-  if (player[slotName]) {
-    let empty = -1;
-    for (let i = 0; i < 5; i++) {
-      if (!player[`itm${i}`]) { empty = i; break; }
-    }
-    if (empty !== -1) {
-      player[`itm${empty}`] = player[slotName];
-      player[`itmk${empty}`] = player[`${slotName}k`];
-      player[`itme${empty}`] = player[`${slotName}e`];
-      player[`itms${empty}`] = player[`${slotName}s`];
-      player[`itmsk${empty}`] = player[`${slotName}sk`];
-    } else {
-      await dropMapItem(
-        player.pls,
-        player[slotName],
-        player[`${slotName}k`],
-        player[`${slotName}e`],
-        String(player[`${slotName}s`]),
-        player[`${slotName}sk`]
-      );
-    }
-  }
+  // 将原装备放回背包对应格子，实现背包与装备栏互换
+  const oldName = player[slotName];
+  const oldKind = player[`${slotName}k`];
+  const oldEffect = player[`${slotName}e`];
+  const oldUses = player[`${slotName}s`];
+  const oldSkill = player[`${slotName}sk`];
 
   if (slotName === 'wep') {
     player.wep = name;
@@ -279,11 +263,19 @@ async function equip(user, body) {
     player.artsk = player[`itmsk${index}`];
   }
 
-  player[`itm${index}`] = '';
-  player[`itmk${index}`] = '';
-  player[`itme${index}`] = 0;
-  player[`itms${index}`] = '0';
-  player[`itmsk${index}`] = '';
+  if (oldName) {
+    player[`itm${index}`] = oldName;
+    player[`itmk${index}`] = oldKind;
+    player[`itme${index}`] = oldEffect;
+    player[`itms${index}`] = oldUses;
+    player[`itmsk${index}`] = oldSkill;
+  } else {
+    player[`itm${index}`] = '';
+    player[`itmk${index}`] = '';
+    player[`itme${index}`] = 0;
+    player[`itms${index}`] = '0';
+    player[`itmsk${index}`] = '';
+  }
   await player.save();
   return { msg: `装备了${name}`, player: formatPlayer(player) };
 }
@@ -429,6 +421,7 @@ async function pickEquip(user, body) {
     throw err;
   }
 
+  // 背包有空位时将旧装备放回背包，否则掉落地图
   if (player[slotName]) {
     let empty = -1;
     for (let i = 0; i < 5; i++) {
