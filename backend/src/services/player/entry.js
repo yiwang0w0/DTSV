@@ -6,7 +6,7 @@ const { checkDangerAreas } = require('../gameService');
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.join(__dirname, '../../../data');
+const dataDir = path.resolve(__dirname, '../../../../data');
 const startItems = JSON.parse(fs.readFileSync(path.join(dataDir, 'start_items.json')));
 const startWeapons = JSON.parse(fs.readFileSync(path.join(dataDir, 'start_weapons.json')));
 
