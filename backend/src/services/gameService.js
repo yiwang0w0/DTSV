@@ -33,7 +33,7 @@ let trapSchedule = null;
 
 function loadTraps(filePath) {
   if (!trapSchedule) {
-    const file = filePath || path.join(__dirname, '../../../data/maptraps.json');
+    const file = filePath || path.resolve(__dirname, '../../../data/maptraps.json');
     const traps = JSON.parse(fs.readFileSync(file));
     trapSchedule = {};
     traps.forEach(t => {
@@ -64,7 +64,7 @@ async function ensureDefaultClubs() {
   const count = await Club.countDocuments();
   if (count === 0) {
     try {
-      const file = path.join(__dirname, '../../../data/clubs.json');
+      const file = path.resolve(__dirname, '../../../data/clubs.json');
       const clubs = JSON.parse(fs.readFileSync(file));
       if (clubs && clubs.length) {
         await Club.insertMany(clubs);
@@ -111,7 +111,7 @@ async function startGame(gametype = 0) {
     19: 'instance9_rush'
   };
 
-  const baseDir = path.join(__dirname, '../../../data');
+  const baseDir = path.resolve(__dirname, '../../../data');
   const instanceDir = instMap[gametype] ? path.join(baseDir, 'instances', instMap[gametype]) : baseDir;
 
   try {
