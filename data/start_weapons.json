@@ -1,0 +1,863 @@
+[
+  {
+    "name": "菜刀",
+    "kind": "WK",
+    "effect": 15,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "叉子",
+    "kind": "WK",
+    "effect": 10,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "小刀",
+    "kind": "WK",
+    "effect": 17,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "短刀",
+    "kind": "WK",
+    "effect": 15,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "军用小刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "双刃小刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "镰刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "冰锥",
+    "kind": "WK",
+    "effect": 8,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "日本刀",
+    "kind": "WK",
+    "effect": 25,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "☆軍刀☆",
+    "kind": "WK",
+    "effect": 30,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "卷筒卫生纸",
+    "kind": "WP",
+    "effect": 1,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "笔记本电脑",
+    "kind": "WP",
+    "effect": 1,
+    "dur": "1",
+    "skill": ""
+  },
+  {
+    "name": "大纸扇",
+    "kind": "WP",
+    "effect": 4,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "衣架",
+    "kind": "WP",
+    "effect": 6,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "大喇叭",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "锅盖",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "20",
+    "skill": ""
+  },
+  {
+    "name": "十手",
+    "kind": "WP",
+    "effect": 12,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "三叉",
+    "kind": "WP",
+    "effect": 12,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "棍棒",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "金属棒",
+    "kind": "WP",
+    "effect": 22,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "双截棍",
+    "kind": "WP",
+    "effect": 18,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "手机",
+    "kind": "WC",
+    "effect": 1,
+    "dur": "1",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 6,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 6,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "回力镖",
+    "kind": "WC",
+    "effect": 9,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "高级飞镖",
+    "kind": "WC",
+    "effect": 8,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "乒乓球",
+    "kind": "WC",
+    "effect": 3,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "篮球",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "棒球",
+    "kind": "WC",
+    "effect": 22,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "网球",
+    "kind": "WC",
+    "effect": 4,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "回力镖",
+    "kind": "WC",
+    "effect": 9,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "高级飞镖",
+    "kind": "WC",
+    "effect": 8,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "篮球",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "棒球",
+    "kind": "WC",
+    "effect": 22,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "网球",
+    "kind": "WC",
+    "effect": 4,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 35,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 65,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 65,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "手枪",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "火绳枪",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Sig Sauer P230 9mm☆",
+    "kind": "WG",
+    "effect": 40,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆哥尔德357左轮手枪☆",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆S&W M59自动手枪☆",
+    "kind": "WG",
+    "effect": 35,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Colt Highway Patrolman☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆CZ．M75☆",
+    "kind": "WG",
+    "effect": 40,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆散弹枪☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆狙击枪☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆S&W 38口径左轮枪☆",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Remington 31R☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "★IMI手槍★",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "★Colt Highway Patrolman★",
+    "kind": "WG",
+    "effect": 50,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "★橘纹金镶嵌火绳枪★",
+    "kind": "WG",
+    "effect": 50,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "菜刀",
+    "kind": "WK",
+    "effect": 15,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "叉子",
+    "kind": "WK",
+    "effect": 10,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "小刀",
+    "kind": "WK",
+    "effect": 17,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "短刀",
+    "kind": "WK",
+    "effect": 15,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "军用小刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "双刃小刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "镰刀",
+    "kind": "WK",
+    "effect": 20,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "冰锥",
+    "kind": "WK",
+    "effect": 8,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "日本刀",
+    "kind": "WK",
+    "effect": 25,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "☆軍刀☆",
+    "kind": "WK",
+    "effect": 30,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "卷筒卫生纸",
+    "kind": "WP",
+    "effect": 1,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "笔记本电脑",
+    "kind": "WP",
+    "effect": 1,
+    "dur": "1",
+    "skill": ""
+  },
+  {
+    "name": "大纸扇",
+    "kind": "WP",
+    "effect": 4,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "衣架",
+    "kind": "WP",
+    "effect": 6,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "大喇叭",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "锅盖",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "20",
+    "skill": ""
+  },
+  {
+    "name": "十手",
+    "kind": "WP",
+    "effect": 12,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "三叉",
+    "kind": "WP",
+    "effect": 12,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "棍棒",
+    "kind": "WP",
+    "effect": 10,
+    "dur": "3",
+    "skill": ""
+  },
+  {
+    "name": "金属棒",
+    "kind": "WP",
+    "effect": 22,
+    "dur": "5",
+    "skill": ""
+  },
+  {
+    "name": "双截棍",
+    "kind": "WP",
+    "effect": 18,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "手机",
+    "kind": "WC",
+    "effect": 1,
+    "dur": "1",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 6,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 6,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "回力镖",
+    "kind": "WC",
+    "effect": 9,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "高级飞镖",
+    "kind": "WC",
+    "effect": 8,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "乒乓球",
+    "kind": "WC",
+    "effect": 3,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "篮球",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "棒球",
+    "kind": "WC",
+    "effect": 22,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "网球",
+    "kind": "WC",
+    "effect": 4,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "飞镖",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "回力镖",
+    "kind": "WC",
+    "effect": 9,
+    "dur": "15",
+    "skill": ""
+  },
+  {
+    "name": "高级飞镖",
+    "kind": "WC",
+    "effect": 8,
+    "dur": "24",
+    "skill": ""
+  },
+  {
+    "name": "篮球",
+    "kind": "WC",
+    "effect": 12,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "棒球",
+    "kind": "WC",
+    "effect": 22,
+    "dur": "4",
+    "skill": ""
+  },
+  {
+    "name": "网球",
+    "kind": "WC",
+    "effect": 4,
+    "dur": "12",
+    "skill": ""
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 35,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 65,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "炸弹",
+    "kind": "WD",
+    "effect": 65,
+    "dur": "3",
+    "skill": "d"
+  },
+  {
+    "name": "手榴弹",
+    "kind": "WD",
+    "effect": 40,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "照明弹",
+    "kind": "WD",
+    "effect": 20,
+    "dur": "5",
+    "skill": "d"
+  },
+  {
+    "name": "手枪",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "火绳枪",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Sig Sauer P230 9mm☆",
+    "kind": "WG",
+    "effect": 40,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆哥尔德357左轮手枪☆",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆S&W M59自动手枪☆",
+    "kind": "WG",
+    "effect": 35,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Colt Highway Patrolman☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆CZ．M75☆",
+    "kind": "WG",
+    "effect": 40,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆散弹枪☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆狙击枪☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆S&W 38口径左轮枪☆",
+    "kind": "WG",
+    "effect": 30,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "☆Remington 31R☆",
+    "kind": "WG",
+    "effect": 45,
+    "dur": "6",
+    "skill": ""
+  },
+  {
+    "name": "退魔符",
+    "kind": "WF",
+    "effect": 14,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "结界符",
+    "kind": "WF",
+    "effect": 20,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "御札弹幕",
+    "kind": "WF",
+    "effect": 25,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "退魔符",
+    "kind": "WF",
+    "effect": 14,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "结界符",
+    "kind": "WF",
+    "effect": 20,
+    "dur": "10",
+    "skill": ""
+  },
+  {
+    "name": "御札弹幕",
+    "kind": "WF",
+    "effect": 25,
+    "dur": "10",
+    "skill": ""
+  }
+]

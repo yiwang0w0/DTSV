@@ -144,6 +144,10 @@ mongo ../data/initData.js
 php scripts/generateNpcData.php
 ```
 
+此外，`data` 目录还新增了 `start_items.json` 与 `start_weapons.json`，用于初始化
+玩家的开局物品与随机武器。后端会在创建角色时读取这两个文件，无需额外导入数
+据库。
+
 导入完成后即可获得与原作一致的基础游戏信息、地图区域以及默认物品池。
 如需手动添加地图或物品，可参照 `mogoDB.md/mapareas.md` 和 `mogoDB.md/mapitems.md` 的说明。
 
