@@ -3,8 +3,6 @@ const GameInfo = require('../../models/GameInfo');
 const Club = require('../../models/Club');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
-const startItems = require('../../../../data/start_items.json');
-const startWeapons = require('../../../../data/start_weapons.json');
 
 async function clubs() {
   const clubs = await Club.find({}, 'cid name');
@@ -53,56 +51,8 @@ async function enter(user, body) {
       att: base.att,
       def: base.def,
       money: base.money,
-      club: club || 0,
-      itm0: '面包',
-      itmk0: 'HH',
-      itme0: 100,
-      itms0: '30',
-      itmsk0: '',
-      itm1: '矿泉水',
-      itmk1: 'HS',
-      itme1: 100,
-      itms1: '30',
-      itmsk1: ''
+      club: club || 0
     });
-
-    const weapon =
-      startWeapons[Math.floor(Math.random() * startWeapons.length)] || null;
-    if (weapon) {
-      player.wep = weapon.itm;
-      player.wepk = weapon.itmk;
-      player.wepe = weapon.itme;
-      player.weps = String(weapon.itms);
-      player.wepsk = weapon.itmsk || '';
-    }
-
-    function randItem() {
-      return startItems[Math.floor(Math.random() * startItems.length)];
-    }
-    let itemA = randItem();
-    let itemB = randItem();
-    let limit = 10;
-    while (itemB.itmk === itemA.itmk && limit > 0) {
-      itemB = randItem();
-      limit--;
-    }
-
-    if (itemA) {
-      player.itm2 = itemA.itm;
-      player.itmk2 = itemA.itmk;
-      player.itme2 = itemA.itme;
-      player.itms2 = String(itemA.itms);
-      player.itmsk2 = itemA.itmsk || '';
-    }
-    if (itemB) {
-      player.itm3 = itemB.itm;
-      player.itmk3 = itemB.itmk;
-      player.itme3 = itemB.itme;
-      player.itms3 = String(itemB.itms);
-      player.itmsk3 = itemB.itmsk || '';
-    }
-
-    await player.save();
     user.lastgame = gid;
     user.lastpid = pid;
     await user.save();

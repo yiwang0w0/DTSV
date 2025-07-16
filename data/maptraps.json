@@ -1,381 +1,3413 @@
 [
-  {"tid": 1, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 2, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 3, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 4, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 5, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 6, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 7, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 8, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 9, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 10, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 11, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 12, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 13, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 14, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 15, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 16, "itm": "【最终机枪防线】", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "1", "pls": 0, "time": 0},
-  {"tid": 17, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 18, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 19, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 20, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 21, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 22, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 23, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 24, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 25, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 26, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 27, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 28, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 29, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 30, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 31, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 32, "itm": "【最终火炮防线】", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "1", "pls": 0, "time": 1},
-  {"tid": 33, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 34, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 35, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 36, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 37, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 38, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 39, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 40, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 41, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 42, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 43, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 44, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 45, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 46, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 47, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 48, "itm": "【最终结界防线】", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "1", "pls": 0, "time": 2},
-  {"tid": 49, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 50, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 51, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 52, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 53, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 54, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 55, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 56, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 57, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 58, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 59, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 60, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 61, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 62, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 63, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 64, "itm": "【最终能量防线】", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "1", "pls": 0, "time": 3},
-  {"tid": 65, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 66, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 67, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 68, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 69, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 70, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 71, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 72, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 73, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 74, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 75, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 76, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 77, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 78, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 79, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 80, "itm": "【最终数据防线】", "itmk": "TO", "itme": 1000, "itms": "1", "itmsk": "1", "pls": 0, "time": 4},
-  {"tid": 81, "itm": "脉冲防线", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 1, "time": 0},
-  {"tid": 82, "itm": "脉冲防线", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 1, "time": 0},
-  {"tid": 83, "itm": "脉冲防线", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 1, "time": 0},
-  {"tid": 84, "itm": "脉冲防线", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 1, "time": 0},
-  {"tid": 85, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 86, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 87, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 88, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 89, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 90, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 91, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 92, "itm": "地雷", "itmk": "TO", "itme": 200, "itms": "1", "itmsk": "", "pls": 2, "time": 0},
-  {"tid": 93, "itm": "杀人激光束", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 2, "time": 1},
-  {"tid": 94, "itm": "杀人激光束", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 2, "time": 1},
-  {"tid": 95, "itm": "杀人激光束", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 2, "time": 1},
-  {"tid": 96, "itm": "钢琴线", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 97, "itm": "钢琴线", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 98, "itm": "钢琴线", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 99, "itm": "钢琴线", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 100, "itm": "钢琴线", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 101, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 102, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 103, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 3, "time": 0},
-  {"tid": 104, "itm": "钢琴线", "itmk": "TO", "itme": 140, "itms": "1", "itmsk": "", "pls": 4, "time": 0},
-  {"tid": 105, "itm": "钢琴线", "itmk": "TO", "itme": 140, "itms": "1", "itmsk": "", "pls": 4, "time": 0},
-  {"tid": 106, "itm": "钢琴线", "itmk": "TO", "itme": 140, "itms": "1", "itmsk": "", "pls": 4, "time": 0},
-  {"tid": 107, "itm": "钢琴线", "itmk": "TO", "itme": 140, "itms": "1", "itmsk": "", "pls": 4, "time": 0},
-  {"tid": 108, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 109, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 110, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 111, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 112, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 113, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 114, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 115, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 116, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 117, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 5, "time": 0},
-  {"tid": 118, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 119, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 120, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 121, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 122, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 123, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 124, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 125, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 126, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 127, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 5, "time": 1},
-  {"tid": 128, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 129, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 130, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 131, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 132, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 133, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 134, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 135, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 136, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 137, "itm": "指挥中心防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 5, "time": 2},
-  {"tid": 138, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 139, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 140, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 141, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 142, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 143, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 144, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 145, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 146, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 147, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 6, "time": 0},
-  {"tid": 148, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 149, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 150, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 151, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 152, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 153, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 154, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 155, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 156, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 157, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 6, "time": 1},
-  {"tid": 158, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 159, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 160, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 161, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 162, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 163, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 164, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 165, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 166, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 167, "itm": "梦幻馆防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 6, "time": 2},
-  {"tid": 168, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 7, "time": 99},
-  {"tid": 169, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 7, "time": 99},
-  {"tid": 170, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 7, "time": 99},
-  {"tid": 171, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 7, "time": 99},
-  {"tid": 172, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 7, "time": 99},
-  {"tid": 173, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 8, "time": 0},
-  {"tid": 174, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 8, "time": 0},
-  {"tid": 175, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 8, "time": 0},
-  {"tid": 176, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 177, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 178, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 179, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 180, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 181, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 182, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 183, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 184, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 185, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 186, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 187, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 188, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 189, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 190, "itm": "落穴", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 191, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 192, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 193, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 194, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 195, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 196, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 197, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 198, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 199, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 200, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 201, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 202, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 203, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 204, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 205, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 206, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 207, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 208, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 209, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 210, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 211, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 212, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 213, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 214, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 215, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 216, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 217, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 218, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 219, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 220, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 221, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 222, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 223, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 224, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 225, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 226, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 227, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 228, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 229, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 230, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 231, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 232, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 233, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 234, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 235, "itm": "落穴", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 9, "time": 0},
-  {"tid": 236, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 237, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 238, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 239, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 240, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 241, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 242, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 243, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 244, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 245, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 246, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 247, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 248, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 249, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 250, "itm": "爆裂装甲", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 9, "time": 1},
-  {"tid": 251, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 252, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 253, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 254, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 255, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 256, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 257, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 258, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 259, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 260, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 261, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 262, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 263, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 264, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 265, "itm": "【奈落的落穴】", "itmk": "TO", "itme": 700, "itms": "1", "itmsk": "", "pls": 9, "time": 2},
-  {"tid": 266, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 267, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 268, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 269, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 270, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 271, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 272, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 273, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 14, "time": 0},
-  {"tid": 274, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 275, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 276, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 277, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 278, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 279, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 280, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 281, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 282, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 283, "itm": "捕兽器", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 16, "time": 99},
-  {"tid": 284, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 285, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 286, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 287, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 288, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 289, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 290, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 291, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 292, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 293, "itm": "学院都市防御装置", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 17, "time": 0},
-  {"tid": 294, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 295, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 296, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 297, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 298, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 299, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 300, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 301, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 302, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 303, "itm": "学院都市防御装置", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 17, "time": 1},
-  {"tid": 304, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 305, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 306, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 307, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 308, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 309, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 310, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 311, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 312, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 313, "itm": "学院都市防御装置", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 17, "time": 2},
-  {"tid": 314, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 315, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 316, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 317, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 318, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 319, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 320, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 321, "itm": "机枪防线", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 21, "time": 0},
-  {"tid": 322, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 323, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 324, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 325, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 326, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 327, "itm": "火炮防线", "itmk": "TO", "itme": 500, "itms": "1", "itmsk": "", "pls": 21, "time": 1},
-  {"tid": 328, "itm": "电脑防线", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 21, "time": 2},
-  {"tid": 329, "itm": "电脑防线", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 21, "time": 2},
-  {"tid": 330, "itm": "电脑防线", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 21, "time": 2},
-  {"tid": 331, "itm": "电脑防线", "itmk": "TO", "itme": 600, "itms": "1", "itmsk": "", "pls": 21, "time": 2},
-  {"tid": 332, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 333, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 334, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 335, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 336, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 337, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 27, "time": 0},
-  {"tid": 338, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 339, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 340, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 341, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 342, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 343, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 344, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 345, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 28, "time": 99},
-  {"tid": 346, "itm": "★阔剑地雷★", "itmk": "TO", "itme": 450, "itms": "1", "itmsk": "", "pls": 28, "time": 1},
-  {"tid": 347, "itm": "★阔剑地雷★", "itmk": "TO", "itme": 450, "itms": "1", "itmsk": "", "pls": 28, "time": 1},
-  {"tid": 348, "itm": "★阔剑地雷★", "itmk": "TO", "itme": 450, "itms": "1", "itmsk": "", "pls": 28, "time": 1},
-  {"tid": 349, "itm": "★阔剑地雷★", "itmk": "TO", "itme": 450, "itms": "1", "itmsk": "", "pls": 28, "time": 1},
-  {"tid": 350, "itm": "★中子地雷★", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "", "pls": 28, "time": 2},
-  {"tid": 351, "itm": "★中子地雷★", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "", "pls": 28, "time": 2},
-  {"tid": 352, "itm": "★中子地雷★", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "", "pls": 28, "time": 2},
-  {"tid": 353, "itm": "绳索", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 354, "itm": "绳索", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 355, "itm": "绳索", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 356, "itm": "绳索", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 357, "itm": "绳索", "itmk": "TO", "itme": 120, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 358, "itm": "圣石之种", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 359, "itm": "圣石之种", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 360, "itm": "圣石之种", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 361, "itm": "圣石之种", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 362, "itm": "圣石之种", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 29, "time": 99},
-  {"tid": 363, "itm": "对魔物用陷阱群", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 33, "time": 1},
-  {"tid": 364, "itm": "对魔物用陷阱群", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 33, "time": 1},
-  {"tid": 365, "itm": "对魔物用陷阱群", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 33, "time": 1},
-  {"tid": 366, "itm": "对魔物用陷阱群", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 33, "time": 1},
-  {"tid": 367, "itm": "对魔物用陷阱群", "itmk": "TO", "itme": 240, "itms": "1", "itmsk": "", "pls": 33, "time": 1},
-  {"tid": 368, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 369, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 370, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 371, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 372, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 373, "itm": "地雷", "itmk": "TO", "itme": 300, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 374, "itm": "摧泪喷雾剂", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 375, "itm": "摧泪喷雾剂", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 376, "itm": "摧泪喷雾剂", "itmk": "TO", "itme": 150, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 377, "itm": "★防御结界★", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 378, "itm": "★防御结界★", "itmk": "TO", "itme": 400, "itms": "1", "itmsk": "", "pls": 99, "time": 0},
-  {"tid": 379, "itm": "★全地图唯一的野生高伤阔剑地雷★", "itmk": "TO", "itme": 800, "itms": "1", "itmsk": "", "pls": 99, "time": 0}
+  {
+    "tid": 1,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 2,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 3,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 4,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 5,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 6,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 7,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 8,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 9,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 10,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 11,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 12,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 13,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 14,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 15,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 16,
+    "itm": "【最终机枪防线】",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 17,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 18,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 19,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 20,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 21,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 22,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 23,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 24,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 25,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 26,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 27,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 28,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 29,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 30,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 31,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 32,
+    "itm": "【最终火炮防线】",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 33,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 34,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 35,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 36,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 37,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 38,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 39,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 40,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 41,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 42,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 43,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 44,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 45,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 46,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 47,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 48,
+    "itm": "【最终结界防线】",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 49,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 50,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 51,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 52,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 53,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 54,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 55,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 56,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 57,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 58,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 59,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 60,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 61,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 62,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 63,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 64,
+    "itm": "【最终能量防线】",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 65,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 66,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 67,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 68,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 69,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 70,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 71,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 72,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 73,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 74,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 75,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 76,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 77,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 78,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 79,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 80,
+    "itm": "【最终数据防线】",
+    "itmk": "TO",
+    "itme": 1000,
+    "itms": "1",
+    "itmsk": "1",
+    "pls": 0
+  },
+  {
+    "tid": 81,
+    "itm": "脉冲防线",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 1
+  },
+  {
+    "tid": 82,
+    "itm": "脉冲防线",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 1
+  },
+  {
+    "tid": 83,
+    "itm": "脉冲防线",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 1
+  },
+  {
+    "tid": 84,
+    "itm": "脉冲防线",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 1
+  },
+  {
+    "tid": 85,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 86,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 87,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 88,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 89,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 90,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 91,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 92,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 200,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 93,
+    "itm": "杀人激光束",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 94,
+    "itm": "杀人激光束",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 95,
+    "itm": "杀人激光束",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 2
+  },
+  {
+    "tid": 96,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 97,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 98,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 99,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 100,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 101,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 102,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 103,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 3
+  },
+  {
+    "tid": 104,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 140,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 4
+  },
+  {
+    "tid": 105,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 140,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 4
+  },
+  {
+    "tid": 106,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 140,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 4
+  },
+  {
+    "tid": 107,
+    "itm": "钢琴线",
+    "itmk": "TO",
+    "itme": 140,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 4
+  },
+  {
+    "tid": 108,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 109,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 110,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 111,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 112,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 113,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 114,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 115,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 116,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 117,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 118,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 119,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 120,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 121,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 122,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 123,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 124,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 125,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 126,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 127,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 128,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 129,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 130,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 131,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 132,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 133,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 134,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 135,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 136,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 137,
+    "itm": "指挥中心防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 5
+  },
+  {
+    "tid": 138,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 139,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 140,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 141,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 142,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 143,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 144,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 145,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 146,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 147,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 148,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 149,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 150,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 151,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 152,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 153,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 154,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 155,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 156,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 157,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 158,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 159,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 160,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 161,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 162,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 163,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 164,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 165,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 166,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 167,
+    "itm": "梦幻馆防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 6
+  },
+  {
+    "tid": 168,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 7
+  },
+  {
+    "tid": 169,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 7
+  },
+  {
+    "tid": 170,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 7
+  },
+  {
+    "tid": 171,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 7
+  },
+  {
+    "tid": 172,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 7
+  },
+  {
+    "tid": 173,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 8
+  },
+  {
+    "tid": 174,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 8
+  },
+  {
+    "tid": 175,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 8
+  },
+  {
+    "tid": 176,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 177,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 178,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 179,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 180,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 181,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 182,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 183,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 184,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 185,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 186,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 187,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 188,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 189,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 190,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 191,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 192,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 193,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 194,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 195,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 196,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 197,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 198,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 199,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 200,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 201,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 202,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 203,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 204,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 205,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 206,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 207,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 208,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 209,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 210,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 211,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 212,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 213,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 214,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 215,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 216,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 217,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 218,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 219,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 220,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 221,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 222,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 223,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 224,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 225,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 226,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 227,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 228,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 229,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 230,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 231,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 232,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 233,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 234,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 235,
+    "itm": "落穴",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 236,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 237,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 238,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 239,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 240,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 241,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 242,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 243,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 244,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 245,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 246,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 247,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 248,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 249,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 250,
+    "itm": "爆裂装甲",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 251,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 252,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 253,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 254,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 255,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 256,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 257,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 258,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 259,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 260,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 261,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 262,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 263,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 264,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 265,
+    "itm": "【奈落的落穴】",
+    "itmk": "TO",
+    "itme": 700,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 9
+  },
+  {
+    "tid": 266,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 267,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 268,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 269,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 270,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 271,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 272,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 273,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 14
+  },
+  {
+    "tid": 274,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 275,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 276,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 277,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 278,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 279,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 280,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 281,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 282,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 283,
+    "itm": "捕兽器",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 16
+  },
+  {
+    "tid": 284,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 285,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 286,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 287,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 288,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 289,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 290,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 291,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 292,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 293,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 294,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 295,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 296,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 297,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 298,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 299,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 300,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 301,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 302,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 303,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 304,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 305,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 306,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 307,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 308,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 309,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 310,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 311,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 312,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 313,
+    "itm": "学院都市防御装置",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 17
+  },
+  {
+    "tid": 314,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 315,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 316,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 317,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 318,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 319,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 320,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 321,
+    "itm": "机枪防线",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 322,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 323,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 324,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 325,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 326,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 327,
+    "itm": "火炮防线",
+    "itmk": "TO",
+    "itme": 500,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 328,
+    "itm": "电脑防线",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 329,
+    "itm": "电脑防线",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 330,
+    "itm": "电脑防线",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 331,
+    "itm": "电脑防线",
+    "itmk": "TO",
+    "itme": 600,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 21
+  },
+  {
+    "tid": 332,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 333,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 334,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 335,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 336,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 337,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 27
+  },
+  {
+    "tid": 338,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 339,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 340,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 341,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 342,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 343,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 344,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 345,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 346,
+    "itm": "★阔剑地雷★",
+    "itmk": "TO",
+    "itme": 450,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 347,
+    "itm": "★阔剑地雷★",
+    "itmk": "TO",
+    "itme": 450,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 348,
+    "itm": "★阔剑地雷★",
+    "itmk": "TO",
+    "itme": 450,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 349,
+    "itm": "★阔剑地雷★",
+    "itmk": "TO",
+    "itme": 450,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 350,
+    "itm": "★中子地雷★",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 351,
+    "itm": "★中子地雷★",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 352,
+    "itm": "★中子地雷★",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 28
+  },
+  {
+    "tid": 353,
+    "itm": "绳索",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 354,
+    "itm": "绳索",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 355,
+    "itm": "绳索",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 356,
+    "itm": "绳索",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 357,
+    "itm": "绳索",
+    "itmk": "TO",
+    "itme": 120,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 358,
+    "itm": "圣石之种",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 359,
+    "itm": "圣石之种",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 360,
+    "itm": "圣石之种",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 361,
+    "itm": "圣石之种",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 362,
+    "itm": "圣石之种",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 29
+  },
+  {
+    "tid": 363,
+    "itm": "对魔物用陷阱群",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 33
+  },
+  {
+    "tid": 364,
+    "itm": "对魔物用陷阱群",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 33
+  },
+  {
+    "tid": 365,
+    "itm": "对魔物用陷阱群",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 33
+  },
+  {
+    "tid": 366,
+    "itm": "对魔物用陷阱群",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 33
+  },
+  {
+    "tid": 367,
+    "itm": "对魔物用陷阱群",
+    "itmk": "TO",
+    "itme": 240,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 33
+  },
+  {
+    "tid": 368,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 369,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 370,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 371,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 372,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 373,
+    "itm": "地雷",
+    "itmk": "TO",
+    "itme": 300,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 374,
+    "itm": "摧泪喷雾剂",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 375,
+    "itm": "摧泪喷雾剂",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 376,
+    "itm": "摧泪喷雾剂",
+    "itmk": "TO",
+    "itme": 150,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 377,
+    "itm": "★防御结界★",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 378,
+    "itm": "★防御结界★",
+    "itmk": "TO",
+    "itme": 400,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  },
+  {
+    "tid": 379,
+    "itm": "★全地图唯一的野生高伤阔剑地雷★",
+    "itmk": "TO",
+    "itme": 800,
+    "itms": "1",
+    "itmsk": "",
+    "pls": 99
+  }
 ]
