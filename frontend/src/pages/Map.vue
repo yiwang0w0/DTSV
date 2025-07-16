@@ -49,7 +49,7 @@
         />
 
         <!-- 背包面板 -->
-        <InventoryPanel />
+        <InventoryPanel :enemy="enemy" @attack="doAttack" @escape="doEscape" />
       </div>
     </div>
   </div>
@@ -64,7 +64,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, attack, escapeBattle } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -78,6 +78,7 @@ const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
 let restTimer = null
+const enemy = ref(null)
 
 function checkDeath() {
   if (info.value && info.value.hp <= 0) {
@@ -251,6 +252,7 @@ async function doSearch() {
     const { data } = await search(playerId.value)
     info.value = data.player
     foundItem.value = data.item || null
+    enemy.value = data.enemy || null
     addLog(data.log)
     checkDeath()
   } catch (e) {
@@ -327,6 +329,34 @@ function closeReplaceDialog() {
   replaceVisible.value = false
   replaceItemId = null
   foundItem.value = null
+}
+
+async function doAttack() {
+  if (!playerId.value || !enemy.value) return
+  stopRestTimer()
+  try {
+    const { data } = await attack(playerId.value, enemy.value.pid)
+    info.value = data.player
+    addLog(data.log)
+    if (data.enemy && data.enemy.hp <= 0) enemy.value = null
+    checkDeath()
+  } catch (e) {
+    alert(e.response?.data?.msg || '攻击失败')
+  }
+}
+
+async function doEscape() {
+  if (!playerId.value || !enemy.value) return
+  stopRestTimer()
+  try {
+    const { data } = await escapeBattle(playerId.value, enemy.value.pid)
+    info.value = data.player
+    addLog(data.log)
+    if (data.log.includes('成功逃离')) enemy.value = null
+    checkDeath()
+  } catch (e) {
+    alert(e.response?.data?.msg || '逃跑失败')
+  }
 }
 </script>
 

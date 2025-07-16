@@ -14,12 +14,21 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="enemy" style="margin-top:10px; text-align:center;">
+        <p>遭遇 {{ enemy.type > 0 ? 'NPC' : '玩家' }}【{{ enemy.name }}】</p>
+        <el-button size="small" type="danger" @click="emit('attack')">攻击</el-button>
+        <el-button size="small" @click="emit('escape')">逃跑</el-button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+const props = defineProps({
+  enemy: Object
+})
+const emit = defineEmits(['attack','escape'])
 import { playerInfo as info } from '../store/player'
 import { playerId } from '../store/user'
 import { equipItem, useItem } from '../api'

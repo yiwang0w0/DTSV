@@ -21,3 +21,5 @@ export const pickEquip = (pid, itemId) =>
 export const useItem = (pid, index) => api.post('/game/use', { pid, index })
 export const equipItem = (pid, index) => api.post('/game/equip', { pid, index })
 export const unequipItem = (pid, slot) => api.post('/game/unequip', { pid, slot })
+export const attack = (pid, eid) => api.post('/game/attack', { pid, eid })
+export const escapeBattle = (pid, eid) => api.post('/game/escape', { pid, eid })
