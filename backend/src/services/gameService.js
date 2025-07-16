@@ -31,9 +31,9 @@ async function dropScheduledItems(stage) {
 
 let trapSchedule = null;
 
-function loadTraps() {
+function loadTraps(filePath) {
   if (!trapSchedule) {
-    const file = path.join(__dirname, '../../../data/maptraps.json');
+    const file = filePath || path.join(__dirname, '../../../data/maptraps.json');
     const traps = JSON.parse(fs.readFileSync(file));
     trapSchedule = {};
     traps.forEach(t => {
@@ -157,9 +157,9 @@ async function startGame(gametype = 0) {
     const file = fs.existsSync(path.join(instanceDir, 'trapitem.json')) ?
       path.join(instanceDir, 'trapitem.json') :
       path.join(baseDir, 'maptraps.json');
-    const traps = JSON.parse(fs.readFileSync(file));
     await MapTrap.deleteMany({});
     trapSchedule = null;
+    loadTraps(file);
     await spawnTraps(0);
   } catch (e) {
     console.error('初始化地图陷阱失败', e);
