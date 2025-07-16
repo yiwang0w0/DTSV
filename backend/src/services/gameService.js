@@ -9,6 +9,36 @@ const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constant
 const fs = require('fs');
 const path = require('path');
 
+let trapSchedule = null;
+
+function loadTraps() {
+  if (!trapSchedule) {
+    const file = path.join(__dirname, '../../../data/maptraps.json');
+    const traps = JSON.parse(fs.readFileSync(file));
+    trapSchedule = {};
+    traps.forEach(t => {
+      const tm = typeof t.time === 'number' ? t.time : 0;
+      if (!trapSchedule[tm]) trapSchedule[tm] = [];
+      trapSchedule[tm].push(t);
+    });
+  }
+}
+
+async function spawnTraps(stage) {
+  loadTraps();
+  const list = [];
+  if (trapSchedule[stage]) {
+    list.push(...trapSchedule[stage]);
+    delete trapSchedule[stage];
+  }
+  if (trapSchedule[99]) {
+    list.push(...trapSchedule[99].map(t => ({ ...t })));
+  }
+  if (list.length) {
+    await MapTrap.insertMany(list);
+  }
+}
+
 async function ensureDefaultClubs() {
   const count = await Club.countDocuments();
   if (count === 0) {
@@ -62,12 +92,9 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/maptraps.json');
-    const traps = JSON.parse(fs.readFileSync(file));
     await MapTrap.deleteMany({});
-    if (traps && traps.length) {
-      await MapTrap.insertMany(traps);
-    }
+    trapSchedule = null;
+    await spawnTraps(0);
   } catch (e) {
     console.error('初始化地图陷阱失败', e);
   }
@@ -155,8 +182,10 @@ async function checkDangerAreas() {
   while (info.areanum < total && now >= info.areatime) {
     const next = all.slice(info.areanum, info.areanum + AREA_ADD);
     info.areanum += next.length;
+    const stage = Math.ceil(info.areanum / AREA_ADD);
     info.areatime += AREA_INTERVAL;
     changed = true;
+    await spawnTraps(stage);
     for (const pid of next) {
       await MapArea.updateOne({ pid }, { danger: 1 });
       const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
