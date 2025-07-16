@@ -25,3 +25,5 @@ db.players.updateMany(
 ```
 
 该字段对应 `backend/src/models/Player.js` 中的 `restStart`。 
+
+更多 NPC 初始化信息见 `npcs.md`.
