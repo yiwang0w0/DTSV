@@ -11,10 +11,25 @@
           <template #default="scope">
             <el-button size="small" @click="equip(scope.$index)" :disabled="scope.row.disableEquip">装备</el-button>
             <el-button size="small" @click="useIt(scope.$index)" :disabled="scope.row.disableUse">使用</el-button>
-            <el-button size="small" @click="drop(scope.$index)" :disabled="!scope.row.name">丢弃</el-button>
           </template>
         </el-table-column>
       </el-table>
+      <div style="margin-top:10px; text-align:right;">
+        <el-button size="small" @click="openDrop">丢弃</el-button>
+      </div>
+      <el-dialog v-model="dropVisible" title="选择要丢弃的物品" width="300px">
+        <el-radio-group v-model="dropIndex">
+          <el-radio v-for="(row, idx) in items" :key="idx" :label="idx" :disabled="!row.name">
+            {{ row.name || '（空）' }}
+          </el-radio>
+        </el-radio-group>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="dropVisible = false">取消</el-button>
+            <el-button type="primary" @click="confirmDrop">确定</el-button>
+          </span>
+        </template>
+      </el-dialog>
       <div v-if="enemy" style="margin-top:10px; text-align:center;">
         <p>遭遇 {{ enemy.type > 0 ? 'NPC' : '玩家' }}【{{ enemy.name }}】</p>
         <el-button size="small" type="danger" @click="emit('attack')">攻击</el-button>
@@ -24,7 +39,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 const props = defineProps({
   enemy: Object
 })
@@ -50,6 +65,9 @@ function getType(kind) {
 function isEquip(kind) {
   return /^(W|DB|DH|DA|DF|A)/.test(kind)
 }
+
+const dropVisible = ref(false)
+const dropIndex = ref(0)
 
 const items = computed(() => {
   const res = []
@@ -91,10 +109,17 @@ function useIt(index) {
   })
 }
 
-function drop(index) {
+function openDrop() {
+  const idx = items.value.findIndex(it => it.name)
+  dropIndex.value = idx >= 0 ? idx : 0
+  dropVisible.value = true
+}
+
+function confirmDrop() {
   if (!playerId.value) return
-  dropItem(playerId.value, index).then(({ data }) => {
+  dropItem(playerId.value, dropIndex.value).then(({ data }) => {
     info.value = data.player
+    dropVisible.value = false
   }).catch(e => {
     const msg = e.response?.data?.msg
     alert(msg || '丢弃失败')
