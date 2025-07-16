@@ -49,7 +49,7 @@
         />
 
         <!-- 背包面板 -->
-        <InventoryPanel />
+        <InventoryPanel :enemy="enemy" @attack="doAttack" />
       </div>
     </div>
   </div>
@@ -64,7 +64,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -78,6 +78,7 @@ const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
 let restTimer = null
+const enemy = ref(null)
 
 async function refreshMapAreas() {
   try {
@@ -268,6 +269,7 @@ async function doSearch() {
     const { data } = await search(playerId.value)
     info.value = data.player
     foundItem.value = data.item || null
+    enemy.value = data.enemy || null
     await refreshMapAreas()
     addLog(data.log)
     checkDeath()
@@ -349,6 +351,20 @@ function closeReplaceDialog() {
   replaceVisible.value = false
   replaceItemId = null
   foundItem.value = null
+}
+
+async function doAttack() {
+  if (!playerId.value || !enemy.value) return
+  stopRestTimer()
+  try {
+    const { data } = await attack(playerId.value, enemy.value.pid)
+    info.value = data.player
+    addLog(data.log)
+    if (data.enemy && data.enemy.hp <= 0) enemy.value = null
+    checkDeath()
+  } catch (e) {
+    alert(e.response?.data?.msg || '攻击失败')
+  }
 }
 </script>
 
