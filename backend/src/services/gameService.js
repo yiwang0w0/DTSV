@@ -79,6 +79,17 @@ async function startGame() {
     console.error('清理旧玩家数据失败', e);
   }
 
+  try {
+    const npcFile = path.join(__dirname, '../../../data/npcs.json');
+    const npcs = JSON.parse(fs.readFileSync(npcFile));
+    await Player.deleteMany({ type: { $gt: 0 } });
+    if (npcs && npcs.length) {
+      await Player.insertMany(npcs);
+    }
+  } catch (e) {
+    console.error('初始化 NPC 失败', e);
+  }
+
   const areas = await MapArea.find({}, 'pid');
   const ids = areas.map(a => a.pid);
   for (const id of ids) {
