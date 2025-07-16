@@ -43,7 +43,8 @@ maptraps: [
   { name: 'itmk', label: '类型', type: 'text' },
   { name: 'itme', label: '伤害', type: 'number' },
   { name: 'itms', label: '用途/次数', type: 'text' },
-  { name: 'pls', label: '布设区域', type: 'number' }
+  { name: 'pls', label: '布设区域', type: 'number' },
+  { name: 'time', label: '出现时间', type: 'number' }
 ],
   mapareas: [
     { name: 'pid', label: '区域ID', type: 'number' },

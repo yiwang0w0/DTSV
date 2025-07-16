@@ -1,0 +1,863 @@
+[
+  {
+    "itm": "菜刀",
+    "itmk": "WK",
+    "itme": 15,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "叉子",
+    "itmk": "WK",
+    "itme": 10,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "小刀",
+    "itmk": "WK",
+    "itme": 17,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "短刀",
+    "itmk": "WK",
+    "itme": 15,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "军用小刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "双刃小刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "镰刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "冰锥",
+    "itmk": "WK",
+    "itme": 8,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "日本刀",
+    "itmk": "WK",
+    "itme": 25,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆軍刀☆",
+    "itmk": "WK",
+    "itme": 30,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "卷筒卫生纸",
+    "itmk": "WP",
+    "itme": 1,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "笔记本电脑",
+    "itmk": "WP",
+    "itme": 1,
+    "itms": 1,
+    "itmsk": ""
+  },
+  {
+    "itm": "大纸扇",
+    "itmk": "WP",
+    "itme": 4,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "衣架",
+    "itmk": "WP",
+    "itme": 6,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "大喇叭",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "锅盖",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 20,
+    "itmsk": ""
+  },
+  {
+    "itm": "十手",
+    "itmk": "WP",
+    "itme": 12,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "三叉",
+    "itmk": "WP",
+    "itme": 12,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "棍棒",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "金属棒",
+    "itmk": "WP",
+    "itme": 22,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "双截棍",
+    "itmk": "WP",
+    "itme": 18,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "手机",
+    "itmk": "WC",
+    "itme": 1,
+    "itms": 1,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 6,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 6,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "回力镖",
+    "itmk": "WC",
+    "itme": 9,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "高级飞镖",
+    "itmk": "WC",
+    "itme": 8,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "乒乓球",
+    "itmk": "WC",
+    "itme": 3,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "篮球",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "棒球",
+    "itmk": "WC",
+    "itme": 22,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "网球",
+    "itmk": "WC",
+    "itme": 4,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "回力镖",
+    "itmk": "WC",
+    "itme": 9,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "高级飞镖",
+    "itmk": "WC",
+    "itme": 8,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "篮球",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "棒球",
+    "itmk": "WC",
+    "itme": 22,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "网球",
+    "itmk": "WC",
+    "itme": 4,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 35,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 65,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 65,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手枪",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "火绳枪",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Sig Sauer P230 9mm☆",
+    "itmk": "WG",
+    "itme": 40,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆哥尔德357左轮手枪☆",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆S&W M59自动手枪☆",
+    "itmk": "WG",
+    "itme": 35,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Colt Highway Patrolman☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆CZ．M75☆",
+    "itmk": "WG",
+    "itme": 40,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆散弹枪☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆狙击枪☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆S&W 38口径左轮枪☆",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Remington 31R☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "★IMI手槍★",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "★Colt Highway Patrolman★",
+    "itmk": "WG",
+    "itme": 50,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "★橘纹金镶嵌火绳枪★",
+    "itmk": "WG",
+    "itme": 50,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "菜刀",
+    "itmk": "WK",
+    "itme": 15,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "叉子",
+    "itmk": "WK",
+    "itme": 10,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "小刀",
+    "itmk": "WK",
+    "itme": 17,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "短刀",
+    "itmk": "WK",
+    "itme": 15,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "军用小刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "双刃小刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "镰刀",
+    "itmk": "WK",
+    "itme": 20,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "冰锥",
+    "itmk": "WK",
+    "itme": 8,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "日本刀",
+    "itmk": "WK",
+    "itme": 25,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆軍刀☆",
+    "itmk": "WK",
+    "itme": 30,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "卷筒卫生纸",
+    "itmk": "WP",
+    "itme": 1,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "笔记本电脑",
+    "itmk": "WP",
+    "itme": 1,
+    "itms": 1,
+    "itmsk": ""
+  },
+  {
+    "itm": "大纸扇",
+    "itmk": "WP",
+    "itme": 4,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "衣架",
+    "itmk": "WP",
+    "itme": 6,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "大喇叭",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "锅盖",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 20,
+    "itmsk": ""
+  },
+  {
+    "itm": "十手",
+    "itmk": "WP",
+    "itme": 12,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "三叉",
+    "itmk": "WP",
+    "itme": 12,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "棍棒",
+    "itmk": "WP",
+    "itme": 10,
+    "itms": 3,
+    "itmsk": ""
+  },
+  {
+    "itm": "金属棒",
+    "itmk": "WP",
+    "itme": 22,
+    "itms": 5,
+    "itmsk": ""
+  },
+  {
+    "itm": "双截棍",
+    "itmk": "WP",
+    "itme": 18,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "手机",
+    "itmk": "WC",
+    "itme": 1,
+    "itms": 1,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 6,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 6,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "回力镖",
+    "itmk": "WC",
+    "itme": 9,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "高级飞镖",
+    "itmk": "WC",
+    "itme": 8,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "乒乓球",
+    "itmk": "WC",
+    "itme": 3,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "篮球",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "棒球",
+    "itmk": "WC",
+    "itme": 22,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "网球",
+    "itmk": "WC",
+    "itme": 4,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "飞镖",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "回力镖",
+    "itmk": "WC",
+    "itme": 9,
+    "itms": 15,
+    "itmsk": ""
+  },
+  {
+    "itm": "高级飞镖",
+    "itmk": "WC",
+    "itme": 8,
+    "itms": 24,
+    "itmsk": ""
+  },
+  {
+    "itm": "篮球",
+    "itmk": "WC",
+    "itme": 12,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "棒球",
+    "itmk": "WC",
+    "itme": 22,
+    "itms": 4,
+    "itmsk": ""
+  },
+  {
+    "itm": "网球",
+    "itmk": "WC",
+    "itme": 4,
+    "itms": 12,
+    "itmsk": ""
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 35,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 65,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "炸弹",
+    "itmk": "WD",
+    "itme": 65,
+    "itms": 3,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手榴弹",
+    "itmk": "WD",
+    "itme": 40,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "照明弹",
+    "itmk": "WD",
+    "itme": 20,
+    "itms": 5,
+    "itmsk": "d"
+  },
+  {
+    "itm": "手枪",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "火绳枪",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Sig Sauer P230 9mm☆",
+    "itmk": "WG",
+    "itme": 40,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆哥尔德357左轮手枪☆",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆S&W M59自动手枪☆",
+    "itmk": "WG",
+    "itme": 35,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Colt Highway Patrolman☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆CZ．M75☆",
+    "itmk": "WG",
+    "itme": 40,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆散弹枪☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆狙击枪☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆S&W 38口径左轮枪☆",
+    "itmk": "WG",
+    "itme": 30,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "☆Remington 31R☆",
+    "itmk": "WG",
+    "itme": 45,
+    "itms": 6,
+    "itmsk": ""
+  },
+  {
+    "itm": "退魔符",
+    "itmk": "WF",
+    "itme": 14,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "结界符",
+    "itmk": "WF",
+    "itme": 20,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "御札弹幕",
+    "itmk": "WF",
+    "itme": 25,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "退魔符",
+    "itmk": "WF",
+    "itme": 14,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "结界符",
+    "itmk": "WF",
+    "itme": 20,
+    "itms": 10,
+    "itmsk": ""
+  },
+  {
+    "itm": "御札弹幕",
+    "itmk": "WF",
+    "itme": 25,
+    "itms": 10,
+    "itmsk": ""
+  }
+]
