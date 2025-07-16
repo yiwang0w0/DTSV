@@ -5,9 +5,29 @@ const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Club = require('../models/Club');
-const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
+const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
+
+let pendingItems = [];
+let repeatItems = [];
+
+async function dropScheduledItems(stage) {
+  const toAdd = [];
+  for (let i = pendingItems.length - 1; i >= 0; i--) {
+    const item = pendingItems[i];
+    if (item.time === stage) {
+      toAdd.push(item);
+      pendingItems.splice(i, 1);
+    }
+  }
+  for (const item of repeatItems) {
+    toAdd.push({ ...item });
+  }
+  if (toAdd.length) {
+    await MapItem.insertMany(toAdd);
+  }
+}
 
 let trapSchedule = null;
 
@@ -84,8 +104,15 @@ async function startGame() {
     const file = path.join(__dirname, '../../../data/mapitems.json');
     const items = JSON.parse(fs.readFileSync(file));
     await MapItem.deleteMany({});
+    pendingItems = [];
+    repeatItems = [];
     if (items && items.length) {
-      await MapItem.insertMany(items);
+      const startItems = items.filter(i => i.time === 0);
+      pendingItems = items.filter(i => i.time > 0 && i.time !== 99);
+      repeatItems = items.filter(i => i.time === 99);
+      if (startItems.length) {
+        await MapItem.insertMany(startItems);
+      }
     }
   } catch (e) {
     console.error('初始化地图物品失败', e);
@@ -179,13 +206,17 @@ async function checkDangerAreas() {
   const all = info.arealist ? info.arealist.split(',').map(Number) : [];
   const total = all.length;
   let changed = false;
+
   while (info.areanum < total && now >= info.areatime) {
     const next = all.slice(info.areanum, info.areanum + AREA_ADD);
     info.areanum += next.length;
     const stage = Math.ceil(info.areanum / AREA_ADD);
     info.areatime += AREA_INTERVAL;
     changed = true;
+
     await spawnTraps(stage);
+    await dropScheduledItems(stage);
+
     for (const pid of next) {
       await MapArea.updateOne({ pid }, { danger: 1 });
       const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
@@ -197,6 +228,7 @@ async function checkDangerAreas() {
       }
     }
   }
+
   if (changed) {
     await info.save();
   }

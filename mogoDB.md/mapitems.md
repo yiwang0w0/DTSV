@@ -5,8 +5,8 @@
 ```javascript
 use dts;
 db.mapitems.insertMany([
-  { iid: 1, itm: '煤气罐', itmk: 'GBi', itme: 1, itms: '10', itmsk: '', pls: 0 },
- { iid: 2, itm: '增幅设备', itmk: 'X', itme: 1, itms: '1', itmsk: '', pls: 1 }
+  { iid: 1, time: 0, itm: '煤气罐', itmk: 'GBi', itme: 1, itms: '10', itmsk: '', pls: 0 },
+  { iid: 2, time: 0, itm: '增幅设备', itmk: 'X', itme: 1, itms: '1', itmsk: '', pls: 1 }
 ]);
 ```
 
@@ -18,4 +18,4 @@ mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonAr
 
 `mapitems.json` 内已根据原版配置生成了全部地图的初始物品池，可在后台管理界面实时增删改查。
 
-以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需调整。
+以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需调整。新增 `time` 字段用于标记道具刷新的禁区序号，0 表示开局，99 表示每次增加禁区都会刷新。
