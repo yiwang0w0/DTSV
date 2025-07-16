@@ -5,7 +5,7 @@
       <!-- 左侧区域 -->
       <div class="left-panel">
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
-        <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" />
+        <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
         <LogPanel :logs="logs" />
       </div>
 
@@ -64,7 +64,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -228,6 +228,18 @@ async function unequip(field) {
     addLog(data.msg)
   } catch (e) {
     alert(e.response?.data?.msg || '卸下失败')
+  }
+}
+
+async function dropEquipItem(field) {
+  if (!playerId.value) return
+  stopRestTimer()
+  try {
+    const { data } = await dropEquip(playerId.value, field)
+    info.value = data.player
+    addLog(data.msg)
+  } catch (e) {
+    alert(e.response?.data?.msg || '丢弃失败')
   }
 }
 
