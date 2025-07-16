@@ -5,9 +5,59 @@ const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Club = require('../models/Club');
-const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
+const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
+
+let pendingItems = [];
+let repeatItems = [];
+
+async function dropScheduledItems(stage) {
+  const toAdd = [];
+  for (let i = pendingItems.length - 1; i >= 0; i--) {
+    const item = pendingItems[i];
+    if (item.time === stage) {
+      toAdd.push(item);
+      pendingItems.splice(i, 1);
+    }
+  }
+  for (const item of repeatItems) {
+    toAdd.push({ ...item });
+  }
+  if (toAdd.length) {
+    await MapItem.insertMany(toAdd);
+  }
+}
+
+let trapSchedule = null;
+
+function loadTraps() {
+  if (!trapSchedule) {
+    const file = path.join(__dirname, '../../../data/maptraps.json');
+    const traps = JSON.parse(fs.readFileSync(file));
+    trapSchedule = {};
+    traps.forEach(t => {
+      const tm = typeof t.time === 'number' ? t.time : 0;
+      if (!trapSchedule[tm]) trapSchedule[tm] = [];
+      trapSchedule[tm].push(t);
+    });
+  }
+}
+
+async function spawnTraps(stage) {
+  loadTraps();
+  const list = [];
+  if (trapSchedule[stage]) {
+    list.push(...trapSchedule[stage]);
+    delete trapSchedule[stage];
+  }
+  if (trapSchedule[99]) {
+    list.push(...trapSchedule[99].map(t => ({ ...t })));
+  }
+  if (list.length) {
+    await MapTrap.insertMany(list);
+  }
+}
 
 let pendingItems = [];
 let repeatItems = [];
@@ -45,7 +95,7 @@ async function ensureDefaultClubs() {
   }
 }
 
-async function startGame() {
+async function startGame(gametype = 0) {
   let info = await GameInfo.findOne();
   const now = Math.floor(Date.now() / 1000);
   if (!info) {
@@ -53,12 +103,14 @@ async function startGame() {
       version: '1.0',
       gamenum: 1,
       gamestate: 20,
-      starttime: now
+      starttime: now,
+      gametype
     });
   } else {
     info.gamenum += 1;
     info.gamestate = 20;
     info.starttime = now;
+    info.gametype = gametype;
     info.afktime = 0;
     info.validnum = 0;
     info.alivenum = 0;
@@ -70,8 +122,21 @@ async function startGame() {
     await info.save();
   }
 
+  const instMap = {
+    15: 'instance5',
+    16: 'instance6',
+    17: 'instance7_tutorial',
+    18: 'instance8_proud',
+    19: 'instance9_rush'
+  };
+
+  const baseDir = path.join(__dirname, '../../../data');
+  const instanceDir = instMap[gametype] ? path.join(baseDir, 'instances', instMap[gametype]) : baseDir;
+
   try {
-    const file = path.join(__dirname, '../../../data/mapitems.json');
+    const file = fs.existsSync(path.join(instanceDir, 'mapitem.json')) ?
+      path.join(instanceDir, 'mapitem.json') :
+      path.join(baseDir, 'mapitems.json');
     const items = JSON.parse(fs.readFileSync(file));
     await MapItem.deleteMany({});
     pendingItems = [];
@@ -89,12 +154,13 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/maptraps.json');
+    const file = fs.existsSync(path.join(instanceDir, 'trapitem.json')) ?
+      path.join(instanceDir, 'trapitem.json') :
+      path.join(baseDir, 'maptraps.json');
     const traps = JSON.parse(fs.readFileSync(file));
     await MapTrap.deleteMany({});
-    if (traps && traps.length) {
-      await MapTrap.insertMany(traps);
-    }
+    trapSchedule = null;
+    await spawnTraps(0);
   } catch (e) {
     console.error('初始化地图陷阱失败', e);
   }
@@ -107,7 +173,9 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/npcs.json');
+    const file = fs.existsSync(path.join(instanceDir, 'npc.data.json')) ?
+      path.join(instanceDir, 'npc.data.json') :
+      path.join(baseDir, 'npcs.json');
     const npcs = JSON.parse(fs.readFileSync(file));
     if (npcs && npcs.length) {
       await Player.insertMany(npcs);
@@ -179,28 +247,29 @@ async function checkDangerAreas() {
   const all = info.arealist ? info.arealist.split(',').map(Number) : [];
   const total = all.length;
   let changed = false;
-  while (info.areanum < total && now >= info.areatime) {
-    const next = all.slice(info.areanum, info.areanum + AREA_ADD);
-    info.areanum += next.length;
-    info.areatime += AREA_INTERVAL;
-    changed = true;
-    const stage = Math.ceil(info.areanum / AREA_ADD);
-    for (const pid of next) {
-      await MapArea.updateOne({ pid }, { danger: 1 });
-      const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
-      for (const p of players) {
-        p.hp = 0;
-        p.state = 11;
-        p.endtime = now;
-        await p.save();
-      }
+
+while (info.areanum < total && now >= info.areatime) {
+  const next = all.slice(info.areanum, info.areanum + AREA_ADD);
+  info.areanum += next.length;
+  const stage = Math.ceil(info.areanum / AREA_ADD);
+  info.areatime += AREA_INTERVAL;
+  changed = true;
+
+  await spawnTraps(stage);
+  await dropScheduledItems(stage);
+
+  for (const pid of next) {
+    await MapArea.updateOne({ pid }, { danger: 1 });
+    const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
+    for (const p of players) {
+      p.hp = 0;
+      p.state = 11;
+      p.endtime = now;
+      await p.save();
     }
-    await dropScheduledItems(stage);
-  }
-  if (changed) {
-    await info.save();
   }
 }
+
 
 module.exports = {
   ensureDefaultClubs,
