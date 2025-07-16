@@ -5,9 +5,9 @@
 ```javascript
 use dts;
 db.maptraps.insertMany([
-  { tid: 1, itm: '【最终机枪防线】', itmk: 'TO', itme: 400, itms: '1', itmsk: '1', pls: 0 },
-  { tid: 2, itm: '脉冲防线', itmk: 'TO', itme: 200, itms: '1', itmsk: '', pls: 1 }
+  { tid: 1, itm: '【最终机枪防线】', itmk: 'TO', itme: 400, itms: '1', itmsk: '1', pls: 0, time: 0 },
+  { tid: 2, itm: '脉冲防线', itmk: 'TO', itme: 200, itms: '1', itmsk: '', pls: 1, time: 0 }
 ]);
 ```
 
-字段与 `backend/src/models/MapTrap.js` 匹配。
+字段与 `backend/src/models/MapTrap.js` 匹配，其中 `time` 表示陷阱刷新的阶段编号。
