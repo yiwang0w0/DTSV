@@ -1,7 +1,9 @@
 const Player = require('../../models/Player');
 const GameInfo = require('../../models/GameInfo');
+const Log = require('../../models/Log');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
+// 引入完整工具避免解构失败
 const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, formatPlayer } = playerUtils;
 
@@ -17,6 +19,65 @@ function calcDef(p){
     Number(p.arfe || 0) +
     Number(p.arte || 0)
   );
+}
+
+function consumeWeapon(attacker){
+  if(!attacker.wep) return;
+  let uses = attacker.weps;
+  if(uses !== '∞'){
+    const num = parseInt(uses,10)-1;
+    attacker.weps = String(num);
+    if(num <= 0){
+      attacker.wep = attacker.wepk = attacker.wepsk = '';
+      attacker.wepe = 0;
+      attacker.weps = '0';
+    }
+  }
+}
+
+function poseMod(pose){
+  switch(Number(pose)){
+    case 2: return 0.9; //防御姿势
+    case 4: return 1.2; //攻击姿势
+    default: return 1;
+  }
+}
+
+function tacticMod(tactic){
+  switch(Number(tactic)){
+    case 2: return 1.1; //主动进攻
+    case 4: return 0.8; //谨慎防御
+    default: return 1;
+  }
+}
+
+function infMod(inf){
+  let m = 1;
+  if(!inf) return m;
+  if(inf.includes('h')) m *= 0.9;
+  if(inf.includes('b') || inf.includes('f')) m *= 0.95;
+  return m;
+}
+
+function weaponMod(wepk){
+  if(!wepk) return 1;
+  if(wepk.startsWith('WK')) return 1.1;
+  if(wepk.startsWith('WG')) return 1.2;
+  if(wepk.startsWith('WD')) return 1.3;
+  if(wepk.startsWith('WC')) return 0.9;
+  return 1;
+}
+
+function calcDamage(attacker, defender){
+  const att = calcAtt(attacker);
+  const def = calcDef(defender);
+  let dmg = att * weaponMod(attacker.wepk);
+  dmg *= poseMod(attacker.pose) * tacticMod(attacker.tactic) * infMod(attacker.inf);
+  dmg *= 1 + Math.min(attacker.rage || 0, 100) / 100;
+  dmg -= def * 0.3;
+  dmg *= 0.8 + Math.random() * 0.4;
+  if(dmg < 1) dmg = 1;
+  return Math.floor(dmg);
 }
 
 async function attack(user, body){
@@ -59,21 +120,36 @@ async function attack(user, body){
     throw err;
   }
   player.sp -= cost;
-  const att = calcAtt(player);
-  const def = calcDef(enemy);
-  let dmg = Math.floor(att - def / 2);
-  dmg = Math.floor(dmg * (0.8 + Math.random() * 0.4));
-  if(dmg < 1) dmg = 1;
-  enemy.hp = Math.max(enemy.hp - dmg, 0);
-  let log = `你攻击了${enemy.type>0?'NPC':'玩家'}【${enemy.name}】，造成${dmg}点伤害！<br>`;
+  let log = '';
+
+  const dmg1 = calcDamage(player, enemy);
+  enemy.hp = Math.max(enemy.hp - dmg1, 0);
+  consumeWeapon(player);
+  log += `你攻击了${enemy.type>0?'NPC':'玩家'}【${enemy.name}】，造成${dmg1}点伤害！<br>`;
   if(enemy.hp <= 0){
     enemy.state = 21;
     enemy.endtime = Math.floor(Date.now()/1000);
     log += '对方被击倒了！<br>';
+  }else{
+    const dmg2 = calcDamage(enemy, player);
+    player.hp = Math.max(player.hp - dmg2, 0);
+    consumeWeapon(enemy);
+    log += `${enemy.type>0?'NPC':'玩家'}【${enemy.name}】反击造成${dmg2}点伤害！<br>`;
+    if(player.hp <= 0){
+      player.state = 27;
+      log += '你被击倒了！<br>';
+    }
   }
-  await enemy.save();
-  await player.save();
-  return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, name: enemy.name } };
+
+  await Promise.all([enemy.save(), player.save()]);
+
+  const time = Math.floor(Date.now()/1000);
+  await Log.create([
+    { toid: player.pid, type: 'b', time, log },
+    { toid: enemy.pid, type: 'b', time, log }
+  ]);
+
+  return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, name: enemy.name, type: enemy.type } };
 }
 
 async function escape(user, body){
@@ -110,26 +186,25 @@ async function escape(user, body){
   }
   player.sp -= cost;
   let chance = 0.5 + (player.sp - enemy.sp) / 200;
+  chance += (player.tactic === 3 ? 0.1 : 0); //潜行策略更容易脱离
   if(chance < 0.1) chance = 0.1;
-  if(chance > 0.9) chance = 0.9;
+  if(chance > 0.95) chance = 0.95;
   let log = '';
   if(Math.random() < chance){
     log = `你成功逃离了${enemy.type>0?'NPC':'玩家'}【${enemy.name}】！`;
   }else{
-    const att = calcAtt(enemy);
-    const def = calcDef(player);
-    let dmg = Math.floor(att - def / 2);
-    dmg = Math.floor(dmg * (0.5 + Math.random() * 0.3));
-    if(dmg < 1) dmg = 1;
+    const dmg = calcDamage(enemy, player);
     player.hp = Math.max(player.hp - dmg, 0);
+    consumeWeapon(enemy);
     log = `逃跑失败，你受到${dmg}点伤害！`;
     if(player.hp <= 0){
       player.state = 27;
       log += '<br>你被击倒了！';
     }
   }
-  await enemy.save();
-  await player.save();
+  await Promise.all([enemy.save(), player.save()]);
+  const time = Math.floor(Date.now()/1000);
+  await Log.create({ toid: player.pid, type: 'b', time, log });
   return { log, player: formatPlayer(player) };
 }
 
