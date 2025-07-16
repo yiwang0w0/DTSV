@@ -214,8 +214,8 @@ async function stopGame() {
 }
 
 async function mapAreas() {
-  const areas = await MapArea.find({ danger: 0 }, 'pid name').sort({ pid: 1 });
-  return areas.map(a => a.name);
+  const areas = await MapArea.find({ danger: 0 }, 'pid name xy info').sort({ pid: 1 });
+  return areas.map(a => ({ pid: a.pid, name: a.name, xy: a.xy, info: a.info }));
 }
 
 async function checkDangerAreas() {

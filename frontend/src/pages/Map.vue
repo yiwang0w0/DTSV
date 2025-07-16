@@ -15,7 +15,7 @@
         <el-card class="card-section" shadow="hover">
           <el-row :gutter="20">
             <el-col :span="24">
-              <strong>位置：</strong>{{ places[info.pls] }}
+              <strong>位置：</strong>{{ places[info.pls]?.name }}
             </el-col>
             <el-col :span="24" class="status-block">
               <span class="label">生命：</span>

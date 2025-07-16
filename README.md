@@ -229,11 +229,14 @@ npm run lint     # 代码规范检查
   }
   ```
 
-- **GET `/api/game/mapareas`**：返回地图区域名称数组，用于客户端显示：
+- **GET `/api/game/mapareas`**：返回地图区域信息数组，包括名称、坐标与描述：
 
-  ```json
-  ["墓地","教学楼","体育馆"]
-  ```
+```json
+[
+  { "pid": 0, "name": "无月之影", "xy": "B-2", "info": "..." },
+  { "pid": 1, "name": "端点", "xy": "A-6", "info": "..." }
+]
+```
 
 - **POST `/api/game/start`**：将 `gamestate` 设为 `active`，成功返回：
 

@@ -5,9 +5,9 @@
 ```javascript
 use dts;
 db.mapareas.insertMany([
-  { pid: 0, name: "墓地", danger: 0 },
-  { pid: 1, name: "教学楼", danger: 0 },
-  { pid: 2, name: "体育馆", danger: 0 }
+  { pid: 0, name: "墓地", danger: 0, xy: "A-1", info: "..." },
+  { pid: 1, name: "教学楼", danger: 0, xy: "B-1", info: "..." },
+  { pid: 2, name: "体育馆", danger: 0, xy: "C-1", info: "..." }
 ]);
 ```
 
@@ -17,6 +17,12 @@ db.mapareas.insertMany([
 
 ```javascript
 db.mapareas.createIndex({ pid: 1 }, { unique: true })
+```
+
+若已存在旧版本的 `mapareas` 集合，需要为所有文档补充 `xy` 与 `info` 字段：
+
+```javascript
+db.mapareas.updateMany({}, { $set: { xy: '', info: '' } })
 ```
 
 也可以直接导入项目根目录 `data/mapareas.json` 提供的完整地图数据：
