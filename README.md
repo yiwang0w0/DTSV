@@ -138,6 +138,12 @@ mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonAr
 mongo ../data/initData.js
 ```
 
+如需重新生成 `data/npcs.json`，可执行：
+
+```bash
+php scripts/generateNpcData.php
+```
+
 导入完成后即可获得与原作一致的基础游戏信息、地图区域以及默认物品池。
 如需手动添加地图或物品，可参照 `mogoDB.md/mapareas.md` 和 `mogoDB.md/mapitems.md` 的说明。
 
