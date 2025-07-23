@@ -70,6 +70,10 @@ exports.attack = (req, res) => {
   handle(() => playerService.attack(req.user, req.body), req, res);
 };
 
+exports.escape = (req, res) => {
+  handle(() => playerService.escape(req.user, req.body), req, res);
+};
+
 exports.dropItem = (req, res) => {
   handle(() => playerService.dropItem(req.user, req.body), req, res);
 };

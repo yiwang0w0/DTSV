@@ -111,6 +111,12 @@ async function attack(user, body){
     err.status = 400;
     throw err;
   }
+  const memory = player.enemymemory ? JSON.parse(player.enemymemory) : null;
+  if(!memory || memory.id !== eid){
+    const err = new Error('当前没有与该目标交战');
+    err.status = 400;
+    throw err;
+  }
   await restoreMemoryItem(player);
   applyRest(player);
   const cost = 20;
@@ -141,15 +147,54 @@ async function attack(user, body){
     }
   }
 
-  await Promise.all([enemy.save(), player.save()]);
-
   const time = Math.floor(Date.now()/1000);
   await Log.create([
     { toid: player.pid, type: 'b', time, log },
     { toid: enemy.pid, type: 'b', time, log }
   ]);
-
+  player.enemymemory = '';
+  enemy.enemymemory = '';
+  await Promise.all([player.save(), enemy.save()]);
   return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, mhp: enemy.mhp, name: enemy.name, type: enemy.type, lvl: enemy.lvl, wep: enemy.wep, wepe: enemy.wepe } };
 }
 
-module.exports = { attack };
+async function escape(user, body){
+  const { pid } = body;
+  await checkDangerAreas();
+  const info = await GameInfo.findOne();
+  if(!info || info.gamestate < START_THRESHOLD){
+    const err = new Error('游戏未开始');
+    err.status = 400;
+    throw err;
+  }
+  const player = await Player.findOne({ pid, uid: user._id });
+  if(!player){
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  if(player.hp <= 0){
+    const err = new Error('你已经死亡');
+    err.status = 400;
+    throw err;
+  }
+  const memory = player.enemymemory ? JSON.parse(player.enemymemory) : null;
+  if(!memory){
+    const err = new Error('没有遭遇敌人');
+    err.status = 400;
+    throw err;
+  }
+  if(!memory.initiator){
+    const err = new Error('无法逃跑');
+    err.status = 400;
+    throw err;
+  }
+  player.enemymemory = '';
+  await player.save();
+  const time = Math.floor(Date.now()/1000);
+  const log = '你选择逃跑，成功回避了战斗。';
+  await Log.create([{ toid: player.pid, type: 'b', time, log }]);
+  return { log, player: formatPlayer(player) };
+}
+
+module.exports = { attack, escape };
