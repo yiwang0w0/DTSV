@@ -7,6 +7,45 @@ const { checkDangerAreas } = require('../gameService');
 const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, formatPlayer } = playerUtils;
 
+// 武器系别到熟练度字段的映射
+const SKILL_FIELDS = {
+  P: 'wp',
+  K: 'wk',
+  G: 'wg',
+  J: 'wg',
+  C: 'wc',
+  B: 'wc',
+  D: 'wd',
+  F: 'wf',
+  N: 'wp'
+};
+
+// 各系熟练度伤害系数
+const SKILL_DMG = {
+  P: 0.6,
+  K: 0.65,
+  G: 0.6,
+  J: 0.7,
+  C: 0.35,
+  B: 0.5,
+  D: 0.75,
+  F: 0.3,
+  N: 0.6
+};
+
+// 各系伤害浮动参数
+const DMG_FLUC = {
+  P: 15,
+  K: 40,
+  G: 20,
+  J: 10,
+  C: 5,
+  B: 10,
+  D: 25,
+  F: 10,
+  N: 15
+};
+
 function calcAtt(p){
   return Number(p.att) + Number(p.wepe || 0) * 2;
 }
@@ -59,23 +98,53 @@ function infMod(inf){
   return m;
 }
 
-function weaponMod(wepk){
-  if(!wepk) return 1;
-  if(wepk.startsWith('WK')) return 1.1;
-  if(wepk.startsWith('WG')) return 1.2;
-  if(wepk.startsWith('WD')) return 1.3;
-  if(wepk.startsWith('WC')) return 0.9;
-  return 1;
+function getWeaponKind(wepk){
+  if(!wepk || wepk.length < 2) return 'N';
+  return wepk[1];
+}
+
+function getSkill(attacker){
+  const kind = getWeaponKind(attacker.wepk);
+  const field = SKILL_FIELDS[kind];
+  return field ? Number(attacker[field] || 0) : 0;
+}
+
+function gainSkill(attacker, amount = 1){
+  const kind = getWeaponKind(attacker.wepk);
+  const field = SKILL_FIELDS[kind];
+  if(field){
+    attacker[field] = Number(attacker[field] || 0) + amount;
+  }
+}
+
+function getPrimaryFixedDamage(attacker, defender){
+  const kind = getWeaponKind(attacker.wepk);
+  if(kind === 'J'){
+    return Math.min(Math.floor(defender.mhp / 3), 20000) + Math.floor(attacker.wepe * 2 / 3);
+  }
+  if(kind === 'F'){
+    return attacker.wepe;
+  }
+  return 0;
 }
 
 function calcDamage(attacker, defender){
   const att = calcAtt(attacker);
-  const def = calcDef(defender);
-  let dmg = att * weaponMod(attacker.wepk);
+  const def = calcDef(defender) || 1;
+  const kind = getWeaponKind(attacker.wepk);
+  const skill = getSkill(attacker);
+  const coef = SKILL_DMG[kind] || 0.6;
+  const fluc = DMG_FLUC[kind] || 15;
+
+  let dmg = (att / def) * skill * coef;
+  const randFactor = ((100 + fluc) / 100) * (4 + Math.random() * 6) / 10;
+  dmg = Math.round(dmg * randFactor);
+  if(dmg < 1) dmg = 1;
+  dmg += getPrimaryFixedDamage(attacker, defender);
+
   dmg *= poseMod(attacker.pose) * tacticMod(attacker.tactic) * infMod(attacker.inf);
   dmg *= 1 + Math.min(attacker.rage || 0, 100) / 100;
-  dmg -= def * 0.3;
-  dmg *= 0.8 + Math.random() * 0.4;
+
   if(dmg < 1) dmg = 1;
   return Math.floor(dmg);
 }
@@ -131,6 +200,7 @@ async function attack(user, body){
   const dmg1 = calcDamage(player, enemy);
   enemy.hp = Math.max(enemy.hp - dmg1, 0);
   consumeWeapon(player);
+  gainSkill(player);
   log += `你攻击了${enemy.type>0?'NPC':'玩家'}【${enemy.name}】，造成${dmg1}点伤害！<br>`;
   if(enemy.hp <= 0){
     enemy.state = 21;
@@ -140,6 +210,7 @@ async function attack(user, body){
     const dmg2 = calcDamage(enemy, player);
     player.hp = Math.max(player.hp - dmg2, 0);
     consumeWeapon(enemy);
+    gainSkill(enemy);
     log += `${enemy.type>0?'NPC':'玩家'}【${enemy.name}】反击造成${dmg2}点伤害！<br>`;
     if(player.hp <= 0){
       player.state = 27;
