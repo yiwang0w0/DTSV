@@ -5,6 +5,7 @@
       <!-- 左侧区域 -->
       <div class="left-panel">
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
+        <BattlePanel v-if="enemy" :player="info" :enemy="enemy" />
         <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
         <LogPanel :logs="logs" />
       </div>
@@ -61,6 +62,7 @@ import { useRouter } from 'vue-router'
 import InventoryPanel from '../components/InventoryPanel.vue'
 import PlayerStats from '../components/PlayerStats.vue'
 import EquipmentList from '../components/EquipmentList.vue'
+import BattlePanel from '../components/BattlePanel.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import SearchDialog from '../components/SearchDialog.vue'

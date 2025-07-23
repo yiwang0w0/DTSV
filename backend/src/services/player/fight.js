@@ -149,7 +149,7 @@ async function attack(user, body){
     { toid: enemy.pid, type: 'b', time, log }
   ]);
 
-  return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, name: enemy.name, type: enemy.type } };
+  return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, mhp: enemy.mhp, name: enemy.name, type: enemy.type, lvl: enemy.lvl, wep: enemy.wep, wepe: enemy.wepe } };
 }
 
 module.exports = { attack };
