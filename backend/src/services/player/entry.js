@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
+const clubPro = require('../../config/clubProficiency');
 
 async function clubs() {
   const clubs = await Club.find({}, 'cid name');
@@ -55,6 +56,34 @@ async function enter(user, body) {
       money: base.money,
       club: club || 0
     });
+
+    const prof = clubPro[player.club];
+    if (prof) {
+      if (prof.startAll) {
+        player.wp = prof.startAll + (player.wp || 0);
+        player.wk = prof.startAll + (player.wk || 0);
+        player.wg = prof.startAll + (player.wg || 0);
+        player.wc = prof.startAll + (player.wc || 0);
+        player.wd = prof.startAll + (player.wd || 0);
+        player.wf = prof.startAll + (player.wf || 0);
+      }
+      if (prof.start) {
+        for (const k in prof.start) {
+          player[k] = (player[k] || 0) + prof.start[k];
+        }
+      }
+      if (prof.startSkillPoints) {
+        player.skillpoint = (player.skillpoint || 0) + prof.startSkillPoints;
+      }
+      if (prof.attDefStart) {
+        player.att += prof.attDefStart;
+        player.def += prof.attDefStart;
+      }
+      if (prof.hpAddStart) {
+        player.hp += prof.hpAddStart;
+        player.mhp += prof.hpAddStart;
+      }
+    }
 
     try {
       // 数据目录位于项目根目录的 /data，需从当前文件向上返回四级

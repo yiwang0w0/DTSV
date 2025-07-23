@@ -3,6 +3,7 @@ const GameInfo = require('../../models/GameInfo');
 const Log = require('../../models/Log');
 const { START_THRESHOLD } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
+const clubPro = require('../../config/clubProficiency');
 // 引入完整工具避免解构失败
 const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, formatPlayer } = playerUtils;
@@ -106,7 +107,17 @@ function getWeaponKind(wepk){
 function getSkill(attacker){
   const kind = getWeaponKind(attacker.wepk);
   const field = SKILL_FIELDS[kind];
-  return field ? Number(attacker[field] || 0) : 0;
+  let val = field ? Number(attacker[field] || 0) : 0;
+  if(field && attacker.club === 18){
+    const others = ['wp','wk','wg','wc','wd','wf'].filter(f=>f!==field);
+    let sum = 0;
+    for(const f of others){ sum += Number(attacker[f]||0); }
+    const conf = clubPro[18];
+    if(conf && conf.crossBonus){
+      val += Math.floor(sum * conf.crossBonus);
+    }
+  }
+  return val;
 }
 
 function gainSkill(attacker, amount = 1){
@@ -114,6 +125,14 @@ function gainSkill(attacker, amount = 1){
   const field = SKILL_FIELDS[kind];
   if(field){
     attacker[field] = Number(attacker[field] || 0) + amount;
+    if(attacker.club === 10 && clubPro[10]){
+      if(Math.random() < 2/3){
+        attacker[field] += 1;
+      }
+      if(Math.random() < 2/3){
+        attacker.exp = (attacker.exp || 0) + 1;
+      }
+    }
   }
 }
 
