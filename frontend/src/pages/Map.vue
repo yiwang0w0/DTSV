@@ -78,6 +78,7 @@ const replaceVisible = ref(false)
 let replaceItemId = null
 let programmatic = false
 let restTimer = null
+let statusTimer = null
 const enemy = ref(null)
 
 async function refreshMapAreas() {
@@ -209,7 +210,15 @@ async function fetchStatus() {
     setTarget(data.pls)
     checkDeath()
     return data
-  } catch {
+  } catch (e) {
+    if (e.response?.data?.msg === '你已经死亡') {
+      try {
+        const res = await getDeadStatus(playerId.value)
+        info.value = res.data
+        router.replace('/gameover')
+        return
+      } catch {}
+    }
     info.value = null
   }
 }
@@ -218,10 +227,15 @@ onMounted(() => {
   refreshMapAreas()
   if (info.value) setTarget(info.value.pls)
   else fetchStatus()
+  statusTimer = setInterval(fetchStatus, 5000)
 })
 
 onUnmounted(() => {
   stopRestTimer()
+  if (statusTimer) {
+    clearInterval(statusTimer)
+    statusTimer = null
+  }
 })
 
 async function unequip(field) {
