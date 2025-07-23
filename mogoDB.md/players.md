@@ -20,8 +20,22 @@ db.players.updateMany(
 use dts;
 db.players.updateMany(
   { restStart: { $exists: false } },
-  { $set: { restStart: 0 } }
+ { $set: { restStart: 0 } }
 )
 ```
 
-该字段对应 `backend/src/models/Player.js` 中的 `restStart`。 
+该字段对应 `backend/src/models/Player.js` 中的 `restStart`。
+
+## 新增 enemymemory 字段
+
+为在遭遇战中记录敌人信息，需要在 `players` 集合新增 `enemymemory` 字段，类型为 `String`。
+
+```javascript
+use dts;
+db.players.updateMany(
+  { enemymemory: { $exists: false } },
+  { $set: { enemymemory: '' } }
+)
+```
+
+该字段对应 `backend/src/models/Player.js` 中的 `enemymemory`。

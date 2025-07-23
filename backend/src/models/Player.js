@@ -119,6 +119,7 @@ const playerSchema = new mongoose.Schema({
   itms6: { type: String, default: '0' },
   itmsk6: { type: String, default: '' },
   restStart: { type: Number, default: 0 },
+  enemymemory: { type: String, default: '' },
   searchmemory: { type: String, default: '' },
   nskill: { type: String, default: '' },
   nskillpara: { type: String, default: '' }

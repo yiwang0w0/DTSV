@@ -24,6 +24,7 @@ router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
 router.post('/unequip', auth, playerController.unequip);
 router.post('/attack', auth, playerController.attack);
+router.post('/escape', auth, playerController.escape);
 router.post('/drop', auth, playerController.dropItem);
 router.post('/dropequip', auth, playerController.dropEquip);
 

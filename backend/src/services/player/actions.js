@@ -3,7 +3,7 @@ const GameInfo = require('../../models/GameInfo');
 const MapArea = require('../../models/MapArea');
 const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
-const { START_THRESHOLD } = require('../../config/constants');
+const { START_THRESHOLD, WEATHER_ACTIVE_OBBS } = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 // 引入完整的工具模块，防止部分函数因解构失败而未定义
 const playerUtils = require('./utils');
@@ -12,6 +12,7 @@ const { formatPlayer } = playerUtils;
 
 async function exploreScene(player, pid) {
   let log = '';
+  player.enemymemory = '';
 
   // 1. 特殊地图事件
   if (player.pls === 7 && Math.random() < 0.5) {
@@ -44,32 +45,33 @@ async function exploreScene(player, pid) {
   const enemies = await Player.find({ pls: player.pls, hp: { $gt: 0 }, pid: { $ne: pid } });
   if (enemies.length) {
     const enemy = enemies[Math.floor(Math.random() * enemies.length)];
-    let chance = 0.5 + (player.sp - enemy.sp) / 200;
-    if (enemy.type > 0) chance -= 0.05;
+    const info = await GameInfo.findOne();
+    const weatherMod = info ? (WEATHER_ACTIVE_OBBS[info.weather] || 0) / 100 : 0;
+    let base = enemy.type > 0 ? 0.55 : 0.5;
+    let chance = base + (player.sp - enemy.sp) / 200 + weatherMod;
     if (chance < 0.05) chance = 0.05;
     if (chance > 0.95) chance = 0.95;
-    if (Math.random() < chance) {
-      if (enemy.type > 0) {
-        if (enemy.sp > player.sp) {
-          const dmg = Math.floor(Math.random() * 10) + 1;
-          player.hp = Math.max(player.hp - dmg, 0);
-          log += `NPC【${enemy.name}】的伏击使你受到${dmg}点伤害！<br>`;
-          if (player.hp <= 0) {
-            player.state = 27;
-            log += '你遭到致命打击！<br>';
-          }
-        } else {
-          log += `你发现了NPC【${enemy.name}】，可以选择攻击。<br>`;
-        }
-      } else {
-        log += `你发现了玩家【${enemy.name}】！<br>`;
-      }
+    const playerFirst = Math.random() < chance;
+    if (playerFirst) {
+      log += enemy.type > 0 ? `你发现了NPC【${enemy.name}】，可以选择攻击。<br>` : `你发现了玩家【${enemy.name}】！<br>`;
+      player.enemymemory = JSON.stringify({ id: enemy.pid, initiator: true });
       await player.save();
       return {
         log,
         player: formatPlayer(player),
         enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type, lvl: enemy.lvl, hp: enemy.hp, mhp: enemy.mhp, wep: enemy.wep, wepe: enemy.wepe }
       };
+    } else {
+      const dmg = Math.floor(Math.random() * 10) + 1;
+      player.hp = Math.max(player.hp - dmg, 0);
+      log += `${enemy.type>0?'NPC':'玩家'}【${enemy.name}】的先制攻击使你受到${dmg}点伤害！<br>`;
+      if (player.hp <= 0) {
+        player.state = 27;
+        log += '你遭到致命打击！<br>';
+      }
+      player.enemymemory = JSON.stringify({ id: enemy.pid, initiator: false });
+      await player.save();
+      return { log, player: formatPlayer(player) };
     }
   }
 
