@@ -177,8 +177,12 @@ async function checkDangerAreas() {
 async function checkGameOver() {
   const info = await GameInfo.findOne();
   if (!info || info.gamestate < START_THRESHOLD) return;
-  const alive = await Player.countDocuments({ type: 0, hp: { $gt: 0 } });
-  if (alive > 0) return;
+  const [alive, valid] = await Promise.all([
+    Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
+    Player.countDocuments({ type: 0 })
+  ]);
+  // 尚无人进入游戏时不结束，避免刚开局就关闭
+  if (valid === 0 || alive > 0) return;
   await stopGame();
 }
 
