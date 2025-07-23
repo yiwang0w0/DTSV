@@ -3,7 +3,7 @@ const GameInfo = require('../../models/GameInfo');
 const Club = require('../../models/Club');
 const fs = require('fs');
 const path = require('path');
-const { START_THRESHOLD } = require('../../config/constants');
+const constants = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
 
@@ -15,7 +15,7 @@ async function clubs() {
 async function enter(user, body) {
   await checkDangerAreas();
   const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) {
+  if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
     const err = new Error('游戏未开始');
     err.status = 400;
     throw err;

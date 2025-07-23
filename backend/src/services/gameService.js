@@ -5,7 +5,7 @@ const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Club = require('../models/Club');
-const { AREA_INTERVAL, AREA_ADD, START_THRESHOLD } = require('../config/constants');
+const constants = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
 
@@ -98,7 +98,7 @@ async function startGame() {
   ids.sort(() => Math.random() - 0.5);
   info.arealist = ids.join(',');
   info.areanum = 0;
-  info.areatime = now + AREA_INTERVAL;
+  info.areatime = now + constants.get('AREA_INTERVAL');
   await info.save();
 
   return { msg: '游戏已开始', gamestate: info.gamestate };
@@ -145,18 +145,18 @@ async function mapAreas() {
 
 async function checkDangerAreas() {
   const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) return;
+  if (!info || info.gamestate < constants.get('START_THRESHOLD')) return;
   const now = Math.floor(Date.now() / 1000);
   if (!info.areatime) {
-    info.areatime = info.starttime + AREA_INTERVAL;
+    info.areatime = info.starttime + constants.get('AREA_INTERVAL');
   }
   const all = info.arealist ? info.arealist.split(',').map(Number) : [];
   const total = all.length;
   let changed = false;
   while (info.areanum < total && now >= info.areatime) {
-    const next = all.slice(info.areanum, info.areanum + AREA_ADD);
+    const next = all.slice(info.areanum, info.areanum + constants.get('AREA_ADD'));
     info.areanum += next.length;
-    info.areatime += AREA_INTERVAL;
+    info.areatime += constants.get('AREA_INTERVAL');
     changed = true;
     for (const pid of next) {
       await MapArea.updateOne({ pid }, { danger: 1 });
@@ -176,7 +176,7 @@ async function checkDangerAreas() {
 
 async function checkGameOver() {
   const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) return;
+  if (!info || info.gamestate < constants.get('START_THRESHOLD')) return;
   const [alive, valid] = await Promise.all([
     Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
     Player.countDocuments({ type: 0 })

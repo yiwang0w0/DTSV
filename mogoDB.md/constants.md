@@ -1,0 +1,18 @@
+# constants 集合
+
+用于存储游戏常量，便于动态调整数值。
+
+```javascript
+use dts;
+db.constants.insertMany([
+  { key: 'START_THRESHOLD', value: 20 },
+  { key: 'AREA_INTERVAL', value: 1200 },
+  { key: 'AREA_ADD', value: 2 },
+  { key: 'WEATHER_ACTIVE_OBBS', value: [10,20,0,-5,-10,-20,-15,0,-7,-10,-10,-5,0,-5,-20,-5,0,20] },
+  { key: 'MOVE_SP_COST', value: 15 },
+  { key: 'SEARCH_SP_COST', value: 15 },
+  { key: 'ATTACK_SP_COST', value: 20 }
+]);
+```
+
+创建集合后可按需修改数值并重启服务生效。

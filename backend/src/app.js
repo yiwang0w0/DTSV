@@ -9,6 +9,7 @@ const gameRoutes = require('./routes/game');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/user');
 const gameService = require('./services/gameService');
+const constantsService = require('./services/constantsService');
 
 const app = express();
 app.use(cors());
@@ -18,6 +19,7 @@ const mongoUri = process.env.MONGODB_URI;
 mongoose.connect(mongoUri)
   .then(async () => {
     console.log('MongoDB 已连接');
+    await constantsService.loadConstants();
     await gameService.ensureDefaultClubs();
   })
   .catch(err => console.error('MongoDB 连接失败', err));

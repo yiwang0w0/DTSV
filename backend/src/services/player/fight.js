@@ -1,7 +1,7 @@
 const Player = require('../../models/Player');
 const GameInfo = require('../../models/GameInfo');
 const Log = require('../../models/Log');
-const { START_THRESHOLD } = require('../../config/constants');
+const constants = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
 // 引入完整工具避免解构失败
@@ -172,7 +172,7 @@ async function attack(user, body){
   const { pid, eid } = body;
   await checkDangerAreas();
   const info = await GameInfo.findOne();
-  if(!info || info.gamestate < START_THRESHOLD){
+  if(!info || info.gamestate < constants.get('START_THRESHOLD')){
     const err = new Error('游戏未开始');
     err.status = 400;
     throw err;
@@ -207,7 +207,7 @@ async function attack(user, body){
   }
   await restoreMemoryItem(player);
   applyRest(player);
-  const cost = 20;
+  const cost = constants.get('ATTACK_SP_COST');
   if(player.sp < cost){
     const err = new Error('体力不足，不能攻击');
     err.status = 400;
@@ -252,7 +252,7 @@ async function escape(user, body){
   const { pid } = body;
   await checkDangerAreas();
   const info = await GameInfo.findOne();
-  if(!info || info.gamestate < START_THRESHOLD){
+  if(!info || info.gamestate < constants.get('START_THRESHOLD')){
     const err = new Error('游戏未开始');
     err.status = 400;
     throw err;

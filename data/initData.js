@@ -44,4 +44,11 @@ if (clubs.length) {
   db.clubs.insertMany(clubs);
 }
 
+// 导入 constants
+var constants = JSON.parse(cat('./constants.json'));
+if (constants.length) {
+  db.constants.remove({});
+  db.constants.insertMany(constants);
+}
+
 print('数据导入完成');
