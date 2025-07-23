@@ -10,83 +10,7 @@ const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, updateRest } = playerUtils;
 const { formatPlayer } = playerUtils;
 
-
-async function move(user, body) {
-  const { pid, pls } = body;
-  await checkDangerAreas();
-  const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) {
-    const err = new Error('游戏未开始');
-    err.status = 400;
-    throw err;
-  }
-  const player = await Player.findOne({ pid, uid: user._id });
-  if (!player) {
-    const err = new Error('玩家不存在');
-    err.status = 404;
-    throw err;
-  }
-  if (player.hp <= 0) {
-    const err = new Error('你已经死亡');
-    err.status = 400;
-    throw err;
-  }
-
-  await restoreMemoryItem(player);
-  applyRest(player);
-
-  const spCost = 20 + Math.floor(Math.random() * 21) - 10;
-  if (player.sp < spCost) {
-    const err = new Error('体力不足，不能移动');
-    err.status = 400;
-    throw err;
-  }
-  const area = await MapArea.findOne({ pid: pls });
-  if (area && area.danger) {
-    const err = new Error('该区域已成为禁区');
-    err.status = 400;
-    throw err;
-  }
-  player.sp -= spCost;
-  player.pls = pls;
-  await player.save();
-
-  const name = area ? area.name : pls;
-  return { msg: `移动到${name}`, player: formatPlayer(player) };
-}
-
-async function search(user, body) {
-  const { pid } = body;
-  await checkDangerAreas();
-  const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) {
-    const err = new Error('游戏未开始');
-    err.status = 400;
-    throw err;
-  }
-  const player = await Player.findOne({ pid, uid: user._id });
-  if (!player) {
-    const err = new Error('玩家不存在');
-    err.status = 404;
-    throw err;
-  }
-  if (player.hp <= 0) {
-    const err = new Error('你已经死亡');
-    err.status = 400;
-    throw err;
-  }
-
-  await restoreMemoryItem(player);
-  applyRest(player);
-
-  const spCost = 10 + Math.floor(Math.random() * 11) - 5;
-  if (player.sp < spCost) {
-    const err = new Error('体力不足，不能探索');
-    err.status = 400;
-    throw err;
-  }
-  player.sp -= spCost;
-
+async function exploreScene(player, pid) {
   let log = '';
 
   // 1. 特殊地图事件
@@ -141,7 +65,11 @@ async function search(user, body) {
         log += `你发现了玩家【${enemy.name}】！<br>`;
       }
       await player.save();
-      return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type, lvl: enemy.lvl, hp: enemy.hp, mhp: enemy.mhp, wep: enemy.wep, wepe: enemy.wepe } };
+      return {
+        log,
+        player: formatPlayer(player),
+        enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type, lvl: enemy.lvl, hp: enemy.hp, mhp: enemy.mhp, wep: enemy.wep, wepe: enemy.wepe }
+      };
     }
   }
 
@@ -166,6 +94,89 @@ async function search(user, body) {
   log += '但是没有发现任何东西。';
   await player.save();
   return { log, player: formatPlayer(player) };
+}
+
+
+async function move(user, body) {
+  const { pid, pls } = body;
+  await checkDangerAreas();
+  const info = await GameInfo.findOne();
+  if (!info || info.gamestate < START_THRESHOLD) {
+    const err = new Error('游戏未开始');
+    err.status = 400;
+    throw err;
+  }
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  if (player.hp <= 0) {
+    const err = new Error('你已经死亡');
+    err.status = 400;
+    throw err;
+  }
+
+  await restoreMemoryItem(player);
+  applyRest(player);
+
+  const spCost = 15;
+  if (player.sp < spCost) {
+    const err = new Error('体力不足，不能移动');
+    err.status = 400;
+    throw err;
+  }
+  const area = await MapArea.findOne({ pid: pls });
+  if (area && area.danger) {
+    const err = new Error('该区域已成为禁区');
+    err.status = 400;
+    throw err;
+  }
+  player.sp -= spCost;
+  player.pls = pls;
+  await player.save();
+
+  const name = area ? area.name : pls;
+  const result = await exploreScene(player, pid);
+  result.log = `移动到${name}<br>` + (result.log || '');
+  return result;
+}
+
+async function search(user, body) {
+  const { pid } = body;
+  await checkDangerAreas();
+  const info = await GameInfo.findOne();
+  if (!info || info.gamestate < START_THRESHOLD) {
+    const err = new Error('游戏未开始');
+    err.status = 400;
+    throw err;
+  }
+  const player = await Player.findOne({ pid, uid: user._id });
+  if (!player) {
+    const err = new Error('玩家不存在');
+    err.status = 404;
+    throw err;
+  }
+  if (player.hp <= 0) {
+    const err = new Error('你已经死亡');
+    err.status = 400;
+    throw err;
+  }
+
+  await restoreMemoryItem(player);
+  applyRest(player);
+
+  const spCost = 15;
+  if (player.sp < spCost) {
+    const err = new Error('体力不足，不能探索');
+    err.status = 400;
+    throw err;
+  }
+  player.sp -= spCost;
+
+  const result = await exploreScene(player, pid);
+  return result;
 }
 
 async function status(user, query) {

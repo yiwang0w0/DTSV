@@ -35,6 +35,7 @@
           v-model="target"
           :places="places"
           @change="onTargetChange"
+          @move="doMove"
           @search="doSearch"
           @rest="doRest"
         />
@@ -127,8 +128,6 @@ function setTarget(val) {
 function onTargetChange() {
   if (programmatic) {
     programmatic = false
-  } else {
-    doMove()
   }
 }
 
