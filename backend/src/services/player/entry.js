@@ -57,8 +57,15 @@ async function enter(user, body) {
     });
 
     try {
-      const itemFile = path.join(__dirname, '../../../data/start_items.json');
-      const wepFile = path.join(__dirname, '../../../data/start_weapons.json');
+      // 数据目录位于项目根目录的 /data，需从当前文件向上返回四级
+      const itemFile = path.join(
+        __dirname,
+        '../../../../data/start_items.json'
+      );
+      const wepFile = path.join(
+        __dirname,
+        '../../../../data/start_weapons.json'
+      );
       const startItems = JSON.parse(fs.readFileSync(itemFile));
       const startWeps = JSON.parse(fs.readFileSync(wepFile));
 
