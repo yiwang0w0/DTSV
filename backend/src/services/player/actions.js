@@ -3,7 +3,7 @@ const GameInfo = require('../../models/GameInfo');
 const MapArea = require('../../models/MapArea');
 const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
-const { START_THRESHOLD, WEATHER_ACTIVE_OBBS } = require('../../config/constants');
+const constants = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 // 引入完整的工具模块，防止部分函数因解构失败而未定义
 const playerUtils = require('./utils');
@@ -46,7 +46,8 @@ async function exploreScene(player, pid) {
   if (enemies.length) {
     const enemy = enemies[Math.floor(Math.random() * enemies.length)];
     const info = await GameInfo.findOne();
-    const weatherMod = info ? (WEATHER_ACTIVE_OBBS[info.weather] || 0) / 100 : 0;
+    const weatherArr = constants.get('WEATHER_ACTIVE_OBBS') || [];
+    const weatherMod = info ? (weatherArr[info.weather] || 0) / 100 : 0;
     let base = enemy.type > 0 ? 0.55 : 0.5;
     let chance = base + (player.sp - enemy.sp) / 200 + weatherMod;
     if (chance < 0.05) chance = 0.05;
@@ -103,7 +104,7 @@ async function move(user, body) {
   const { pid, pls } = body;
   await checkDangerAreas();
   const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) {
+  if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
     const err = new Error('游戏未开始');
     err.status = 400;
     throw err;
@@ -123,7 +124,7 @@ async function move(user, body) {
   await restoreMemoryItem(player);
   applyRest(player);
 
-  const spCost = 15;
+  const spCost = constants.get('MOVE_SP_COST');
   if (player.sp < spCost) {
     const err = new Error('体力不足，不能移动');
     err.status = 400;
@@ -149,7 +150,7 @@ async function search(user, body) {
   const { pid } = body;
   await checkDangerAreas();
   const info = await GameInfo.findOne();
-  if (!info || info.gamestate < START_THRESHOLD) {
+  if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
     const err = new Error('游戏未开始');
     err.status = 400;
     throw err;
@@ -169,7 +170,7 @@ async function search(user, body) {
   await restoreMemoryItem(player);
   applyRest(player);
 
-  const spCost = 15;
+  const spCost = constants.get('SEARCH_SP_COST');
   if (player.sp < spCost) {
     const err = new Error('体力不足，不能探索');
     err.status = 400;
