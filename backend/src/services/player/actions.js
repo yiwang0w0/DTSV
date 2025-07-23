@@ -195,7 +195,7 @@ async function deadStatus(user, query) {
     err.status = 404;
     throw err;
   }
-  return player;
+  return formatPlayer(player);
 }
 
 async function list(user) {
