@@ -29,6 +29,8 @@
 </template>
 
 <script setup>
+import { stateInfo } from '../constants/death'
+import { gameStateText, chatTypeText } from '../constants/enums'
 const props = defineProps({
   items: Array,
   fieldMeta: Array,
@@ -43,8 +45,17 @@ function handleLoadMore(){
 }
 function formatField(row, name){
   if(props.isMaps) return row[name]
-  if(name==='pls' && props.mapAreas){
+  if((name==='pls' || name==='area') && props.mapAreas){
     return props.mapAreas[row[name]] || row[name]
+  }
+  if(name==='state'){
+    return stateInfo[row[name]] || row[name]
+  }
+  if(name==='gamestate'){
+    return gameStateText[row[name]] || row[name]
+  }
+  if(name==='type'){
+    return chatTypeText[row[name]] || row[name]
   }
   return row[name]
 }
