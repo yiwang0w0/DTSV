@@ -141,7 +141,7 @@ async function search(user, body) {
         log += `你发现了玩家【${enemy.name}】！<br>`;
       }
       await player.save();
-      return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type } };
+      return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type, lvl: enemy.lvl, hp: enemy.hp, mhp: enemy.mhp, wep: enemy.wep, wepe: enemy.wepe } };
     }
   }
 
