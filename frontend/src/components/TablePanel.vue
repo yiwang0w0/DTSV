@@ -14,7 +14,13 @@
         <el-button v-if="!isMaps" size="small" text @click="$emit('edit', row, f)">编辑</el-button>
       </template>
     </el-table-column>
-    <el-table-column v-if="!isMaps" label="操作" width="120">
+    <el-table-column v-if="isMapAreas" label="禁区操作" width="140">
+      <template #default="{ row }">
+        <el-button v-if="row.danger" size="small" type="warning" @click="$emit('close', row)">关闭</el-button>
+        <el-button v-else size="small" type="primary" @click="$emit('open', row)">开启</el-button>
+      </template>
+    </el-table-column>
+    <el-table-column v-if="!isMaps && !isMapAreas" label="操作" width="120">
       <template #default="{ row }">
         <el-button size="small" type="danger" @click="$emit('remove', row)">删除</el-button>
       </template>
@@ -27,10 +33,11 @@ const props = defineProps({
   items: Array,
   fieldMeta: Array,
   isMaps: Boolean,
+  isMapAreas: Boolean,
   loading: Boolean,
   mapAreas: Array
 })
-const emit = defineEmits(['load-more','edit','remove'])
+const emit = defineEmits(['load-more','edit','remove','open','close'])
 function handleLoadMore(){
   emit('load-more')
 }

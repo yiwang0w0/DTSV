@@ -174,10 +174,39 @@ async function checkDangerAreas() {
   }
 }
 
+async function checkGameOver() {
+  const info = await GameInfo.findOne();
+  if (!info || info.gamestate < START_THRESHOLD) return;
+  const alive = await Player.countDocuments({ type: 0, hp: { $gt: 0 } });
+  if (alive > 0) return;
+  await stopGame();
+}
+
+async function openArea(pid) {
+  await MapArea.updateOne({ pid }, { danger: 1 });
+  const info = await GameInfo.findOne();
+  if (info) {
+    info.areanum = await MapArea.countDocuments({ danger: 1 });
+    await info.save();
+  }
+}
+
+async function closeArea(pid) {
+  await MapArea.updateOne({ pid }, { danger: 0 });
+  const info = await GameInfo.findOne();
+  if (info) {
+    info.areanum = await MapArea.countDocuments({ danger: 1 });
+    await info.save();
+  }
+}
+
 module.exports = {
   ensureDefaultClubs,
   startGame,
   stopGame,
   mapAreas,
-  checkDangerAreas
+  checkDangerAreas,
+  checkGameOver,
+  openArea,
+  closeArea
 };

@@ -18,11 +18,14 @@
       :items="items"
       :field-meta="fieldMeta"
       :is-maps="isMaps"
+      :is-map-areas="isMapAreas"
       :loading="loading"
       :map-areas="mapAreas"
       @load-more="loadMore"
       @edit="openFieldEdit"
       @remove="remove"
+      @open="openArea"
+      @close="closeArea"
     />
     <FormDialog
       v-model="fieldDialogVisible"
@@ -54,7 +57,9 @@ import {
   adminDelete,
   adminFieldMeta,
   adminMaps,
-  getMapAreas
+  getMapAreas,
+  adminOpenArea,
+  adminCloseArea
 } from '../api'
 import { mapAreas } from '../store/map'
 
@@ -90,6 +95,7 @@ const editForm = ref({})
 const createDialogVisible = ref(false)
 const createData = ref({})
 const isMaps = computed(() => collection.value === 'maps')
+const isMapAreas = computed(() => collection.value === 'mapareas')
 const areaFilter = ref(-1)
 
 watch(collection, () => {
@@ -232,6 +238,24 @@ async function remove(row) {
     fetchItems()
   } catch (e) {
     alert(e.response?.data?.msg || '删除失败')
+  }
+}
+
+async function openArea(row) {
+  try {
+    await adminOpenArea(row.pid)
+    row.danger = 1
+  } catch (e) {
+    alert(e.response?.data?.msg || '操作失败')
+  }
+}
+
+async function closeArea(row) {
+  try {
+    await adminCloseArea(row.pid)
+    row.danger = 0
+  } catch (e) {
+    alert(e.response?.data?.msg || '操作失败')
   }
 }
 </script>
