@@ -6,3 +6,5 @@ export const adminUpdate = (col, id, data) => api.put(`/admin/${col}/${id}`, dat
 export const adminDelete = (col, id) => api.delete(`/admin/${col}/${id}`)
 export const adminFieldMeta = col => api.get(`/admin/${col}/fieldmeta`)
 export const adminMaps = () => api.get('/admin/maps')
+export const adminOpenArea = pid => api.post(`/admin/mapareas/${pid}/open`)
+export const adminCloseArea = pid => api.post(`/admin/mapareas/${pid}/close`)

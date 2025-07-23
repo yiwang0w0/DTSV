@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middlewares/auth');
 const checkAdmin = require('../middlewares/admin');
 const fieldsMeta = require('../fieldsMeta');
+const gameService = require('../services/gameService');
 
 const models = {
   players: require('../models/Player'),
@@ -44,6 +45,28 @@ router.get('/maps', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '获取失败' });
+  }
+});
+
+router.post('/mapareas/:pid/open', async (req, res) => {
+  const pid = Number(req.params.pid);
+  try {
+    await gameService.openArea(pid);
+    res.json({ msg: '已开启禁区' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '操作失败' });
+  }
+});
+
+router.post('/mapareas/:pid/close', async (req, res) => {
+  const pid = Number(req.params.pid);
+  try {
+    await gameService.closeArea(pid);
+    res.json({ msg: '已关闭禁区' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '操作失败' });
   }
 });
 
