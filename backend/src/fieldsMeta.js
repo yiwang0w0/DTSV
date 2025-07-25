@@ -118,6 +118,11 @@ gameinfos: [
   { name: 'roomvars', label: '房间变量', type: 'text' },
   { name: 'gamevars', label: '游戏变量', type: 'text' }
 ],
+  itemcategories: [
+    { name: 'name', label: '类别名称', type: 'text' },
+    { name: 'type', label: '类别类型', type: 'select', options: ['mapitem','maptrap'] },
+    { name: 'items', label: '条目列表(JSON)', type: 'text' }
+  ],
   maps: [
     { name: 'pls', label: '区域ID', type: 'number' },
     { name: 'name', label: '区域名', type: 'text' },

@@ -122,7 +122,7 @@ npm run dev
 
 ### 4. 数据初始化
 
-项目根目录 `data` 目录内提供了原作同款的 `gameinfo.json`、`shopitems.json` 与 `items.json` 数据文件，可直接导入 MongoDB：
+项目根目录 `data` 目录内提供了原作同款的 `gameinfo.json`、`shopitems.json` 与 `items.json` 数据文件，其中 `items.json` 已包含 `id` 字段，可直接导入 MongoDB：
 
 ```bash
 cd mogoDB.md
@@ -131,7 +131,9 @@ mongoimport --db dts --collection shopitems --file ../data/shopitems.json --json
 mongoimport --db dts --collection items --file ../data/items.json --jsonArray
 mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
 mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
+mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
 ```
+其中 `itemCategories.json` 示范了物品生成类别配置，导入后可在后台管理界面调整各类别内容。
 
 也可以在 `mongo` shell 中执行 `data/initData.js` 脚本一次完成导入：
 
@@ -141,6 +143,7 @@ mongo ../data/initData.js
 
 导入完成后即可获得与原作一致的基础游戏信息、地图区域以及默认物品池。
 如需手动添加地图或物品，可参照 `mogoDB.md/mapareas.md`、`mogoDB.md/mapitems.md` 和 `mogoDB.md/items.md` 的说明。
+若需自定义物品生成类别，请参考 `mogoDB.md/itemcategories.md`。
 
 ---
 
