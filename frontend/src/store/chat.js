@@ -33,3 +33,12 @@ watch(
 export function addChat(msg) {
   if (msg) chats.value.push(msg);
 }
+
+export function resetChats(pid = playerId.value) {
+  if (pid) {
+    localStorage.removeItem(`chats_${pid}`);
+  }
+  chats.value = [];
+}
+
+export { loadChats };

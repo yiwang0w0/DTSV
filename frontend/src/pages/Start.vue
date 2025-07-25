@@ -14,7 +14,8 @@ import { useRouter } from 'vue-router'
 import { enterGame, getStatus, getDeadStatus, getClubs } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo } from '../store/player'
-import { logs } from '../store/logs'
+import { logs, resetLogs } from '../store/logs'
+import { resetChats } from '../store/chat'
 
 const router = useRouter()
 const clubs = ref([])
@@ -22,18 +23,20 @@ const selected = ref()
 
 async function start() {
   try {
+    const oldPid = playerId.value
+    resetLogs(oldPid)
+    resetChats(oldPid)
+    playerId.value = ''
     const { data } = await enterGame({ club: selected.value })
     playerId.value = data.pid
     try {
       const status = await getStatus(data.pid)
       playerInfo.value = status.data
-      logs.value = []
       router.push('/game')
     } catch (err) {
       if (err.response?.data?.msg === '你已经死亡') {
         const res = await getDeadStatus(data.pid)
         playerInfo.value = res.data
-        logs.value = []
         router.push('/gameover')
       } else {
         throw err

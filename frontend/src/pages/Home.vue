@@ -65,7 +65,8 @@ import {
 } from '../api'
 import { user, token, refreshToken, playerId } from '../store/user'
 import { playerInfo } from '../store/player'
-import { logs } from '../store/logs'
+import { logs, resetLogs } from '../store/logs'
+import { resetChats } from '../store/chat'
 
 const gameInfo = ref({})
 const currentTime = ref(Date.now())
@@ -136,9 +137,10 @@ async function manualStop() {
   try {
     await stopGame()
     fetchGameInfo()
+    resetLogs(playerId.value)
+    resetChats(playerId.value)
     playerId.value = ''
     playerInfo.value = null
-    logs.value = []
     localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '操作失败')
@@ -156,9 +158,10 @@ async function login() {
     localStorage.setItem('token', token.value)
     localStorage.setItem('refreshToken', refreshToken.value)
     // reset player related info
+    resetLogs(playerId.value)
+    resetChats(playerId.value)
     playerId.value = ''
     playerInfo.value = null
-    logs.value = []
     localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '登录失败')
@@ -175,9 +178,10 @@ async function register() {
     localStorage.setItem('user', user.value)
     localStorage.setItem('token', token.value)
     localStorage.setItem('refreshToken', refreshToken.value)
+    resetLogs(playerId.value)
+    resetChats(playerId.value)
     playerId.value = ''
     playerInfo.value = null
-    logs.value = []
     localStorage.removeItem('playerId')
   } catch (e) {
     alert(e.response?.data?.msg || '注册失败')
@@ -194,9 +198,10 @@ async function logout() {
   user.value = ''
   token.value = ''
   refreshToken.value = ''
+  resetLogs(playerId.value)
+  resetChats(playerId.value)
   playerId.value = ''
   playerInfo.value = null
-  logs.value = []
   localStorage.removeItem('user')
   localStorage.removeItem('token')
   localStorage.removeItem('refreshToken')
