@@ -73,7 +73,7 @@ const collections = [
   { label: '聊天', value: 'chats' },
   { label: '地图物品', value: 'mapitems' },
   { label: '陷阱', value: 'maptraps' },
-  { label: '物品类别', value: 'itemcategories' },
+  { label: '物品刷新', value: 'itemrefreshes' },
   { label: '新闻', value: 'newsinfos' },
   { label: '房间监听', value: 'roomlisteners' },
   { label: '历史记录', value: 'histories' },

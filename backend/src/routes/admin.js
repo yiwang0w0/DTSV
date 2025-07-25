@@ -15,6 +15,7 @@ const models = {
   mapitems: require('../models/MapItem'),
   maptraps: require('../models/MapTrap'),
   itemcategories: require('../models/ItemCategory'),
+  itemrefreshes: require('../models/ItemRefresh'),
   mapareas: require('../models/MapArea'),
   newsinfos: require('../models/NewsInfo'),
   roomlisteners: require('../models/RoomListener'),

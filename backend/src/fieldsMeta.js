@@ -148,6 +148,15 @@ module.exports = {
     },
     { name: 'items', label: '条目列表(JSON)', type: 'text' },
   ],
+  itemrefreshes: [
+    { name: 'stage', label: '刷新阶段', type: 'select', options: ['start', 'ban2', 'ban4'] },
+    { name: 'itm', label: '道具名', type: 'text' },
+    { name: 'itmk', label: '种类', type: 'text' },
+    { name: 'itme', label: '效果值', type: 'number' },
+    { name: 'itms', label: '次数/耐久', type: 'text' },
+    { name: 'itmsk', label: '属性', type: 'text' },
+    { name: 'pls', label: '所在区域', type: 'number' },
+  ],
   maps: [
     { name: 'pls', label: '区域ID', type: 'number' },
     { name: 'name', label: '区域名', type: 'text' },

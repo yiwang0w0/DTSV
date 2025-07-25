@@ -125,9 +125,12 @@
    ```bash
    mongoimport --db dts --collection gameinfos --file ../data/gameinfo.json --jsonArray
    mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
-   mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
-   mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
-   mongoimport --db dts --collection maptraps --file ../data/maptraps.json --jsonArray
+  mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
+  mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
+  mongoimport --db dts --collection maptraps --file ../data/maptraps.json --jsonArray
+  mongoimport --db dts --collection itemrefreshes --file ../data/mapitems.json --jsonArray
+  mongoimport --db dts --collection itemrefreshes --file ../data/mapitems_ban2.json --jsonArray
+  mongoimport --db dts --collection itemrefreshes --file ../data/mapitems_ban4.json --jsonArray
   ```
 3. 导入完成后即可获得与原作一致的基础记录、商店物品以及地图物品和陷阱数据。
 
