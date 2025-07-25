@@ -8,11 +8,11 @@ exports.getInfo = async (req, res) => {
     await gameService.checkGameOver();
     const info = await GameInfo.findOne();
     if (info) {
-      const [validnum, alivenum] = await Promise.all([
+      const [validnum, alivenum, deathnum] = await Promise.all([
         Player.countDocuments({ type: 0 }),
         Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
+        Player.countDocuments({ type: 0, hp: { $lte: 0 } }),
       ]);
-      const deathnum = validnum - alivenum;
       info.validnum = validnum;
       info.alivenum = alivenum;
       info.deathnum = deathnum;
