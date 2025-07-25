@@ -68,6 +68,7 @@ const collections = [
   { label: '玩家', value: 'players' },
   { label: 'NPC', value: 'npcs' },
   { label: '商店物品', value: 'shopitems' },
+  { label: '物品表', value: 'items' },
   { label: '日志', value: 'logs' },
   { label: '聊天', value: 'chats' },
   { label: '地图物品', value: 'mapitems' },
