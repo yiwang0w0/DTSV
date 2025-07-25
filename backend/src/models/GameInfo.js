@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const gameInfoSchema = new mongoose.Schema({
-  version: { type: String, default: '1.0' },
+  version: { type: String, default: '1.0.1' },
   gamenum: { type: Number, default: 0 },
   gametype: { type: Number, default: 0 },
   gamestate: { type: Number, default: 0 },

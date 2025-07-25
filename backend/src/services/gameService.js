@@ -71,7 +71,7 @@ async function startGame() {
   const now = Math.floor(Date.now() / 1000);
   if (!info) {
     info = await GameInfo.create({
-      version: '1.0',
+      version: '1.0.1',
       gamenum: 1,
       gamestate: 20,
       starttime: now,
@@ -200,7 +200,7 @@ async function spawnNpcs(stage) {
 async function stopGame() {
   let info = await GameInfo.findOne();
   if (!info) {
-    info = await GameInfo.create({ version: '1.0', gamestate: 0 });
+    info = await GameInfo.create({ version: '1.0.1', gamestate: 0 });
   } else {
     const now = Math.floor(Date.now() / 1000);
     if (info.gamestate > 10 && info.starttime) {
