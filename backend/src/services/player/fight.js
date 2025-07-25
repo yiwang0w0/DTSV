@@ -168,6 +168,37 @@ function calcDamage(attacker, defender){
   return Math.floor(dmg);
 }
 
+function collectItems(target){
+  const list = [];
+  const equip = ['wep','arb','arh','ara','arf','art'];
+  for(const slot of equip){
+    if(target[slot]){
+      list.push({
+        slot,
+        name: target[slot],
+        kind: target[`${slot}k`],
+        effect: target[`${slot}e`],
+        uses: target[`${slot}s`],
+        skill: target[`${slot}sk`]
+      });
+    }
+  }
+  for(let i=0;i<7;i++){
+    const name = target[`itm${i}`];
+    if(name){
+      list.push({
+        slot: `itm${i}`,
+        name,
+        kind: target[`itmk${i}`],
+        effect: target[`itme${i}`],
+        uses: target[`itms${i}`],
+        skill: target[`itmsk${i}`]
+      });
+    }
+  }
+  return list;
+}
+
 async function attack(user, body){
   const { pid, eid } = body;
   await checkDangerAreas();
@@ -221,10 +252,13 @@ async function attack(user, body){
   consumeWeapon(player);
   gainSkill(player);
   log += `你攻击了${enemy.type>0?'NPC':'玩家'}【${enemy.name}】，造成${dmg1}点伤害！<br>`;
+  let loot = null;
   if(enemy.hp <= 0){
     enemy.state = 21;
     enemy.endtime = Math.floor(Date.now()/1000);
     log += '对方被击倒了！<br>';
+    loot = collectItems(enemy);
+    player.enemymemory = JSON.stringify({ id: enemy.pid, corpse: true });
   }else{
     const dmg2 = calcDamage(enemy, player);
     player.hp = Math.max(player.hp - dmg2, 0);
@@ -242,10 +276,12 @@ async function attack(user, body){
     { toid: player.pid, type: 'b', time, log },
     { toid: enemy.pid, type: 'b', time, log }
   ]);
-  player.enemymemory = '';
+  if(!loot) player.enemymemory = '';
   enemy.enemymemory = '';
   await Promise.all([player.save(), enemy.save()]);
-  return { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, mhp: enemy.mhp, name: enemy.name, type: enemy.type, lvl: enemy.lvl, wep: enemy.wep, wepe: enemy.wepe } };
+  const ret = { log, player: formatPlayer(player), enemy: { pid: enemy.pid, hp: enemy.hp, mhp: enemy.mhp, name: enemy.name, type: enemy.type, lvl: enemy.lvl, wep: enemy.wep, wepe: enemy.wepe } };
+  if(loot) ret.loot = loot;
+  return ret;
 }
 
 async function escape(user, body){

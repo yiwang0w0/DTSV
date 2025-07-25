@@ -83,3 +83,7 @@ exports.dropItem = (req, res) => {
 exports.dropEquip = (req, res) => {
   handle(() => playerService.dropEquip(req.user, req.body), req, res);
 };
+
+exports.lootItem = (req, res) => {
+  handle(() => playerService.lootItem(req.user, req.body), req, res);
+};

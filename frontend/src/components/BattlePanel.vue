@@ -16,15 +16,33 @@
         <p>武器攻击：{{ enemy.wepe ?? 0 }}</p>
       </div>
     </div>
+    <div v-if="loot && loot.length" class="loot-panel">
+      <p>选择一件遗物带走：</p>
+      <el-radio-group v-model="selected">
+        <el-radio v-for="it in loot" :key="it.slot" :label="it.slot">
+          {{ it.name }}
+        </el-radio>
+      </el-radio-group>
+      <el-button size="small" type="primary" style="margin-left:10px" @click="pick">拾取</el-button>
+    </div>
+    <div v-else class="action-panel">
+      <el-button size="small" type="danger" @click="$emit('attack')">攻击</el-button>
+    </div>
   </el-card>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 const props = defineProps({
   player: Object,
-  enemy: Object
+  enemy: Object,
+  loot: Array
 })
+const emit = defineEmits(['attack','loot'])
+const selected = ref('')
+function pick(){
+  if(selected.value) emit('loot', selected.value)
+}
 const enemyHpLabel = computed(() => {
   if (!props.enemy || props.enemy.mhp === undefined) return '?' 
   const ratio = props.enemy.mhp ? props.enemy.hp / props.enemy.mhp : 0
@@ -47,6 +65,9 @@ const enemyHpLabel = computed(() => {
 }
 .card-section {
   margin-bottom: 20px;
+}
+:deep(.loot-panel){
+  margin-top:10px;
 }
 :deep(.card-no-title .el-card__header) {
   display: none;
