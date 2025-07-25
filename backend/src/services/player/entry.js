@@ -85,14 +85,8 @@ async function enter(user, body) {
     }
 
     try {
-      let startItems = await require('../../models/StartItem').find({});
-      let startWeps = await require('../../models/StartWeapon').find({});
-      if (startItems.length === 0) {
-        startItems = await Item.find({ kind: { $not: /^W/ } });
-      }
-      if (startWeps.length === 0) {
-        startWeps = await Item.find({ kind: /^W/ });
-      }
+      const startItems = await Item.find({ kind: { $not: /^W/ } });
+      const startWeps = await Item.find({ kind: /^W/ });
 
       const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
