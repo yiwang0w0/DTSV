@@ -7,7 +7,6 @@
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
         <BattlePanel v-if="enemy" :player="info" :enemy="enemy" :loot="lootItems" @attack="doAttack" @loot="doLoot" />
         <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
-        <LogPanel :logs="recentLogs" />
         <ChatPanel :messages="chatList" @send="sendChatMsg" />
       </div>
 
@@ -47,6 +46,8 @@
           @close="closeReplaceDialog"
         />
 
+        <p v-if="searchMsg" class="search-msg" v-html="searchMsg" />
+
         <!-- 背包面板 -->
         <InventoryPanel />
         <AreaButtons :areas="places" @move="doMoveTo" />
@@ -62,7 +63,6 @@ import InventoryPanel from '../components/InventoryPanel.vue'
 import PlayerStats from '../components/PlayerStats.vue'
 import EquipmentList from '../components/EquipmentList.vue'
 import BattlePanel from '../components/BattlePanel.vue'
-import LogPanel from '../components/LogPanel.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import AreaButtons from '../components/AreaButtons.vue'
@@ -86,6 +86,7 @@ let chatTimer = null
 const lastCid = ref(0)
 const enemy = ref(null)
 const lootItems = ref(null)
+const searchMsg = ref('')
 
 async function refreshMapAreas() {
   try {
@@ -257,6 +258,7 @@ onUnmounted(() => {
 async function unequip(field) {
   if (!playerId.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await unequipItem(playerId.value, field)
     info.value = data.player
@@ -269,6 +271,7 @@ async function unequip(field) {
 async function dropEquipItem(field) {
   if (!playerId.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await dropEquip(playerId.value, field)
     info.value = data.player
@@ -281,6 +284,7 @@ async function dropEquipItem(field) {
 async function doMoveTo(pid) {
   if (!playerId.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await move(playerId.value, pid)
     info.value = data.player
@@ -296,6 +300,7 @@ async function doMoveTo(pid) {
 async function doSearch() {
   if (!playerId.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await search(playerId.value)
     info.value = data.player
@@ -303,6 +308,7 @@ async function doSearch() {
     enemy.value = data.enemy || null
     lootItems.value = null
     await refreshMapAreas()
+    searchMsg.value = data.log
     addLog(data.log)
     checkDeath()
   } catch (e) {
@@ -312,6 +318,7 @@ async function doSearch() {
 
 async function doRest() {
   if (!playerId.value) return
+  searchMsg.value = ''
   try {
     const { data } = await rest(playerId.value)
     info.value = data.player
@@ -329,6 +336,7 @@ async function doRest() {
 async function pickFound() {
   if (!playerId.value || !foundItem.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await pickItem(playerId.value, foundItem.value._id)
     info.value = data.player
@@ -350,6 +358,7 @@ async function pickFound() {
 async function equipFound() {
   if (!playerId.value || !foundItem.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await pickEquip(playerId.value, foundItem.value._id)
     info.value = data.player
@@ -365,6 +374,7 @@ async function equipFound() {
 async function doReplace(index) {
   if (!playerId.value || replaceItemId === null) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await pickReplace(playerId.value, replaceItemId, index)
     info.value = data.player
@@ -383,11 +393,13 @@ function closeReplaceDialog() {
   replaceVisible.value = false
   replaceItemId = null
   foundItem.value = null
+  searchMsg.value = ''
 }
 
 async function doAttack() {
   if (!playerId.value || !enemy.value) return
   stopRestTimer()
+  searchMsg.value = ''
   try {
     const { data } = await attack(playerId.value, enemy.value.pid)
     info.value = data.player
@@ -404,6 +416,7 @@ async function doAttack() {
 
 async function doLoot(slot) {
   if (!playerId.value || !enemy.value) return
+  searchMsg.value = ''
   try {
     const { data } = await lootCorpse(playerId.value, enemy.value.pid, slot)
     info.value = data.player
@@ -468,5 +481,9 @@ function sendChatMsg(text) {
 .label {
   font-weight: bold;
   margin-right: 8px;
+}
+.search-msg {
+  margin: 10px 0;
+  color: #409EFF;
 }
 </style>
