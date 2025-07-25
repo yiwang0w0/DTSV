@@ -5,7 +5,7 @@
       <!-- 左侧区域 -->
       <div class="left-panel">
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
-        <BattlePanel v-if="enemy" :player="info" :enemy="enemy" />
+        <BattlePanel v-if="enemy" :player="info" :enemy="enemy" :loot="lootItems" @attack="doAttack" @loot="doLoot" />
         <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
         <LogPanel :logs="logs" />
       </div>
@@ -47,7 +47,7 @@
         />
 
         <!-- 背包面板 -->
-        <InventoryPanel :enemy="enemy" @attack="doAttack" />
+        <InventoryPanel />
         <AreaButtons :areas="places" @move="doMoveTo" />
       </div>
     </div>
@@ -65,7 +65,7 @@ import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import AreaButtons from '../components/AreaButtons.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack, lootCorpse } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -80,6 +80,7 @@ let replaceItemId = null
 let restTimer = null
 let statusTimer = null
 const enemy = ref(null)
+const lootItems = ref(null)
 
 async function refreshMapAreas() {
   try {
@@ -259,6 +260,7 @@ async function doMoveTo(pid) {
     info.value = data.player
     await refreshMapAreas()
     addLog(data.msg)
+    lootItems.value = null
     checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '移动失败')
@@ -273,6 +275,7 @@ async function doSearch() {
     info.value = data.player
     foundItem.value = data.item || null
     enemy.value = data.enemy || null
+    lootItems.value = null
     await refreshMapAreas()
     addLog(data.log)
     checkDeath()
@@ -363,10 +366,28 @@ async function doAttack() {
     const { data } = await attack(playerId.value, enemy.value.pid)
     info.value = data.player
     addLog(data.log)
-    if (data.enemy && data.enemy.hp <= 0) enemy.value = null
+    if (data.loot) {
+      lootItems.value = data.loot
+    }
+    enemy.value = data.enemy || null
     checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '攻击失败')
+  }
+}
+
+async function doLoot(slot) {
+  if (!playerId.value || !enemy.value) return
+  try {
+    const { data } = await lootCorpse(playerId.value, enemy.value.pid, slot)
+    info.value = data.player
+    addLog(data.msg)
+    lootItems.value = null
+    enemy.value = null
+    await refreshMapAreas()
+    checkDeath()
+  } catch (e) {
+    alert(e.response?.data?.msg || '拾取失败')
   }
 }
 </script>

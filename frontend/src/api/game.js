@@ -24,3 +24,5 @@ export const unequipItem = (pid, slot) => api.post('/game/unequip', { pid, slot 
 export const attack = (pid, eid) => api.post('/game/attack', { pid, eid })
 export const dropItem = (pid, index) => api.post('/game/drop', { pid, index })
 export const dropEquip = (pid, slot) => api.post('/game/dropequip', { pid, slot })
+export const lootCorpse = (pid, corpseId, slot) =>
+  api.post('/game/loot', { pid, corpseId, slot })

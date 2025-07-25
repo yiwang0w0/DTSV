@@ -30,20 +30,12 @@
           </span>
         </template>
       </el-dialog>
-      <div v-if="enemy" style="margin-top:10px; text-align:center;">
-        <p>遭遇 {{ enemy.type > 0 ? 'NPC' : '玩家' }}【{{ enemy.name }}】</p>
-        <el-button size="small" type="danger" @click="emit('attack')">攻击</el-button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
-const props = defineProps({
-  enemy: Object
-})
-const emit = defineEmits(['attack'])
 import { playerInfo as info } from '../store/player'
 import { playerId } from '../store/user'
 import { equipItem, useItem, dropItem } from '../api'
