@@ -72,6 +72,7 @@ import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
 import { logs } from '../store/logs'
+import { itemTypeText } from '../constants/enums'
 
 const router = useRouter()
 
@@ -193,12 +194,12 @@ const injuries = computed(() => {
 const equipRows = computed(() => {
   if (!info.value) return []
   return [
-    { slot: '武器', field: 'wep', name: info.value.wep, attr: info.value.wepk, effect: info.value.wep ? info.value.wepe : '', dur: info.value.wep ? info.value.weps : '' },
-    { slot: '身体', field: 'arb', name: info.value.arb, attr: info.value.arbk, effect: info.value.arb ? info.value.arbe : '', dur: info.value.arb ? info.value.arbs : '' },
-    { slot: '头部', field: 'arh', name: info.value.arh, attr: info.value.arhk, effect: info.value.arh ? info.value.arhe : '', dur: info.value.arh ? info.value.arhs : '' },
-    { slot: '手部', field: 'ara', name: info.value.ara, attr: info.value.arak, effect: info.value.ara ? info.value.arae : '', dur: info.value.ara ? info.value.aras : '' },
-    { slot: '腿部', field: 'arf', name: info.value.arf, attr: info.value.arfk, effect: info.value.arf ? info.value.arfe : '', dur: info.value.arf ? info.value.arfs : '' },
-    { slot: '装饰', field: 'art', name: info.value.art, attr: info.value.artk, effect: info.value.art ? info.value.arte : '', dur: info.value.art ? info.value.arts : '' }
+    { slot: '武器', field: 'wep', name: info.value.wep, attr: itemTypeText[info.value.wepk] || info.value.wepk, effect: info.value.wep ? info.value.wepe : '', dur: info.value.wep ? info.value.weps : '' },
+    { slot: '身体', field: 'arb', name: info.value.arb, attr: itemTypeText[info.value.arbk] || info.value.arbk, effect: info.value.arb ? info.value.arbe : '', dur: info.value.arb ? info.value.arbs : '' },
+    { slot: '头部', field: 'arh', name: info.value.arh, attr: itemTypeText[info.value.arhk] || info.value.arhk, effect: info.value.arh ? info.value.arhe : '', dur: info.value.arh ? info.value.arhs : '' },
+    { slot: '手部', field: 'ara', name: info.value.ara, attr: itemTypeText[info.value.arak] || info.value.arak, effect: info.value.ara ? info.value.arae : '', dur: info.value.ara ? info.value.aras : '' },
+    { slot: '腿部', field: 'arf', name: info.value.arf, attr: itemTypeText[info.value.arfk] || info.value.arfk, effect: info.value.arf ? info.value.arfe : '', dur: info.value.arf ? info.value.arfs : '' },
+    { slot: '装饰', field: 'art', name: info.value.art, attr: itemTypeText[info.value.artk] || info.value.artk, effect: info.value.art ? info.value.arte : '', dur: info.value.art ? info.value.arts : '' }
   ]
 })
 
