@@ -23,6 +23,20 @@ if (items.length) {
   db.items.insertMany(items);
 }
 
+// 导入 startitems
+var startitems = JSON.parse(cat('./start_items.json'));
+if (startitems.length) {
+  db.startitems.remove({});
+  db.startitems.insertMany(startitems);
+}
+
+// 导入 startweapons
+var startweapons = JSON.parse(cat('./start_weapons.json'));
+if (startweapons.length) {
+  db.startweapons.remove({});
+  db.startweapons.insertMany(startweapons);
+}
+
 // 导入 mapareas
 var mapareas = JSON.parse(cat('./mapareas.json'));
 if (mapareas.length) {
