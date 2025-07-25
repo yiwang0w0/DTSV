@@ -33,4 +33,11 @@ watch(
   { deep: true },
 );
 
+export function resetLogs(pid = playerId.value) {
+  if (pid) {
+    localStorage.removeItem(`logs_${pid}`);
+  }
+  logs.value = [];
+}
+
 export { loadLogs };

@@ -12,6 +12,8 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { playerId } from '../store/user'
 import { playerInfo } from '../store/player'
+import { resetLogs } from '../store/logs'
+import { resetChats } from '../store/chat'
 import { getDeadStatus } from '../api'
 import { stateInfo, deathInfo } from '../constants/death'
 
@@ -19,6 +21,8 @@ const router = useRouter()
 const info = playerInfo
 
 async function back() {
+  resetLogs(playerId.value)
+  resetChats(playerId.value)
   playerId.value = ''
   playerInfo.value = null
   router.push('/start')
