@@ -7,8 +7,8 @@
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
         <BattlePanel v-if="enemy" :player="info" :enemy="enemy" :loot="lootItems" @attack="doAttack" @loot="doLoot" />
         <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
+        <LogPanel :logs="recentLogs" />
         <ChatPanel :messages="chatList" @send="sendChatMsg" />
-        <LogPanel :logs="logs" />
       </div>
 
       <!-- 右侧区域 -->
@@ -163,10 +163,11 @@ const bagItems = computed(() => {
   return res
 })
 
+const recentLogs = computed(() => logs.value.slice(0, 2))
+
 function addLog(message) {
   if (message) {
     logs.value.unshift(message)
-    addChat({ type: 2, msg: message, time: Date.now() })
   }
 }
 
