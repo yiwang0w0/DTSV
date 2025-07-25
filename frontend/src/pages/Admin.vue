@@ -14,6 +14,7 @@
       <el-option v-for="area in mapAreas" :key="area.pid" :label="area.name" :value="area.pid" />
     </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
+    <el-button v-if="collection === 'itemcategories'" size="small" style="margin-left:10px" @click="$router.push('/admin/itemcategories')">高级编辑</el-button>
     <TablePanel
       :items="items"
       :field-meta="fieldMeta"
