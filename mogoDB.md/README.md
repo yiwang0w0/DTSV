@@ -103,7 +103,7 @@
 3. 创建 `logs`、`chats`、`mapitems`、`maptraps`、`newsinfos`、`roomlisteners`、`histories` 集合：
    ```javascript
    db.logs.createIndex({ lid: 1 })
-   db.chats.createIndex({ cid: 1 })
+   db.chats.createIndex({ gamenum: 1, cid: 1 })
    db.mapitems.createIndex({ iid: 1 })
    db.maptraps.createIndex({ tid: 1 })
    db.newsinfos.createIndex({ nid: 1 })

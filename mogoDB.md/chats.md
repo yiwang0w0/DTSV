@@ -1,12 +1,13 @@
 # chats 集合示例
 
-`chats` 集合来源于 DTS-SAMPLE 的 `bra_chat` 表。以下示例展示如何插入两条聊天记录。
+`chats` 集合来源于 DTS-SAMPLE 的 `bra_chat` 表。为便于按历史局查询，新增 `gamenum` 字段。
+以下示例展示如何插入两条聊天记录。
 
 ```javascript
 use dts;
 db.chats.insertMany([
-  { cid: 1, type: 0, time: 0, send: 'Alice', recv: '', msg: '大家好' },
-  { cid: 2, type: 2, time: 5, send: 'Bob', recv: 'Alice', msg: '私聊消息' }
+  { gamenum: 1, cid: 1, type: 0, time: 0, send: 'Alice', recv: '', msg: '大家好' },
+  { gamenum: 1, cid: 2, type: 2, time: 5, send: 'Bob', recv: 'Alice', msg: '私聊消息' }
 ]);
 ```
 
