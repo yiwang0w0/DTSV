@@ -15,6 +15,10 @@ module.exports = async function(req, res, next) {
     next();
   } catch (err) {
     console.error(err);
-    res.status(401).json({ msg: '无效令牌' });
+    if (err.name === 'TokenExpiredError') {
+      res.status(401).json({ msg: '令牌过期' });
+    } else {
+      res.status(401).json({ msg: '无效令牌' });
+    }
   }
 };
