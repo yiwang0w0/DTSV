@@ -110,12 +110,16 @@ function formatTime(t) {
 
 const gameStatus = computed(() => {
   if (!Object.keys(gameInfo.value).length) return '无法获取'
-  return gameInfo.value.gamestate >= 20 ? '进行中' : '未开始'
+  const state = gameInfo.value.gamestate
+  if (state >= 30) return '锁定'
+  if (state >= 20) return '进行中'
+  if (state > 0) return '未开始'
+  return '已结束'
 })
 
 const runtime = computed(() => {
   if (!gameInfo.value?.starttime) return 'N/A'
-  const diff = Date.now() - gameInfo.value.starttime * 1000
+  const diff = currentTime.value - gameInfo.value.starttime * 1000
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   const s = Math.floor((diff % 60000) / 1000)
