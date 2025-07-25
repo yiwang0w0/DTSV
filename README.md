@@ -219,7 +219,7 @@ npm run lint     # 代码规范检查
 
   ```json
   {
-    "version": "1.0",
+    "version": "1.0.1",
     "gamestate": "active",
     "starttime": 0,
     "areaInterval": 0,

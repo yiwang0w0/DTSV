@@ -5,7 +5,7 @@
       <div class="game-info">
         <el-row :gutter="20" class="stats">
           <el-col :span="8">
-            <el-statistic title="游戏版本">
+            <el-statistic :value="null" title="游戏版本">
               <template #default>{{ gameInfo.version ?? '未知' }}</template>
             </el-statistic>
           </el-col>
@@ -17,14 +17,14 @@
             />
           </el-col>
           <el-col :span="8">
-            <el-statistic title="状态">
+            <el-statistic :value="null" title="状态">
               <template #default>{{ gameStatus }}</template>
             </el-statistic>
           </el-col>
         </el-row>
         <el-row :gutter="20" class="stats">
           <el-col :span="6">
-            <el-statistic title="已运行">
+            <el-statistic :value="null" title="已运行">
               <template #default>{{ runtime }}</template>
             </el-statistic>
           </el-col>
