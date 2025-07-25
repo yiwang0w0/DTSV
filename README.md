@@ -269,6 +269,9 @@ npm run lint     # 代码规范检查
 - **POST `/api/auth/refresh`**：使用 `refreshToken` 获取新的 `token`
 - **POST `/api/auth/logout`**：注销并清除服务器端的 `refreshToken`
 
+客户端在收到 `令牌过期` 响应时会自动调用 `/api/auth/refresh`，
+刷新成功后重试原请求，无需手动重新登录。
+
 ## 管理 API
 
 管理员登录后可通过以下接口管理数据：
