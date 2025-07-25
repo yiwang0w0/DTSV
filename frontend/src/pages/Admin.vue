@@ -66,6 +66,7 @@ import { trapTypeText } from '../constants/enums'
 
 const collections = [
   { label: '玩家', value: 'players' },
+  { label: 'NPC', value: 'npcs' },
   { label: '商店物品', value: 'shopitems' },
   { label: '日志', value: 'logs' },
   { label: '聊天', value: 'chats' },
