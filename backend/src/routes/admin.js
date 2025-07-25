@@ -11,7 +11,6 @@ const models = {
   shopitems: require('../models/ShopItem'),
   items: require('../models/Item'),
   startitems: require('../models/StartItem'),
-  startweapons: require('../models/StartWeapon'),
   logs: require('../models/Log'),
   chats: require('../models/Chat'),
   mapitems: require('../models/MapItem'),

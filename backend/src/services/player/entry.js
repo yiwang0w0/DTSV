@@ -86,12 +86,18 @@ async function enter(user, body) {
 
     try {
       let startItems = await require('../../models/StartItem').find({});
-      let startWeps = await require('../../models/StartWeapon').find({});
       if (startItems.length === 0) {
-        startItems = await Item.find({ kind: { $not: /^W/ } });
+        startItems = await Item.find({});
       }
-      if (startWeps.length === 0) {
-        startWeps = await Item.find({ kind: /^W/ });
+
+      let weaponPool = startItems.filter(it => /^W/.test(it.kind));
+      let itemPool = startItems.filter(it => !/^W/.test(it.kind));
+
+      if (weaponPool.length === 0) {
+        weaponPool = await Item.find({ kind: /^W/ });
+      }
+      if (itemPool.length === 0) {
+        itemPool = await Item.find({ kind: { $not: /^W/ } });
       }
 
       const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -108,8 +114,8 @@ async function enter(user, body) {
       player.itms2 = '30';
       player.itmsk2 = '';
 
-      if (startWeps.length) {
-        const w = pick(startWeps);
+      if (weaponPool.length) {
+        const w = pick(weaponPool);
         player.wep = w.name;
         player.wepk = w.kind;
         player.wepe = Number(w.effect);
@@ -117,8 +123,8 @@ async function enter(user, body) {
         player.wepsk = w.skill;
       }
 
-      if (startItems.length) {
-        const it1 = pick(startItems);
+      if (itemPool.length) {
+        const it1 = pick(itemPool);
         player.itm3 = it1.name;
         player.itmk3 = it1.kind;
         player.itme3 = Number(it1.effect);
@@ -127,8 +133,8 @@ async function enter(user, body) {
 
         let it2;
         do {
-          it2 = pick(startItems);
-        } while (startItems.length > 1 && it2.kind === it1.kind);
+          it2 = pick(itemPool);
+        } while (itemPool.length > 1 && it2.kind === it1.kind);
         player.itm4 = it2.name;
         player.itmk4 = it2.kind;
         player.itme4 = Number(it2.effect);

@@ -30,14 +30,6 @@ if (startitems.length) {
   db.startitems.insertMany(startitems);
 }
 
-// 导入 startweapons
-var startweapons = JSON.parse(cat('./start_weapons.json'));
-if (startweapons.length) {
-  db.startweapons.remove({});
-  db.startweapons.insertMany(startweapons);
-}
-
-// 导入 mapareas
 var mapareas = JSON.parse(cat('./mapareas.json'));
 if (mapareas.length) {
   db.mapareas.remove({});

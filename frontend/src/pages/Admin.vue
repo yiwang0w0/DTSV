@@ -70,7 +70,6 @@ const collections = [
   { label: '商店物品', value: 'shopitems' },
   { label: '物品表', value: 'items' },
   { label: '初始物品', value: 'startitems' },
-  { label: '初始武器', value: 'startweapons' },
   { label: '日志', value: 'logs' },
   { label: '聊天', value: 'chats' },
   { label: '地图物品', value: 'mapitems' },
