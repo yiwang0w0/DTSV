@@ -7,6 +7,7 @@ const gameService = require('../services/gameService');
 
 const models = {
   players: require('../models/Player'),
+  npcs: require('../models/Player'),
   shopitems: require('../models/ShopItem'),
   logs: require('../models/Log'),
   chats: require('../models/Chat'),
@@ -87,6 +88,12 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
       filter.pls = Number(req.query.pls);
     }
+    if (req.params.collection === 'players') {
+      filter.type = 0;
+    }
+    if (req.params.collection === 'npcs') {
+      filter.type = { $gt: 0 };
+    }
     const skip = Number(req.query.skip) || 0;
     const limit = Number(req.query.limit) || 100;
     const docs = await Model.find(filter).skip(skip).limit(limit);
@@ -101,7 +108,14 @@ router.post('/:collection', async (req, res) => {
   const Model = getModel(req.params.collection);
   if (!Model) return res.status(404).json({ msg: '集合不存在' });
   try {
-    const doc = await Model.create(req.body);
+    const data = { ...req.body };
+    if (req.params.collection === 'players') {
+      data.type = 0;
+    }
+    if (req.params.collection === 'npcs') {
+      if (!data.type || data.type === 0) data.type = 1;
+    }
+    const doc = await Model.create(data);
     res.json(doc);
   } catch (err) {
     console.error(err);

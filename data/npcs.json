@@ -98,7 +98,7 @@
             "462": "0"
         },
         "description": "红杀将军 红暮，坐镇于无月之影的BOSS，达成锁定解除结局所必须击杀的NPC。 <span class=\"linen\">\"红暮真可爱呀！\"<\/span>",
-        "type": 1,
+        "type": 1, "spawnStage": "start",
         "pid": 1001
     },
     {
@@ -194,7 +194,7 @@
         "num": 16,
         "teampass": "",
         "description": "全息幻象 水濑 名雪-改，掉落优秀的爆系武器和命体回复品。",
-        "type": 2,
+        "type": 2, "spawnStage": "start",
         "pid": 2001
     },
     {
@@ -290,7 +290,7 @@
         "num": 16,
         "teampass": "",
         "description": "全息幻象 立华 奏-改，掉落优秀的殴系武器、斩系武器（可以变为原DN刀）和歌魂增加道具。",
-        "type": 2,
+        "type": 2, "spawnStage": "start",
         "pid": 2002
     },
     {
@@ -386,7 +386,7 @@
         "num": 16,
         "teampass": "",
         "description": "全息幻象 思念体-海马 濑人，掉落游戏王卡包、强效的磨刀石以及带HP制御属性的手臂防具。",
-        "type": 2,
+        "type": 2, "spawnStage": "start",
         "pid": 2003
     },
     {
@@ -482,7 +482,7 @@
         "num": 16,
         "teampass": "",
         "description": "全息幻象 思念体-触手众，掉落优秀的灵系武器、强效的钉子、怒气回复道具以及具有补给净化功能的饰品。",
-        "type": 2,
+        "type": 2, "spawnStage": "start",
         "pid": 2004
     },
     {
@@ -577,7 +577,7 @@
         "mode": 2,
         "num": 2,
         "description": "杏仁豆腐 冴月 麟，对玩家有较大威胁，掉落启动死斗模式的钥匙和一本隐形技能书。",
-        "type": 5,
+        "type": 5, "spawnStage": "ban2",
         "pid": 5001
     },
     {
@@ -672,7 +672,7 @@
         "mode": 2,
         "num": 2,
         "description": "杏仁豆腐 某四面，对玩家有较大威胁，掉落启动死斗模式的钥匙和武器师安雅的奖赏的素材。",
-        "type": 5,
+        "type": 5, "spawnStage": "ban2",
         "pid": 5002
     },
     {
@@ -770,7 +770,7 @@
             "461": "1"
         },
         "description": "黑幕 Acg_Xilin，对玩家具有很大威胁，如果防御值没有达到2000最好不要惹他（她）。掉落可以杀死任意一名玩家的道具“死亡笔记”，和大量的金钱。",
-        "type": 6,
+        "type": 6, "spawnStage": "ban2",
         "pid": 6001
     },
     {
@@ -871,7 +871,7 @@
             "461": "1"
         },
         "description": "坐镇于冰封墓场的NPC，几乎无敌的存在。<span class=\"yellow\">没事还是不要惹她好了……<\/span>",
-        "type": 9,
+        "type": 9, "spawnStage": "ban4",
         "pid": 9001
     },
     {
@@ -966,7 +966,7 @@
         "mode": 1,
         "num": 7,
         "description": "真职人 Hank，使用带有全属性的爆系武器，掉落极优秀的防具。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11001
     },
     {
@@ -1061,7 +1061,7 @@
         "mode": 1,
         "num": 7,
         "description": "真职人 爱情上甘岭，使用带有全属性的斩系武器，掉落极优秀的防具。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11002
     },
     {
@@ -1156,7 +1156,7 @@
         "mode": 1,
         "num": 7,
         "description": "真职人 221，使用带有全属性的殴系武器，掉落极优秀的防具。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11003
     },
     {
@@ -1251,7 +1251,7 @@
         "mode": 1,
         "num": 7,
         "description": "真职人 Erul Tron，使用带有全属性的射系武器，掉落极优秀的防具。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11004
     },
     {
@@ -1346,7 +1346,7 @@
         "mode": 1,
         "num": 7,
         "description": "真职人 亚玛丽欧·维拉蒂安，使用带有全属性的殴系武器，掉落极优秀的防具。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11005
     },
     {
@@ -1445,7 +1445,7 @@
             "461": "1"
         },
         "description": "真职人 便当盒，ACFUN大逃杀吉祥物，卖萌的存在，拥有888万点HP和双抹消饰品，几乎无法杀死。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11006
     },
     {
@@ -1544,7 +1544,7 @@
             "461": "1"
         },
         "description": "真职人 黑色夺魂曲，ACFUN大逃杀吉祥物，卖萌的存在，似乎很难对其造成伤害。",
-        "type": 11,
+        "type": 11, "spawnStage": "ban4",
         "pid": 11007
     },
     {
@@ -1638,7 +1638,7 @@
         "itmsk6": "",
         "mode": 1,
         "num": 0,
-        "type": 13,
+        "type": 13, "spawnStage": "start",
         "pid": 13001
     },
     {
@@ -1733,7 +1733,7 @@
         "mode": 1,
         "num": 3,
         "description": "数据碎片 讲解员 梦美，<span class=\"yellow\">被击杀后会变身为攻击力极强的NPC<\/span>。",
-        "type": 14,
+        "type": 14, "spawnStage": "start",
         "pid": 14001
     },
     {
@@ -1828,7 +1828,7 @@
         "mode": 1,
         "num": 3,
         "description": "数据碎片 喧哗少女 叶留佳，<span class=\"yellow\">被击杀后会变身为攻击力极强的NPC<\/span>。",
-        "type": 14,
+        "type": 14, "spawnStage": "start",
         "pid": 14002
     },
     {
@@ -1923,7 +1923,7 @@
         "mode": 1,
         "num": 3,
         "description": "数据碎片 风纪委员 静流，<span class=\"yellow\">被击杀后会变身为攻击力极强的NPC<\/span>。",
-        "type": 14,
+        "type": 14, "spawnStage": "start",
         "pid": 14003
     },
     {
@@ -2017,7 +2017,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20001
     },
     {
@@ -2111,7 +2111,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20002
     },
     {
@@ -2205,7 +2205,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20003
     },
     {
@@ -2299,7 +2299,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20004
     },
     {
@@ -2393,7 +2393,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20005
     },
     {
@@ -2487,7 +2487,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20006
     },
     {
@@ -2581,7 +2581,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20007
     },
     {
@@ -2675,7 +2675,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20008
     },
     {
@@ -2769,7 +2769,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20009
     },
     {
@@ -2863,7 +2863,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20010
     },
     {
@@ -2957,7 +2957,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20011
     },
     {
@@ -3051,7 +3051,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20012
     },
     {
@@ -3145,7 +3145,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20013
     },
     {
@@ -3239,7 +3239,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20014
     },
     {
@@ -3333,7 +3333,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20015
     },
     {
@@ -3427,7 +3427,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20016
     },
     {
@@ -3521,7 +3521,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20017
     },
     {
@@ -3615,7 +3615,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20018
     },
     {
@@ -3709,7 +3709,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20019
     },
     {
@@ -3803,7 +3803,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20020
     },
     {
@@ -3897,7 +3897,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20021
     },
     {
@@ -3991,7 +3991,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20022
     },
     {
@@ -4085,7 +4085,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20023
     },
     {
@@ -4179,7 +4179,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20024
     },
     {
@@ -4273,7 +4273,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20025
     },
     {
@@ -4367,7 +4367,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20026
     },
     {
@@ -4461,7 +4461,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20027
     },
     {
@@ -4555,7 +4555,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20028
     },
     {
@@ -4649,7 +4649,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20029
     },
     {
@@ -4743,7 +4743,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20030
     },
     {
@@ -4837,7 +4837,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20031
     },
     {
@@ -4931,7 +4931,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20032
     },
     {
@@ -5025,7 +5025,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20033
     },
     {
@@ -5119,7 +5119,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20034
     },
     {
@@ -5213,7 +5213,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20035
     },
     {
@@ -5307,7 +5307,7 @@
         "itmsk6": "",
         "mode": 2,
         "num": 10,
-        "type": 20,
+        "type": 20, "spawnStage": "start",
         "pid": 20036
     },
     {
@@ -5409,7 +5409,7 @@
             "461": "1"
         },
         "description": "武神 黑熊，<span class=\"yellow\">旧英灵四天王之首，被称为英灵殿唯一的良心。（咦？）<br>附带很不要脸的<span class=\"red\">【直死1】<\/span>和<span class=\"red\">【暴风】<\/span>技能<\/span>",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21001
     },
     {
@@ -5508,7 +5508,7 @@
             "461": "1"
         },
         "description": "武神 水月，<span class=\"yellow\">旧英灵四天王之一。<\/span>身上的火金符对玩家威胁很大，称号为换装迷宫，台词来源于圣经。初始武器自带双抹，但威力不足。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21002
     },
     {
@@ -5606,7 +5606,7 @@
             "461": "1"
         },
         "description": "武神 黑色奪魂曲，<span class=\"yellow\">英灵殿吉祥物。<\/span>攻击力低，二形态血量为1000W，自带双抹，同时武器拥有贯穿属性，具有一定威胁。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21003
     },
     {
@@ -5704,7 +5704,7 @@
             "461": "1"
         },
         "description": "武神 北京推倒你，<span class=\"yellow\">曾经被誉为最弱武神，经过BUFF后变的丧心病狂起来。<\/span>武器为空手，但拥有6000点的基础熟练，隐隐有成为小黑熊的架势。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21004
     },
     {
@@ -5803,7 +5803,7 @@
             "461": "1"
         },
         "description": "武神 BorisX，<span class=\"yellow\">旧英灵四天王之一，经过BUFF后变的更加丧心病狂。<\/span>武器为重枪，同时具有1150点的基础熟练，而且血量也有所提升，大家看见之后绕着走就行了。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21005
     },
     {
@@ -5901,7 +5901,7 @@
             "461": "1"
         },
         "description": "武神 Renamon，<span class=\"yellow\">旧时代毫无存在感的武神之一，被BUFF能拯救她阿卡林的命运吗？<\/span>血量为武神中最高，同时武器基础效和全熟在被BUFF后隐隐有与当年黄鸡寻星比肩的势头。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21006
     },
     {
@@ -5999,7 +5999,7 @@
             "461": "1"
         },
         "description": "武神 beijuzhu，<span class=\"yellow\">旧时代毫无存在感的武神之一，被BUFF能拯救他阿卡林的命运吗？<\/span>虽然和小狐一样，武器基础效得到了BUFF，但看起来还是很弱小。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21007
     },
     {
@@ -6097,7 +6097,7 @@
             "461": "1"
         },
         "description": "武神 捂脸姬，<span class=\"yellow\">旧时代毫无存在感的武神之一，被BUFF能拯救她阿卡林的命运吗？<\/span>少数没有强袭姿态的武神之一，但是武器基础效直接被提高了十倍，看起来很危险的样子。",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21008
     },
     {
@@ -6195,7 +6195,7 @@
             "461": "1"
         },
         "description": "武神 Yoshiko-G，<span class=\"yellow\">四面衍生物，特征是毒舌与傲娇。<\/span>武神中基础防御力仅低于lemon，在得到BUFF后翻身农奴把歌唱，自带迅疾和静息技能，同时称号变为天赋，要被耀西子教做人了吗！？",
-        "type": 21,
+        "type": 21, "spawnStage": "start",
         "pid": 21009
     },
     {
@@ -6301,7 +6301,7 @@
             "461": "1"
         },
         "description": "天神 冴月麟MK-II，ACFUN大逃杀的最初创作者。KEY社的铁杆粉丝。会切换武器。（没有键 催泪弹是刻意的）",
-        "type": 22,
+        "type": 22, "spawnStage": "start",
         "pid": 22001
     },
     {
@@ -6399,7 +6399,7 @@
             "461": "1"
         },
         "description": "天神 星莲船四面BOSS，AC大逃杀程序员、抖M，本体已经变成了马。虽然武器的攻击力是1，但由于重型枪械的百分比伤害设定，实际上对玩家拥有即死效果。",
-        "type": 22,
+        "type": 22, "spawnStage": "start",
         "pid": 22002
     },
     {
@@ -6500,7 +6500,7 @@
             "461": "1"
         },
         "description": "天神 虚子，AC大逃杀程序员，毒舌属性。<br>附带很不要脸的<span class=\"red\">【直死4】<\/span>技能，命中抬走送往印度，现在订购还附赠美味香蕉一串。pong友，今天你被直死了吗？",
-        "type": 22,
+        "type": 22, "spawnStage": "start",
         "pid": 22003
     },
     {
@@ -6599,7 +6599,7 @@
             "461": "1"
         },
         "description": "天神 lemon，AC大逃杀程序员，代码力深不见底。<br>拥有全英灵殿最高的基础攻击与防御，而更吓人的是其拥有的<span class=\"red\">【反演】<\/span>技能，让无数屠殿老司机铩羽而归。",
-        "type": 22,
+        "type": 22, "spawnStage": "start",
         "pid": 22004
     },
     {
@@ -6697,7 +6697,7 @@
             "404": "2"
         },
         "description": "电波幽灵 索菲亚小傻鸟，电波第一代触手代表。另一个身份是A岛美食版女神kitty酱。",
-        "type": 45,
+        "type": 45, "spawnStage": "start",
         "pid": 45001
     },
     {
@@ -6795,7 +6795,7 @@
             "404": "2"
         },
         "description": "电波幽灵 虚名，电波第二代触手代表。本命武器为精灵片翼。",
-        "type": 45,
+        "type": 45, "spawnStage": "start",
         "pid": 45002
     },
     {
@@ -6893,7 +6893,7 @@
             "404": "2"
         },
         "description": "电波幽灵 YS，电波第三代触手代表。是一名脸很黑的小学生。",
-        "type": 45,
+        "type": 45, "spawnStage": "start",
         "pid": 45003
     },
     {
@@ -6991,7 +6991,7 @@
             "404": "2"
         },
         "description": "电波幽灵 逆向朝阳，电波第二代触手，电波前段时间的统治者。养了很多猫大爷。",
-        "type": 45,
+        "type": 45, "spawnStage": "start",
         "pid": 45004
     },
     {
@@ -7086,7 +7086,7 @@
         "mode": 1,
         "num": 4,
         "description": "SCP-682，坐镇于SCP研究设施，完全无敌的存在，要是不幸被打到的话，必死无疑。最好的避免方法，就是<span class=\"yellow\">永远不要去SCP研究设施<\/span>。",
-        "type": 88,
+        "type": 88, "spawnStage": "start",
         "pid": 88001
     },
     {
@@ -7181,7 +7181,7 @@
         "mode": 1,
         "num": 4,
         "description": "SCP-173，坐镇于SCP研究设施，完全无敌的存在，要是不幸被打到的话，必死无疑。最好的避免方法，就是<span class=\"yellow\">永远不要去SCP研究设施<\/span>。",
-        "type": 88,
+        "type": 88, "spawnStage": "start",
         "pid": 88002
     },
     {
@@ -7276,7 +7276,7 @@
         "mode": 1,
         "num": 4,
         "description": "SCP-076，坐镇于SCP研究设施，完全无敌的存在，要是不幸被打到的话，必死无疑。最好的避免方法，就是<span class=\"yellow\">永远不要去SCP研究设施<\/span>。",
-        "type": 88,
+        "type": 88, "spawnStage": "start",
         "pid": 88003
     },
     {
@@ -7371,7 +7371,7 @@
         "mode": 1,
         "num": 4,
         "description": "SCP-958，坐镇于SCP研究设施，完全无敌的存在，要是不幸被打到的话，必死无疑。最好的避免方法，就是<span class=\"yellow\">永远不要去SCP研究设施<\/span>。",
-        "type": 88,
+        "type": 88, "spawnStage": "start",
         "pid": 88004
     },
     {
@@ -7466,7 +7466,7 @@
         "mode": 2,
         "num": 300,
         "description": "“人类的本质就是复读机。”<br>无威胁的杂兵，也是数目最多的NPC之一，碰见了就上去给他一击吧。",
-        "type": 90,
+        "type": 90, "spawnStage": "ban4",
         "pid": 90001
     },
     {
@@ -7561,7 +7561,7 @@
         "mode": 2,
         "num": 300,
         "description": "“真鸡儿丢人！”<br>无威胁的杂兵，也是数目最多的NPC之一，碰见了就上去给他一击吧。",
-        "type": 90,
+        "type": 90, "spawnStage": "ban4",
         "pid": 90002
     },
     {
@@ -7656,7 +7656,7 @@
         "mode": 2,
         "num": 300,
         "description": "“又到了那个寒冷的季节……”<br>无威胁的杂兵，也是数目最多的NPC之一，碰见了就上去给他一击吧。",
-        "type": 90,
+        "type": 90, "spawnStage": "ban4",
         "pid": 90003
     },
     {
@@ -7751,7 +7751,7 @@
         "mode": 2,
         "num": 300,
         "description": "“这服就我不是触手了。”<br>无威胁的杂兵，也是数目最多的NPC之一，碰见了就上去给他一击吧。",
-        "type": 90,
+        "type": 90, "spawnStage": "ban4",
         "pid": 90004
     }
 ]

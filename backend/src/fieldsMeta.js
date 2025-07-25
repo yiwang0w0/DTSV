@@ -8,6 +8,24 @@ module.exports = {
     { name: 'money', label: '金钱', type: 'number' },
     { name: 'state', label: '状态', type: 'number' }
   ],
+  npcs: [
+    { name: 'pid', label: 'NPCID', type: 'number' },
+    { name: 'name', label: '名字', type: 'text' },
+    { name: 'spawnStage', label: '生成时机', type: 'select', options: ['start','ban2','ban4'] },
+    { name: 'hp', label: '生命值', type: 'number' },
+    { name: 'mhp', label: '最大生命', type: 'number' },
+    { name: 'sp', label: '体力', type: 'number' },
+    { name: 'msp', label: '最大体力', type: 'number' },
+    { name: 'att', label: '攻击力', type: 'number' },
+    { name: 'def', label: '防御力', type: 'number' },
+    { name: 'pls', label: '所在区域', type: 'number' },
+    { name: 'state', label: '状态', type: 'number' },
+    { name: 'wep', label: '武器名', type: 'text' },
+    { name: 'wepk', label: '武器种类', type: 'text' },
+    { name: 'wepe', label: '武器效果', type: 'number' },
+    { name: 'weps', label: '武器耐久', type: 'text' },
+    { name: 'wepsk', label: '武器属性', type: 'text' }
+  ],
   shopitems: [
     { name: 'sid', label: '物品ID', type: 'number' },
     { name: 'item', label: '名称', type: 'text' },
