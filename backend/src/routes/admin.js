@@ -4,6 +4,7 @@ const auth = require('../middlewares/auth');
 const checkAdmin = require('../middlewares/admin');
 const fieldsMeta = require('../fieldsMeta');
 const gameService = require('../services/gameService');
+const itemCategoryService = require('../services/itemCategoryService');
 
 const models = {
   players: require('../models/Player'),
@@ -158,6 +159,16 @@ router.delete('/:collection/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '删除失败' });
+  }
+});
+
+router.post('/itemcategories/import-default', async (req, res) => {
+  try {
+    const count = await itemCategoryService.importFromMapItems();
+    res.json({ msg: `已导入 ${count} 个类别` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '导入失败' });
   }
 });
 

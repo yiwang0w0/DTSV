@@ -26,3 +26,6 @@ db.itemcategories.createIndex({ name: 1 });
 ```bash
 mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
 ```
+
+若未预先导入，可在后台通过接口 `/api/admin/itemcategories/import-default` 从
+`mapitems.json` 生成默认记录，便于在管理界面进行增删改查。
