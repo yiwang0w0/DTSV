@@ -1,6 +1,13 @@
 <template>
   <div>
     <div v-if="info">
+      <el-card
+        v-if="latestLog"
+        class="card-section latest-log-card"
+        shadow="never"
+      >
+        <div v-html="latestLog" />
+      </el-card>
       <h4 style="margin-top:10px">物品栏</h4>
       <el-table :data="items" style="width:100%">
         <el-table-column prop="name" label="物品" />
@@ -38,7 +45,12 @@
 import { computed, ref } from 'vue'
 import { playerInfo as info } from '../store/player'
 import { playerId } from '../store/user'
+import { logs } from '../store/logs'
 import { equipItem, useItem, dropItem } from '../api'
+
+const props = defineProps({
+  latestLog: String,
+})
 
 function getType(kind) {
   if (!kind) return ''
@@ -60,6 +72,12 @@ function isEquip(kind) {
 
 const dropVisible = ref(false)
 const dropIndex = ref(0)
+
+function addLog(message) {
+  if (message) {
+    logs.value.unshift(message)
+  }
+}
 
 const items = computed(() => {
   const res = []
@@ -85,6 +103,7 @@ function equip(index) {
   if (!playerId.value) return
   equipItem(playerId.value, index).then(({ data }) => {
     info.value = data.player
+    addLog(data.msg)
   }).catch(e => {
     const msg = e.response?.data?.msg
     alert(msg || '装备失败')
@@ -95,6 +114,7 @@ function useIt(index) {
   if (!playerId.value) return
   useItem(playerId.value, index).then(({ data }) => {
     info.value = data.player
+    addLog(data.msg)
   }).catch(e => {
     const msg = e.response?.data?.msg
     alert(msg || '使用失败')
@@ -111,6 +131,7 @@ function confirmDrop() {
   if (!playerId.value) return
   dropItem(playerId.value, dropIndex.value).then(({ data }) => {
     info.value = data.player
+    addLog(data.msg)
     dropVisible.value = false
   }).catch(e => {
     const msg = e.response?.data?.msg
@@ -118,3 +139,10 @@ function confirmDrop() {
   })
 }
 </script>
+
+<style scoped>
+.latest-log-card {
+  margin-bottom: 10px;
+  background: #fdfdfd;
+}
+</style>
