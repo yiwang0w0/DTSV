@@ -84,7 +84,14 @@ async function startGame() {
     const npcs = JSON.parse(fs.readFileSync(npcFile));
     await Player.deleteMany({ type: { $gt: 0 } });
     if (npcs && npcs.length) {
-      const startNpcs = npcs.filter(n => !n.spawnStage || n.spawnStage === 'start');
+      const startNpcs = npcs
+        .filter(n => !n.spawnStage || n.spawnStage === 'start')
+        .map(n => ({
+          ...n,
+          hp: n.hp || n.mhp || 0,
+          sp: n.sp || n.msp || 0,
+          ss: n.ss || n.mss || 0
+        }));
       if (startNpcs.length) {
         await Player.insertMany(startNpcs);
       }
@@ -111,7 +118,14 @@ async function spawnNpcs(stage) {
   try {
     const npcFile = path.join(__dirname, '../../../data/npcs.json');
     const npcs = JSON.parse(fs.readFileSync(npcFile));
-    const list = npcs.filter(n => n.spawnStage === stage);
+    const list = npcs
+      .filter(n => n.spawnStage === stage)
+      .map(n => ({
+        ...n,
+        hp: n.hp || n.mhp || 0,
+        sp: n.sp || n.msp || 0,
+        ss: n.ss || n.mss || 0
+      }));
     if (list.length) {
       await Player.insertMany(list);
     }
