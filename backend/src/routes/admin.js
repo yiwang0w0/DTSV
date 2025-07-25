@@ -9,6 +9,7 @@ const models = {
   players: require('../models/Player'),
   npcs: require('../models/Player'),
   shopitems: require('../models/ShopItem'),
+  items: require('../models/Item'),
   logs: require('../models/Log'),
   chats: require('../models/Chat'),
   mapitems: require('../models/MapItem'),
@@ -93,6 +94,9 @@ router.get('/:collection', async (req, res) => {
     }
     if (req.params.collection === 'npcs') {
       filter.type = { $gt: 0 };
+    }
+    if (req.params.collection === 'items' && req.query.kind) {
+      filter.kind = req.query.kind;
     }
     const skip = Number(req.query.skip) || 0;
     const limit = Number(req.query.limit) || 100;

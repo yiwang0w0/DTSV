@@ -1,8 +1,7 @@
 const Player = require('../../models/Player');
 const GameInfo = require('../../models/GameInfo');
 const Club = require('../../models/Club');
-const fs = require('fs');
-const path = require('path');
+const Item = require('../../models/Item');
 const constants = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
@@ -86,17 +85,8 @@ async function enter(user, body) {
     }
 
     try {
-      // 数据目录位于项目根目录的 /data，需从当前文件向上返回四级
-      const itemFile = path.join(
-        __dirname,
-        '../../../../data/start_items.json'
-      );
-      const wepFile = path.join(
-        __dirname,
-        '../../../../data/start_weapons.json'
-      );
-      const startItems = JSON.parse(fs.readFileSync(itemFile));
-      const startWeps = JSON.parse(fs.readFileSync(wepFile));
+      const startItems = await Item.find({ kind: { $not: /^W/ } });
+      const startWeps = await Item.find({ kind: /^W/ });
 
       const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
