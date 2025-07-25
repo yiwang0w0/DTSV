@@ -1,0 +1,10 @@
+[
+  {
+    "name": "默认地图掉落",
+    "type": "mapitem",
+    "items": [
+      { "itemId": 1, "pls": 1, "count": 2 },
+      { "itemId": 2, "pls": 2, "count": 3 }
+    ]
+  }
+]

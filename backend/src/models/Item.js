@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
+  id: { type: Number, index: true },
   name: { type: String, default: '' },
   kind: { type: String, default: '' },
   effect: { type: Number, default: 0 },

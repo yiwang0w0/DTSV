@@ -14,6 +14,7 @@ const models = {
   chats: require('../models/Chat'),
   mapitems: require('../models/MapItem'),
   maptraps: require('../models/MapTrap'),
+  itemcategories: require('../models/ItemCategory'),
   mapareas: require('../models/MapArea'),
   newsinfos: require('../models/NewsInfo'),
   roomlisteners: require('../models/RoomListener'),

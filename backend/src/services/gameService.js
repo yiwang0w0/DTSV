@@ -4,6 +4,8 @@ const MapArea = require('../models/MapArea');
 const Player = require('../models/Player');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
+const Item = require('../models/Item');
+const ItemCategory = require('../models/ItemCategory');
 const Club = require('../models/Club');
 const constants = require('../config/constants');
 const fs = require('fs');
@@ -23,6 +25,33 @@ async function ensureDefaultClubs() {
       console.error('导入默认职业列表失败', e);
     }
   }
+}
+
+async function generateItemsFromCategories(type) {
+  const categories = await ItemCategory.find({ type });
+  const res = [];
+  let id = 1;
+  for (const c of categories) {
+    for (const e of c.items || []) {
+      const base = await Item.findOne({ id: e.itemId });
+      if (!base) continue;
+      const cnt = e.count || 1;
+      for (let i = 0; i < cnt; i++) {
+        const obj = {
+          itm: base.name,
+          itmk: e.itmk || base.kind,
+          itme: e.itme !== undefined ? e.itme : base.effect,
+          itms: e.itms !== undefined ? e.itms : base.dur,
+          itmsk: e.itmsk || base.skill,
+          pls: e.pls || 0
+        };
+        if (type === 'mapitem') obj.iid = id++;
+        else obj.tid = id++;
+        res.push(obj);
+      }
+    }
+  }
+  return res;
 }
 
 async function startGame() {
@@ -51,22 +80,34 @@ async function startGame() {
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/mapitems.json');
-    const items = JSON.parse(fs.readFileSync(file));
     await MapItem.deleteMany({});
-    if (items && items.length) {
-      await MapItem.insertMany(items);
+    const count = await ItemCategory.countDocuments({ type: 'mapitem' });
+    if (count > 0) {
+      const items = await generateItemsFromCategories('mapitem');
+      if (items.length) await MapItem.insertMany(items);
+    } else {
+      const file = path.join(__dirname, '../../../data/mapitems.json');
+      const items = JSON.parse(fs.readFileSync(file));
+      if (items && items.length) {
+        await MapItem.insertMany(items);
+      }
     }
   } catch (e) {
     console.error('初始化地图物品失败', e);
   }
 
   try {
-    const file = path.join(__dirname, '../../../data/maptraps.json');
-    const traps = JSON.parse(fs.readFileSync(file));
     await MapTrap.deleteMany({});
-    if (traps && traps.length) {
-      await MapTrap.insertMany(traps);
+    const count = await ItemCategory.countDocuments({ type: 'maptrap' });
+    if (count > 0) {
+      const traps = await generateItemsFromCategories('maptrap');
+      if (traps.length) await MapTrap.insertMany(traps);
+    } else {
+      const file = path.join(__dirname, '../../../data/maptraps.json');
+      const traps = JSON.parse(fs.readFileSync(file));
+      if (traps && traps.length) {
+        await MapTrap.insertMany(traps);
+      }
     }
   } catch (e) {
     console.error('初始化地图陷阱失败', e);

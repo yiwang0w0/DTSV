@@ -44,6 +44,13 @@ if (mapitems.length) {
   db.mapitems.insertMany(mapitems);
 }
 
+// 导入 itemcategories
+var itemcategories = JSON.parse(cat('./itemCategories.json'));
+if (itemcategories.length) {
+  db.itemcategories.remove({});
+  db.itemcategories.insertMany(itemcategories);
+}
+
 // 导入 clubs
 var clubs = JSON.parse(cat('./clubs.json'));
 if (clubs.length) {
