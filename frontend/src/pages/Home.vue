@@ -3,41 +3,13 @@
     <h2>欢迎来到 DTS</h2>
     <div class="home-container">
       <div class="game-info">
-        <el-row :gutter="20" class="stats">
-          <el-col :span="8">
-            <el-statistic title="游戏版本">
-              <template #default>{{ gameInfo.version ?? '未知' }}</template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="8">
-            <el-statistic
-              :value="currentTime"
-              title="当前时刻"
-              :formatter="formatTime"
-            />
-          </el-col>
-          <el-col :span="8">
-            <el-statistic title="状态">
-              <template #default>{{ gameStatus }}</template>
-            </el-statistic>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20" class="stats">
-          <el-col :span="6">
-            <el-statistic title="已运行">
-              <template #default>{{ runtime }}</template>
-            </el-statistic>
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :value="gameInfo.areanum ?? 0" title="禁区数" />
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :value="gameInfo.alivenum ?? 0" title="存活玩家" />
-          </el-col>
-          <el-col :span="6">
-            <el-statistic :value="gameInfo.deathnum ?? 0" title="死亡总数" />
-          </el-col>
-        </el-row>
+        <p>游戏版本：{{ gameInfo.version ?? '未知' }}</p>
+        <p>当前时刻：{{ formatTime(currentTime) }}</p>
+        <p>状态：{{ gameStatus }}</p>
+        <p>已运行：{{ runtime }}</p>
+        <p>禁区数：{{ gameInfo.areanum ?? '无法获取' }}</p>
+        <p>存活玩家：{{ gameInfo.alivenum ?? '无法获取' }}</p>
+        <p>死亡总数：{{ gameInfo.deathnum ?? '无法获取' }}</p>
         <div class="btn-group">
           <el-button size="small" type="primary" @click="manualStart">手动开始游戏</el-button>
           <el-button size="small" type="danger" @click="manualStop" style="margin-left: 8px">手动关闭游戏</el-button>
@@ -249,9 +221,6 @@ async function logout() {
 }
 .game-info {
   margin-bottom: 20px;
-}
-.stats {
-  margin-bottom: 12px;
 }
 .btn-group {
   margin-top: 10px;

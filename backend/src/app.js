@@ -22,6 +22,7 @@ mongoose
     console.log('MongoDB 已连接');
     await constantsService.loadConstants();
     await gameService.ensureDefaultClubs();
+    await gameService.ensureGameInfo();
   })
   .catch((err) => console.error('MongoDB 连接失败', err));
 
