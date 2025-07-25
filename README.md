@@ -136,7 +136,8 @@ mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonAr
 mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
 mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
 ```
-其中 `itemCategories.json` 示范了物品生成类别配置，导入后可在后台管理界面调整各类别内容。
+`itemCategories.json` 示范了物品刷新阶段（start、ban2、ban4）对应的道具列表，可在后台管理界面调整。
+`mapitems.json` 内同样带有 `stage` 字段，记录各阶段默认刷新到地图上的道具。
 
 也可以在 `mongo` shell 中执行 `data/initData.js` 脚本一次完成导入：
 

@@ -67,19 +67,21 @@ async function generateItemsFromCategories(type, stage = 'start') {
 async function spawnMapItems(stage) {
   let items = await generateItemsFromCategories('mapitem', stage);
   if (!items.length) {
-    let file = '../data/mapitems.json';
-    if (stage === 'ban2') file = '../data/mapitems_ban2.json';
-    else if (stage === 'ban4') file = '../data/mapitems_ban4.json';
     try {
-      const fp = path.join(__dirname, file);
+      const fp = path.join(__dirname, '../data/mapitems.json');
       if (fs.existsSync(fp)) {
-        items = JSON.parse(fs.readFileSync(fp));
+        const raw = JSON.parse(fs.readFileSync(fp));
+        items = raw.filter((it) => it.stage === stage);
       }
     } catch (e) {
       console.error('读取默认地图物品失败', e);
     }
   }
-  if (items.length) await MapItem.insertMany(items);
+  if (items.length) {
+    let id = 1;
+    items = items.map((it) => ({ ...it, iid: id++, stage: it.stage || stage }));
+    await MapItem.insertMany(items);
+  }
 }
 
 async function spawnMapTraps(stage) {

@@ -22,8 +22,8 @@ function parseMapItems() {
     '../DTS-SAMPLE/include/modules/base/itemmain/config/mapitem.config.php',
   );
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-  const stages = { start: [], ban2: [], ban4: [] };
-  const ids = { start: 1, ban2: 1, ban4: 1 };
+  const result = [];
+  let id = 1;
 
   for (const line of lines) {
     const t = line.trim();
@@ -37,8 +37,9 @@ function parseMapItems() {
     else if (parseInt(time) === 4) stage = 'ban4';
     if (!stage) continue;
     for (let i = 0; i < parseInt(num); i++) {
-      stages[stage].push({
-        iid: ids[stage]++,
+      result.push({
+        iid: id++,
+        stage,
         itm,
         itmk,
         itme: Number(itme),
@@ -51,15 +52,7 @@ function parseMapItems() {
 
   fs.writeFileSync(
     path.join(__dirname, '../data/mapitems.json'),
-    JSON.stringify(stages.start, null, 2),
-  );
-  fs.writeFileSync(
-    path.join(__dirname, '../data/mapitems_ban2.json'),
-    JSON.stringify(stages.ban2, null, 2),
-  );
-  fs.writeFileSync(
-    path.join(__dirname, '../data/mapitems_ban4.json'),
-    JSON.stringify(stages.ban4, null, 2),
+    JSON.stringify(result, null, 2),
   );
 }
 
