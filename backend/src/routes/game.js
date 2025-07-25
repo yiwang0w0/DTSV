@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const gameController = require('../controllers/gameController');
 const playerController = require('../controllers/playerController');
+const chatController = require('../controllers/chatController');
 const auth = require('../middlewares/auth');
 
 router.get('/info', gameController.getInfo);
@@ -28,5 +29,8 @@ router.post('/escape', auth, playerController.escape);
 router.post('/drop', auth, playerController.dropItem);
 router.post('/dropequip', auth, playerController.dropEquip);
 router.post('/loot', auth, playerController.lootItem);
+
+router.get('/chat', auth, chatController.list);
+router.post('/chat', auth, chatController.send);
 
 module.exports = router;
