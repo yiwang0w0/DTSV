@@ -16,7 +16,7 @@
         <el-card class="card-section" shadow="hover">
           <el-row :gutter="20">
             <el-col :span="24">
-              <strong>位置：</strong>{{ places[info.pls] }}
+              <strong>位置：</strong>{{ areaName(info.pls) }}
             </el-col>
             <el-col :span="24" class="status-block">
               <span class="label">生命：</span>
@@ -32,10 +32,6 @@
         </el-card>
 
         <ActionBar
-          v-model="target"
-          :places="places"
-          @change="onTargetChange"
-          @move="doMove"
           @search="doSearch"
           @rest="doRest"
         />
@@ -52,6 +48,7 @@
 
         <!-- 背包面板 -->
         <InventoryPanel :enemy="enemy" @attack="doAttack" />
+        <AreaButtons :areas="places" @move="doMoveTo" />
       </div>
     </div>
   </div>
@@ -66,6 +63,7 @@ import EquipmentList from '../components/EquipmentList.vue'
 import BattlePanel from '../components/BattlePanel.vue'
 import LogPanel from '../components/LogPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
+import AreaButtons from '../components/AreaButtons.vue'
 import SearchDialog from '../components/SearchDialog.vue'
 import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack } from '../api'
 import { playerId } from '../store/user'
@@ -76,11 +74,9 @@ import { itemTypeText } from '../constants/enums'
 
 const router = useRouter()
 
-const target = ref(0)
 const foundItem = ref(null)
 const replaceVisible = ref(false)
 let replaceItemId = null
-let programmatic = false
 let restTimer = null
 let statusTimer = null
 const enemy = ref(null)
@@ -119,18 +115,11 @@ function stopRestTimer() {
   }
 }
 
-function setTarget(val) {
-  if (target.value !== val) {
-    programmatic = true
-    target.value = val
-  }
+function areaName(pid) {
+  const area = places.value.find(a => a.pid === pid)
+  return area ? area.name : ''
 }
 
-function onTargetChange() {
-  if (programmatic) {
-    programmatic = false
-  }
-}
 
 function getType(kind) {
   if (!kind) return ''
@@ -209,7 +198,6 @@ async function fetchStatus() {
     const { data } = await getStatus(playerId.value)
     await refreshMapAreas()
     info.value = data
-    setTarget(data.pls)
     checkDeath()
     return data
   } catch (e) {
@@ -227,8 +215,7 @@ async function fetchStatus() {
 
 onMounted(() => {
   refreshMapAreas()
-  if (info.value) setTarget(info.value.pls)
-  else fetchStatus()
+  if (!info.value) fetchStatus()
   statusTimer = setInterval(fetchStatus, 5000)
 })
 
@@ -264,11 +251,11 @@ async function dropEquipItem(field) {
   }
 }
 
-async function doMove() {
+async function doMoveTo(pid) {
   if (!playerId.value) return
   stopRestTimer()
   try {
-    const { data } = await move(playerId.value, target.value)
+    const { data } = await move(playerId.value, pid)
     info.value = data.player
     await refreshMapAreas()
     addLog(data.msg)

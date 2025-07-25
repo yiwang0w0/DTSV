@@ -155,8 +155,24 @@ async function stopGame() {
 }
 
 async function mapAreas() {
-  const areas = await MapArea.find({ danger: 0 }, 'pid name').sort({ pid: 1 });
-  return areas.map(a => a.name);
+  const [areas, info] = await Promise.all([
+    MapArea.find({}, 'pid name danger').sort({ pid: 1 }),
+    GameInfo.findOne()
+  ])
+  const res = areas.map(a => ({ pid: a.pid, name: a.name, danger: a.danger }))
+  if (info && info.arealist && info.areatime) {
+    const now = Math.floor(Date.now() / 1000)
+    const warn = info.areatime - now <= 300
+    if (warn) {
+      const ids = info.arealist.split(',').map(Number)
+      const next = ids.slice(info.areanum, info.areanum + constants.get('AREA_ADD'))
+      for (const pid of next) {
+        const area = res.find(a => a.pid === pid)
+        if (area && area.danger === 0) area.danger = 2
+      }
+    }
+  }
+  return res
 }
 
 async function checkDangerAreas() {

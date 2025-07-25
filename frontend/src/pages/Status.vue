@@ -36,7 +36,11 @@ import { mapAreas as places } from '../store/map'
 
 const info = ref(null)
 const players = ref([])
-const place = computed(() => info.value ? places[info.value.pls] : '')
+const place = computed(() => {
+  if (!info.value) return ''
+  const area = places.value.find(a => a.pid === info.value.pls)
+  return area ? area.name : ''
+})
 const hpPercent = computed(() =>
   info.value ? Math.round((info.value.hp / info.value.mhp) * 100) : 0
 )

@@ -11,7 +11,7 @@
       style="width: 160px; margin-left:10px"
     >
       <el-option :label="'全部'" :value="-1" />
-      <el-option v-for="(n,i) in mapAreas" :key="i" :label="n" :value="i" />
+      <el-option v-for="area in mapAreas" :key="area.pid" :label="area.name" :value="area.pid" />
     </el-select>
     <el-button v-if="!isMaps" type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>
     <TablePanel
@@ -129,7 +129,7 @@ async function fetchFieldMeta() {
       const nf = { ...f }
       if ((nf.name === 'pls' || nf.name === 'area') && mapAreas.value.length) {
         nf.type = 'select'
-        nf.options = mapAreas.value.map((n, i) => ({ label: n, value: i }))
+        nf.options = mapAreas.value.map(a => ({ label: a.name, value: a.pid }))
       }
       if (collection.value === 'maptraps' && nf.name === 'itmk') {
         nf.type = 'select'
@@ -220,7 +220,7 @@ function openFieldEdit(row, field) {
   const f = { ...field }
   if ((f.name === 'pls' || f.name === 'area') && mapAreas.value.length) {
     f.type = 'select'
-    f.options = mapAreas.value.map((n, i) => ({ label: n, value: i }))
+    f.options = mapAreas.value.map(a => ({ label: a.name, value: a.pid }))
   }
   if (collection.value === 'maptraps' && f.name === 'itmk') {
     f.type = 'select'
