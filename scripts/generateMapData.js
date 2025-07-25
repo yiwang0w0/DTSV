@@ -17,22 +17,50 @@ function parseMapAreas() {
 }
 
 function parseMapItems() {
-  const file = path.join(__dirname, '../DTS-SAMPLE/include/modules/base/itemmain/config/mapitem.config.php');
+  const file = path.join(
+    __dirname,
+    '../DTS-SAMPLE/include/modules/base/itemmain/config/mapitem.config.php',
+  );
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-  const result = [];
-  let iid = 1;
+  const stages = { start: [], ban2: [], ban4: [] };
+  const ids = { start: 1, ban2: 1, ban4: 1 };
+
   for (const line of lines) {
     const t = line.trim();
     if (!t || t.startsWith('//') || t.startsWith('<?')) continue;
     const parts = t.split(',');
     if (parts.length < 8) continue;
     const [time, area, num, itm, itmk, itme, itms, itmsk] = parts;
-    if (parseInt(time) !== 0) continue; // only start items
+    let stage = null;
+    if (parseInt(time) === 0) stage = 'start';
+    else if (parseInt(time) === 2) stage = 'ban2';
+    else if (parseInt(time) === 4) stage = 'ban4';
+    if (!stage) continue;
     for (let i = 0; i < parseInt(num); i++) {
-      result.push({ iid: iid++, itm, itmk, itme: Number(itme), itms: itms, itmsk, pls: Number(area) });
+      stages[stage].push({
+        iid: ids[stage]++,
+        itm,
+        itmk,
+        itme: Number(itme),
+        itms,
+        itmsk,
+        pls: Number(area),
+      });
     }
   }
-  fs.writeFileSync(path.join(__dirname, '../data/mapitems.json'), JSON.stringify(result, null, 2));
+
+  fs.writeFileSync(
+    path.join(__dirname, '../data/mapitems.json'),
+    JSON.stringify(stages.start, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(__dirname, '../data/mapitems_ban2.json'),
+    JSON.stringify(stages.ban2, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(__dirname, '../data/mapitems_ban4.json'),
+    JSON.stringify(stages.ban4, null, 2),
+  );
 }
 
 parseMapAreas();
