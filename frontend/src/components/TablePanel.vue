@@ -46,7 +46,8 @@ function handleLoadMore(){
 function formatField(row, name){
   if(props.isMaps) return row[name]
   if((name==='pls' || name==='area') && props.mapAreas){
-    return props.mapAreas[row[name]] || row[name]
+    const a = props.mapAreas.find(m => m.pid === row[name])
+    return a ? a.name : row[name]
   }
   if(name==='state'){
     return stateInfo[row[name]] || row[name]
