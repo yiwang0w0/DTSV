@@ -28,6 +28,14 @@ async function ensureDefaultClubs() {
   }
 }
 
+async function ensureGameInfo() {
+  const count = await GameInfo.countDocuments();
+  if (count === 0) {
+    await GameInfo.create({});
+    console.log('已初始化游戏信息');
+  }
+}
+
 async function generateItemsFromCategories(type, stage = 'start') {
   const categories = await ItemCategory.find({ type });
   const res = [];
@@ -349,6 +357,7 @@ async function closeArea(pid) {
 
 module.exports = {
   ensureDefaultClubs,
+  ensureGameInfo,
   startGame,
   stopGame,
   mapAreas,
