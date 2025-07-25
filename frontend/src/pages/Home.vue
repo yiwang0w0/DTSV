@@ -10,9 +10,11 @@
             </el-statistic>
           </el-col>
           <el-col :span="8">
-            <el-statistic :value="currentTime" title="当前时刻">
-              <template #formatter="{ value }">{{ formatTime(value) }}</template>
-            </el-statistic>
+            <el-statistic
+              :value="currentTime"
+              title="当前时刻"
+              :formatter="formatTime"
+            />
           </el-col>
           <el-col :span="8">
             <el-statistic title="状态">
@@ -108,7 +110,7 @@ function formatTime(t) {
 
 const gameStatus = computed(() => {
   if (!Object.keys(gameInfo.value).length) return '无法获取'
-  return gameInfo.value.gamestate > 10 ? '进行中' : '未开始'
+  return gameInfo.value.gamestate >= 20 ? '进行中' : '未开始'
 })
 
 const runtime = computed(() => {
