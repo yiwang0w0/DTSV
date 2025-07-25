@@ -5,7 +5,12 @@
         <el-input v-if="f.type==='text'" v-model="form[f.name]" />
         <el-input-number v-else-if="f.type==='number'" v-model="form[f.name]" />
         <el-select v-else-if="f.type==='select'" v-model="form[f.name]">
-          <el-option v-for="op in f.options" :key="op" :label="op" :value="op" />
+          <el-option
+            v-for="op in f.options"
+            :key="typeof op === 'object' ? op.value : op"
+            :label="typeof op === 'object' ? op.label : op"
+            :value="typeof op === 'object' ? op.value : op"
+          />
         </el-select>
         <el-input v-else v-model="form[f.name]" />
       </el-form-item>

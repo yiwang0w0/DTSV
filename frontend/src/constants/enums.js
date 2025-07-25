@@ -43,3 +43,9 @@ export const itemTypeText = {
   WC: '投掷兵器',
   WN: '空手'
 }
+
+export const trapTypeText = {
+  TO: '已布设陷阱',
+  TN: '可拾取陷阱',
+  TNc: '奇迹雷'
+}
