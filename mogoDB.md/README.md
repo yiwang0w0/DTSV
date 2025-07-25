@@ -131,6 +131,7 @@
   mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
   ```
 3. 导入完成后即可获得与原作一致的基础记录、商店物品以及地图物品和陷阱数据。
+   `mapitems.json` 中每条记录均包含 `stage` 字段，用于标记物品在游戏开始或禁区阶段刷新的时机。
 
 ## 单局玩家绑定字段
 为用户集合新增 `lastgame` 与 `lastpid` 字段以记录当前游戏局及绑定的玩家：
