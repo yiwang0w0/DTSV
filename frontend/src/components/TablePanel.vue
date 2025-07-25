@@ -57,6 +57,9 @@ function formatField(row, name){
   if(name==='type'){
     return chatTypeText[row[name]] || row[name]
   }
+  if(name==='danger'){
+    return row[name] ? '禁区' : '安全'
+  }
   return row[name]
 }
 </script>
