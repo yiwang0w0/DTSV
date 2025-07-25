@@ -1,7 +1,7 @@
 <template>
   <el-card class="chat-panel" shadow="never">
     <div ref="listEl" class="messages">
-      <div v-for="c in messages" :key="c.cid || c.time" class="chat-item">
+      <div v-for="c in props.messages" :key="c.cid || c.time" class="chat-item">
         <span v-if="c.type !== 2" class="sender">{{ c.send }}:</span>
         <span v-html="c.msg" />
       </div>
@@ -16,7 +16,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 
-defineProps({
+const props = defineProps({
   messages: Array
 })
 const emit = defineEmits(['send'])
@@ -30,7 +30,7 @@ function submit() {
   text.value = ''
 }
 
-watch(() => messages, () => {
+watch(() => props.messages, () => {
   nextTick(() => {
     if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
   })
