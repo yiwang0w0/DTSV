@@ -8,5 +8,10 @@ module.exports = {
   10: { extra: 'fastGrowth' }, // 高速成长
   13: { hpAddStart: 200, hpGain: [5, 7] }, // 根性兄贵
   14: { attDefStart: 200, levelAttDef: 2 }, // 肌肉兄贵
-  18: { startAll: 5, startSkillPoints: 5, evenLevelSkillPoint: 1, crossBonus: 0.25 }
+  18: {
+    startAll: 5,
+    startSkillPoints: 5,
+    evenLevelSkillPoint: 1,
+    crossBonus: 0.25,
+  },
 };

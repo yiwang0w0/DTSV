@@ -5,13 +5,13 @@ const jwt = require('jsonwebtoken');
 
 function signAccessToken(id) {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h'
+    expiresIn: process.env.JWT_ACCESS_EXPIRES || '1h',
   });
 }
 
 function signRefreshToken(id) {
   return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d'
+    expiresIn: process.env.JWT_REFRESH_EXPIRES || '7d',
   });
 }
 
@@ -35,7 +35,7 @@ exports.register = async (req, res) => {
       token,
       refreshToken,
       userId: user._id,
-      username: user.username
+      username: user.username,
     });
   } catch (err) {
     console.error(err);
@@ -62,7 +62,7 @@ exports.login = async (req, res) => {
       token,
       refreshToken,
       userId: user._id,
-      username: user.username
+      username: user.username,
     });
   } catch (err) {
     console.error(err);
@@ -95,7 +95,10 @@ exports.logout = async (req, res) => {
     let uid = null;
     if (refreshToken) {
       try {
-        const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        const payload = jwt.verify(
+          refreshToken,
+          process.env.JWT_REFRESH_SECRET,
+        );
         uid = payload.id;
         await User.findByIdAndUpdate(uid, { refreshToken: '' });
       } catch (e) {
@@ -107,7 +110,7 @@ exports.logout = async (req, res) => {
       if (user && user.lastpid) {
         await Player.updateOne(
           { pid: user.lastpid, uid },
-          { $set: { state: 0 } }
+          { $set: { state: 0 } },
         );
       }
     }

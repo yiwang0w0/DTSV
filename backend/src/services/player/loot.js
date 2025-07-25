@@ -50,7 +50,7 @@ async function lootItem(user, body) {
       kind: enemy[`itmk${idx}`],
       effect: enemy[`itme${idx}`],
       uses: enemy[`itms${idx}`],
-      skill: enemy[`itmsk${idx}`]
+      skill: enemy[`itmsk${idx}`],
     };
     enemy[slot] = '';
     enemy[`itmk${idx}`] = '';
@@ -68,7 +68,7 @@ async function lootItem(user, body) {
       kind: enemy[`${slot}k`],
       effect: enemy[`${slot}e`],
       uses: enemy[`${slot}s`],
-      skill: enemy[`${slot}sk`]
+      skill: enemy[`${slot}sk`],
     };
     enemy[slot] = '';
     enemy[`${slot}k`] = '';
@@ -83,7 +83,10 @@ async function lootItem(user, body) {
 
   let empty = -1;
   for (let i = 0; i < 7; i++) {
-    if (!player[`itm${i}`]) { empty = i; break; }
+    if (!player[`itm${i}`]) {
+      empty = i;
+      break;
+    }
   }
   if (empty === -1) {
     const err = new Error('物品栏已满');
@@ -98,8 +101,8 @@ async function lootItem(user, body) {
   player[`itmsk${empty}`] = item.skill;
 
   player.enemymemory = '';
-  const time = Math.floor(Date.now()/1000);
-  const log = `你从${enemy.type>0?'NPC':'玩家'}【${enemy.name}】的尸体上获得了${item.name}。`;
+  const time = Math.floor(Date.now() / 1000);
+  const log = `你从${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】的尸体上获得了${item.name}。`;
   await Log.create([{ toid: player.pid, type: 'b', time, log }]);
   await Promise.all([player.save(), enemy.save()]);
   return { msg: log, player: formatPlayer(player) };

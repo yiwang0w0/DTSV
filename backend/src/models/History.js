@@ -19,7 +19,7 @@ const historySchema = new mongoose.Schema({
   winnerlist: { type: String, default: '' },
   winnerpdata: { type: String, default: '' },
   validlist: { type: String, default: '' },
-  hnews: { type: String, default: '' }
+  hnews: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('History', historySchema);

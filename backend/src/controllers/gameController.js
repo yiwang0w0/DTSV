@@ -11,7 +11,7 @@ exports.getInfo = async (req, res) => {
       const [validnum, alivenum, deathnum] = await Promise.all([
         Player.countDocuments({ type: 0 }),
         Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
-        Player.countDocuments({ type: 0, hp: { $lte: 0 } })
+        Player.countDocuments({ type: 0, hp: { $lte: 0 } }),
       ]);
       info.validnum = validnum;
       info.alivenum = alivenum;

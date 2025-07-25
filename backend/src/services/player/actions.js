@@ -42,7 +42,11 @@ async function exploreScene(player, pid) {
   }
 
   // 3. 遭遇敌人事件
-  const enemies = await Player.find({ pls: player.pls, hp: { $gt: 0 }, pid: { $ne: pid } });
+  const enemies = await Player.find({
+    pls: player.pls,
+    hp: { $gt: 0 },
+    pid: { $ne: pid },
+  });
   if (enemies.length) {
     const enemy = enemies[Math.floor(Math.random() * enemies.length)];
     const info = await GameInfo.findOne();
@@ -54,18 +58,30 @@ async function exploreScene(player, pid) {
     if (chance > 0.95) chance = 0.95;
     const playerFirst = Math.random() < chance;
     if (playerFirst) {
-      log += enemy.type > 0 ? `你发现了NPC【${enemy.name}】，可以选择攻击。<br>` : `你发现了玩家【${enemy.name}】！<br>`;
+      log +=
+        enemy.type > 0
+          ? `你发现了NPC【${enemy.name}】，可以选择攻击。<br>`
+          : `你发现了玩家【${enemy.name}】！<br>`;
       player.enemymemory = JSON.stringify({ id: enemy.pid, initiator: true });
       await player.save();
       return {
         log,
         player: formatPlayer(player),
-        enemy: { pid: enemy.pid, name: enemy.name, type: enemy.type, lvl: enemy.lvl, hp: enemy.hp, mhp: enemy.mhp, wep: enemy.wep, wepe: enemy.wepe }
+        enemy: {
+          pid: enemy.pid,
+          name: enemy.name,
+          type: enemy.type,
+          lvl: enemy.lvl,
+          hp: enemy.hp,
+          mhp: enemy.mhp,
+          wep: enemy.wep,
+          wepe: enemy.wepe,
+        },
       };
     } else {
       const dmg = Math.floor(Math.random() * 10) + 1;
       player.hp = Math.max(player.hp - dmg, 0);
-      log += `${enemy.type>0?'NPC':'玩家'}【${enemy.name}】的先制攻击使你受到${dmg}点伤害！<br>`;
+      log += `${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】的先制攻击使你受到${dmg}点伤害！<br>`;
       if (player.hp <= 0) {
         player.state = 27;
         log += '你遭到致命打击！<br>';
@@ -87,7 +103,7 @@ async function exploreScene(player, pid) {
       itme: item.itme,
       itms: String(item.itms),
       itmsk: item.itmsk,
-      pls: item.pls
+      pls: item.pls,
     });
     log += `你发现了${item.itm}。<br>`;
     await player.save();
@@ -98,7 +114,6 @@ async function exploreScene(player, pid) {
   await player.save();
   return { log, player: formatPlayer(player) };
 }
-
 
 async function move(user, body) {
   const { pid, pls } = body;
@@ -215,14 +230,27 @@ async function deadStatus(user, query) {
 async function list(user) {
   const info = await GameInfo.findOne();
   const gid = info ? info.gamenum : 0;
-  const users = await require('../../models/User').find({ lastgame: gid, lastpid: { $gt: 0 } }, 'username lastpid');
-  const pids = users.map(u => u.lastpid);
-  const players = await Player.find({ pid: { $in: pids }, uid: user._id }, 'pid name hp');
+  const users = await require('../../models/User').find(
+    { lastgame: gid, lastpid: { $gt: 0 } },
+    'username lastpid',
+  );
+  const pids = users.map((u) => u.lastpid);
+  const players = await Player.find(
+    { pid: { $in: pids }, uid: user._id },
+    'pid name hp',
+  );
   const map = {};
-  players.forEach(p => { map[p.pid] = p; });
-  return users.map(u => {
+  players.forEach((p) => {
+    map[p.pid] = p;
+  });
+  return users.map((u) => {
     const p = map[u.lastpid] || {};
-    return { pid: u.lastpid, name: p.name || '', username: u.username, alive: p.hp > 0 };
+    return {
+      pid: u.lastpid,
+      name: p.name || '',
+      username: u.username,
+      alive: p.hp > 0,
+    };
   });
 }
 

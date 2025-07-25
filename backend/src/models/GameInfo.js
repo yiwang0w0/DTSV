@@ -26,7 +26,7 @@ const gameInfoSchema = new mongoose.Schema({
   arealist: { type: String, default: '' },
   noisevars: { type: String, default: '' },
   roomvars: { type: String, default: '' },
-  gamevars: { type: String, default: '' }
+  gamevars: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('GameInfo', gameInfoSchema);

@@ -44,7 +44,7 @@ async function generateItemsFromCategories(type) {
           itme: e.itme !== undefined ? e.itme : base.effect,
           itms: e.itms !== undefined ? e.itms : base.dur,
           itmsk: e.itmsk || base.skill,
-          pls: e.pls || 0
+          pls: e.pls || 0,
         };
         if (type === 'mapitem') obj.iid = id++;
         else obj.tid = id++;
@@ -63,7 +63,7 @@ async function startGame() {
       version: '1.0',
       gamenum: 1,
       gamestate: 20,
-      starttime: now
+      starttime: now,
     });
   } else {
     info.gamenum += 1;
@@ -128,12 +128,12 @@ async function startGame() {
     await Player.deleteMany({ type: { $gt: 0 } });
     if (npcs && npcs.length) {
       const startNpcs = npcs
-        .filter(n => !n.spawnStage || n.spawnStage === 'start')
-        .map(n => ({
+        .filter((n) => !n.spawnStage || n.spawnStage === 'start')
+        .map((n) => ({
           ...n,
           hp: n.hp || n.mhp || 0,
           sp: n.sp || n.msp || 0,
-          ss: n.ss || n.mss || 0
+          ss: n.ss || n.mss || 0,
         }));
       if (startNpcs.length) {
         await Player.insertMany(startNpcs);
@@ -144,7 +144,7 @@ async function startGame() {
   }
 
   const areas = await MapArea.find({}, 'pid');
-  const ids = areas.map(a => a.pid);
+  const ids = areas.map((a) => a.pid);
   for (const id of ids) {
     await MapArea.updateOne({ pid: id }, { danger: 0 });
   }
@@ -156,7 +156,14 @@ async function startGame() {
 
   const last = await Chat.findOne().sort({ cid: -1 });
   const cid = last ? last.cid + 1 : 1;
-  await Chat.create({ cid, type: 5, time: now, send: '', recv: '', msg: '游戏开始！' });
+  await Chat.create({
+    cid,
+    type: 5,
+    time: now,
+    send: '',
+    recv: '',
+    msg: '游戏开始！',
+  });
 
   return { msg: '游戏已开始', gamestate: info.gamestate };
 }
@@ -166,12 +173,12 @@ async function spawnNpcs(stage) {
     const npcFile = path.join(__dirname, '../../../data/npcs.json');
     const npcs = JSON.parse(fs.readFileSync(npcFile));
     const list = npcs
-      .filter(n => n.spawnStage === stage)
-      .map(n => ({
+      .filter((n) => n.spawnStage === stage)
+      .map((n) => ({
         ...n,
         hp: n.hp || n.mhp || 0,
         sp: n.sp || n.msp || 0,
-        ss: n.ss || n.mss || 0
+        ss: n.ss || n.mss || 0,
       }));
     if (list.length) {
       await Player.insertMany(list);
@@ -198,7 +205,7 @@ async function stopGame() {
         gstime: info.starttime,
         getime: now,
         hdmg: info.hdamage,
-        hdp: info.hplayer
+        hdp: info.hplayer,
       });
     }
     info.gamestate = 0;
@@ -218,22 +225,29 @@ async function stopGame() {
 async function mapAreas() {
   const [areas, info] = await Promise.all([
     MapArea.find({}, 'pid name danger').sort({ pid: 1 }),
-    GameInfo.findOne()
-  ])
-  const res = areas.map(a => ({ pid: a.pid, name: a.name, danger: a.danger }))
+    GameInfo.findOne(),
+  ]);
+  const res = areas.map((a) => ({
+    pid: a.pid,
+    name: a.name,
+    danger: a.danger,
+  }));
   if (info && info.arealist && info.areatime) {
-    const now = Math.floor(Date.now() / 1000)
-    const warn = info.areatime - now <= 300
+    const now = Math.floor(Date.now() / 1000);
+    const warn = info.areatime - now <= 300;
     if (warn) {
-      const ids = info.arealist.split(',').map(Number)
-      const next = ids.slice(info.areanum, info.areanum + constants.get('AREA_ADD'))
+      const ids = info.arealist.split(',').map(Number);
+      const next = ids.slice(
+        info.areanum,
+        info.areanum + constants.get('AREA_ADD'),
+      );
       for (const pid of next) {
-        const area = res.find(a => a.pid === pid)
-        if (area && area.danger === 0) area.danger = 2
+        const area = res.find((a) => a.pid === pid);
+        if (area && area.danger === 0) area.danger = 2;
       }
     }
   }
-  return res
+  return res;
 }
 
 async function checkDangerAreas() {
@@ -248,7 +262,10 @@ async function checkDangerAreas() {
   let changed = false;
   const before = info.areanum;
   while (info.areanum < total && now >= info.areatime) {
-    const next = all.slice(info.areanum, info.areanum + constants.get('AREA_ADD'));
+    const next = all.slice(
+      info.areanum,
+      info.areanum + constants.get('AREA_ADD'),
+    );
     info.areanum += next.length;
     info.areatime += constants.get('AREA_INTERVAL');
     changed = true;
@@ -279,7 +296,7 @@ async function checkGameOver() {
   if (!info || info.gamestate < constants.get('START_THRESHOLD')) return;
   const [alive, valid] = await Promise.all([
     Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
-    Player.countDocuments({ type: 0 })
+    Player.countDocuments({ type: 0 }),
   ]);
   // 尚无人进入游戏时不结束，避免刚开局就关闭
   if (valid === 0 || alive > 0) return;
@@ -313,5 +330,5 @@ module.exports = {
   checkGameOver,
   openArea,
   closeArea,
-  spawnNpcs
+  spawnNpcs,
 };

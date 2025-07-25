@@ -1,27 +1,33 @@
-import { ref, watch } from 'vue'
-import { playerId } from './user'
+import { ref, watch } from 'vue';
+import { playerId } from './user';
 
-export const playerInfo = ref(null)
+export const playerInfo = ref(null);
 
 function loadPlayer() {
   if (!playerId.value) {
-    playerInfo.value = null
+    playerInfo.value = null;
   } else {
-    playerInfo.value = JSON.parse(localStorage.getItem(`playerInfo_${playerId.value}`) || 'null')
+    playerInfo.value = JSON.parse(
+      localStorage.getItem(`playerInfo_${playerId.value}`) || 'null',
+    );
   }
 }
 
-loadPlayer()
+loadPlayer();
 
-watch(playerId, loadPlayer)
+watch(playerId, loadPlayer);
 
-watch(playerInfo, val => {
-  if (!playerId.value) return
-  if (val) {
-    localStorage.setItem(`playerInfo_${playerId.value}`, JSON.stringify(val))
-  } else {
-    localStorage.removeItem(`playerInfo_${playerId.value}`)
-  }
-}, { deep: true })
+watch(
+  playerInfo,
+  (val) => {
+    if (!playerId.value) return;
+    if (val) {
+      localStorage.setItem(`playerInfo_${playerId.value}`, JSON.stringify(val));
+    } else {
+      localStorage.removeItem(`playerInfo_${playerId.value}`);
+    }
+  },
+  { deep: true },
+);
 
-export { loadPlayer }
+export { loadPlayer };

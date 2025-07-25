@@ -5,15 +5,15 @@ export const gameStateText = {
   20: '开放激活',
   30: '人数已满',
   40: '连斗中',
-  50: '死斗中'
-}
+  50: '死斗中',
+};
 
 export const chatTypeText = {
   0: '公频',
   1: '队伍',
   2: '系统',
-  3: '私聊'
-}
+  3: '私聊',
+};
 
 export const itemTypeText = {
   DN: '内衣',
@@ -41,11 +41,11 @@ export const itemTypeText = {
   WD: '爆炸物',
   WB: '弓',
   WC: '投掷兵器',
-  WN: '空手'
-}
+  WN: '空手',
+};
 
 export const trapTypeText = {
   TO: '已布设陷阱',
   TN: '可拾取陷阱',
-  TNc: '奇迹雷'
-}
+  TNc: '奇迹雷',
+};

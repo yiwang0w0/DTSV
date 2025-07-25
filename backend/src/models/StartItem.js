@@ -5,7 +5,7 @@ const startItemSchema = new mongoose.Schema({
   kind: { type: String, default: '' },
   effect: { type: Number, default: 0 },
   dur: { type: String, default: '1' },
-  skill: { type: String, default: '' }
+  skill: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('StartItem', startItemSchema);

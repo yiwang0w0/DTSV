@@ -30,7 +30,7 @@ async function send(user, body) {
     time: Math.floor(Date.now() / 1000),
     send: player.name,
     recv,
-    msg
+    msg,
   });
   return chat;
 }

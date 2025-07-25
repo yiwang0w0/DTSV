@@ -53,7 +53,7 @@ async function enter(user, body) {
       att: base.att,
       def: base.def,
       money: base.money,
-      club: club || 0
+      club: club || 0,
     });
 
     const prof = clubPro[player.club];
@@ -94,7 +94,7 @@ async function enter(user, body) {
         startWeps = await Item.find({ kind: /^W/ });
       }
 
-      const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
       player.itm1 = '面包';
       player.itmk1 = 'HH';

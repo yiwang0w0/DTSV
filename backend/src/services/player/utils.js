@@ -43,14 +43,16 @@ const ammoMap = [
   { key: 'i', kind: 'GBi', num: 10 },
   { key: 'u', kind: 'GBi', num: 10 },
   { key: 'r', kind: 'GBr', num: 20 },
-  { key: 'WG', kind: 'GB', num: 6 }
+  { key: 'WG', kind: 'GB', num: 6 },
 ];
 
 function checkAmmoKind(wepk, wepsk) {
   let ret = { kind: 'GB', num: 6 };
   for (const a of ammoMap) {
-    if ((a.key.startsWith('W') && wepk.startsWith(a.key)) ||
-        (!a.key.startsWith('W') && wepsk.includes(a.key))) {
+    if (
+      (a.key.startsWith('W') && wepk.startsWith(a.key)) ||
+      (!a.key.startsWith('W') && wepsk.includes(a.key))
+    ) {
       ret = { kind: a.kind, num: a.num };
       if (ret.num <= 10 && wepsk.includes('r')) {
         ret.num = ret.kind === 'GBh' ? 6 : 12;
@@ -66,7 +68,7 @@ const bulletNames = {
   GBr: '机枪弹药',
   GBi: '气体弹药',
   GBh: '重型弹药',
-  GBe: '能源弹药'
+  GBe: '能源弹药',
 };
 
 function formatPlayer(player) {
@@ -90,5 +92,5 @@ module.exports = {
   bulletNames,
   dropMapItem,
   restoreMemoryItem,
-  formatPlayer
+  formatPlayer,
 };

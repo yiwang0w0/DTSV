@@ -8,7 +8,7 @@ const newsInfoSchema = new mongoose.Schema({
   b: { type: String, default: '' },
   c: { type: String, default: '' },
   d: { type: String, default: '' },
-  e: { type: String, default: '' }
+  e: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('NewsInfo', newsInfoSchema);

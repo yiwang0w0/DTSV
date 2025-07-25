@@ -1,31 +1,35 @@
-import { ref, watch } from 'vue'
-import { playerId } from './user'
+import { ref, watch } from 'vue';
+import { playerId } from './user';
 
-export const chats = ref([])
+export const chats = ref([]);
 
 function loadChats() {
   if (!playerId.value) {
-    chats.value = []
+    chats.value = [];
   } else {
-    const key = `chats_${playerId.value}`
-    chats.value = JSON.parse(localStorage.getItem(key) || '[]')
+    const key = `chats_${playerId.value}`;
+    chats.value = JSON.parse(localStorage.getItem(key) || '[]');
   }
 }
 
-loadChats()
+loadChats();
 
-watch(playerId, loadChats)
+watch(playerId, loadChats);
 
-watch(chats, val => {
-  if (!playerId.value) return
-  const key = `chats_${playerId.value}`
-  if (val && val.length) {
-    localStorage.setItem(key, JSON.stringify(val.slice(-100)))
-  } else {
-    localStorage.removeItem(key)
-  }
-}, { deep: true })
+watch(
+  chats,
+  (val) => {
+    if (!playerId.value) return;
+    const key = `chats_${playerId.value}`;
+    if (val && val.length) {
+      localStorage.setItem(key, JSON.stringify(val.slice(-100)));
+    } else {
+      localStorage.removeItem(key);
+    }
+  },
+  { deep: true },
+);
 
 export function addChat(msg) {
-  if (msg) chats.value.push(msg)
+  if (msg) chats.value.push(msg);
 }

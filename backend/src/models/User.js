@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, default: '' },
   lastgame: { type: Number, default: 0 },
   lastpid: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('User', userSchema);

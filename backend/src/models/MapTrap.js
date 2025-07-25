@@ -7,7 +7,7 @@ const mapTrapSchema = new mongoose.Schema({
   itme: { type: Number, default: 0 },
   itms: { type: String, default: '0' },
   itmsk: { type: String, default: '' },
-  pls: { type: Number, default: 0 }
+  pls: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('MapTrap', mapTrapSchema);
