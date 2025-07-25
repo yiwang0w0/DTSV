@@ -28,12 +28,13 @@ async function ensureDefaultClubs() {
   }
 }
 
-async function generateItemsFromCategories(type) {
+async function generateItemsFromCategories(type, stage = 'start') {
   const categories = await ItemCategory.find({ type });
   const res = [];
   let id = 1;
   for (const c of categories) {
     for (const e of c.items || []) {
+      if (e.stage && e.stage !== stage) continue;
       const base = await Item.findOne({ id: e.itemId });
       if (!base) continue;
       const cnt = e.count || 1;
@@ -53,6 +54,16 @@ async function generateItemsFromCategories(type) {
     }
   }
   return res;
+}
+
+async function spawnMapItems(stage) {
+  const items = await generateItemsFromCategories('mapitem', stage);
+  if (items.length) await MapItem.insertMany(items);
+}
+
+async function spawnMapTraps(stage) {
+  const traps = await generateItemsFromCategories('maptrap', stage);
+  if (traps.length) await MapTrap.insertMany(traps);
 }
 
 async function startGame() {
@@ -85,8 +96,7 @@ async function startGame() {
     await MapItem.deleteMany({});
     const count = await ItemCategory.countDocuments({ type: 'mapitem' });
     if (count > 0) {
-      const items = await generateItemsFromCategories('mapitem');
-      if (items.length) await MapItem.insertMany(items);
+      await spawnMapItems('start');
     } else {
       const file = path.join(__dirname, '../../../data/mapitems.json');
       const items = JSON.parse(fs.readFileSync(file));
@@ -102,8 +112,7 @@ async function startGame() {
     await MapTrap.deleteMany({});
     const count = await ItemCategory.countDocuments({ type: 'maptrap' });
     if (count > 0) {
-      const traps = await generateItemsFromCategories('maptrap');
-      if (traps.length) await MapTrap.insertMany(traps);
+      await spawnMapTraps('start');
     } else {
       const file = path.join(__dirname, '../../../data/maptraps.json');
       const traps = JSON.parse(fs.readFileSync(file));
@@ -284,9 +293,13 @@ async function checkDangerAreas() {
     await info.save();
     if (before < 2 && info.areanum >= 2) {
       await spawnNpcs('ban2');
+      await spawnMapItems('ban2');
+      await spawnMapTraps('ban2');
     }
     if (before < 4 && info.areanum >= 4) {
       await spawnNpcs('ban4');
+      await spawnMapItems('ban4');
+      await spawnMapTraps('ban4');
     }
   }
 }
@@ -331,4 +344,6 @@ module.exports = {
   openArea,
   closeArea,
   spawnNpcs,
+  spawnMapItems,
+  spawnMapTraps,
 };
