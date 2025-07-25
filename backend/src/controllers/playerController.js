@@ -1,11 +1,13 @@
 const playerService = require('../services/playerService');
 
-async function handle(fn, req, res, successStatus=200) {
+async function handle(fn, req, res, successStatus = 200) {
   try {
     const data = await fn();
     res.status(successStatus).json(data);
   } catch (err) {
-    console.error(err);
+    if (!err.status || err.status >= 500) {
+      console.error(err);
+    }
     res.status(err.status || 500).json({ msg: err.message || '操作失败' });
   }
 }
