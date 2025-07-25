@@ -283,9 +283,7 @@ async function doMoveTo(pid) {
     const { data } = await move(playerId.value, pid)
     info.value = data.player
     await refreshMapAreas()
-    addLog(data.log)
-    foundItem.value = data.item || null
-    enemy.value = data.enemy || null
+    addLog(data.msg)
     lootItems.value = null
     checkDeath()
   } catch (e) {
@@ -395,11 +393,7 @@ async function doAttack() {
     if (data.loot) {
       lootItems.value = data.loot
     }
-    if (data.enemy && data.enemy.hp > 0) {
-      enemy.value = data.enemy
-    } else {
-      enemy.value = null
-    }
+    enemy.value = data.enemy || null
     checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '攻击失败')
