@@ -9,6 +9,7 @@ const itemEntrySchema = new mongoose.Schema(
     itme: Number,
     itms: String,
     itmsk: String,
+    stage: { type: String, default: 'start' },
   },
   { _id: false },
 );

@@ -6,9 +6,10 @@
 {
   name: '默认地图掉落',
   type: 'mapitem', // 或 'maptrap'
+  // stage 表示刷新的阶段，可选值：'start', 'ban2', 'ban4'
   items: [
-    { itemId: 1, pls: 1, count: 2 },
-    { itemId: 2, pls: 2, count: 3 }
+    { itemId: 1, pls: 1, count: 2, stage: 'start' },
+    { itemId: 2, pls: 2, count: 3, stage: 'ban2' }
   ]
 }
 ```

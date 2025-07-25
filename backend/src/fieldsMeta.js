@@ -44,20 +44,6 @@ module.exports = {
     { name: 'dur', label: '耐久/数量', type: 'text' },
     { name: 'skill', label: '属性', type: 'text' },
   ],
-  startitems: [
-    { name: 'name', label: '名称', type: 'text' },
-    { name: 'kind', label: '种类', type: 'text' },
-    { name: 'effect', label: '效果值', type: 'number' },
-    { name: 'dur', label: '耐久/数量', type: 'text' },
-    { name: 'skill', label: '属性', type: 'text' },
-  ],
-  startweapons: [
-    { name: 'name', label: '名称', type: 'text' },
-    { name: 'kind', label: '种类', type: 'text' },
-    { name: 'effect', label: '效果值', type: 'number' },
-    { name: 'dur', label: '耐久/数量', type: 'text' },
-    { name: 'skill', label: '属性', type: 'text' },
-  ],
   users: [
     { name: 'username', label: '用户名', type: 'text' },
     { name: 'role', label: '角色', type: 'select', options: ['user', 'admin'] },
