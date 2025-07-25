@@ -7,6 +7,7 @@ const MapTrap = require('../models/MapTrap');
 const Item = require('../models/Item');
 const ItemCategory = require('../models/ItemCategory');
 const Club = require('../models/Club');
+const Chat = require('../models/Chat');
 const constants = require('../config/constants');
 const fs = require('fs');
 const path = require('path');
@@ -80,6 +81,7 @@ async function startGame() {
   }
 
   try {
+    await Chat.deleteMany({});
     await MapItem.deleteMany({});
     const count = await ItemCategory.countDocuments({ type: 'mapitem' });
     if (count > 0) {
@@ -151,6 +153,10 @@ async function startGame() {
   info.areanum = 0;
   info.areatime = now + constants.get('AREA_INTERVAL');
   await info.save();
+
+  const last = await Chat.findOne().sort({ cid: -1 });
+  const cid = last ? last.cid + 1 : 1;
+  await Chat.create({ cid, type: 5, time: now, send: '', recv: '', msg: '游戏开始！' });
 
   return { msg: '游戏已开始', gamestate: info.gamestate };
 }
