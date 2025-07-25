@@ -7,7 +7,7 @@ const clubSchema = new mongoose.Schema({
   sp: { type: Number, default: 0 },
   att: { type: Number, default: 0 },
   def: { type: Number, default: 0 },
-  money: { type: Number, default: 0 }
+  money: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('Club', clubSchema);

@@ -123,7 +123,7 @@ const playerSchema = new mongoose.Schema({
   enemymemory: { type: String, default: '' },
   searchmemory: { type: String, default: '' },
   nskill: { type: String, default: '' },
-  nskillpara: { type: String, default: '' }
+  nskillpara: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('Player', playerSchema);

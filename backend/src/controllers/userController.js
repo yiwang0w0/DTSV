@@ -27,7 +27,11 @@ exports.updateProfile = async (req, res) => {
       user.avatar = avatar;
     }
     await user.save();
-    res.json({ msg: '资料已更新', username: user.username, avatar: user.avatar });
+    res.json({
+      msg: '资料已更新',
+      username: user.username,
+      avatar: user.avatar,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '更新失败' });

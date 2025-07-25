@@ -6,7 +6,7 @@ const chatSchema = new mongoose.Schema({
   time: { type: Number, default: 0 },
   send: { type: String, default: '' },
   recv: { type: String, default: '' },
-  msg: { type: String, default: '' }
+  msg: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('Chat', chatSchema);

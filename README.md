@@ -48,6 +48,9 @@
 │   │   ├── utils/
 │   │   └── main.js
 │   └── README.md
+├── data/                  # 初始数据与脚本
+├── mogoDB.md/             # MongoDB 操作说明目录
+├── scripts/               # 原作数据转换脚本
 ├── .env                   # 环境变量（示例见.env.example）
 └── README.md              # 本文件
 ```
@@ -125,7 +128,7 @@ npm run dev
 项目根目录 `data` 目录内提供了原作同款的 `gameinfo.json`、`shopitems.json` 与 `items.json` 数据文件，其中 `items.json` 已包含 `id` 字段，可直接导入 MongoDB：
 
 ```bash
-cd mogoDB.md
+cd mogoDB.md  # 进入存放数据库脚本的目录
 mongoimport --db dts --collection gameinfos --file ../data/gameinfo.json --jsonArray
 mongoimport --db dts --collection shopitems --file ../data/shopitems.json --jsonArray
 mongoimport --db dts --collection items --file ../data/items.json --jsonArray
@@ -302,6 +305,8 @@ npm run lint     # 代码规范检查
 - 代码提交前请自测主要流程
 - 所有变更必须确保**不偏离原作机制、数据表字段**
 - PR 提交需详细说明变更点及其与原作的对齐情况
+- 项目使用 [Prettier](https://prettier.io/) 格式化 JavaScript 代码，配置见根目录 `.prettierrc`
+
 
 ---
 

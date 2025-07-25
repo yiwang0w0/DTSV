@@ -8,7 +8,7 @@ async function dropMapItem(pls, name, kind, effect, uses, skill, session) {
     itme: effect,
     itms: String(uses),
     itmsk: skill,
-    pls
+    pls,
   };
   if (session) {
     await MapItem.create([data], { session });
@@ -27,7 +27,7 @@ async function restoreMemoryItem(player) {
       itme: item.itme,
       itms: String(item.itms),
       itmsk: item.itmsk,
-      pls: item.pls
+      pls: item.pls,
     };
     await MapItem.create(data);
   } catch (e) {
@@ -38,5 +38,5 @@ async function restoreMemoryItem(player) {
 
 module.exports = {
   dropMapItem,
-  restoreMemoryItem
+  restoreMemoryItem,
 };

@@ -22,7 +22,7 @@ const models = {
   roomlisteners: require('../models/RoomListener'),
   histories: require('../models/History'),
   gameinfos: require('../models/GameInfo'),
-  users: require('../models/User')
+  users: require('../models/User'),
 };
 
 router.use(auth);
@@ -37,13 +37,20 @@ router.get('/maps', async (req, res) => {
   try {
     const [players, areas] = await Promise.all([
       models.players.find({}, 'pid name pls'),
-      models.mapareas.find({}, 'pid name')
+      models.mapareas.find({}, 'pid name'),
     ]);
     const nameMap = {};
-    areas.forEach(a => { nameMap[a.pid] = a.name; });
+    areas.forEach((a) => {
+      nameMap[a.pid] = a.name;
+    });
     const grouped = {};
-    players.forEach(p => {
-      if (!grouped[p.pls]) grouped[p.pls] = { pls: p.pls, name: nameMap[p.pls] || '' , players: [] };
+    players.forEach((p) => {
+      if (!grouped[p.pls])
+        grouped[p.pls] = {
+          pls: p.pls,
+          name: nameMap[p.pls] || '',
+          players: [],
+        };
       grouped[p.pls].players.push({ pid: p.pid, name: p.name });
     });
     res.json(Object.values(grouped));
@@ -134,7 +141,9 @@ router.put('/:collection/:id', async (req, res) => {
   const Model = getModel(req.params.collection);
   if (!Model) return res.status(404).json({ msg: '集合不存在' });
   try {
-    const doc = await Model.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
     res.json(doc);
   } catch (err) {
     console.error(err);

@@ -10,7 +10,7 @@ const shopItemSchema = new mongoose.Schema({
   itmk: { type: String, default: '' },
   itme: { type: Number, default: 0 },
   itms: { type: String, default: '0' },
-  itmsk: { type: String, default: '' }
+  itmsk: { type: String, default: '' },
 });
 
 module.exports = mongoose.model('ShopItem', shopItemSchema);

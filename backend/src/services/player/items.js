@@ -28,7 +28,10 @@ async function pickItem(user, body) {
   const item = memory;
   let slot = -1;
   for (let i = 0; i < 5; i++) {
-    if (!player[`itm${i}`]) { slot = i; break; }
+    if (!player[`itm${i}`]) {
+      slot = i;
+      break;
+    }
   }
   if (slot === -1) {
     const err = new Error('物品栏已满');
@@ -105,11 +108,16 @@ async function useItem(user, body) {
       log = '你的状态不需要恢复。';
     }
   } else if (name.includes('磨刀石')) {
-    if (player.wepk && player.wepk.startsWith('WK') && !player.wepsk.includes('Z')) {
+    if (
+      player.wepk &&
+      player.wepk.startsWith('WK') &&
+      !player.wepsk.includes('Z')
+    ) {
       const success = Math.random() >= 0.15;
       if (success) {
         player.wepe += effect;
-        if (!player.wep.startsWith('锋利的')) player.wep = '锋利的' + player.wep;
+        if (!player.wep.startsWith('锋利的'))
+          player.wep = '锋利的' + player.wep;
         log = `使用了${name}，${player.wep}的攻击力变成了${player.wepe}。`;
       } else {
         player.wepe -= Math.ceil(effect / 2);
@@ -127,12 +135,18 @@ async function useItem(user, body) {
       log = '你没装备锐器，不能使用磨刀石。';
     }
   } else if (kind.startsWith('GB')) {
-    if (!player.wepk || !(player.wepk.startsWith('WG') || player.wepk.startsWith('WJ'))) {
+    if (
+      !player.wepk ||
+      !(player.wepk.startsWith('WG') || player.wepk.startsWith('WJ'))
+    ) {
       log = '你没有装备枪械，不能使用子弹。';
     } else if (player.wepsk.includes('o')) {
       log = `${player.wep}不能装填弹药。`;
     } else {
-      const { kind: bkind, num: clip } = checkAmmoKind(player.wepk, player.wepsk);
+      const { kind: bkind, num: clip } = checkAmmoKind(
+        player.wepk,
+        player.wepsk,
+      );
       if (kind !== bkind) {
         log = `弹药类型不匹配，需要${bulletNames[bkind] || bkind}。`;
       } else {
@@ -140,7 +154,10 @@ async function useItem(user, body) {
         if (cur >= clip) {
           log = `${player.wep}的弹匣是满的，不能装弹。`;
         } else {
-          let remain = player[`itms${index}`] === '∞' ? clip : parseInt(player[`itms${index}`], 10);
+          let remain =
+            player[`itms${index}`] === '∞'
+              ? clip
+              : parseInt(player[`itms${index}`], 10);
           const add = Math.min(remain, clip - cur);
           if (player[`itms${index}`] !== '∞') {
             player[`itms${index}`] = String(remain - add);
@@ -302,7 +319,10 @@ async function unequip(user, body) {
 
   let empty = -1;
   for (let i = 0; i < 5; i++) {
-    if (!player[`itm${i}`]) { empty = i; break; }
+    if (!player[`itm${i}`]) {
+      empty = i;
+      break;
+    }
   }
   if (empty === -1) {
     const err = new Error('物品栏已满');
@@ -355,7 +375,7 @@ async function dropItem(user, body) {
     player[`itmk${index}`],
     player[`itme${index}`],
     String(player[`itms${index}`]),
-    player[`itmsk${index}`]
+    player[`itmsk${index}`],
   );
   player[`itm${index}`] = '';
   player[`itmk${index}`] = '';
@@ -398,7 +418,7 @@ async function dropEquip(user, body) {
     player[`${slot}k`],
     player[`${slot}e`],
     String(player[`${slot}s`]),
-    player[`${slot}sk`]
+    player[`${slot}sk`],
   );
 
   player[slot] = '';
@@ -450,7 +470,7 @@ async function pickReplace(user, body) {
       dropKind,
       dropEffect,
       dropUses,
-      dropSkill
+      dropSkill,
     );
   }
 
@@ -503,7 +523,10 @@ async function pickEquip(user, body) {
   if (player[slotName]) {
     let empty = -1;
     for (let i = 0; i < 5; i++) {
-      if (!player[`itm${i}`]) { empty = i; break; }
+      if (!player[`itm${i}`]) {
+        empty = i;
+        break;
+      }
     }
     if (empty !== -1) {
       player[`itm${empty}`] = player[slotName];
@@ -518,7 +541,7 @@ async function pickEquip(user, body) {
         player[`${slotName}k`],
         player[`${slotName}e`],
         String(player[`${slotName}s`]),
-        player[`${slotName}sk`]
+        player[`${slotName}sk`],
       );
     }
   }
@@ -542,5 +565,5 @@ module.exports = {
   pickReplace,
   pickEquip,
   dropItem,
-  dropEquip
+  dropEquip,
 };

@@ -3,5 +3,5 @@ module.exports = {
   ...require('./player/actions'),
   ...require('./player/items'),
   ...require('./player/loot'),
-  ...require('./player/fight')
+  ...require('./player/fight'),
 };
