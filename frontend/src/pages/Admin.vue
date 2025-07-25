@@ -62,6 +62,7 @@ import {
   adminCloseArea
 } from '../api'
 import { mapAreas } from '../store/map'
+import { trapTypeText } from '../constants/enums'
 
 const collections = [
   { label: '玩家', value: 'players' },
@@ -117,8 +118,25 @@ watch(areaFilter, () => {
 async function fetchFieldMeta() {
   if (!collection.value) return
   try {
+    if ((collection.value === 'maptraps' || collection.value === 'mapitems' || collection.value === 'players') && !mapAreas.value.length) {
+      try {
+        const res = await getMapAreas()
+        mapAreas.value = res.data
+      } catch {}
+    }
     const { data } = await adminFieldMeta(collection.value)
-    fieldMeta.value = data
+    fieldMeta.value = data.map(f => {
+      const nf = { ...f }
+      if ((nf.name === 'pls' || nf.name === 'area') && mapAreas.value.length) {
+        nf.type = 'select'
+        nf.options = mapAreas.value.map((n, i) => ({ label: n, value: i }))
+      }
+      if (collection.value === 'maptraps' && nf.name === 'itmk') {
+        nf.type = 'select'
+        nf.options = Object.entries(trapTypeText).map(([k, v]) => ({ label: v, value: k }))
+      }
+      return nf
+    })
   } catch (e) {
     fieldMeta.value = []
   }
@@ -148,6 +166,17 @@ async function fetchItems(append = false) {
         const res = await getMapAreas()
         mapAreas.value = res.data
       } catch {}
+    } else if (collection.value === 'maptraps') {
+      if (!mapAreas.value.length) {
+        try {
+          const res = await getMapAreas()
+          mapAreas.value = res.data
+        } catch {}
+      }
+      const { data } = await adminList('maptraps', { skip: skip.value, limit })
+      items.value = append ? items.value.concat(data) : data
+      if (data.length < limit) allLoaded.value = true
+      skip.value += data.length
     } else if (collection.value === 'mapitems') {
       if (!mapAreas.value.length) {
         try {
@@ -188,7 +217,16 @@ function loadMore() {
 
 function openFieldEdit(row, field) {
   editRowId.value = row._id
-  editField.value = field
+  const f = { ...field }
+  if ((f.name === 'pls' || f.name === 'area') && mapAreas.value.length) {
+    f.type = 'select'
+    f.options = mapAreas.value.map((n, i) => ({ label: n, value: i }))
+  }
+  if (collection.value === 'maptraps' && f.name === 'itmk') {
+    f.type = 'select'
+    f.options = Object.entries(trapTypeText).map(([k, v]) => ({ label: v, value: k }))
+  }
+  editField.value = f
   editForm.value = { [field.name]: row[field.name] }
   fieldDialogVisible.value = true
 }
