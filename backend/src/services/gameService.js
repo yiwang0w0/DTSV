@@ -84,7 +84,10 @@ async function startGame() {
     const npcs = JSON.parse(fs.readFileSync(npcFile));
     await Player.deleteMany({ type: { $gt: 0 } });
     if (npcs && npcs.length) {
-      await Player.insertMany(npcs);
+      const startNpcs = npcs.filter(n => !n.spawnStage || n.spawnStage === 'start');
+      if (startNpcs.length) {
+        await Player.insertMany(startNpcs);
+      }
     }
   } catch (e) {
     console.error('初始化 NPC 失败', e);
@@ -102,6 +105,19 @@ async function startGame() {
   await info.save();
 
   return { msg: '游戏已开始', gamestate: info.gamestate };
+}
+
+async function spawnNpcs(stage) {
+  try {
+    const npcFile = path.join(__dirname, '../../../data/npcs.json');
+    const npcs = JSON.parse(fs.readFileSync(npcFile));
+    const list = npcs.filter(n => n.spawnStage === stage);
+    if (list.length) {
+      await Player.insertMany(list);
+    }
+  } catch (e) {
+    console.error('生成 NPC 失败', e);
+  }
 }
 
 async function stopGame() {
@@ -153,6 +169,7 @@ async function checkDangerAreas() {
   const all = info.arealist ? info.arealist.split(',').map(Number) : [];
   const total = all.length;
   let changed = false;
+  const before = info.areanum;
   while (info.areanum < total && now >= info.areatime) {
     const next = all.slice(info.areanum, info.areanum + constants.get('AREA_ADD'));
     info.areanum += next.length;
@@ -171,6 +188,12 @@ async function checkDangerAreas() {
   }
   if (changed) {
     await info.save();
+    if (before < 2 && info.areanum >= 2) {
+      await spawnNpcs('ban2');
+    }
+    if (before < 4 && info.areanum >= 4) {
+      await spawnNpcs('ban4');
+    }
   }
 }
 
@@ -212,5 +235,6 @@ module.exports = {
   checkDangerAreas,
   checkGameOver,
   openArea,
-  closeArea
+  closeArea,
+  spawnNpcs
 };

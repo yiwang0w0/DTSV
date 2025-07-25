@@ -4,6 +4,7 @@ const playerSchema = new mongoose.Schema({
   pid: { type: Number, index: true },
   uid: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   type: { type: Number, default: 0, index: true },
+  spawnStage: { type: String, default: 'start', index: true },
   name: { type: String, default: '', index: true },
   pass: { type: String, default: '' },
   ip: { type: String, default: '' },
