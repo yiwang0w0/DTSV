@@ -7,6 +7,7 @@
         <PlayerStats v-if="info" :info="info" :injuries="injuries" />
         <BattlePanel v-if="enemy" :player="info" :enemy="enemy" :loot="lootItems" @attack="doAttack" @loot="doLoot" />
         <EquipmentList v-if="info" :rows="equipRows" @unequip="unequip" @drop="dropEquipItem" />
+        <ChatPanel :messages="chatList" @send="sendChatMsg" />
         <LogPanel :logs="logs" />
       </div>
 
@@ -62,14 +63,16 @@ import PlayerStats from '../components/PlayerStats.vue'
 import EquipmentList from '../components/EquipmentList.vue'
 import BattlePanel from '../components/BattlePanel.vue'
 import LogPanel from '../components/LogPanel.vue'
+import ChatPanel from '../components/ChatPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import AreaButtons from '../components/AreaButtons.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack, lootCorpse } from '../api'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack, lootCorpse, getChats, sendChat } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
 import { logs } from '../store/logs'
+import { chats as chatList, addChat } from '../store/chat'
 import { itemTypeText } from '../constants/enums'
 
 const router = useRouter()
@@ -79,6 +82,8 @@ const replaceVisible = ref(false)
 let replaceItemId = null
 let restTimer = null
 let statusTimer = null
+let chatTimer = null
+const lastCid = ref(0)
 const enemy = ref(null)
 const lootItems = ref(null)
 
@@ -159,7 +164,10 @@ const bagItems = computed(() => {
 })
 
 function addLog(message) {
-  if (message) logs.value.unshift(message)
+  if (message) {
+    logs.value.unshift(message)
+    addChat({ type: 2, msg: message, time: Date.now() })
+  }
 }
 
 const hpPercent = computed(() =>
@@ -214,10 +222,23 @@ async function fetchStatus() {
   }
 }
 
+async function fetchChats() {
+  if (!playerId.value) return
+  try {
+    const { data } = await getChats({ lastcid: lastCid.value })
+    if (data.chats && data.chats.length) {
+      data.chats.forEach(c => addChat(c))
+      lastCid.value = data.lastcid
+    }
+  } catch {}
+}
+
 onMounted(() => {
   refreshMapAreas()
   if (!info.value) fetchStatus()
   statusTimer = setInterval(fetchStatus, 5000)
+  fetchChats()
+  chatTimer = setInterval(fetchChats, 5000)
 })
 
 onUnmounted(() => {
@@ -225,6 +246,10 @@ onUnmounted(() => {
   if (statusTimer) {
     clearInterval(statusTimer)
     statusTimer = null
+  }
+  if (chatTimer) {
+    clearInterval(chatTimer)
+    chatTimer = null
   }
 })
 
@@ -389,6 +414,16 @@ async function doLoot(slot) {
   } catch (e) {
     alert(e.response?.data?.msg || '拾取失败')
   }
+}
+
+function sendChatMsg(text) {
+  if (!playerId.value) return
+  sendChat({ pid: playerId.value, msg: text }).then(({ data }) => {
+    addChat(data)
+    lastCid.value = data.cid
+  }).catch(e => {
+    alert(e.response?.data?.msg || '发送失败')
+  })
 }
 </script>
 
