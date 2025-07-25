@@ -8,6 +8,7 @@ const mapItemSchema = new mongoose.Schema({
   itms: { type: String, default: '0' },
   itmsk: { type: String, default: '' },
   pls: { type: Number, default: 0 },
+  stage: { type: String, default: 'start', index: true },
 });
 
 module.exports = mongoose.model('MapItem', mapItemSchema);

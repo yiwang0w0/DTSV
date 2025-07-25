@@ -134,11 +134,9 @@ mongoimport --db dts --collection shopitems --file ../data/shopitems.json --json
 mongoimport --db dts --collection items --file ../data/items.json --jsonArray
 mongoimport --db dts --collection mapareas --file ../data/mapareas.json --jsonArray
 mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
-mongoimport --db dts --collection itemrefreshes --file ../data/mapitems.json --jsonArray
-mongoimport --db dts --collection itemrefreshes --file ../data/mapitems_ban2.json --jsonArray
-mongoimport --db dts --collection itemrefreshes --file ../data/mapitems_ban4.json --jsonArray
+mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
 ```
-以上三条分别导入开局、2禁、4禁阶段的刷新物品列表，可在后台管理界面调整。
+`itemCategories.json` 示范了物品刷新阶段（start、ban2、ban4）对应的道具列表，可在后台管理界面调整。
 
 也可以在 `mongo` shell 中执行 `data/initData.js` 脚本一次完成导入：
 
@@ -148,7 +146,7 @@ mongo ../data/initData.js
 
 导入完成后即可获得与原作一致的基础游戏信息、地图区域以及默认物品池。
 如需手动添加地图或物品，可参照 `mogoDB.md/mapareas.md`、`mogoDB.md/mapitems.md` 和 `mogoDB.md/items.md` 的说明。
-若需自定义刷新列表，请参考 `mogoDB.md/itemrefreshes.md`。
+若需自定义物品生成类别，请参考 `mogoDB.md/itemcategories.md`。
 
 ---
 

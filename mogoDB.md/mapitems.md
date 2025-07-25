@@ -5,8 +5,8 @@
 ```javascript
 use dts;
 db.mapitems.insertMany([
-  { iid: 1, itm: '煤气罐', itmk: 'GBi', itme: 1, itms: '10', itmsk: '', pls: 0 },
- { iid: 2, itm: '增幅设备', itmk: 'X', itme: 1, itms: '1', itmsk: '', pls: 1 }
+  { iid: 1, stage: 'start', itm: '煤气罐', itmk: 'GBi', itme: 1, itms: '10', itmsk: '', pls: 0 },
+  { iid: 2, stage: 'ban2', itm: '增幅设备', itmk: 'X', itme: 1, itms: '1', itmsk: '', pls: 1 }
 ]);
 ```
 
@@ -16,6 +16,12 @@ db.mapitems.insertMany([
 mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonArray
 ```
 
-`mapitems.json` 内已根据原版配置生成了全部地图的初始物品池，可在后台管理界面实时增删改查。
+`mapitems.json` 内记录了带有 `stage` 字段的物品列表，对应开局或禁区阶段刷新的道具，可在后台管理界面实时增删改查。
 
 以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需调整。
+
+在 MongoDB shell 中可以为 `stage` 字段建立索引：
+
+```javascript
+db.mapitems.createIndex({ stage: 1 });
+```

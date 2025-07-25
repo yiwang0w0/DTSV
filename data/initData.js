@@ -45,14 +45,11 @@ if (mapitems.length) {
   db.mapitems.insertMany(mapitems);
 }
 
-// 导入 itemrefreshes
-var startItems = JSON.parse(cat('./mapitems.json'));
-var ban2Items = JSON.parse(cat('./mapitems_ban2.json'));
-var ban4Items = JSON.parse(cat('./mapitems_ban4.json'));
-var itemrefreshes = startItems.concat(ban2Items, ban4Items);
-if (itemrefreshes.length) {
-  db.itemrefreshes.remove({});
-  db.itemrefreshes.insertMany(itemrefreshes);
+// 导入 itemcategories
+var itemcategories = JSON.parse(cat('./itemCategories.json'));
+if (itemcategories.length) {
+  db.itemcategories.remove({});
+  db.itemcategories.insertMany(itemcategories);
 }
 
 // 导入 clubs
