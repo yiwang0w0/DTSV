@@ -1,6 +1,7 @@
 <template>
   <div class="page">
     <h3>刷新表 - {{ areaName(area) }}</h3>
+    <el-button size="small" @click="goBack" style="margin-bottom:10px">返回</el-button>
     <el-tabs v-model="tab">
       <el-tab-pane v-for="s in stageOptions" :key="s.value" :label="s.label" :name="s.value">
         <el-table :data="filterStage(category?.items || [], s.value)" size="small" style="width: 100%">
@@ -38,14 +39,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { adminList, adminUpdate } from '../api'
-import { getMapAreas } from '../api'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { adminList, adminUpdate, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
 import { itemTypeText } from '../constants/enums'
 import FormDialog from '../components/FormDialog.vue'
 
-const props = defineProps({ area: { type: Number, required: true } })
+const props = defineProps({ area: { type: Number, default: 0 } })
+const route = useRoute()
+const router = useRouter()
+const area = computed(() => props.area || Number(route.query.area) || 0)
 
 const category = ref(null)
 const items = ref([])
@@ -70,7 +74,7 @@ onMounted(() => {
 
 async function fetchCategory() {
   try {
-    const { data } = await adminList('itemcategories', { area: props.area, limit: 1 })
+    const { data } = await adminList('itemcategories', { area: area.value, limit: 1 })
     category.value = data[0] || null
     if (!tab.value) tab.value = 'start'
   } catch {}
@@ -155,6 +159,10 @@ async function removeItem(row) {
   category.value.items = category.value.items.filter(i => i !== row)
   await adminUpdate('itemcategories', category.value._id, { items: category.value.items })
   fetchCategory()
+}
+
+function goBack() {
+  router.push('/admin/mapresources')
 }
 </script>
 

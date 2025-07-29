@@ -11,6 +11,10 @@ import Admin from '../pages/Admin.vue';
 import ItemAdmin from '../pages/ItemAdmin.vue';
 import ItemCategoryAdmin from '../pages/ItemCategoryAdmin.vue';
 import MapResourceAdmin from '../pages/MapResourceAdmin.vue';
+import MapItemsByArea from '../pages/MapItemsByArea.vue';
+import MapTrapsByArea from '../pages/MapTrapsByArea.vue';
+import ShopItemsByArea from '../pages/ShopItemsByArea.vue';
+import MapItemTable from '../pages/MapItemTable.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -25,6 +29,10 @@ const routes = [
   { path: '/admin/items', name: 'ItemAdmin', component: ItemAdmin },
   { path: '/admin/itemcategories', name: 'ItemCategoryAdmin', component: ItemCategoryAdmin },
   { path: '/admin/mapresources', name: 'MapResourceAdmin', component: MapResourceAdmin },
+  { path: '/admin/mapitems', name: 'MapItemsByArea', component: MapItemsByArea },
+  { path: '/admin/maptraps', name: 'MapTrapsByArea', component: MapTrapsByArea },
+  { path: '/admin/shopitems', name: 'ShopItemsByArea', component: ShopItemsByArea },
+  { path: '/admin/mapitemtable', name: 'MapItemTable', component: MapItemTable },
 ];
 
 const router = createRouter({
