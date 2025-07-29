@@ -85,8 +85,9 @@
   </div>
 </template>
 
+<script setup>
 
-import { ref, reactive, onMounted, watchEffect } from 'vue'
+import { ref, reactive, onMounted, watchEffect, computed } from 'vue'
 import { adminList, adminCreate, adminUpdate, adminDelete, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
 import { itemTypeText, trapTypeText } from '../constants/enums'
