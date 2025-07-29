@@ -13,7 +13,9 @@
         <el-col v-for="a in areas" :key="a.pid" :span="8">
           <el-card shadow="hover">
             <template #header>
-              <span>{{ a.name }}</span>
+              <span
+                >{{ a.name }} (ID: {{ a.pid }}, 危险度: {{ a.danger }})</span
+              >
               <div style="float: right">
                 <el-button text size="small" @click="editArea(a)"
                   >编辑</el-button
@@ -27,23 +29,38 @@
                 >
               </div>
             </template>
-            <div style="text-align: center">
-              <el-button size="small" @click="goArea(a.pid)">地图物品</el-button>
-              <el-button size="small" @click="goCategory">地图物品刷新</el-button>
-              <el-button size="small" @click="goArea(a.pid)">地图陷阱</el-button>
-              <el-button size="small" @click="goCategory">地图陷阱刷新</el-button>
+            <div class="btn-row">
+              <el-button size="small" @click="goArea(a.pid)"
+                >地图物品</el-button
+              >
+              <el-button size="small" @click="goCategory">物品刷新表</el-button>
+            </div>
+            <div class="btn-row">
+              <el-button size="small" @click="goArea(a.pid)"
+                >地图陷阱</el-button
+              >
+              <el-button size="small" @click="goCategory">陷阱刷新表</el-button>
+            </div>
+            <div class="btn-row">
+              <span>商店</span>
               <el-switch
                 v-model="shopMap[a.pid]"
                 size="small"
-                @change="toggleShop(a.pid)"
+                @change="(val) => toggleShop(a.pid, val)"
                 style="margin: 0 5px"
               />
               <el-button
                 v-if="shopMap[a.pid]"
                 size="small"
                 @click="goArea(a.pid)"
-                >商店物品</el-button>
-              <el-button size="small" @click="goNpcSpawn(a.pid)">NPC刷新机制</el-button>
+                >商店物品</el-button
+              >
+            </div>
+            <div class="btn-row">
+              <el-button size="small" @click="goNpcAdmin">NPC管理</el-button>
+              <el-button size="small" @click="goNpcSpawn(a.pid)"
+                >NPC刷新表</el-button
+              >
             </div>
           </el-card>
         </el-col>
@@ -407,6 +424,10 @@ function goNpcSpawn(pid) {
   router.push({ path: '/admin/npcspawns', query: { area: pid } });
 }
 
+function goNpcAdmin() {
+  router.push({ path: '/admin', query: { collection: 'npcs' } });
+}
+
 async function openCreateArea() {
   editCollection = 'mapareas';
   editId = '';
@@ -437,8 +458,8 @@ async function removeArea(area) {
   }
 }
 
-function toggleShop(pid) {
-  shopMap.value[pid] = !shopMap.value[pid];
+function toggleShop(pid, val) {
+  shopMap.value = { ...shopMap.value, [pid]: val };
 }
 
 function goCategory() {
@@ -449,5 +470,11 @@ function goCategory() {
 <style scoped>
 .page {
   padding: 20px;
+}
+.btn-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+  gap: 6px;
 }
 </style>
