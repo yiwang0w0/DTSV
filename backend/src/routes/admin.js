@@ -7,7 +7,7 @@ const gameService = require('../services/gameService');
 
 const models = {
   players: require('../models/Player'),
-  npcs: require('../models/Player'),
+  npcs: require('../models/Npc'),
   shopitems: require('../models/ShopItem'),
   items: require('../models/Item'),
   logs: require('../models/Log'),
