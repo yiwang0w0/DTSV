@@ -127,7 +127,7 @@
       @close="dialogVisible = false"
     />
     <el-dialog v-model="categoryDialog" width="80%" title="刷新表管理">
-      <ItemCategoryAdmin :area="categoryArea" />
+      <MapItemTable :area="categoryArea" />
     </el-dialog>
   </div>
 </template>
@@ -143,7 +143,7 @@ import {
   adminFieldMeta,
 } from '../api';
 import FormDialog from '../components/FormDialog.vue';
-import ItemCategoryAdmin from './ItemCategoryAdmin.vue';
+import MapItemTable from './MapItemTable.vue';
 
 const router = useRouter();
 const route = useRoute();
