@@ -2,27 +2,50 @@
   <div class="page">
     <h2>地图资源管理</h2>
     <template v-if="!areaId">
-      <el-button type="primary" size="small" style="margin-bottom:10px" @click="openCreateArea">新建地图</el-button>
-      <el-row :gutter="20" style="margin-top:10px">
+      <el-button
+        type="primary"
+        size="small"
+        style="margin-bottom: 10px"
+        @click="openCreateArea"
+        >新建地图</el-button
+      >
+      <el-row :gutter="20" style="margin-top: 10px">
         <el-col v-for="a in areas" :key="a.pid" :span="8">
           <el-card shadow="hover">
             <template #header>
               <span>{{ a.name }}</span>
-              <div style="float:right">
-                <el-button text size="small" @click="editArea(a)">编辑</el-button>
-                <el-button text size="small" type="danger" @click="removeArea(a)">删除</el-button>
+              <div style="float: right">
+                <el-button text size="small" @click="editArea(a)"
+                  >编辑</el-button
+                >
+                <el-button
+                  text
+                  size="small"
+                  type="danger"
+                  @click="removeArea(a)"
+                  >删除</el-button
+                >
               </div>
             </template>
-            <div style="text-align:center">
-              <el-button size="small" @click="goArea(a.pid)">资源详情</el-button>
-              <el-button size="small" @click="goNpcSpawn(a.pid)">NPC刷新机制</el-button>
+            <div style="text-align: center">
+              <el-button size="small" @click="goArea(a.pid)"
+                >资源详情</el-button
+              >
+              <el-button size="small" @click="goNpcSpawn(a.pid)"
+                >NPC刷新机制</el-button
+              >
             </div>
           </el-card>
         </el-col>
       </el-row>
     </template>
     <template v-else>
-      <el-button style="margin-bottom:10px" size="small" @click="router.push('/admin/mapresources')">返回</el-button>
+      <el-button
+        style="margin-bottom: 10px"
+        size="small"
+        @click="router.push({ path: '/admin/mapresources' })"
+        >返回</el-button
+      >
       <el-tree
         :data="treeData"
         :props="treeProps"
@@ -34,21 +57,29 @@
           <span>{{ node.label }}</span>
           <span v-if="data.type === 'shopitem'"> x{{ data.num }}</span>
           <el-button
-            v-if="['itemGroup','trapGroup','shopGroup','npcGroup'].includes(data.type)"
+            v-if="
+              ['itemGroup', 'trapGroup', 'shopGroup', 'npcGroup'].includes(
+                data.type,
+              )
+            "
             text
             size="small"
             @click.stop="openCreate(data)"
             >添加</el-button
           >
           <el-button
-            v-if="['mapitem','maptrap','shopitem','npc','area'].includes(data.type)"
+            v-if="
+              ['mapitem', 'maptrap', 'shopitem', 'npc', 'area'].includes(
+                data.type,
+              )
+            "
             text
             size="small"
             @click.stop="openEdit(data)"
             >编辑</el-button
           >
           <el-button
-            v-if="['mapitem','maptrap','shopitem','npc'].includes(data.type)"
+            v-if="['mapitem', 'maptrap', 'shopitem', 'npc'].includes(data.type)"
             text
             size="small"
             type="danger"
@@ -77,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import {
   adminList,
@@ -90,7 +121,7 @@ import FormDialog from '../components/FormDialog.vue';
 
 const router = useRouter();
 const route = useRoute();
-const areaId = route.query.area ? Number(route.query.area) : 0;
+const areaId = ref(route.query.area ? Number(route.query.area) : 0);
 const areas = ref([]);
 const treeData = ref([]);
 const treeProps = { children: 'children', label: 'label' };
@@ -104,27 +135,40 @@ let editId = '';
 let currentArea = 0;
 
 onMounted(() => {
-  if (areaId) fetchData();
+  if (areaId.value) fetchData();
   else fetchAreas();
 });
 
+watch(
+  () => route.query.area,
+  (v) => {
+    areaId.value = v ? Number(v) : 0;
+    if (areaId.value) fetchData();
+    else {
+      treeData.value = [];
+      fetchAreas();
+    }
+  },
+);
+
 async function fetchAreas() {
   try {
-    const { data } = await adminList('mapareas', { limit: 1000 })
-    areas.value = data
+    const { data } = await adminList('mapareas', { limit: 1000 });
+    areas.value = data;
   } catch {}
 }
 
 async function fetchData() {
   try {
-    const [areasRes, itemsRes, trapsRes, catsRes, shopsRes, npcsRes] = await Promise.all([
-      adminList('mapareas', { limit: 1000 }),
-      adminList('mapitems', { limit: 1000 }),
-      adminList('maptraps', { limit: 1000 }),
-      adminList('itemcategories', { limit: 1000 }),
-      adminList('shopitems', { limit: 1000 }),
-      adminList('npcs', { limit: 1000 }),
-    ])
+    const [areasRes, itemsRes, trapsRes, catsRes, shopsRes, npcsRes] =
+      await Promise.all([
+        adminList('mapareas', { limit: 1000 }),
+        adminList('mapitems', { limit: 1000 }),
+        adminList('maptraps', { limit: 1000 }),
+        adminList('itemcategories', { limit: 1000 }),
+        adminList('shopitems', { limit: 1000 }),
+        adminList('npcs', { limit: 1000 }),
+      ]);
     buildTree(
       areasRes.data,
       itemsRes.data,
@@ -132,9 +176,9 @@ async function fetchData() {
       catsRes.data,
       shopsRes.data,
       npcsRes.data,
-    )
-    if (areaId) {
-      treeData.value = treeData.value.filter(t => t.area === areaId)
+    );
+    if (areaId.value) {
+      treeData.value = treeData.value.filter((t) => t.area === areaId.value);
     }
   } catch {}
 }
@@ -259,17 +303,18 @@ function handleNodeClick(data) {
 }
 
 async function openEdit(data) {
-  editCollection = data.type === 'mapitem'
-    ? 'mapitems'
-    : data.type === 'maptrap'
-    ? 'maptraps'
-    : data.type === 'shopitem'
-    ? 'shopitems'
-    : data.type === 'npc'
-    ? 'npcs'
-    : data.type === 'area'
-    ? 'mapareas'
-    : '';
+  editCollection =
+    data.type === 'mapitem'
+      ? 'mapitems'
+      : data.type === 'maptrap'
+        ? 'maptraps'
+        : data.type === 'shopitem'
+          ? 'shopitems'
+          : data.type === 'npc'
+            ? 'npcs'
+            : data.type === 'area'
+              ? 'mapareas'
+              : '';
   editId = data.data._id;
   currentArea = data.area;
   const { data: fields } = await adminFieldMeta(editCollection);
@@ -336,40 +381,40 @@ async function removeNode(data) {
 }
 
 function goArea(pid) {
-  router.push(`/admin/mapresources?area=${pid}`)
+  router.push({ path: '/admin/mapresources', query: { area: pid } });
 }
 
 function goNpcSpawn(pid) {
-  router.push(`/admin/npcspawns?area=${pid}`)
+  router.push({ path: '/admin/npcspawns', query: { area: pid } });
 }
 
 async function openCreateArea() {
-  editCollection = 'mapareas'
-  editId = ''
-  const { data: fields } = await adminFieldMeta('mapareas')
-  dialogFields.value = fields
-  dialogTitle.value = '新建地图'
-  formData.value = {}
-  dialogVisible.value = true
+  editCollection = 'mapareas';
+  editId = '';
+  const { data: fields } = await adminFieldMeta('mapareas');
+  dialogFields.value = fields;
+  dialogTitle.value = '新建地图';
+  formData.value = {};
+  dialogVisible.value = true;
 }
 
 async function editArea(area) {
-  editCollection = 'mapareas'
-  editId = area._id
-  const { data: fields } = await adminFieldMeta('mapareas')
-  dialogFields.value = fields
-  dialogTitle.value = '编辑地图'
-  formData.value = { ...area }
-  dialogVisible.value = true
+  editCollection = 'mapareas';
+  editId = area._id;
+  const { data: fields } = await adminFieldMeta('mapareas');
+  dialogFields.value = fields;
+  dialogTitle.value = '编辑地图';
+  formData.value = { ...area };
+  dialogVisible.value = true;
 }
 
 async function removeArea(area) {
-  if (!confirm('确定删除？')) return
+  if (!confirm('确定删除？')) return;
   try {
-    await adminDelete('mapareas', area._id)
-    fetchAreas()
+    await adminDelete('mapareas', area._id);
+    fetchAreas();
   } catch (e) {
-    alert(e.response?.data?.msg || '删除失败')
+    alert(e.response?.data?.msg || '删除失败');
   }
 }
 

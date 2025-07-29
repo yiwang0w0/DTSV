@@ -98,6 +98,9 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
       filter.pls = Number(req.query.pls);
     }
+    if (req.params.collection === 'npcspawns' && req.query.area !== undefined) {
+      filter.area = Number(req.query.area);
+    }
     if (req.params.collection === 'players') {
       filter.type = 0;
     }
