@@ -21,15 +21,13 @@
             <el-button size="small" @click="goTrapTable(a.pid)">陷阱刷新表</el-button>
           </div>
           <div class="btn-row">
+            <el-button size="small" @click="goNpcAdmin(a.pid)">NPC</el-button>
             <el-button size="small" @click="goNpcSpawn(a.pid)">NPC刷新表</el-button>
           </div>
           <div class="btn-row">
             <span>商店</span>
             <el-switch v-model="shopMap[a.pid]" size="small" @change="val => toggleShop(a.pid, val)" style="margin:0 5px"/>
             <el-button v-if="shopMap[a.pid]" size="small" @click="goShop(a.pid)">商店物品</el-button>
-          </div>
-          <div class="btn-row">
-            <el-button size="small" @click="goNpcAdmin">NPC管理</el-button>
           </div>
         </el-card>
       </el-col>
@@ -102,8 +100,8 @@ function goShop(pid) {
   router.push({ path: '/admin/shopitems', query: { area: pid } })
 }
 
-function goNpcAdmin() {
-  router.push({ path: '/admin', query: { collection: 'npcs' } })
+function goNpcAdmin(pid) {
+  router.push({ path: '/admin', query: { collection: 'npcs', area: pid } })
 }
 
 async function openCreateArea() {

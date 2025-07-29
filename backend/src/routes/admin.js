@@ -147,9 +147,12 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'players') {
       filter.type = 0;
     }
-    if (req.params.collection === 'npcs') {
-      filter.type = { $gt: 0 };
+  if (req.params.collection === 'npcs') {
+    filter.type = { $gt: 0 };
+    if (req.query.pls !== undefined) {
+      filter.pls = Number(req.query.pls);
     }
+  }
     if (req.params.collection === 'items' && req.query.kind) {
       filter.kind = req.query.kind;
     }

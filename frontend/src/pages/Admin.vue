@@ -10,7 +10,7 @@
       />
     </el-select>
     <el-select
-      v-if="collection === 'mapitems'"
+      v-if="collection === 'mapitems' || collection === 'npcs'"
       v-model="areaFilter"
       placeholder="区域过滤"
       style="width: 160px; margin-left: 10px"
@@ -130,13 +130,25 @@ watch(
 );
 
 watch(
+  () => route.query.area,
+  (v) => {
+    areaFilter.value = v !== undefined ? Number(v) : -1;
+  },
+  { immediate: true },
+);
+
+watch(
   collection,
   () => {
     if (collection.value === 'mapresources') {
       router.push('/admin/mapresources');
       return;
     }
-    router.replace({ path: '/admin', query: { collection: collection.value } });
+    const q = { collection: collection.value };
+    if ((collection.value === 'mapitems' || collection.value === 'npcs') && areaFilter.value !== -1) {
+      q.area = areaFilter.value;
+    }
+    router.replace({ path: '/admin', query: q });
     skip.value = 0;
     allLoaded.value = false;
     items.value = [];
@@ -146,7 +158,7 @@ watch(
   { immediate: true },
 );
 watch(areaFilter, () => {
-  if (collection.value === 'mapitems') {
+  if (collection.value === 'mapitems' || collection.value === 'npcs') {
     skip.value = 0;
     allLoaded.value = false;
     items.value = [];
@@ -160,7 +172,8 @@ async function fetchFieldMeta() {
     if (
       (collection.value === 'maptraps' ||
         collection.value === 'mapitems' ||
-        collection.value === 'players') &&
+        collection.value === 'players' ||
+        collection.value === 'npcs') &&
       !mapAreas.value.length
     ) {
       try {
@@ -231,12 +244,25 @@ async function fetchItems(append = false) {
       items.value = append ? items.value.concat(data) : data;
       if (data.length < limit) allLoaded.value = true;
       skip.value += data.length;
+    } else if (collection.value === 'npcs') {
+      if (!mapAreas.value.length) {
+        try {
+          const res = await getMapAreas();
+          mapAreas.value = res.data;
+        } catch {}
+      }
+      const params = { skip: skip.value, limit };
+      if (areaFilter.value !== -1) params.pls = areaFilter.value;
+      const { data } = await adminList('npcs', params);
+      items.value = append ? items.value.concat(data) : data;
+      if (data.length < limit) allLoaded.value = true;
+      skip.value += data.length;
     } else {
       const { data } = await adminList(collection.value, {
         skip: skip.value,
         limit,
       });
-      if (collection.value === 'players') {
+      if (collection.value === 'players' || collection.value === 'npcs') {
         if (!mapAreas.value.length) {
           try {
             const res = await getMapAreas();
