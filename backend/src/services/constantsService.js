@@ -10,6 +10,9 @@ const cache = {
   MOVE_SP_COST: 15,
   SEARCH_SP_COST: 15,
   ATTACK_SP_COST: 20,
+  CRIT_BASE_RATE: 0.05,
+  DODGE_BASE_RATE: 0.05,
+  CRIT_MULTIPLIER: 1.5,
 };
 
 async function loadConstants() {
