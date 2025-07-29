@@ -19,14 +19,11 @@
       :items="items"
       :field-meta="fieldMeta"
       :is-maps="isMaps"
-      :is-map-areas="isMapAreas"
       :loading="loading"
       :map-areas="mapAreas"
       @load-more="loadMore"
       @edit="openFieldEdit"
       @remove="remove"
-      @open="openArea"
-      @close="closeArea"
     />
     <FormDialog
       v-model="fieldDialogVisible"
@@ -59,9 +56,7 @@ import {
   adminDelete,
   adminFieldMeta,
   adminMaps,
-  getMapAreas,
-  adminOpenArea,
-  adminCloseArea
+  getMapAreas
 } from '../api'
 import { mapAreas } from '../store/map'
 import { trapTypeText } from '../constants/enums'
@@ -79,8 +74,7 @@ const collections = [
   { label: '历史记录', value: 'histories' },
   { label: '游戏信息', value: 'gameinfos' },
   { label: '用户', value: 'users' },
-  { label: '地图', value: 'maps' },
-  { label: '地图区域', value: 'mapareas' }
+  { label: '地图', value: 'maps' }
 ]
 
 const collection = ref('')
@@ -99,7 +93,6 @@ const editForm = ref({})
 const createDialogVisible = ref(false)
 const createData = ref({})
 const isMaps = computed(() => collection.value === 'maps')
-const isMapAreas = computed(() => collection.value === 'mapareas')
 const areaFilter = ref(-1)
 
 watch(collection, () => {
@@ -164,15 +157,6 @@ async function fetchItems(append = false) {
       items.value = append ? items.value.concat(list) : list
       if (list.length < limit) allLoaded.value = true
       skip.value += list.length
-    } else if (collection.value === 'mapareas') {
-      const { data } = await adminList('mapareas', { skip: skip.value, limit })
-      items.value = append ? items.value.concat(data) : data
-      if (data.length < limit) allLoaded.value = true
-      skip.value += data.length
-      try {
-        const res = await getMapAreas()
-        mapAreas.value = res.data
-      } catch {}
     } else if (collection.value === 'maptraps') {
       if (!mapAreas.value.length) {
         try {
@@ -286,23 +270,6 @@ async function remove(row) {
   }
 }
 
-async function openArea(row) {
-  try {
-    await adminOpenArea(row.pid)
-    row.danger = 1
-  } catch (e) {
-    alert(e.response?.data?.msg || '操作失败')
-  }
-}
-
-async function closeArea(row) {
-  try {
-    await adminCloseArea(row.pid)
-    row.danger = 0
-  } catch (e) {
-    alert(e.response?.data?.msg || '操作失败')
-  }
-}
 </script>
 
 <style scoped>
