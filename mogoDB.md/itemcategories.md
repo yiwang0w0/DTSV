@@ -6,6 +6,8 @@
 {
   name: '默认地图掉落',
   type: 'mapitem', // 或 'maptrap'
+  // tables 表示引用的刷新表名称数组，可在后台多选
+  tables: ['mapitem'],
   // stage 表示刷新的阶段，可选值：'start', 'ban2', 'ban4'
   items: [
     { itemId: 1, pls: 1, count: 2, stage: 'start' },
@@ -25,4 +27,14 @@ db.itemcategories.createIndex({ name: 1 });
 
 ```bash
 mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
+```
+
+已有数据若缺少 `tables` 字段，可执行：
+
+```javascript
+use dts;
+db.itemcategories.updateMany(
+  { tables: { $exists: false } },
+  { $set: { tables: [] } }
+);
 ```

@@ -288,6 +288,14 @@ npm run lint     # 代码规范检查
 - **DELETE `/api/admin/:collection/:id`**：删除指定文档。
 - **GET `/api/admin/maps`**：查看各地图区域的在线玩家。
 
+## 更新记录
+
+### 2025-07-29
+
+- 新增“地图资源”后台管理页，可树形管理各区域的地图物品、陷阱、刷新表、商店物品及 NPC
+- `itemcategories` 集合增加 `tables` 字段，可引用其他刷新表
+- `gameService` 中生成地图物品与陷阱的逻辑更新，递归解析 `tables` 引用
+
 ---
 
 ## 参考/致谢

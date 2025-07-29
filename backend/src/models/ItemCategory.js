@@ -18,6 +18,8 @@ const itemCategorySchema = new mongoose.Schema({
   name: { type: String, default: '' },
   type: { type: String, default: 'mapitem' }, // mapitem or maptrap
   items: [itemEntrySchema],
+  // 可引用其他刷新表名称，后台可多选
+  tables: { type: [String], default: [] },
 });
 
 module.exports = mongoose.model('ItemCategory', itemCategorySchema);
