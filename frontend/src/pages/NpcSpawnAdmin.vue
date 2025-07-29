@@ -67,6 +67,10 @@ let editId = '';
 onMounted(async () => {
   const { data } = await adminFieldMeta('npcspawns');
   fields.value = data;
+  if (areaId.value) {
+    const af = fields.value.find((f) => f.name === 'area');
+    if (af) af.disabled = true;
+  }
   allLoaded.value = false;
   fetchItems();
 });
@@ -75,6 +79,8 @@ watch(
   () => route.query.area,
   (v) => {
     areaId.value = v ? Number(v) : 0;
+    const af = fields.value.find((f) => f.name === 'area');
+    if (af) af.disabled = !!areaId.value;
     skip.value = 0;
     allLoaded.value = false;
     items.value = [];

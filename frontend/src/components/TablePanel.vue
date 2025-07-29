@@ -31,7 +31,7 @@
 
 <script setup>
 import { stateInfo } from '../constants/death'
-import { gameStateText, chatTypeText, itemTypeText, trapTypeText } from '../constants/enums'
+import { gameStateText, chatTypeText, itemTypeText, trapTypeText, npcTypeText } from '../constants/enums'
 const props = defineProps({
   items: Array,
   fieldMeta: Array,
@@ -58,7 +58,7 @@ function formatField(row, name){
     return gameStateText[row[name]] || row[name]
   }
   if(name==='type'){
-    return chatTypeText[row[name]] || row[name]
+    return chatTypeText[row[name]] || npcTypeText[row[name]] || row[name]
   }
   if(name==='itmk'){
     return trapTypeText[row[name]] || itemTypeText[row[name]] || row[name]

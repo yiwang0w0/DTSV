@@ -7,16 +7,22 @@
   >
     <el-form label-width="80px">
       <el-form-item v-for="f in fields" :key="f.name" :label="f.label">
-        <el-input v-if="f.type === 'text'" v-model="form[f.name]" />
+        <el-input
+          v-if="f.type === 'text'"
+          v-model="form[f.name]"
+          :disabled="f.disabled"
+        />
         <el-input-number
           v-else-if="f.type === 'number'"
           v-model="form[f.name]"
+          :disabled="f.disabled"
         />
         <el-select
           v-else-if="f.type === 'select' || f.type === 'multiselect'"
           v-model="form[f.name]"
           :multiple="f.type === 'multiselect'"
           filterable
+          :disabled="f.disabled"
         >
           <el-option
             v-for="op in f.options"
@@ -25,7 +31,7 @@
             :value="typeof op === 'object' ? op.value : op"
           />
         </el-select>
-        <el-input v-else v-model="form[f.name]" />
+        <el-input v-else v-model="form[f.name]" :disabled="f.disabled" />
       </el-form-item>
     </el-form>
     <template #footer>
