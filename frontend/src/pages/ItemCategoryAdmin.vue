@@ -87,11 +87,13 @@
 
 <script setup>
 
-import { ref, reactive, onMounted, watchEffect, computed } from 'vue'
+import { ref, reactive, onMounted, watchEffect, computed, defineProps } from 'vue'
 import { adminList, adminCreate, adminUpdate, adminDelete, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
 import { itemTypeText, trapTypeText } from '../constants/enums'
 import FormDialog from '../components/FormDialog.vue'
+
+const props = defineProps({ area: { type: Number, default: 0 } })
 
 const categories = ref([]);
 const items = ref([]);
@@ -121,7 +123,9 @@ onMounted(() => {
 
 async function fetchCategories() {
   try {
-    const { data } = await adminList('itemcategories', { limit: 1000 });
+    const params = { limit: 1000 };
+    if (props.area) params.area = props.area;
+    const { data } = await adminList('itemcategories', params);
     categories.value = data;
     data.forEach((c) => {
       if (!tabs[c._id]) tabs[c._id] = 'start';
@@ -175,6 +179,7 @@ function openCreateCategory() {
       type: 'select',
       options: ['mapitem', 'maptrap'],
     },
+    { name: 'area', label: '区域ID', type: 'number' },
     {
       name: 'tables',
       label: '使用刷新表',
@@ -182,7 +187,7 @@ function openCreateCategory() {
       options: categoryOptions.value,
     },
   ];
-  formData.value = { name: '', type: 'mapitem', tables: [] };
+  formData.value = { name: '', type: 'mapitem', area: props.area, tables: [] };
   editCategoryId = '';
   dialogVisible.value = true;
 }
@@ -204,7 +209,7 @@ function openEditCategory(c) {
       options: categoryOptions.value,
     },
   ];
-  formData.value = { name: c.name, type: c.type, tables: c.tables || [] };
+  formData.value = { name: c.name, type: c.type, area: c.area, tables: c.tables || [] };
   editCategoryId = c._id;
   dialogVisible.value = true;
 }
@@ -258,7 +263,7 @@ async function saveDialog() {
 async function saveCategory() {
   if (editCategoryId)
     await adminUpdate('itemcategories', editCategoryId, formData.value);
-  else await adminCreate('itemcategories', { ...formData.value, items: [] });
+  else await adminCreate('itemcategories', { ...formData.value, area: props.area, items: [] });
   dialogVisible.value = false;
   fetchCategories();
 }

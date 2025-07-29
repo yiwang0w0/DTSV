@@ -152,23 +152,12 @@ module.exports = {
       type: 'select',
       options: ['mapitem', 'maptrap'],
     },
+    { name: 'area', label: '区域ID', type: 'number' },
     {
       name: 'tables',
       label: '使用刷新表',
       type: 'multiselect',
       options: ['mapitem', 'mapitem_i8', 'mapitem_i9'],
-    },
-  ],
-  npcspawns: [
-    { name: 'area', label: '区域ID', type: 'number' },
-    { name: 'type', label: 'NPC类型', type: 'number' },
-    { name: 'sub', label: '子类别', type: 'number' },
-    { name: 'num', label: '数量', type: 'number' },
-    {
-      name: 'stage',
-      label: '刷新阶段',
-      type: 'select',
-      options: ['start', 'ban2', 'ban4'],
     },
   ],
   maps: [

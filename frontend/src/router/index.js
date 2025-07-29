@@ -11,7 +11,6 @@ import Admin from '../pages/Admin.vue';
 import ItemAdmin from '../pages/ItemAdmin.vue';
 import ItemCategoryAdmin from '../pages/ItemCategoryAdmin.vue';
 import MapResourceAdmin from '../pages/MapResourceAdmin.vue';
-import NpcSpawnAdmin from '../pages/NpcSpawnAdmin.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -26,7 +25,6 @@ const routes = [
   { path: '/admin/items', name: 'ItemAdmin', component: ItemAdmin },
   { path: '/admin/itemcategories', name: 'ItemCategoryAdmin', component: ItemCategoryAdmin },
   { path: '/admin/mapresources', name: 'MapResourceAdmin', component: MapResourceAdmin },
-  { path: '/admin/npcspawns', name: 'NpcSpawnAdmin', component: NpcSpawnAdmin },
 ];
 
 const router = createRouter({
