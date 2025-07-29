@@ -161,9 +161,7 @@ module.exports = {
     },
   ],
   npcspawns: [
-    { name: 'area', label: '区域ID', type: 'number' },
-    { name: 'type', label: 'NPC类型', type: 'number' },
-    { name: 'sub', label: '子类别', type: 'number' },
+    { name: 'npc', label: 'NPC名', type: 'select', options: [] },
     { name: 'num', label: '数量', type: 'number' },
     {
       name: 'stage',

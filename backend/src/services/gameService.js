@@ -209,12 +209,18 @@ async function spawnNpcs(stage) {
     let list = [];
     if (spawns.length) {
       for (const s of spawns) {
-        const pool = npcs.filter(
-          (n) =>
-            n.type === s.type &&
-            (s.sub ? n.sub === s.sub : true) &&
-            (!n.spawnStage || n.spawnStage === stage),
-        );
+        let pool = [];
+        if (s.npc) {
+          const n = npcs.find((item) => item.name === s.npc);
+          if (n) pool = [n];
+        } else {
+          pool = npcs.filter(
+            (n) =>
+              n.type === s.type &&
+              (s.sub ? n.sub === s.sub : true) &&
+              (!n.spawnStage || n.spawnStage === stage),
+          );
+        }
         for (let i = 0; i < s.num; i++) {
           const base = pool[i % pool.length];
           if (base) {

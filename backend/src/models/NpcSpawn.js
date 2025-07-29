@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const npcSpawnSchema = new mongoose.Schema({
   area: { type: Number, index: true },
+  npc: { type: String },
   type: { type: Number, default: 1 },
   sub: { type: Number, default: 0 },
   num: { type: Number, default: 1 },
