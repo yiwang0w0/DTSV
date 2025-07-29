@@ -7,6 +7,7 @@ const clubPro = require('../../config/clubProficiency');
 // 引入完整工具避免解构失败
 const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, formatPlayer } = playerUtils;
+const combat = require('./combat');
 
 // 武器系别到熟练度字段的映射
 const SKILL_FIELDS = {
@@ -161,6 +162,10 @@ function getPrimaryFixedDamage(attacker, defender) {
 }
 
 function calcDamage(attacker, defender) {
+  if (combat.checkDodge(attacker, defender)) {
+    return { damage: 0, critical: false, dodged: true };
+  }
+
   const att = calcAtt(attacker);
   const def = calcDef(defender) || 1;
   const kind = getWeaponKind(attacker.wepk);
@@ -178,8 +183,13 @@ function calcDamage(attacker, defender) {
     poseMod(attacker.pose) * tacticMod(attacker.tactic) * infMod(attacker.inf);
   dmg *= 1 + Math.min(attacker.rage || 0, 100) / 100;
 
+  const crit = combat.checkCritical(attacker, defender);
+  if (crit) {
+    dmg *= constants.get('CRIT_MULTIPLIER') || 1.5;
+  }
+
   if (dmg < 1) dmg = 1;
-  return Math.floor(dmg);
+  return { damage: Math.floor(dmg), critical: crit, dodged: false };
 }
 
 function collectItems(target) {
@@ -261,11 +271,17 @@ async function attack(user, body) {
   player.sp -= cost;
   let log = '';
 
-  const dmg1 = calcDamage(player, enemy);
-  enemy.hp = Math.max(enemy.hp - dmg1, 0);
-  consumeWeapon(player);
-  gainSkill(player);
-  log += `你攻击了${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】，造成${dmg1}点伤害！<br>`;
+  const r1 = calcDamage(player, enemy);
+  if (r1.dodged) {
+    log += `${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】闪避了你的攻击！<br>`;
+  } else {
+    enemy.hp = Math.max(enemy.hp - r1.damage, 0);
+    consumeWeapon(player);
+    gainSkill(player);
+    log += `你攻击了${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】，造成${r1.damage}点伤害！`;
+    if (r1.critical) log += '<span class="red">暴击！</span>';
+    log += '<br>';
+  }
   let loot = null;
   if (enemy.hp <= 0) {
     enemy.state = 21;
@@ -274,11 +290,17 @@ async function attack(user, body) {
     loot = collectItems(enemy);
     player.enemymemory = JSON.stringify({ id: enemy.pid, corpse: true });
   } else {
-    const dmg2 = calcDamage(enemy, player);
-    player.hp = Math.max(player.hp - dmg2, 0);
-    consumeWeapon(enemy);
-    gainSkill(enemy);
-    log += `${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】反击造成${dmg2}点伤害！<br>`;
+    const r2 = calcDamage(enemy, player);
+    if (r2.dodged) {
+      log += `你闪避了${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】的攻击！<br>`;
+    } else {
+      player.hp = Math.max(player.hp - r2.damage, 0);
+      consumeWeapon(enemy);
+      gainSkill(enemy);
+      log += `${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】反击造成${r2.damage}点伤害！`;
+      if (r2.critical) log += '<span class="red">暴击！</span>';
+      log += '<br>';
+    }
     if (player.hp <= 0) {
       player.state = 27;
       log += '你被击倒了！<br>';
