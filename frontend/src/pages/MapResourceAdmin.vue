@@ -101,7 +101,7 @@ function goShop(pid) {
 }
 
 function goNpcAdmin(pid) {
-  router.push({ path: '/admin', query: { collection: 'npcs', area: pid } })
+  router.push({ path: '/admin/npcs', query: { area: pid } })
 }
 
 async function openCreateArea() {
