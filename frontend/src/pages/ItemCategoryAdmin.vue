@@ -39,12 +39,16 @@
                     itemName(row.itemId)
                   }}</template>
                 </el-table-column>
-                <el-table-column prop="pls" label="区域" width="70" />
+                <el-table-column prop="pls" label="区域" width="70">
+                  <template #default="{ row }">{{ areaName(row.pls) }}</template>
+                </el-table-column>
                 <el-table-column prop="count" label="数量" width="60" />
-                <el-table-column prop="itmk" label="itmk" width="80" />
-                <el-table-column prop="itme" label="itme" width="60" />
-                <el-table-column prop="itms" label="itms" width="60" />
-                <el-table-column prop="itmsk" label="itmsk" width="80" />
+                <el-table-column prop="itmk" label="种类" width="80">
+                  <template #default="{ row }">{{ kindText(cat.type, row.itmk) }}</template>
+                </el-table-column>
+                <el-table-column prop="itme" label="效果值" width="60" />
+                <el-table-column prop="itms" label="耐久/数量" width="60" />
+                <el-table-column prop="itmsk" label="属性" width="80" />
                 <el-table-column label="操作" width="120">
                   <template #default="{ row }">
                     <el-button text size="small" @click="openEditItem(cat, row)"
@@ -81,10 +85,12 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted, watchEffect, computed } from 'vue';
-import { adminList, adminCreate, adminUpdate, adminDelete } from '../api';
-import FormDialog from '../components/FormDialog.vue';
+
+import { ref, reactive, onMounted, watchEffect } from 'vue'
+import { adminList, adminCreate, adminUpdate, adminDelete, getMapAreas } from '../api'
+import { mapAreas } from '../store/map'
+import { itemTypeText, trapTypeText } from '../constants/enums'
+import FormDialog from '../components/FormDialog.vue'
 
 const categories = ref([]);
 const items = ref([]);
@@ -106,9 +112,11 @@ let editCategoryId = '';
 let editItemIndex = -1;
 
 onMounted(() => {
-  fetchCategories();
-  fetchItems();
-});
+
+  fetchCategories()
+  fetchItems()
+  fetchAreas()
+})
 
 async function fetchCategories() {
   try {
@@ -127,6 +135,14 @@ async function fetchItems() {
   } catch {}
 }
 
+async function fetchAreas() {
+  if (mapAreas.value.length) return
+  try {
+    const { data } = await getMapAreas()
+    mapAreas.value = data
+  } catch {}
+}
+
 function itemName(id) {
   const it = items.value.find((i) => i.id === id);
   return it ? it.name : id;
@@ -134,6 +150,18 @@ function itemName(id) {
 
 function filterStage(list, stage) {
   return (list || []).filter((it) => (it.stage || 'start') === stage);
+}
+
+function areaName(pid) {
+  const a = mapAreas.value.find(m => m.pid === pid)
+  return a ? a.name : pid
+}
+
+function kindText(type, k) {
+  if (!k) return ''
+  return type === 'maptrap'
+    ? trapTypeText[k] || k
+    : itemTypeText[k] || k
 }
 
 function openCreateCategory() {
@@ -181,12 +209,13 @@ function openEditCategory(c) {
 }
 
 function openCreateItem(cat, stage) {
-  dialogTitle.value = '添加条目';
-  dialogFields.value = entryFields;
-  formData.value = { itemId: items.value[0]?.id || 0, pls: 0, count: 1, stage };
-  editCategoryId = cat._id;
-  editItemIndex = -1;
-  dialogVisible.value = true;
+
+  dialogTitle.value = '添加条目'
+  dialogFields.value = entryFields
+  formData.value = { itemId: items.value[0]?.id || 0, pls: mapAreas.value[0]?.pid || 0, count: 1, stage }
+  editCategoryId = cat._id
+  editItemIndex = -1
+  dialogVisible.value = true
 }
 
 function openEditItem(cat, row) {
@@ -200,25 +229,19 @@ function openEditItem(cat, row) {
 
 const entryFields = [
   { name: 'itemId', label: '物品', type: 'select', options: [] },
-  { name: 'pls', label: '区域', type: 'number' },
+  { name: 'pls', label: '区域', type: 'select', options: [] },
   { name: 'count', label: '数量', type: 'number' },
-  {
-    name: 'stage',
-    label: '阶段',
-    type: 'select',
-    options: ['start', 'ban2', 'ban4'],
-  },
-  { name: 'itmk', label: 'itmk', type: 'text' },
-  { name: 'itme', label: 'itme', type: 'number' },
-  { name: 'itms', label: 'itms', type: 'text' },
-  { name: 'itmsk', label: 'itmsk', type: 'text' },
-];
+
+  { name: 'stage', label: '阶段', type: 'select', options: ['start', 'ban2', 'ban4'] },
+  { name: 'itmk', label: '种类', type: 'text' },
+  { name: 'itme', label: '效果值', type: 'number' },
+  { name: 'itms', label: '耐久/数量', type: 'text' },
+  { name: 'itmsk', label: '属性', type: 'text' },
+]
 
 function updateEntryOptions() {
-  entryFields[0].options = items.value.map((it) => ({
-    label: it.name,
-    value: it.id,
-  }));
+  entryFields[0].options = items.value.map(it => ({ label: it.name, value: it.id }))
+  entryFields[1].options = mapAreas.value.map(a => ({ label: a.name, value: a.pid }))
 }
 
 watchEffect(updateEntryOptions);
