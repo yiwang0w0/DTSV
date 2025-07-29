@@ -1,3 +1,65 @@
 [
-  {"area": 0, "type": 1, "sub": 0, "num": 1, "stage": "start"}
+  {
+    "area": 0,
+    "type": 1,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "type": 2,
+    "sub": 0,
+    "num": 4,
+    "stage": "start"
+  },
+  {
+    "area": 26,
+    "type": 13,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "type": 14,
+    "sub": 0,
+    "num": 3,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "type": 20,
+    "sub": 0,
+    "num": 36,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "type": 21,
+    "sub": 0,
+    "num": 9,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "type": 22,
+    "sub": 0,
+    "num": 4,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "type": 45,
+    "sub": 0,
+    "num": 4,
+    "stage": "start"
+  },
+  {
+    "area": 32,
+    "type": 88,
+    "sub": 0,
+    "num": 4,
+    "stage": "start"
+  }
 ]
