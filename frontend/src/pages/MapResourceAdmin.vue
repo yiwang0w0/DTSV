@@ -1,6 +1,7 @@
 <template>
   <div class="page">
-    <h2>地图资源管理</h2>
+  <h2>地图资源管理</h2>
+  <el-button style="margin-bottom:10px" size="small" @click="router.push('/admin')">返回后台</el-button>
     <el-tree
       :data="treeData"
       :props="treeProps"
@@ -134,14 +135,13 @@ function buildTree(areas, items, traps, cats, shops, npcs) {
       area: a.pid,
       data: it,
     }));
-    if (itemsList.length)
-      children.push({
-        id: `items-${a.pid}`,
-        label: '地图物品',
-        type: 'itemGroup',
-        area: a.pid,
-        children: itemsList,
-      });
+    children.push({
+      id: `items-${a.pid}`,
+      label: '地图物品',
+      type: 'itemGroup',
+      area: a.pid,
+      children: itemsList,
+    });
     const trapsList = (trapByArea[a.pid] || []).map((it) => ({
       id: it._id,
       label: it.itm,
@@ -149,14 +149,13 @@ function buildTree(areas, items, traps, cats, shops, npcs) {
       area: a.pid,
       data: it,
     }));
-    if (trapsList.length)
-      children.push({
-        id: `traps-${a.pid}`,
-        label: '陷阱',
-        type: 'trapGroup',
-        area: a.pid,
-        children: trapsList,
-      });
+    children.push({
+      id: `traps-${a.pid}`,
+      label: '陷阱',
+      type: 'trapGroup',
+      area: a.pid,
+      children: trapsList,
+    });
     const catList = (catByArea[a.pid] || []).map((c) => ({
       id: c._id,
       label: c.name,
@@ -164,14 +163,13 @@ function buildTree(areas, items, traps, cats, shops, npcs) {
       area: a.pid,
       data: c,
     }));
-    if (catList.length)
-      children.push({
-        id: `cats-${a.pid}`,
-        label: '刷新表',
-        type: 'catGroup',
-        area: a.pid,
-        children: catList,
-      });
+    children.push({
+      id: `cats-${a.pid}`,
+      label: '刷新表',
+      type: 'catGroup',
+      area: a.pid,
+      children: catList,
+    });
     const shopList = (shopByArea[a.pid] || []).map((s) => ({
       id: s._id,
       label: s.item,
@@ -202,14 +200,13 @@ function buildTree(areas, items, traps, cats, shops, npcs) {
       area: a.pid,
       data: n,
     }));
-    if (npcList.length)
-      children.push({
-        id: `npcs-${a.pid}`,
-        label: 'NPC',
-        type: 'npcGroup',
-        area: a.pid,
-        children: npcList,
-      });
+    children.push({
+      id: `npcs-${a.pid}`,
+      label: 'NPC',
+      type: 'npcGroup',
+      area: a.pid,
+      children: npcList,
+    });
     return {
       id: a._id,
       label: a.name,
@@ -262,8 +259,10 @@ async function openCreate(group) {
   dialogFields.value = fields;
   dialogTitle.value = '新建';
   formData.value = {};
-  if (col === 'mapitems' || col === 'maptraps' || col === 'npcs')
+  if (col === 'mapitems' || col === 'maptraps' || col === 'npcs') {
     formData.value.pls = group.area;
+    if (col === 'mapitems') formData.value.stage = 'start';
+  }
   if (col === 'shopitems') formData.value.area = group.area;
   dialogVisible.value = true;
 }
