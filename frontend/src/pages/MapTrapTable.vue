@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminList, adminUpdate, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
@@ -143,7 +143,7 @@ function updateOptions() {
   entryFields[0].options = items.value.map(it => ({ label: it.name, value: it.id }))
 }
 
-updateOptions()
+watch(items, updateOptions, { immediate: true })
 
 async function saveDialog() {
   if (!category.value) return

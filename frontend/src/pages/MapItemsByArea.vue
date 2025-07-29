@@ -33,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminList, adminCreate, adminUpdate, adminDelete, adminFieldMeta, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
@@ -45,6 +45,7 @@ const router = useRouter()
 const area = Number(route.query.area) || 0
 
 const items = ref([])
+const baseItems = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const dialogFields = ref([])
@@ -55,6 +56,7 @@ onMounted(() => {
   fetchItems()
   fetchFields()
   fetchAreas()
+  fetchBaseItems()
 })
 
 async function fetchItems() {
@@ -64,12 +66,28 @@ async function fetchItems() {
   } catch {}
 }
 
+async function fetchBaseItems() {
+  try {
+    const { data } = await adminList('items', { limit: 1000 })
+    baseItems.value = data
+  } catch {}
+}
 async function fetchFields() {
   try {
     const { data } = await adminFieldMeta('mapitems')
-    dialogFields.value = data.filter(f => f.name !== 'pls')
+    dialogFields.value = data.filter(f => f.name !== 'pls' && f.name !== 'stage')
+    dialogFields.value.unshift({ name: 'itemId', label: '物品', type: 'select', options: [] })
   } catch {}
 }
+
+function updateItemOptions() {
+  const field = dialogFields.value.find(f => f.name === 'itemId')
+  if (field) {
+    field.options = baseItems.value.map(it => ({ label: it.name, value: it.id }))
+  }
+}
+
+watch(baseItems, updateItemOptions, { immediate: true })
 
 async function fetchAreas() {
   if (mapAreas.value.length) return
@@ -90,20 +108,49 @@ function kindText(k) {
 
 function openCreate() {
   dialogTitle.value = '新建'
-  formData.value = { stage: 'start' }
+  formData.value = {
+    itemId: baseItems.value[0]?.id || 0,
+    itms: '1',
+    itmsk: ''
+  }
   editId = ''
   dialogVisible.value = true
 }
 
 function openEdit(row) {
   dialogTitle.value = '编辑'
-  formData.value = { ...row }
+  const found = baseItems.value.find(i => i.name === row.itm)
+  formData.value = { itemId: found?.id || 0, ...row }
   editId = row._id
   dialogVisible.value = true
 }
 
+function applyBaseItem() {
+  const base = baseItems.value.find(i => i.id === formData.value.itemId)
+  if (base) {
+    formData.value.itm = base.name
+    formData.value.itmk = base.kind
+    formData.value.itme = base.effect
+    formData.value.itmsk ||= base.skill
+    formData.value.itms ||= base.dur
+  }
+}
+
+watch(() => formData.value.itemId, applyBaseItem, { immediate: true })
+
 async function saveDialog() {
+  const base = baseItems.value.find(i => i.id === formData.value.itemId)
+  if (base) {
+    formData.value.itm = base.name
+    if (!formData.value.itmk) formData.value.itmk = base.kind
+    if (formData.value.itme === undefined || formData.value.itme === null) {
+      formData.value.itme = base.effect
+    }
+    if (!formData.value.itms) formData.value.itms = base.dur
+    if (!formData.value.itmsk) formData.value.itmsk = base.skill
+  }
   formData.value.pls = area
+  formData.value.stage = 'start'
   if (editId) await adminUpdate('mapitems', editId, formData.value)
   else await adminCreate('mapitems', formData.value)
   dialogVisible.value = false
