@@ -20,6 +20,7 @@
       :items="items"
       :field-meta="fields"
       :loading="loading"
+      :disable-load="allLoaded"
       @load-more="loadMore"
       @edit="openEdit"
       @remove="removeRow"
@@ -57,6 +58,7 @@ const fields = ref([]);
 const loading = ref(false);
 const skip = ref(0);
 const limit = 50;
+const allLoaded = ref(false);
 const dialogVisible = ref(false);
 const dialogTitle = ref('');
 const formData = ref({});
@@ -65,6 +67,7 @@ let editId = '';
 onMounted(async () => {
   const { data } = await adminFieldMeta('npcspawns');
   fields.value = data;
+  allLoaded.value = false;
   fetchItems();
 });
 
@@ -73,17 +76,21 @@ watch(
   (v) => {
     areaId.value = v ? Number(v) : 0;
     skip.value = 0;
+    allLoaded.value = false;
+    items.value = [];
     fetchItems();
   },
 );
 
 async function fetchItems(append = false) {
+  if (loading.value || allLoaded.value) return;
   loading.value = true;
   try {
     const params = { skip: skip.value, limit };
     if (areaId.value) params.area = areaId.value;
     const { data } = await adminList('npcspawns', params);
     items.value = append ? items.value.concat(data) : data;
+    if (data.length < limit) allLoaded.value = true;
     skip.value += data.length;
   } catch (e) {
     alert(e.response?.data?.msg || '加载失败');
@@ -125,6 +132,8 @@ async function saveDialog() {
     }
     dialogVisible.value = false;
     skip.value = 0;
+    allLoaded.value = false;
+    items.value = [];
     fetchItems();
   } catch (e) {
     alert(e.response?.data?.msg || '保存失败');
@@ -136,6 +145,8 @@ async function removeRow(row) {
   try {
     await adminDelete('npcspawns', row._id);
     skip.value = 0;
+    allLoaded.value = false;
+    items.value = [];
     fetchItems();
   } catch (e) {
     alert(e.response?.data?.msg || '删除失败');

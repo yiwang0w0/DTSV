@@ -5,6 +5,7 @@
     row-key="_id"
     v-infinite-scroll="handleLoadMore"
     :infinite-scroll-distance="10"
+    :infinite-scroll-disabled="loading || disableLoad"
     v-loading="loading"
   >
     <el-table-column prop="_id" label="ID" width="230" />
@@ -37,7 +38,8 @@ const props = defineProps({
   isMaps: Boolean,
   isMapAreas: Boolean,
   loading: Boolean,
-  mapAreas: Array
+  mapAreas: Array,
+  disableLoad: Boolean
 })
 const emit = defineEmits(['load-more','edit','remove','open','close'])
 function handleLoadMore(){
