@@ -21,6 +21,7 @@ const models = {
   histories: require('../models/History'),
   gameinfos: require('../models/GameInfo'),
   users: require('../models/User'),
+  npcspawns: require('../models/NpcSpawn'),
 };
 
 router.use(auth);
@@ -133,8 +134,15 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
       filter.pls = Number(req.query.pls);
     }
+    if (req.params.collection === 'maptraps' && req.query.pls !== undefined) {
+      filter.pls = Number(req.query.pls);
+    }
+    if (req.params.collection === 'npcspawns' && req.query.area !== undefined) {
+      filter.area = Number(req.query.area);
+    }
     if (req.params.collection === 'itemcategories' && req.query.area !== undefined) {
       filter.area = Number(req.query.area);
+      if (req.query.type) filter.type = req.query.type;
     }
     if (req.params.collection === 'players') {
       filter.type = 0;

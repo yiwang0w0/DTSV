@@ -18,6 +18,10 @@
           </div>
           <div class="btn-row">
             <el-button size="small" @click="goTraps(a.pid)">地图陷阱</el-button>
+            <el-button size="small" @click="goTrapTable(a.pid)">陷阱刷新表</el-button>
+          </div>
+          <div class="btn-row">
+            <el-button size="small" @click="goNpcSpawn(a.pid)">NPC刷新表</el-button>
           </div>
           <div class="btn-row">
             <span>商店</span>
@@ -84,6 +88,14 @@ function goItemTable(pid) {
 
 function goTraps(pid) {
   router.push({ path: '/admin/maptraps', query: { area: pid } })
+}
+
+function goTrapTable(pid) {
+  router.push({ path: '/admin/maptraptable', query: { area: pid } })
+}
+
+function goNpcSpawn(pid) {
+  router.push({ path: '/admin/npcspawns', query: { area: pid } })
 }
 
 function goShop(pid) {
