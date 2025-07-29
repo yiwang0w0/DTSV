@@ -1,7 +1,7 @@
 # NPC 数据导入
 
-原版 `npc.data.config.php` 中定义了各类 NPC。本项目已将其转换为 `data/npcs.json`，
-格式与 `backend/src/models/Player.js` 一致。可通过以下命令手动导入：
+原版 `npc.data.config.php` 中定义的 NPC 已统一存储在 `npcs` 集合中，
+字段与 `backend/src/models/Player.js` 完全一致。可通过以下命令导入默认列表：
 
 ```bash
 use dts
@@ -9,7 +9,11 @@ db.npcs.deleteMany({})
 mongoimport --db dts --collection npcs --file ../data/npcs.json --jsonArray
 ```
 
-上述命令会清空旧的 NPC 数据后重新写入默认列表。系统在启动新游戏时同样会自动执行清理并从 `data/npcs.json` 导入 NPC，一般无需手动操作。
+上述命令会清空旧的 NPC 数据后重新写入默认列表。系统启动时将直接从数据库读取 `npcs` 集合，不再依赖 `data/npcs.json`。
+
+前端提供 **NPC目录** 管理页，可在 `/admin/npcdir` 维护该集合，创建后即可在刷新表中通过 NPC 名称引用。若无需备份，可将 `data/npcs.json` 清空，避免与数据库重复导入。
+
+该页面支持为 NPC 选择装备及道具，选项来自 `items` 集合。选择后会自动填充 `wep`、`arb`、`itm0` 等字段，方便在刷新表中直接调用。
 
 ## 新增 spawnStage 字段
 

@@ -2,6 +2,7 @@ const GameInfo = require('../models/GameInfo');
 const History = require('../models/History');
 const MapArea = require('../models/MapArea');
 const Player = require('../models/Player');
+const Npc = require('../models/Npc');
 const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Item = require('../models/Item');
@@ -203,18 +204,23 @@ async function startGame() {
 
 async function spawnNpcs(stage) {
   try {
-    const npcFile = path.join(__dirname, '../../../data/npcs.json');
-    const npcs = JSON.parse(fs.readFileSync(npcFile));
+    const npcs = await Npc.find().lean();
     const spawns = await NpcSpawn.find({ stage });
     let list = [];
     if (spawns.length) {
       for (const s of spawns) {
-        const pool = npcs.filter(
-          (n) =>
-            n.type === s.type &&
-            (s.sub ? n.sub === s.sub : true) &&
-            (!n.spawnStage || n.spawnStage === stage),
-        );
+        let pool = [];
+        if (s.npc) {
+          const n = npcs.find((item) => item.name === s.npc);
+          if (n) pool = [n];
+        } else {
+          pool = npcs.filter(
+            (n) =>
+              n.type === s.type &&
+              (s.sub ? n.sub === s.sub : true) &&
+              (!n.spawnStage || n.spawnStage === stage),
+          );
+        }
         for (let i = 0; i < s.num; i++) {
           const base = pool[i % pool.length];
           if (base) {
