@@ -27,6 +27,22 @@ db.npcspawns.createIndex({ stage: 1 });
 mongoimport --db dts --collection npcspawns --file ../data/npcspawns.json --jsonArray
 ```
 
-其中的内容已根据 `data/npcs.json` 中 `spawnStage` 为 `start` 的 NPC 汇总生成，
-如需重新制作，可按上述方式整理后覆盖。若手动编辑，请确保 `npc` 字段与
-`npcs` 集合中的名称一致，系统会据此自动填充 `type` 与 `sub`。
+其中数据是根据 `data/npcs.json` 中带有 `spawnStage` 字段的 NPC 生成，包含
+`start`、`ban2`、`ban4` 三个阶段。如需重新制作，可在 Node.js 环境执行：
+
+```javascript
+const fs = require('fs');
+const npcs = JSON.parse(fs.readFileSync('data/npcs.json'));
+const spawns = npcs.filter(n => n.spawnStage).map(n => ({
+  area: n.pls,
+  npc: n.name,
+  type: n.type,
+  sub: n.sub || 0,
+  num: 1,
+  stage: n.spawnStage,
+}));
+fs.writeFileSync('data/npcspawns.json', JSON.stringify(spawns, null, 2));
+```
+
+若手动编辑，请确保 `npc` 字段与 `npcs` 集合中的名称一致，系统会据此自动填充
+`type` 与 `sub`。

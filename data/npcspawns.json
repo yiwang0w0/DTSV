@@ -1,6 +1,7 @@
 [
   {
     "area": 0,
+    "npc": "红暮",
     "type": 1,
     "sub": 0,
     "num": 1,
@@ -8,13 +9,127 @@
   },
   {
     "area": 99,
+    "npc": "水濑 名雪-改",
     "type": 2,
     "sub": 0,
-    "num": 4,
+    "num": 1,
     "stage": "start"
   },
   {
+    "area": 99,
+    "npc": "立华 奏-改",
+    "type": 2,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "思念体-海马 濑人",
+    "type": 2,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "思念体-触手众",
+    "type": 2,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "冴月 麟",
+    "type": 5,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban2"
+  },
+  {
+    "area": 99,
+    "npc": "某四面",
+    "type": 5,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban2"
+  },
+  {
+    "area": 99,
+    "npc": "Acg_Xilin",
+    "type": 6,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban2"
+  },
+  {
     "area": 26,
+    "npc": "蓝凝",
+    "type": 9,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "Hank",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "爱情上甘岭",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "221",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "Erul Tron",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "亚玛丽欧·维拉蒂安",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "便当盒",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "KHIBIKI《黑曲》",
+    "type": 11,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 26,
+    "npc": "卡玛·克莱因",
     "type": 13,
     "sub": 0,
     "num": 1,
@@ -22,44 +137,514 @@
   },
   {
     "area": 99,
+    "npc": "讲解员 梦美",
     "type": 14,
     "sub": 0,
-    "num": 3,
-    "stage": "start"
-  },
-  {
-    "area": 34,
-    "type": 20,
-    "sub": 0,
-    "num": 36,
-    "stage": "start"
-  },
-  {
-    "area": 34,
-    "type": 21,
-    "sub": 0,
-    "num": 9,
-    "stage": "start"
-  },
-  {
-    "area": 34,
-    "type": 22,
-    "sub": 0,
-    "num": 4,
+    "num": 1,
     "stage": "start"
   },
   {
     "area": 99,
+    "npc": "喧哗少女 叶留佳",
+    "type": 14,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "风纪委员 静流",
+    "type": 14,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "霜火协奏曲",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "脸骑士-菜包",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "枪毙的某神",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "我是高达",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "一旦接受这种设定",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "一方通行",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "晓魂之歌",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "卡",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "Exocet",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "中西醫",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "黑猫",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "水羊",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "上帝的左手",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "半人半灵半吊子",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "死亡荆棘",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "超魔理沙-电子",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "东方地雷殿",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "fossil",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "流风之念",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "MESSIAH",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "帕秋莉诺蕾姬",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "坂田铜时",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "耶和华",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "闹球肾",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "初音ミク",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "Abyss混沌",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "飞雪大大",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "微笑的疯子",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "挂机中的灰尘",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "西园寺世界酱",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "索非亚小傻鸟",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "浮云_小坏",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "人形蚂蚁α",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "tabris",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "吔姐蕉",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "ad53123426",
+    "type": 20,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "黑熊",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "水月",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "芬里爾《黑曲》",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "北京推倒你",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "BorisX",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "Renamon",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "beijuzhu",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "捂脸姬",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "Yoshiko-G",
+    "type": 21,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "冴月麟MK-II",
+    "type": 22,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "星莲船四面BOSS",
+    "type": 22,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "虚子",
+    "type": 22,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 34,
+    "npc": "lemon",
+    "type": 22,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "索菲亚小傻鸟",
     "type": 45,
     "sub": 0,
-    "num": 4,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "虚名",
+    "type": 45,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "YS",
+    "type": 45,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "逆向朝阳",
+    "type": 45,
+    "sub": 0,
+    "num": 1,
     "stage": "start"
   },
   {
     "area": 32,
+    "npc": "SCP-682",
     "type": 88,
     "sub": 0,
-    "num": 4,
+    "num": 1,
     "stage": "start"
+  },
+  {
+    "area": 32,
+    "npc": "SCP-173",
+    "type": 88,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 32,
+    "npc": "SCP-076",
+    "type": 88,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 32,
+    "npc": "SCP-958",
+    "type": 88,
+    "sub": 0,
+    "num": 1,
+    "stage": "start"
+  },
+  {
+    "area": 99,
+    "npc": "复读机",
+    "type": 90,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "秦国人",
+    "type": 90,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "白学家",
+    "type": 90,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
+  },
+  {
+    "area": 99,
+    "npc": "膜触党",
+    "type": 90,
+    "sub": 0,
+    "num": 1,
+    "stage": "ban4"
   }
 ]
