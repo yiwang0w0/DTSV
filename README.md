@@ -3,10 +3,8 @@
 
 ## 项目简介
 
-本项目基于 [DTS-SAMPLE](https://github.com/yiwang0w0/dts) 原版 PHP 游戏，**严格对齐原作机制、玩法与功能**，重构为**Node.js 后端（MongoDB + Redis）与 Vue3 + Element Plus 前端**，实现前后端分离。  
+本项目基于 [DTS-SAMPLE](https://github.com/yiwang0w0/dts) 原版 PHP 游戏，重构为**Node.js 后端（MongoDB + Redis）与 Vue3 + Element Plus 前端**，实现前后端分离。  
 后端负责业务逻辑和数据存储，前端提供现代化交互体验。  
-**注意：严禁自创机制，仅原汁原味还原原作。**
-
 ---
 
 ## 技术栈
@@ -322,5 +320,3 @@ npm run lint     # 代码规范检查
 如有疑问，欢迎 issue 或联系维护者。
 
 ---
-
-**提示：所有开发、设计、功能必须以 DTS-SAMPLE 原作为准，严格还原，不得自创。**
