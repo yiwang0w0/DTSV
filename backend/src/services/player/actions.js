@@ -236,8 +236,8 @@ async function list(user) {
   );
   const pids = users.map((u) => u.lastpid);
   const players = await Player.find(
-    { pid: { $in: pids }, uid: user._id },
-    'pid name hp',
+    { pid: { $in: pids } },
+    'pid name hp state lvl',
   );
   const map = {};
   players.forEach((p) => {
@@ -248,6 +248,8 @@ async function list(user) {
     return {
       pid: u.lastpid,
       name: p.name || '',
+      lvl: p.lvl || 0,
+      state: p.state,
       username: u.username,
       alive: p.hp > 0,
     };
