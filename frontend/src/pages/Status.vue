@@ -31,7 +31,7 @@
       </el-table-column>
     </el-table>
 
-    <div class="map-grid" v-if="places.value.length">
+    <div class="map-grid" v-if="places && places.value && places.value.length">
       <div
         v-for="area in places"
         :key="area.pid"
@@ -56,7 +56,7 @@ const players = ref([])
 const alivePlayers = computed(() => players.value.filter(p => p.alive))
 const deadPlayers = computed(() => players.value.filter(p => !p.alive))
 const place = computed(() => {
-  if (!info.value) return ''
+  if (!info.value || !places || !places.value) return ''
   const area = places.value.find(a => a.pid === info.value.pls)
   return area ? area.name : ''
 })
