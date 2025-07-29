@@ -12,6 +12,7 @@ export const getDeadStatus = (pid) =>
   api.get('/game/deadstatus', { params: { pid } });
 export const getPlayers = () => api.get('/game/players');
 export const getMapAreas = () => api.get('/game/mapareas');
+export const getHistory = (params) => api.get('/game/history', { params });
 export const getClubs = () => api.get('/game/clubs');
 export const rest = (pid) => api.post('/game/rest', { pid });
 export const pickItem = (pid, itemId) =>

@@ -9,6 +9,7 @@ router.get('/info', gameController.getInfo);
 router.post('/start', gameController.startGame);
 router.post('/stop', gameController.stopGame);
 router.get('/mapareas', gameController.mapAreas);
+router.get('/history', gameController.getHistory);
 router.get('/clubs', playerController.clubs);
 
 router.post('/enter', auth, playerController.enter);
