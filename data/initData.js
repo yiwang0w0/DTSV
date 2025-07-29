@@ -45,6 +45,13 @@ if (mapitems.length) {
   db.mapitems.insertMany(mapitems);
 }
 
+// 导入 npcspawns
+var npcspawns = JSON.parse(cat('./npcspawns.json')); // may be empty
+if (npcspawns.length) {
+  db.npcspawns.remove({});
+  db.npcspawns.insertMany(npcspawns);
+}
+
 // 导入 itemcategories
 var itemcategories = JSON.parse(cat('./itemCategories.json'));
 if (itemcategories.length) {

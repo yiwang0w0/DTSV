@@ -25,3 +25,5 @@ db.npcspawns.createIndex({ stage: 1 });
 ```bash
 mongoimport --db dts --collection npcspawns --file ../data/npcspawns.json --jsonArray
 ```
+
+如果希望让开局 NPC 也由刷新机制管理，可从 `data/npcs.json` 中整理 `spawnStage` 为 `start` 的 NPC，按区域(`pls`)、类型(`type`)和子类别(`sub`)汇总数量，生成 `data/npcspawns.json` 后导入。
