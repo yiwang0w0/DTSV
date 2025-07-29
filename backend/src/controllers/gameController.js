@@ -1,5 +1,6 @@
 const GameInfo = require('../models/GameInfo');
 const Player = require('../models/Player');
+const History = require('../models/History');
 const gameService = require('../services/gameService');
 
 exports.getInfo = async (req, res) => {
@@ -56,5 +57,20 @@ exports.mapAreas = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: '获取地图列表失败' });
+  }
+};
+
+exports.getHistory = async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  const skip = parseInt(req.query.skip) || 0;
+  try {
+    const history = await History.find({ gid: { $gt: 0 } })
+      .sort({ gid: -1 })
+      .skip(skip)
+      .limit(limit);
+    res.json(history);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '获取历史记录失败' });
   }
 };
