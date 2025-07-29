@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <h3>刷新表 - {{ areaName(area) }}</h3>
+<h3>陷阱刷新表 - {{ areaName(area) }}</h3>
     <el-button size="small" @click="goBack" style="margin-bottom:10px">返回</el-button>
     <el-tabs v-model="tab">
       <el-tab-pane v-for="s in stageOptions" :key="s.value" :label="s.label" :name="s.value">
@@ -43,7 +43,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminList, adminUpdate, getMapAreas } from '../api'
 import { mapAreas } from '../store/map'
-import { itemTypeText } from '../constants/enums'
+import { trapTypeText } from '../constants/enums'
 import FormDialog from '../components/FormDialog.vue'
 
 const props = defineProps({ area: { type: Number, default: 0 } })
@@ -74,7 +74,7 @@ onMounted(() => {
 
 async function fetchCategory() {
   try {
-    const { data } = await adminList('itemcategories', { area: area.value, type: 'mapitem', limit: 1 })
+    const { data } = await adminList('itemcategories', { area: area.value, type: 'maptrap', limit: 1 })
     category.value = data[0] || null
     if (!tab.value) tab.value = 'start'
   } catch {}
@@ -106,7 +106,7 @@ function itemName(id) {
 }
 
 function kindText(k) {
-  return itemTypeText[k] || k
+  return trapTypeText[k] || k
 }
 
 function filterStage(list, stage) {

@@ -16,6 +16,7 @@
           v-else-if="f.type === 'select' || f.type === 'multiselect'"
           v-model="form[f.name]"
           :multiple="f.type === 'multiselect'"
+          filterable
         >
           <el-option
             v-for="op in f.options"

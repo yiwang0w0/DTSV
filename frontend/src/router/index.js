@@ -13,8 +13,10 @@ import ItemCategoryAdmin from '../pages/ItemCategoryAdmin.vue';
 import MapResourceAdmin from '../pages/MapResourceAdmin.vue';
 import MapItemsByArea from '../pages/MapItemsByArea.vue';
 import MapTrapsByArea from '../pages/MapTrapsByArea.vue';
+import MapTrapTable from '../pages/MapTrapTable.vue';
 import ShopItemsByArea from '../pages/ShopItemsByArea.vue';
 import MapItemTable from '../pages/MapItemTable.vue';
+import NpcSpawnAdmin from '../pages/NpcSpawnAdmin.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -33,6 +35,8 @@ const routes = [
   { path: '/admin/maptraps', name: 'MapTrapsByArea', component: MapTrapsByArea },
   { path: '/admin/shopitems', name: 'ShopItemsByArea', component: ShopItemsByArea },
   { path: '/admin/mapitemtable', name: 'MapItemTable', component: MapItemTable },
+  { path: '/admin/maptraptable', name: 'MapTrapTable', component: MapTrapTable },
+  { path: '/admin/npcspawns', name: 'NpcSpawnAdmin', component: NpcSpawnAdmin },
 ];
 
 const router = createRouter({
