@@ -1,6 +1,8 @@
 <template>
   <div class="page">
-    <h2>物品刷新管理</h2>
+    <h2>物品刷新管理
+      <span v-if="area">- {{ areaName(area) }}</span>
+    </h2>
     <el-button type="primary" size="small" @click="openCreateCategory"
       >新建类别</el-button
     >
@@ -179,7 +181,9 @@ function openCreateCategory() {
       type: 'select',
       options: ['mapitem', 'maptrap'],
     },
-    { name: 'area', label: '区域ID', type: 'number' },
+    ...(props.area
+      ? []
+      : [{ name: 'area', label: '区域ID', type: 'number' }]),
     {
       name: 'tables',
       label: '使用刷新表',
@@ -209,7 +213,12 @@ function openEditCategory(c) {
       options: categoryOptions.value,
     },
   ];
-  formData.value = { name: c.name, type: c.type, area: c.area, tables: c.tables || [] };
+  formData.value = {
+    name: c.name,
+    type: c.type,
+    area: props.area || c.area,
+    tables: c.tables || [],
+  };
   editCategoryId = c._id;
   dialogVisible.value = true;
 }
@@ -261,9 +270,10 @@ async function saveDialog() {
 }
 
 async function saveCategory() {
+  formData.value.area = props.area || formData.value.area;
   if (editCategoryId)
     await adminUpdate('itemcategories', editCategoryId, formData.value);
-  else await adminCreate('itemcategories', { ...formData.value, area: props.area, items: [] });
+  else await adminCreate('itemcategories', { ...formData.value, items: [] });
   dialogVisible.value = false;
   fetchCategories();
 }
