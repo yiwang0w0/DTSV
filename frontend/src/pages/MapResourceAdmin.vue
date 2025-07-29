@@ -2,6 +2,7 @@
   <div class="page">
     <h2>地图资源管理</h2>
     <el-button type="primary" size="small" style="margin-bottom:10px" @click="openCreateArea">新建地图</el-button>
+    <el-button size="small" style="margin-left:10px" @click="goNpcDir">NPC目录</el-button>
     <el-row :gutter="20" style="margin-top:10px">
       <el-col v-for="a in areas" :key="a.pid" :span="8">
         <el-card shadow="hover">
@@ -102,6 +103,10 @@ function goShop(pid) {
 
 function goNpcAdmin(pid) {
   router.push({ path: '/admin/npcs', query: { area: pid } })
+}
+
+function goNpcDir() {
+  router.push('/admin/npcdir')
 }
 
 async function openCreateArea() {
