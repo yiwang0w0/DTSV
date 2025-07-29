@@ -6,6 +6,7 @@ const MapItem = require('../models/MapItem');
 const MapTrap = require('../models/MapTrap');
 const Item = require('../models/Item');
 const ItemCategory = require('../models/ItemCategory');
+const NpcSpawn = require('../models/NpcSpawn');
 const Club = require('../models/Club');
 const Chat = require('../models/Chat');
 const constants = require('../config/constants');
@@ -168,24 +169,9 @@ async function startGame() {
   } catch (e) {
     console.error('清理旧玩家数据失败', e);
   }
-
   try {
-    const npcFile = path.join(__dirname, '../../../data/npcs.json');
-    const npcs = JSON.parse(fs.readFileSync(npcFile));
     await Player.deleteMany({ type: { $gt: 0 } });
-    if (npcs && npcs.length) {
-      const startNpcs = npcs
-        .filter((n) => !n.spawnStage || n.spawnStage === 'start')
-        .map((n) => ({
-          ...n,
-          hp: n.hp || n.mhp || 0,
-          sp: n.sp || n.msp || 0,
-          ss: n.ss || n.mss || 0,
-        }));
-      if (startNpcs.length) {
-        await Player.insertMany(startNpcs);
-      }
-    }
+    await spawnNpcs('start');
   } catch (e) {
     console.error('初始化 NPC 失败', e);
   }
@@ -219,14 +205,39 @@ async function spawnNpcs(stage) {
   try {
     const npcFile = path.join(__dirname, '../../../data/npcs.json');
     const npcs = JSON.parse(fs.readFileSync(npcFile));
-    const list = npcs
-      .filter((n) => n.spawnStage === stage)
-      .map((n) => ({
-        ...n,
-        hp: n.hp || n.mhp || 0,
-        sp: n.sp || n.msp || 0,
-        ss: n.ss || n.mss || 0,
-      }));
+    const spawns = await NpcSpawn.find({ stage });
+    let list = [];
+    if (spawns.length) {
+      for (const s of spawns) {
+        const pool = npcs.filter(
+          (n) =>
+            n.type === s.type &&
+            (s.sub ? n.sub === s.sub : true) &&
+            (!n.spawnStage || n.spawnStage === stage),
+        );
+        for (let i = 0; i < s.num; i++) {
+          const base = pool[i % pool.length];
+          if (base) {
+            list.push({
+              ...base,
+              pls: s.area,
+              hp: base.hp || base.mhp || 0,
+              sp: base.sp || base.msp || 0,
+              ss: base.ss || base.mss || 0,
+            });
+          }
+        }
+      }
+    } else {
+      list = npcs
+        .filter((n) => n.spawnStage === stage)
+        .map((n) => ({
+          ...n,
+          hp: n.hp || n.mhp || 0,
+          sp: n.sp || n.msp || 0,
+          ss: n.ss || n.mss || 0,
+        }));
+    }
     if (list.length) {
       await Player.insertMany(list);
     }

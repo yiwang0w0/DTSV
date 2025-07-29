@@ -28,12 +28,22 @@
               </div>
             </template>
             <div style="text-align: center">
-              <el-button size="small" @click="goArea(a.pid)"
-                >资源详情</el-button
-              >
-              <el-button size="small" @click="goNpcSpawn(a.pid)"
-                >NPC刷新机制</el-button
-              >
+              <el-button size="small" @click="goArea(a.pid)">地图物品</el-button>
+              <el-button size="small" @click="goCategory">地图物品刷新</el-button>
+              <el-button size="small" @click="goArea(a.pid)">地图陷阱</el-button>
+              <el-button size="small" @click="goCategory">地图陷阱刷新</el-button>
+              <el-switch
+                v-model="shopMap[a.pid]"
+                size="small"
+                @change="toggleShop(a.pid)"
+                style="margin: 0 5px"
+              />
+              <el-button
+                v-if="shopMap[a.pid]"
+                size="small"
+                @click="goArea(a.pid)"
+                >商店物品</el-button>
+              <el-button size="small" @click="goNpcSpawn(a.pid)">NPC刷新机制</el-button>
             </div>
           </el-card>
         </el-col>
@@ -123,6 +133,7 @@ const router = useRouter();
 const route = useRoute();
 const areaId = ref(route.query.area ? Number(route.query.area) : 0);
 const areas = ref([]);
+const shopMap = ref({});
 const treeData = ref([]);
 const treeProps = { children: 'children', label: 'label' };
 
@@ -153,8 +164,16 @@ watch(
 
 async function fetchAreas() {
   try {
-    const { data } = await adminList('mapareas', { limit: 1000 });
-    areas.value = data;
+    const [areasRes, shopsRes] = await Promise.all([
+      adminList('mapareas', { limit: 1000 }),
+      adminList('shopitems', { limit: 1000 }),
+    ]);
+    areas.value = areasRes.data;
+    const map = {};
+    (shopsRes.data || []).forEach((s) => {
+      map[s.area] = true;
+    });
+    shopMap.value = map;
   } catch {}
 }
 
@@ -416,6 +435,10 @@ async function removeArea(area) {
   } catch (e) {
     alert(e.response?.data?.msg || '删除失败');
   }
+}
+
+function toggleShop(pid) {
+  shopMap.value[pid] = !shopMap.value[pid];
 }
 
 function goCategory() {
