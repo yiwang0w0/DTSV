@@ -16,3 +16,18 @@ db.constants.insertMany([
 ```
 
 创建集合后可按需修改数值并重启服务生效。
+
+## 新增暴击与闪避相关常量
+
+合并 `feat: enhance combat logic` 后新增下列配置，用于控制暴击与闪避机制：
+
+```javascript
+use dts;
+db.constants.insertMany([
+  { key: 'CRIT_BASE_RATE', value: 0.05 },  // 基础暴击概率
+  { key: 'DODGE_BASE_RATE', value: 0.05 }, // 基础闪避概率
+  { key: 'CRIT_MULTIPLIER', value: 1.5 }   // 暴击伤害乘区
+]);
+```
+
+若集合中已存在同名键，可通过 `updateOne` 调整对应数值。
