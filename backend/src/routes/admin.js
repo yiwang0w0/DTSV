@@ -21,7 +21,6 @@ const models = {
   histories: require('../models/History'),
   gameinfos: require('../models/GameInfo'),
   users: require('../models/User'),
-  npcspawns: require('../models/NpcSpawn'),
 };
 
 router.use(auth);
@@ -81,6 +80,42 @@ router.post('/mapareas/:pid/close', async (req, res) => {
   }
 });
 
+router.post('/mapareas', async (req, res) => {
+  try {
+    const area = await models.mapareas.create(req.body);
+    await models.itemcategories.create({
+      name: `${area.name}物品`,
+      type: 'mapitem',
+      area: area.pid,
+      items: [],
+    });
+    await models.itemcategories.create({
+      name: `${area.name}陷阱`,
+      type: 'maptrap',
+      area: area.pid,
+      items: [],
+    });
+    res.json(area);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '创建失败' });
+  }
+});
+
+router.delete('/mapareas/:id', async (req, res) => {
+  try {
+    const area = await models.mapareas.findById(req.params.id);
+    if (area) {
+      await models.itemcategories.deleteMany({ area: area.pid });
+      await area.deleteOne();
+    }
+    res.json({ msg: '已删除' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: '删除失败' });
+  }
+});
+
 function getModel(name) {
   return models[name];
 }
@@ -98,7 +133,7 @@ router.get('/:collection', async (req, res) => {
     if (req.params.collection === 'mapitems' && req.query.pls !== undefined) {
       filter.pls = Number(req.query.pls);
     }
-    if (req.params.collection === 'npcspawns' && req.query.area !== undefined) {
+    if (req.params.collection === 'itemcategories' && req.query.area !== undefined) {
       filter.area = Number(req.query.area);
     }
     if (req.params.collection === 'players') {

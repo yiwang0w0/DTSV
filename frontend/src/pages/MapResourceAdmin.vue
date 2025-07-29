@@ -30,16 +30,14 @@
               </div>
             </template>
             <div class="btn-row">
-              <el-button size="small" @click="goArea(a.pid)"
-                >地图物品</el-button
-              >
-              <el-button size="small" @click="goCategory">物品刷新表</el-button>
+              <el-button size="small" @click="goArea(a.pid)">地图物品</el-button>
+              <el-button size="small" @click="openCategory(a.pid)"
+                >物品刷新表</el-button>
             </div>
             <div class="btn-row">
-              <el-button size="small" @click="goArea(a.pid)"
-                >地图陷阱</el-button
-              >
-              <el-button size="small" @click="goCategory">陷阱刷新表</el-button>
+              <el-button size="small" @click="goArea(a.pid)">地图陷阱</el-button>
+              <el-button size="small" @click="openCategory(a.pid)"
+                >陷阱刷新表</el-button>
             </div>
             <div class="btn-row">
               <span>商店</span>
@@ -58,9 +56,6 @@
             </div>
             <div class="btn-row">
               <el-button size="small" @click="goNpcAdmin">NPC管理</el-button>
-              <el-button size="small" @click="goNpcSpawn(a.pid)"
-                >NPC刷新表</el-button
-              >
             </div>
           </el-card>
         </el-col>
@@ -117,7 +112,7 @@
             v-if="data.type === 'category'"
             text
             size="small"
-            @click.stop="goCategory"
+            @click.stop="openCategory(data.area)"
             >编辑刷新表</el-button
           >
         </template>
@@ -131,6 +126,9 @@
       @save="saveDialog"
       @close="dialogVisible = false"
     />
+    <el-dialog v-model="categoryDialog" width="80%" title="刷新表管理">
+      <ItemCategoryAdmin :area="categoryArea" />
+    </el-dialog>
   </div>
 </template>
 
@@ -145,6 +143,7 @@ import {
   adminFieldMeta,
 } from '../api';
 import FormDialog from '../components/FormDialog.vue';
+import ItemCategoryAdmin from './ItemCategoryAdmin.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -160,6 +159,8 @@ const dialogVisible = ref(false);
 const dialogTitle = ref('');
 const dialogFields = ref([]);
 const formData = ref({});
+const categoryDialog = ref(false);
+const categoryArea = ref(0);
 let editCollection = '';
 let editId = '';
 let currentArea = 0;
@@ -424,10 +425,6 @@ function goArea(pid) {
   router.push({ path: '/admin/mapresources', query: { area: pid } });
 }
 
-function goNpcSpawn(pid) {
-  router.push({ path: '/admin/npcspawns', query: { area: pid } });
-}
-
 function goNpcAdmin() {
   router.push({ path: '/admin', query: { collection: 'npcs' } });
 }
@@ -466,8 +463,9 @@ function toggleShop(pid, val) {
   shopMap.value = { ...shopMap.value, [pid]: val };
 }
 
-function goCategory() {
-  router.push('/admin/itemcategories');
+function openCategory(pid) {
+  categoryArea.value = pid;
+  categoryDialog.value = true;
 }
 </script>
 

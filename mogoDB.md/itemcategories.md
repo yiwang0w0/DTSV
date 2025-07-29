@@ -8,6 +8,7 @@
   type: 'mapitem', // 或 'maptrap'
   // tables 表示引用的刷新表名称数组，可在后台多选
   tables: ['mapitem'],
+  area: 1,
   // stage 表示刷新的阶段，可选值：'start', 'ban2', 'ban4'
   items: [
     { itemId: 1, pls: 1, count: 2, stage: 'start' },
@@ -36,5 +37,15 @@ use dts;
 db.itemcategories.updateMany(
   { tables: { $exists: false } },
   { $set: { tables: [] } }
+);
+```
+
+为兼容旧数据，需要为现有文档新增 `area` 字段：
+
+```javascript
+use dts;
+db.itemcategories.updateMany(
+  { area: { $exists: false } },
+  { $set: { area: 0 } }
 );
 ```
