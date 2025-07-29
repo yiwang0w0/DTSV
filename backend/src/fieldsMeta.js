@@ -66,7 +66,12 @@ module.exports = {
     { name: 'time', label: '时间戳', type: 'number' },
   ],
   mapitems: [
-    { name: 'stage', label: '刷新阶段', type: 'select', options: ['start', 'ban2', 'ban4'] },
+    {
+      name: 'stage',
+      label: '刷新阶段',
+      type: 'select',
+      options: ['start', 'ban2', 'ban4'],
+    },
     { name: 'itm', label: '道具名', type: 'text' },
     { name: 'itmk', label: '种类', type: 'text' },
     { name: 'itme', label: '效果值', type: 'number' },
@@ -147,7 +152,12 @@ module.exports = {
       type: 'select',
       options: ['mapitem', 'maptrap'],
     },
-    { name: 'items', label: '条目列表(JSON)', type: 'text' },
+    {
+      name: 'tables',
+      label: '使用刷新表',
+      type: 'multiselect',
+      options: ['mapitem', 'mapitem_i8', 'mapitem_i9'],
+    },
   ],
   maps: [
     { name: 'pls', label: '区域ID', type: 'number' },

@@ -1,10 +1,22 @@
 <template>
-  <el-dialog v-model="visible" :title="title" width="600px" @close="$emit('close')">
+  <el-dialog
+    v-model="visible"
+    :title="title"
+    width="600px"
+    @close="$emit('close')"
+  >
     <el-form label-width="80px">
       <el-form-item v-for="f in fields" :key="f.name" :label="f.label">
-        <el-input v-if="f.type==='text'" v-model="form[f.name]" />
-        <el-input-number v-else-if="f.type==='number'" v-model="form[f.name]" />
-        <el-select v-else-if="f.type==='select'" v-model="form[f.name]">
+        <el-input v-if="f.type === 'text'" v-model="form[f.name]" />
+        <el-input-number
+          v-else-if="f.type === 'number'"
+          v-model="form[f.name]"
+        />
+        <el-select
+          v-else-if="f.type === 'select' || f.type === 'multiselect'"
+          v-model="form[f.name]"
+          :multiple="f.type === 'multiselect'"
+        >
           <el-option
             v-for="op in f.options"
             :key="typeof op === 'object' ? op.value : op"
@@ -23,16 +35,16 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed } from 'vue';
 const props = defineProps({
   modelValue: Boolean,
   title: String,
   fields: { type: Array, default: () => [] },
-  form: { type: Object, default: () => ({}) }
-})
-const emit = defineEmits(['update:modelValue','save','close'])
+  form: { type: Object, default: () => ({}) },
+});
+const emit = defineEmits(['update:modelValue', 'save', 'close']);
 const visible = computed({
   get: () => props.modelValue,
-  set: v => emit('update:modelValue', v)
-})
+  set: (v) => emit('update:modelValue', v),
+});
 </script>

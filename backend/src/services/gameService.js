@@ -38,29 +38,44 @@ async function ensureGameInfo() {
 
 async function generateItemsFromCategories(type, stage = 'start') {
   const categories = await ItemCategory.find({ type });
+  const map = {};
+  categories.forEach((c) => {
+    map[c.name] = c;
+  });
   const res = [];
   let id = 1;
-  for (const c of categories) {
-    for (const e of c.items || []) {
+  const visited = new Set();
+
+  function process(cat) {
+    if (!cat || visited.has(cat.name)) return;
+    visited.add(cat.name);
+    for (const e of cat.items || []) {
       if (e.stage && e.stage !== stage) continue;
-      const base = await Item.findOne({ id: e.itemId });
-      if (!base) continue;
-      const cnt = e.count || 1;
-      for (let i = 0; i < cnt; i++) {
-        const obj = {
-          itm: base.name,
-          itmk: e.itmk || base.kind,
-          itme: e.itme !== undefined ? e.itme : base.effect,
-          itms: e.itms !== undefined ? e.itms : base.dur,
-          itmsk: e.itmsk || base.skill,
-          pls: e.pls || 0,
-        };
-        if (type === 'mapitem') obj.iid = id++;
-        else obj.tid = id++;
-        res.push(obj);
-      }
+      const base = Item.findOne({ id: e.itemId });
+      promises.push(base.then((b) => {
+        if (!b) return;
+        const cnt = e.count || 1;
+        for (let i = 0; i < cnt; i++) {
+          const obj = {
+            itm: b.name,
+            itmk: e.itmk || b.kind,
+            itme: e.itme !== undefined ? e.itme : b.effect,
+            itms: e.itms !== undefined ? e.itms : b.dur,
+            itmsk: e.itmsk || b.skill,
+            pls: e.pls || 0,
+          };
+          if (type === 'mapitem') obj.iid = id++;
+          else obj.tid = id++;
+          res.push(obj);
+        }
+      }));
     }
+    (cat.tables || []).forEach((n) => process(map[n]));
   }
+
+  const promises = [];
+  categories.forEach(process);
+  await Promise.all(promises);
   return res;
 }
 

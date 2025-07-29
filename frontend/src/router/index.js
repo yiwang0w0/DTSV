@@ -10,6 +10,7 @@ import Help from '../pages/Help.vue';
 import Admin from '../pages/Admin.vue';
 import ItemAdmin from '../pages/ItemAdmin.vue';
 import ItemCategoryAdmin from '../pages/ItemCategoryAdmin.vue';
+import MapResourceAdmin from '../pages/MapResourceAdmin.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -23,6 +24,7 @@ const routes = [
   { path: '/admin', name: 'Admin', component: Admin },
   { path: '/admin/items', name: 'ItemAdmin', component: ItemAdmin },
   { path: '/admin/itemcategories', name: 'ItemCategoryAdmin', component: ItemCategoryAdmin },
+  { path: '/admin/mapresources', name: 'MapResourceAdmin', component: MapResourceAdmin },
 ];
 
 const router = createRouter({

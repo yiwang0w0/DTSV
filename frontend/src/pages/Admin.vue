@@ -49,6 +49,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import TablePanel from '../components/TablePanel.vue'
 import FormDialog from '../components/FormDialog.vue'
 import {
@@ -65,16 +66,14 @@ import {
 import { mapAreas } from '../store/map'
 import { trapTypeText } from '../constants/enums'
 
+const router = useRouter()
 const collections = [
   { label: '玩家', value: 'players' },
   { label: 'NPC', value: 'npcs' },
-  { label: '商店物品', value: 'shopitems' },
   { label: '物品表', value: 'items' },
   { label: '日志', value: 'logs' },
   { label: '聊天', value: 'chats' },
-  { label: '地图物品', value: 'mapitems' },
-  { label: '陷阱', value: 'maptraps' },
-  { label: '物品刷新', value: 'itemcategories' },
+  { label: '地图资源', value: 'mapresources' },
   { label: '新闻', value: 'newsinfos' },
   { label: '房间监听', value: 'roomlisteners' },
   { label: '历史记录', value: 'histories' },
@@ -104,6 +103,10 @@ const isMapAreas = computed(() => collection.value === 'mapareas')
 const areaFilter = ref(-1)
 
 watch(collection, () => {
+  if (collection.value === 'mapresources') {
+    router.push('/admin/mapresources')
+    return
+  }
   skip.value = 0
   allLoaded.value = false
   items.value = []
