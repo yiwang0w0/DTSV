@@ -66,6 +66,17 @@ const dialogFields = ref([])
 const formData = ref({})
 let editIndex = -1
 
+function applyBaseItem() {
+  const base = items.value.find(i => i.id === formData.value.itemId)
+  if (base) {
+    if (!formData.value.itmk) formData.value.itmk = base.kind
+    if (formData.value.itme === undefined || formData.value.itme === null)
+      formData.value.itme = base.effect
+    if (!formData.value.itms) formData.value.itms = base.dur
+    if (!formData.value.itmsk) formData.value.itmsk = base.skill
+  }
+}
+
 onMounted(() => {
   fetchCategory()
   fetchItems()
@@ -144,9 +155,11 @@ function updateOptions() {
 }
 
 watch(items, updateOptions, { immediate: true })
+watch(() => formData.value.itemId, applyBaseItem, { immediate: true })
 
 async function saveDialog() {
   if (!category.value) return
+  applyBaseItem()
   if (editIndex >= 0) category.value.items.splice(editIndex, 1, { ...formData.value })
   else category.value.items.push({ ...formData.value })
   await adminUpdate('itemcategories', category.value._id, { items: category.value.items })
