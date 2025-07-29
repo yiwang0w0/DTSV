@@ -28,3 +28,13 @@ db.itemcategories.createIndex({ name: 1 });
 ```bash
 mongoimport --db dts --collection itemcategories --file ../data/itemCategories.json --jsonArray
 ```
+
+已有数据若缺少 `tables` 字段，可执行：
+
+```javascript
+use dts;
+db.itemcategories.updateMany(
+  { tables: { $exists: false } },
+  { $set: { tables: [] } }
+);
+```
