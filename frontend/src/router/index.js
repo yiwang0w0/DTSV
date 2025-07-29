@@ -17,6 +17,7 @@ import MapTrapTable from '../pages/MapTrapTable.vue';
 import ShopItemsByArea from '../pages/ShopItemsByArea.vue';
 import MapItemTable from '../pages/MapItemTable.vue';
 import NpcSpawnAdmin from '../pages/NpcSpawnAdmin.vue';
+import NpcsByArea from '../pages/NpcsByArea.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -37,6 +38,7 @@ const routes = [
   { path: '/admin/mapitemtable', name: 'MapItemTable', component: MapItemTable },
   { path: '/admin/maptraptable', name: 'MapTrapTable', component: MapTrapTable },
   { path: '/admin/npcspawns', name: 'NpcSpawnAdmin', component: NpcSpawnAdmin },
+  { path: '/admin/npcs', name: 'NpcsByArea', component: NpcsByArea },
 ];
 
 const router = createRouter({
