@@ -13,6 +13,8 @@ mongoimport --db dts --collection npcs --file ../data/npcs.json --jsonArray
 
 前端提供 **NPC目录** 管理页，可在 `/admin/npcdir` 维护该集合，创建后即可在刷新表中通过 NPC 名称引用。若无需备份，可将 `data/npcs.json` 清空，避免与数据库重复导入。
 
+该页面支持为 NPC 选择装备及道具，选项来自 `items` 集合。选择后会自动填充 `wep`、`arb`、`itm0` 等字段，方便在刷新表中直接调用。
+
 ## 新增 spawnStage 字段
 
 为区分 NPC 的生成时机，需要在 `npcs` 集合新增 `spawnStage` 字段，类型为 `String`，可取值 `start`、`ban2`、`ban4`。
