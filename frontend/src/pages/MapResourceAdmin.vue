@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <h2>地图资源管理</h2>
-    <template v-if="!areaId">
+    <template v-if="areaId === null">
       <el-button
         type="primary"
         size="small"
@@ -148,7 +148,9 @@ import FormDialog from '../components/FormDialog.vue';
 
 const router = useRouter();
 const route = useRoute();
-const areaId = ref(route.query.area ? Number(route.query.area) : 0);
+const areaId = ref(
+  route.query.area !== undefined ? Number(route.query.area) : null,
+);
 const areas = ref([]);
 const shopMap = ref({});
 const treeData = ref([]);
@@ -163,16 +165,18 @@ let editId = '';
 let currentArea = 0;
 
 onMounted(() => {
-  if (areaId.value) fetchData();
+  if (route.query.area !== undefined) fetchData();
   else fetchAreas();
 });
 
 watch(
   () => route.query.area,
   (v) => {
-    areaId.value = v ? Number(v) : 0;
-    if (areaId.value) fetchData();
-    else {
+    if (v !== undefined) {
+      areaId.value = Number(v);
+      fetchData();
+    } else {
+      areaId.value = null;
       treeData.value = [];
       fetchAreas();
     }
@@ -213,7 +217,7 @@ async function fetchData() {
       shopsRes.data,
       npcsRes.data,
     );
-    if (areaId.value) {
+    if (areaId.value !== null) {
       treeData.value = treeData.value.filter((t) => t.area === areaId.value);
     }
   } catch {}
