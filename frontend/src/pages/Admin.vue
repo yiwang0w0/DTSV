@@ -69,6 +69,7 @@ const collections = [
   { label: '日志', value: 'logs' },
   { label: '聊天', value: 'chats' },
   { label: '地图资源', value: 'mapresources' },
+  { label: 'NPC刷新机制', value: 'npcspawns' },
   { label: '新闻', value: 'newsinfos' },
   { label: '房间监听', value: 'roomlisteners' },
   { label: '历史记录', value: 'histories' },
@@ -98,6 +99,10 @@ const areaFilter = ref(-1)
 watch(collection, () => {
   if (collection.value === 'mapresources') {
     router.push('/admin/mapresources')
+    return
+  }
+  if (collection.value === 'npcspawns') {
+    router.push('/admin/npcspawns')
     return
   }
   skip.value = 0

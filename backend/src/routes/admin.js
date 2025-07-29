@@ -21,6 +21,7 @@ const models = {
   histories: require('../models/History'),
   gameinfos: require('../models/GameInfo'),
   users: require('../models/User'),
+  npcspawns: require('../models/NpcSpawn'),
 };
 
 router.use(auth);
