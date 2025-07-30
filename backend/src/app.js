@@ -30,6 +30,7 @@ mongoose
     await constantsService.loadConstants();
     await gameService.ensureDefaultClubs();
     await gameService.ensureGameInfo();
+    await gameService.ensureDefaultRecipes();
   })
   .catch((err) => console.error('MongoDB 连接失败', err));
 

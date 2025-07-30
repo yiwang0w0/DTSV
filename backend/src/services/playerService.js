@@ -4,4 +4,5 @@ module.exports = {
   ...require('./player/items'),
   ...require('./player/loot'),
   ...require('./player/fight'),
+  ...require('./player/crafting'),
 };

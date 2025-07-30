@@ -32,6 +32,8 @@ export const dropEquip = (pid, slot) =>
   api.post('/game/dropequip', { pid, slot });
 export const lootCorpse = (pid, corpseId, slot) =>
   api.post('/game/loot', { pid, corpseId, slot });
+export const craftItem = (pid, indices) =>
+  api.post('/game/craft', { pid, itemIndices: indices });
 
 export const getChats = (params) => api.get('/game/chat', { params });
 export const sendChat = (data) => api.post('/game/chat', data);

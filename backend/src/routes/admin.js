@@ -22,6 +22,7 @@ const models = {
   gameinfos: require('../models/GameInfo'),
   users: require('../models/User'),
   npcspawns: require('../models/NpcSpawn'),
+  craftrecipes: require('../models/CraftRecipe'),
 };
 
 router.use(auth);

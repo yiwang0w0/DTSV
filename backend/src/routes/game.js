@@ -38,6 +38,7 @@ router.post('/escape', auth, playerController.escape);
 router.post('/drop', auth, playerController.dropItem);
 router.post('/dropequip', auth, playerController.dropEquip);
 router.post('/loot', auth, playerController.lootItem);
+router.post('/craft', auth, playerController.craft);
 
 router.get('/chat', auth, chatController.list);
 router.post('/chat', auth, chatController.send);

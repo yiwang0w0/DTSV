@@ -34,6 +34,7 @@
         <ActionBar
           @search="doSearch"
           @rest="doRest"
+          @craft="openCraft"
         />
 
         <SearchDialog
@@ -44,6 +45,12 @@
           @equip="equipFound"
           @replace="doReplace"
           @close="closeReplaceDialog"
+        />
+        <CraftDialog
+          v-model="craftVisible"
+          :bag-items="bagItems"
+          @confirm="doCraft"
+          @close="craftVisible=false"
         />
 
         <!-- 背包面板 -->
@@ -65,7 +72,8 @@ import ChatPanel from '../components/ChatPanel.vue'
 import ActionBar from '../components/ActionBar.vue'
 import AreaButtons from '../components/AreaButtons.vue'
 import SearchDialog from '../components/SearchDialog.vue'
-import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack, lootCorpse, getChats, sendChat } from '../api'
+import CraftDialog from '../components/CraftDialog.vue'
+import { move, search, getStatus, getMapAreas, rest, pickItem, pickReplace, pickEquip, unequipItem, dropEquip, attack, lootCorpse, getChats, sendChat, craftItem } from '../api'
 import { playerId } from '../store/user'
 import { playerInfo as info } from '../store/player'
 import { mapAreas as places } from '../store/map'
@@ -77,6 +85,7 @@ const router = useRouter()
 
 const foundItem = ref(null)
 const replaceVisible = ref(false)
+const craftVisible = ref(false)
 let replaceItemId = null
 let restTimer = null
 let statusTimer = null
@@ -418,6 +427,22 @@ async function doLoot(slot) {
     checkDeath()
   } catch (e) {
     alert(e.response?.data?.msg || '拾取失败')
+  }
+}
+
+function openCraft() {
+  craftVisible.value = true
+}
+
+async function doCraft(indices) {
+  if (!playerId.value) return
+  try {
+    const { data } = await craftItem(playerId.value, indices)
+    info.value = data.player
+    addLog(data.message)
+    craftVisible.value = false
+  } catch (e) {
+    alert(e.response?.data?.msg || '合成失败')
   }
 }
 

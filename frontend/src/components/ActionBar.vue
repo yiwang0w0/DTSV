@@ -2,11 +2,12 @@
   <div class="action-bar">
     <el-button @click="$emit('search')">搜索</el-button>
     <el-button @click="$emit('rest')">休息</el-button>
+    <el-button @click="$emit('craft')">合成</el-button>
   </div>
 </template>
 
 <script setup>
-const emit = defineEmits(['search','rest'])
+const emit = defineEmits(['search','rest','craft'])
 </script>
 
 <style scoped>

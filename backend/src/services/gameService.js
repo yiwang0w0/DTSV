@@ -10,6 +10,7 @@ const ItemCategory = require('../models/ItemCategory');
 const NpcSpawn = require('../models/NpcSpawn');
 const Club = require('../models/Club');
 const Chat = require('../models/Chat');
+const CraftRecipe = require('../models/CraftRecipe');
 const constants = require('../config/constants');
 const cache = require('./cacheService');
 const fs = require('fs');
@@ -37,6 +38,31 @@ async function ensureGameInfo() {
   if (count === 0) {
     await GameInfo.create({});
     console.log('已初始化游戏信息');
+  }
+}
+
+async function ensureDefaultRecipes() {
+  const count = await CraftRecipe.countDocuments();
+  if (count === 0) {
+    const recipes = [
+      {
+        materials: ['面包', '矿泉水'],
+        result: { name: '简易便当', kind: 'HB', effect: 150, dur: '1', skill: '' },
+      },
+      {
+        materials: ['小刀', '磨刀石'],
+        result: { name: '锋利的小刀', kind: 'WK', effect: 50, dur: '30', skill: '' },
+      },
+      {
+        materials: ['木棍', '铁钉', '胶带'],
+        result: { name: '钉棍', kind: 'WP', effect: 45, dur: '25', skill: '' },
+      },
+    ];
+    for (const r of recipes) {
+      r.materialHash = CraftRecipe.generateHash(r.materials);
+      await CraftRecipe.create(r);
+    }
+    console.log('已导入默认合成配方');
   }
 }
 
@@ -409,6 +435,7 @@ async function closeArea(pid) {
 module.exports = {
   ensureDefaultClubs,
   ensureGameInfo,
+  ensureDefaultRecipes,
   startGame,
   stopGame,
   mapAreas,
