@@ -223,10 +223,11 @@ async function spawnNpcs(stage) {
       MapArea.find({}, 'pid').lean(),
     ]);
     const validAreas = new Set(areas.map((a) => a.pid));
+    const needCheckArea = areas.length > 0;
     let list = [];
     if (spawns.length) {
       for (const s of spawns) {
-        if (!validAreas.has(s.area)) continue;
+        if (needCheckArea && !validAreas.has(s.area)) continue;
         let pool = [];
         if (s.npc) {
           const n = npcs.find((item) => item.name === s.npc);
