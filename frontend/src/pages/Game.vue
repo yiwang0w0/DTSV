@@ -10,5 +10,6 @@ import MapModule from './Map.vue'
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 .page { padding: 20px; }
 </style>
