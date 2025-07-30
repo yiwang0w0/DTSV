@@ -90,23 +90,25 @@ async function generateItemsFromCategories(type, stage = 'start') {
     for (const e of cat.items || []) {
       if (e.stage && e.stage !== stage) continue;
       const base = Item.findOne({ id: e.itemId });
-      promises.push(base.then((b) => {
-        if (!b) return;
-        const cnt = e.count || 1;
-        for (let i = 0; i < cnt; i++) {
-          const obj = {
-            itm: b.name,
-            itmk: e.itmk || b.kind,
-            itme: e.itme !== undefined ? e.itme : b.effect,
-            itms: e.itms !== undefined ? e.itms : b.dur,
-            itmsk: e.itmsk || b.skill,
-            pls: e.pls || 0,
-          };
-          if (type === 'mapitem') obj.iid = id++;
-          else obj.tid = id++;
-          res.push(obj);
-        }
-      }));
+      promises.push(
+        base.then((b) => {
+          if (!b) return;
+          const cnt = e.count || 1;
+          for (let i = 0; i < cnt; i++) {
+            const obj = {
+              itm: b.name,
+              itmk: e.itmk || b.kind,
+              itme: e.itme !== undefined ? e.itme : b.effect,
+              itms: e.itms !== undefined ? e.itms : b.dur,
+              itmsk: e.itmsk || b.skill,
+              pls: e.pls || 0,
+            };
+            if (type === 'mapitem') obj.iid = id++;
+            else obj.tid = id++;
+            res.push(obj);
+          }
+        }),
+      );
     }
     (cat.tables || []).forEach((n) => process(map[n]));
   }
@@ -241,11 +243,17 @@ async function startGame() {
 
 async function spawnNpcs(stage) {
   try {
-    const npcs = await Npc.find().lean();
-    const spawns = await NpcSpawn.find({ stage });
+    const [npcs, spawns, areas] = await Promise.all([
+      Npc.find().lean(),
+      NpcSpawn.find({ stage }),
+      MapArea.find({}, 'pid').lean(),
+    ]);
+    const validAreas = new Set(areas.map((a) => a.pid));
+    const needCheckArea = areas.length > 0;
     let list = [];
     if (spawns.length) {
       for (const s of spawns) {
+        if (needCheckArea && !validAreas.has(s.area)) continue;
         let pool = [];
         if (s.npc) {
           const n = npcs.find((item) => item.name === s.npc);
