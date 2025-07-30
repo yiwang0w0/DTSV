@@ -1,137 +1,134 @@
 <template>
-  <div class="dts-terminal">
-    <!-- 深色科技背景 -->
-    <div class="terminal-background">
+  <div class="dark-container">
+    <!-- 动态背景 -->
+    <div class="dark-background">
       <div class="matrix-rain">
         <div v-for="i in 20" :key="i" class="rain-column" :style="getRainStyle(i)"></div>
       </div>
       <div class="circuit-pattern"></div>
     </div>
 
-    <!-- 主界面内容 -->
-    <div class="terminal-content">
+    <!-- 主内容容器 -->
+    <div class="home-container">
       <!-- 顶部标题栏 -->
-      <header class="system-header">
-        <div class="header-left">
-          <div class="system-logo">
+      <header class="dark-panel system-header">
+        <div class="header-content">
+          <div class="header-left">
             <span class="logo-skull">💀</span>
-            <div class="logo-text">
-              <h1 class="system-name">DTS 大逃杀</h1>
-              <p class="system-desc">Death Tournament Survival</p>
+            <div>
+              <h1 class="text-primary">DTS 大逃杀</h1>
+              <p class="text-secondary">Death Tournament Survival</p>
             </div>
           </div>
-        </div>
-        <div class="header-right">
-          <div class="system-time">
-            <span class="time-label">系统时间:</span>
-            <span class="time-value">{{ formatTime(currentTime) }}</span>
-          </div>
-          <div class="system-status" :class="getSystemStatusClass()">
-            <span class="status-dot"></span>
-            <span>{{ gameStatus }}</span>
+          <div class="header-right">
+            <div class="text-secondary">系统时间: <span class="text-primary">{{ formatTime(currentTime) }}</span></div>
+            <div class="system-status">
+              <span class="status-dot" :class="getSystemStatusClass()"></span>
+              <span>{{ gameStatus }}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <!-- 主要信息面板 -->
-      <main class="main-panels">
+      <!-- 主面板区域 -->
+      <main class="main-grid">
         <!-- 左侧信息栏 -->
-        <div class="left-info-panel">
+        <div class="left-column">
           <!-- 当前状态 -->
-          <div class="info-section">
-            <div class="section-title">当前状态:</div>
-            <div class="status-grid">
-              <div class="status-line">
-                <span class="label">游戏版本:</span>
-                <span class="value">{{ gameInfo.version ?? 'Unknown' }}</span>
+          <div class="dark-panel">
+            <div class="dark-panel-header">当前状态:</div>
+            <div class="dark-panel-body">
+              <div class="info-line">
+                <span>游戏版本:</span>
+                <span class="text-primary">{{ gameInfo.version ?? 'Unknown' }}</span>
               </div>
-              <div class="status-line">
-                <span class="label">运行时长:</span>
-                <span class="value">{{ runtime }}</span>
+              <div class="info-line">
+                <span>运行时长:</span>
+                <span class="text-primary">{{ runtime }}</span>
               </div>
-              <div class="status-line">
-                <span class="label">服务器:</span>
-                <span class="value">主服务器</span>
+              <div class="info-line">
+                <span>服务器:</span>
+                <span class="text-primary">主服务器</span>
               </div>
             </div>
           </div>
 
           <!-- 系统状况 -->
-          <div class="info-section">
-            <div class="section-title">系统状况:</div>
-            <div class="status-grid">
-              <div class="status-line">
-                <span class="label">游戏状态:</span>
-                <span class="value" :class="getGameStateTextClass()">{{ gameStatus }}</span>
+          <div class="dark-panel">
+            <div class="dark-panel-header">系统状况:</div>
+            <div class="dark-panel-body">
+              <div class="info-line">
+                <span>游戏状态:</span>
+                <span :class="getGameStateTextClass()">{{ gameStatus }}</span>
               </div>
-              <div class="status-line">
-                <span class="label">危险区域:</span>
-                <span class="value danger">{{ gameInfo.areanum ?? 'N/A' }}</span>
+              <div class="info-line">
+                <span>危险区域:</span>
+                <span class="text-danger">{{ gameInfo.areanum ?? 'N/A' }}</span>
               </div>
-              <div class="status-line">
-                <span class="label">存活玩家:</span>
-                <span class="value success">{{ gameInfo.alivenum ?? 'N/A' }}</span>
+              <div class="info-line">
+                <span>存活玩家:</span>
+                <span class="text-success">{{ gameInfo.alivenum ?? 'N/A' }}</span>
               </div>
-              <div class="status-line">
-                <span class="label">死亡总数:</span>
-                <span class="value warning">{{ gameInfo.deathnum ?? 'N/A' }}</span>
+              <div class="info-line">
+                <span>死亡总数:</span>
+                <span class="text-warning">{{ gameInfo.deathnum ?? 'N/A' }}</span>
               </div>
             </div>
           </div>
 
           <!-- 游戏信息 -->
-          <div class="info-section">
-            <div class="section-title">游戏信息:</div>
-            <div class="game-info-text">
-              <p>这里是经典版IF，适合海外玩家</p>
-              <p>多备注1.0版本，稳定子版本</p>
-              <p>当前最高房是 {{ gameInfo.alivenum ?? 0 }} 人</p>
-              <div class="game-alerts">
-                <div class="alert-line danger">注意：进入特斗后，首先观察四周再行动。</div>
-                <div class="alert-line warning">禁区间隔时间：40分钟，2禁后停止激活</div>
-                <div class="alert-line info">每次增加禁区：4个，当前禁区数：{{ gameInfo.areanum ?? 0 }}</div>
+          <div class="dark-panel">
+            <div class="dark-panel-header">游戏信息:</div>
+            <div class="dark-panel-body">
+              <p>这里是说明</p>
+              <p>1.0版本，稳定子版本</p>
+              <p>当前人数是 {{ gameInfo.alivenum ?? 0 }} 人</p>
+              <div class="alerts">
+                <div class="alert danger">注意：进入特斗后，首先观察四周再行动。</div>
+                <div class="alert warning">禁区间隔时间：40分钟，2禁后停止激活</div>
+                <div class="alert info">每次增加禁区：4个，当前禁区数：{{ gameInfo.areanum ?? 0 }}</div>
               </div>
             </div>
           </div>
 
           <!-- 管理员控制 -->
-          <div v-if="loggedIn" class="info-section admin-section">
-            <div class="section-title">管理员控制:</div>
-            <div class="admin-controls">
-              <button class="admin-btn start-btn" @click="manualStart">
-                <span class="btn-icon">▶</span>
-                启动游戏
-              </button>
-              <button class="admin-btn stop-btn" @click="manualStop">
-                <span class="btn-icon">⏹</span>
-                停止游戏
-              </button>
+          <div v-if="loggedIn" class="dark-panel admin-panel">
+            <div class="dark-panel-header">管理员控制:</div>
+            <div class="dark-panel-body">
+              <div class="admin-controls">
+                <button class="dark-btn dark-btn-primary" @click="manualStart">
+                  ▶ 启动游戏
+                </button>
+                <button class="dark-btn dark-btn-danger" @click="manualStop">
+                  ⏹ 停止游戏
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 右侧认证面板 -->
-        <div class="right-auth-panel">
-          <div v-if="!loggedIn" class="auth-container">
-            <div class="auth-terminal">
-              <div class="terminal-header">
-                <div class="terminal-title">ACCESS CONTROL</div>
-                <div class="terminal-indicator">
-                  <span class="indicator-dot"></span>
-                  <span>SECURE</span>
-                </div>
-              </div>
-
+        <div class="right-column">
+          <!-- 未登录状态 -->
+          <div v-if="!loggedIn" class="dark-panel">
+            <div class="dark-panel-header">
+              <span>ACCESS CONTROL</span>
+              <span class="secure-indicator">
+                <span class="status-dot status-active"></span>SECURE
+              </span>
+            </div>
+            <div class="dark-panel-body">
+              <!-- 切换标签 -->
               <div class="auth-tabs">
                 <button 
-                  class="auth-tab" 
+                  class="tab-btn" 
                   :class="{ active: activeTab === 'login' }"
                   @click="activeTab = 'login'"
                 >
                   用户登录
                 </button>
                 <button 
-                  class="auth-tab" 
+                  class="tab-btn" 
                   :class="{ active: activeTab === 'register' }"
                   @click="activeTab = 'register'"
                 >
@@ -139,135 +136,119 @@
                 </button>
               </div>
 
-              <div class="auth-form">
-                <div v-if="activeTab === 'login'" class="form-panel">
-                  <div class="input-group">
-                    <label class="input-label">账号:</label>
-                    <input 
-                      v-model="loginForm.username" 
-                      type="text" 
-                      class="terminal-input"
-                      placeholder="输入用户名"
-                      autocomplete="off"
-                    />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">密码:</label>
-                    <input 
-                      v-model="loginForm.password" 
-                      type="password" 
-                      class="terminal-input"
-                      placeholder="输入密码"
-                      autocomplete="off"
-                      @keyup.enter="login"
-                    />
-                  </div>
-                  <button class="auth-submit-btn" @click="login">
-                    <span class="btn-text">登录</span>
-                    <span class="btn-arrow">►</span>
-                  </button>
+              <!-- 登录表单 -->
+              <div v-if="activeTab === 'login'" class="auth-form">
+                <div class="form-group">
+                  <label>账号:</label>
+                  <input 
+                    v-model="loginForm.username" 
+                    class="dark-input"
+                    placeholder="输入用户名"
+                    @keyup.enter="login"
+                  />
                 </div>
-
-                <div v-if="activeTab === 'register'" class="form-panel">
-                  <div class="input-group">
-                    <label class="input-label">账号:</label>
-                    <input 
-                      v-model="registerForm.username" 
-                      type="text" 
-                      class="terminal-input"
-                      placeholder="创建用户名"
-                      autocomplete="off"
-                    />
-                  </div>
-                  <div class="input-group">
-                    <label class="input-label">密码:</label>
-                    <input 
-                      v-model="registerForm.password" 
-                      type="password" 
-                      class="terminal-input"
-                      placeholder="设置密码"
-                      autocomplete="off"
-                      @keyup.enter="register"
-                    />
-                  </div>
-                  <button class="auth-submit-btn register" @click="register">
-                    <span class="btn-text">注册</span>
-                    <span class="btn-arrow">►</span>
-                  </button>
+                <div class="form-group">
+                  <label>密码:</label>
+                  <input 
+                    v-model="loginForm.password" 
+                    type="password"
+                    class="dark-input"
+                    placeholder="输入密码"
+                    @keyup.enter="login"
+                  />
                 </div>
-              </div>
-
-              <div class="auth-footer">
-                <p class="first-time-tip">第一次玩的，请先看 <a href="/help" class="help-link">游戏帮助</a> !!!</p>
-              </div>
-            </div>
-          </div>
-
-          <div v-else class="user-panel">
-            <div class="user-terminal">
-              <div class="user-header">
-                <div class="user-info">
-                  <div class="user-avatar">{{ user.charAt(0).toUpperCase() }}</div>
-                  <div class="user-details">
-                    <div class="username">{{ user }}</div>
-                    <div class="user-status">已连接</div>
-                  </div>
-                </div>
-                <button class="logout-btn" @click="logout">
-                  <span>断开连接</span>
+                <button class="dark-btn dark-btn-primary full-width" @click="login">
+                  登录 ►
                 </button>
               </div>
 
+              <!-- 注册表单 -->
+              <div v-if="activeTab === 'register'" class="auth-form">
+                <div class="form-group">
+                  <label>账号:</label>
+                  <input 
+                    v-model="registerForm.username" 
+                    class="dark-input"
+                    placeholder="创建用户名"
+                    @keyup.enter="register"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>密码:</label>
+                  <input 
+                    v-model="registerForm.password" 
+                    type="password"
+                    class="dark-input"
+                    placeholder="设置密码"
+                    @keyup.enter="register"
+                  />
+                </div>
+                <button class="dark-btn dark-btn-primary full-width" @click="register">
+                  注册 ►
+                </button>
+              </div>
+
+              <div class="help-text">
+                第一次玩的，请先看 <a href="/help" class="text-primary">游戏帮助</a> !!!
+              </div>
+            </div>
+          </div>
+
+          <!-- 已登录状态 -->
+          <div v-else class="dark-panel">
+            <div class="dark-panel-header">
+              <div class="user-info">
+                <div class="user-avatar">{{ user.charAt(0).toUpperCase() }}</div>
+                <div>
+                  <div class="text-primary">{{ user }}</div>
+                  <div class="text-secondary">已连接</div>
+                </div>
+              </div>
+              <button class="dark-btn dark-btn-danger" @click="logout">断开连接</button>
+            </div>
+            <div class="dark-panel-body">
               <div class="quick-access">
-                <div class="access-title">快速访问</div>
-                <div class="access-buttons">
-                  <router-link to="/start" class="access-btn primary">
-                    <span class="btn-icon">🎮</span>
-                    <span>进入游戏</span>
+                <div class="section-title">快速访问</div>
+                <div class="access-grid">
+                  <router-link to="/start" class="dark-btn dark-btn-primary">
+                    🎮 进入游戏
                   </router-link>
-                  <router-link to="/status" class="access-btn secondary">
-                    <span class="btn-icon">📊</span>
-                    <span>游戏状态</span>
+                  <router-link to="/status" class="dark-btn">
+                    📊 游戏状态
                   </router-link>
-                  <router-link to="/profile" class="access-btn tertiary">
-                    <span class="btn-icon">⚙️</span>
-                    <span>账户设置</span>
+                  <router-link to="/profile" class="dark-btn">
+                    ⚙️ 账户设置
                   </router-link>
-                  <router-link to="/admin" class="access-btn admin">
-                    <span class="btn-icon">🛠️</span>
-                    <span>管理面板</span>
+                  <router-link to="/admin" class="dark-btn dark-btn-warning">
+                    🛠️ 管理面板
                   </router-link>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 游戏宣传图片区域 -->
-          <div class="promo-section">
-            <div class="promo-banner">
-              <div class="banner-content">
-                <h3>DTS Battle Royale</h3>
-                <p>适度游戏益脑，沉迷游戏伤身</p>
-                <p>合理安排时间，享受健康生活</p>
-                <p>仅供18岁以上成年人娱乐</p>
-              </div>
+          <!-- 宣传区域 -->
+          <div class="dark-panel">
+            <div class="dark-panel-header">DTS Battle Royale</div>
+            <div class="dark-panel-body">
+              <p class="text-secondary">这里是公告</p>
+              <p class="text-secondary">这里是公告</p>
+              <p class="text-secondary">这里是公告</p>
             </div>
           </div>
         </div>
       </main>
 
       <!-- 底部状态栏 -->
-      <footer class="status-footer">
+      <footer class="dark-panel status-footer">
         <div class="footer-stats">
-          <span class="stat-item">激活人数: {{ gameInfo.alivenum ?? 0 }}</span>
-          <span class="stat-separator">|</span>
-          <span class="stat-item">生存人数: {{ gameInfo.alivenum ?? 0 }}</span>
-          <span class="stat-separator">|</span>
-          <span class="stat-item">死亡总数: {{ gameInfo.deathnum ?? 0 }}</span>
+          <span>激活人数: {{ gameInfo.alivenum ?? 0 }}</span>
+          <span>|</span>
+          <span>生存人数: {{ gameInfo.alivenum ?? 0 }}</span>
+          <span>|</span>
+          <span>死亡总数: {{ gameInfo.deathnum ?? 0 }}</span>
         </div>
-        <div class="footer-version">
-          <span>游戏版本: {{ gameInfo.version ?? '1.0' }}</span>
-        </div>
+        <div class="text-secondary">游戏版本: {{ gameInfo.version ?? '1.0' }}</div>
       </footer>
     </div>
   </div>
@@ -290,7 +271,6 @@ import { resetChats } from '../store/chat'
 
 const gameInfo = ref({})
 const currentTime = ref(Date.now())
-
 const loginForm = reactive({ username: '', password: '' })
 const registerForm = reactive({ username: '', password: '' })
 const activeTab = ref('login')
@@ -323,16 +303,16 @@ const runtime = computed(() => {
 function getSystemStatusClass() {
   const status = gameStatus.value
   if (status === '游戏进行中') return 'status-active'
-  if (status === '游戏锁定') return 'status-locked'
-  if (status === '游戏结束') return 'status-ended'
-  return 'status-unknown'
+  if (status === '游戏锁定') return 'status-warning'
+  if (status === '游戏结束') return 'status-danger'
+  return 'status-inactive'
 }
 
 function getGameStateTextClass() {
   const status = gameStatus.value
-  if (status === '游戏进行中') return 'success'
-  if (status === '游戏锁定') return 'warning'
-  if (status === '游戏结束') return 'danger'
+  if (status === '游戏进行中') return 'text-success'
+  if (status === '游戏锁定') return 'text-warning'
+  if (status === '游戏结束') return 'text-danger'
   return ''
 }
 
@@ -358,13 +338,10 @@ async function fetchGameInfo() {
   }
 }
 
-let timeTimer
-let infoTimer
+let timeTimer, infoTimer
 onMounted(() => {
   fetchGameInfo()
-  timeTimer = setInterval(() => {
-    currentTime.value = Date.now()
-  }, 1000)
+  timeTimer = setInterval(() => { currentTime.value = Date.now() }, 1000)
   infoTimer = setInterval(fetchGameInfo, 5000)
 })
 
@@ -438,8 +415,7 @@ async function register() {
 
 async function logout() {
   try {
-    if (refreshToken.value)
-      await logoutApi(refreshToken.value)
+    if (refreshToken.value) await logoutApi(refreshToken.value)
   } catch (e) {
     // ignore
   }
@@ -458,257 +434,89 @@ async function logout() {
 </script>
 
 <style scoped>
-.dts-terminal {
-  min-height: 100vh;
-  background: #0a0f1c;
-  color: #e0e6ed;
-  font-family: 'Courier New', 'Microsoft YaHei', monospace;
-  position: relative;
-  overflow-x: hidden;
-}
-
-.terminal-background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.matrix-rain {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.rain-column {
-  position: absolute;
-  top: -100px;
-  width: 2px;
-  height: 100px;
-  background: linear-gradient(to bottom, transparent, #00ff41, transparent);
-  animation: rain linear infinite;
-  opacity: 0.3;
-}
-
-@keyframes rain {
-  0% {
-    transform: translateY(-100px);
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.3;
-  }
-  90% {
-    opacity: 0.3;
-  }
-  100% {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
-}
-
-.circuit-pattern {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  opacity: 0.5;
-}
-
-.terminal-content {
-  position: relative;
-  z-index: 1;
-  padding: 20px;
-  max-width: 1400px;
+/* 主容器居中 */
+.home-container {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
 }
 
-.system-header {
+/* 系统标题 */
+.system-header .dark-panel-header {
+  padding: 0;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #333;
-  border-radius: 4px;
-  margin-bottom: 20px;
-  backdrop-filter: blur(10px);
 }
 
 .header-left {
-  display: flex;
-  align-items: center;
-}
-
-.system-logo {
   display: flex;
   align-items: center;
   gap: 15px;
 }
 
 .logo-skull {
-  font-size: 2.5rem;
+  font-size: 2rem;
   filter: drop-shadow(0 0 10px #ff6b6b);
 }
 
-.logo-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.system-name {
+.header-left h1 {
   font-size: 1.8rem;
-  font-weight: bold;
   margin: 0;
-  color: #ffffff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
-.system-desc {
+.header-left p {
   font-size: 0.9rem;
   margin: 0;
-  color: #888;
   font-style: italic;
 }
 
 .header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.system-time {
+  text-align: right;
   font-size: 0.9rem;
-  color: #00ff41;
-}
-
-.time-label {
-  margin-right: 8px;
-  color: #888;
 }
 
 .system-status {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  margin-top: 5px;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #666;
-}
-
-.system-status.status-active .status-dot {
-  background: #00ff41;
-  box-shadow: 0 0 10px #00ff41;
-}
-
-.system-status.status-locked .status-dot {
-  background: #ffa500;
-  box-shadow: 0 0 10px #ffa500;
-}
-
-.system-status.status-ended .status-dot {
-  background: #ff6b6b;
-  box-shadow: 0 0 10px #ff6b6b;
-}
-
-.main-panels {
+/* 主网格布局 */
+.main-grid {
   display: grid;
-  grid-template-columns: 500px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
+  margin-bottom: 20px;
 }
 
-.left-info-panel {
+.left-column, .right-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.info-section {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #333;
-  border-radius: 4px;
-  padding: 15px;
-  backdrop-filter: blur(5px);
-}
-
-.section-title {
-  color: #00ff41;
-  font-weight: bold;
-  margin-bottom: 12px;
-  font-size: 1rem;
-  border-bottom: 1px solid #333;
-  padding-bottom: 5px;
-}
-
-.status-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.status-line {
+/* 信息行 */
+.info-line {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  margin-bottom: 8px;
   font-size: 0.9rem;
 }
 
-.label {
-  color: #aaa;
-  flex: 1;
-}
-
-.value {
-  color: #fff;
-  font-weight: bold;
-  text-align: right;
-}
-
-.value.success {
-  color: #00ff41;
-}
-
-.value.warning {
-  color: #ffa500;
-}
-
-.value.danger {
-  color: #ff6b6b;
-}
-
-.game-info-text {
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-
-.game-info-text p {
-  margin: 0 0 8px 0;
-  color: #ccc;
-}
-
-.game-alerts {
+/* 警告信息 */
+.alerts {
   margin-top: 12px;
   border-top: 1px solid #333;
   padding-top: 12px;
 }
 
-.alert-line {
+.alert {
   font-size: 0.85rem;
   margin-bottom: 6px;
   padding: 4px 8px;
@@ -716,24 +524,14 @@ async function logout() {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.alert-line.danger {
-  border-left-color: #ff6b6b;
-  color: #ffcccc;
-}
+.alert.danger { border-left-color: #ff6b6b; color: #ffcccc; }
+.alert.warning { border-left-color: #ffa500; color: #ffe0b3; }
+.alert.info { border-left-color: #00ff41; color: #ccffcc; }
 
-.alert-line.warning {
-  border-left-color: #ffa500;
-  color: #ffe0b3;
-}
-
-.alert-line.info {
-  border-left-color: #00ff41;
-  color: #ccffcc;
-}
-
-.admin-section {
+/* 管理员面板 */
+.admin-panel {
   border-color: #ffa500;
-  background: rgba(255, 165, 0, 0.1);
+  background: rgba(255, 165, 0, 0.05);
 }
 
 .admin-controls {
@@ -741,203 +539,147 @@ async function logout() {
   gap: 12px;
 }
 
-.admin-btn {
+/* 认证相关 */
+.secure-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid;
-  border-radius: 4px;
-  color: inherit;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
-  transition: all 0.3s;
-}
-
-.start-btn {
-  border-color: #00ff41;
-  color: #00ff41;
-}
-
-.start-btn:hover {
-  background: rgba(0, 255, 65, 0.1);
-}
-
-.stop-btn {
-  border-color: #ff6b6b;
-  color: #ff6b6b;
-}
-
-.stop-btn:hover {
-  background: rgba(255, 107, 107, 0.1);
-}
-
-.btn-icon {
+  gap: 6px;
   font-size: 0.8rem;
-}
-
-.right-auth-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.auth-container,
-.user-panel {
-  flex: 1;
-}
-
-.auth-terminal,
-.user-terminal {
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #333;
-  border-radius: 4px;
-  backdrop-filter: blur(10px);
-}
-
-.terminal-header,
-.user-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #333;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.terminal-title {
-  color: #00ff41;
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-.terminal-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  color: #888;
-}
-
-.indicator-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #00ff41;
-  box-shadow: 0 0 6px #00ff41;
 }
 
 .auth-tabs {
   display: flex;
   border-bottom: 1px solid #333;
+  margin-bottom: 20px;
 }
 
-.auth-tab {
+.tab-btn {
   flex: 1;
-  padding: 12px 20px;
+  padding: 10px;
   background: transparent;
   border: none;
   color: #888;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.9rem;
   transition: all 0.3s;
 }
 
-.auth-tab.active {
+.tab-btn.active {
   background: rgba(0, 255, 65, 0.1);
   color: #00ff41;
   border-bottom: 2px solid #00ff41;
 }
 
-.auth-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
 .auth-form {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.input-group {
-  margin-bottom: 16px;
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.input-label {
-  display: block;
-  margin-bottom: 6px;
+.form-group label {
+  font-size: 0.9rem;
   color: #888;
-  font-size: 0.9rem;
 }
 
-.terminal-input {
+.full-width {
   width: 100%;
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid #444;
-  border-radius: 3px;
-  color: #fff;
-  font-family: inherit;
-  font-size: 0.9rem;
-  transition: all 0.3s;
 }
 
-.terminal-input:focus {
-  outline: none;
-  border-color: #00ff41;
-  box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+.help-text {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #888;
 }
 
-.terminal-input::placeholder {
-  color: #666;
+/* 用户信息 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.auth-submit-btn {
-  width: 100%;
-  padding: 12px 20px;
-  background: transparent;
-  border: 1px solid #00ff41;
-  border-radius: 3px;
-  color: #00ff41;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00ff41, #00aa33);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: bold;
+}
+
+/* 快速访问 */
+.section-title {
+  color: #00ff41;
+  font-weight: bold;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+
+.access-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* 底部状态栏 */
+.status-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: all 0.3s;
-  margin-top: 10px;
+  font-size: 0.9rem;
 }
 
-.auth-submit-btn:hover {
-  background: rgba(0, 255, 65, 0.1);
-  transform: translateY(-1px);
+.footer-stats {
+  display: flex;
+  gap: 15px;
+  color: #888;
 }
 
-.auth-submit-btn.register {
-  border-color: #00aaff;
-  color: #00aaff;
+/* 响应式 */
+@media (max-width: 1024px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .left-column { order: 2; }
+  .right-column { order: 1; }
 }
 
-.auth-submit-btn.register:hover {
-  background: rgba(0, 170, 255, 0.1);
-}
-
-.btn-arrow {
-  font-size: 0.8rem;
-  transition: transform 0.3s;
-}
-
-.auth-submit-btn:hover .btn-arrow {
-  transform: translateX(2px);
-}
-
-.auth-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #333;
-  background: rgba(0, 0, 0, 0.3);
-  text-align: center;
+@media (max-width: 768px) {
+  .home-container {
+    padding: 15px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .access-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-controls {
+    flex-direction: column;
+  }
+  
+  .status-footer {
+    flex-direction: column;
+    gap: 10px;
+  }
 }
 </style>
