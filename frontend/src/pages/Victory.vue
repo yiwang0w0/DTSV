@@ -8,5 +8,6 @@
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 .page { padding: 20px; }
 </style>

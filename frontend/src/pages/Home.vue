@@ -434,6 +434,7 @@ async function logout() {
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 /* 主容器居中 */
 .home-container {
   max-width: 1200px;
