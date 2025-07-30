@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const redisClient = require('./config/redis');
 const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -14,6 +17,10 @@ const constantsService = require('./services/constantsService');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(helmet());
+app.use(compression());
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 100 });
+app.use(limiter);
 
 const mongoUri = process.env.MONGODB_URI;
 mongoose

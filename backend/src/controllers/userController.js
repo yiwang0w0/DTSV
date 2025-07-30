@@ -12,7 +12,7 @@ exports.updateProfile = async (req, res) => {
     const user = req.user;
     // change username
     if (username && username !== user.username) {
-      const exists = await User.findOne({ username });
+      const exists = await User.findOne({ username }).lean();
       if (exists) return res.status(400).json({ msg: '用户名已存在' });
       user.username = username;
     }

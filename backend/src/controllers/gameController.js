@@ -1,4 +1,3 @@
-const GameInfo = require('../models/GameInfo');
 const Player = require('../models/Player');
 const History = require('../models/History');
 const gameService = require('../services/gameService');
@@ -7,7 +6,7 @@ exports.getInfo = async (req, res) => {
   try {
     await gameService.checkDangerAreas();
     await gameService.checkGameOver();
-    const info = await GameInfo.findOne();
+    const info = await gameService.getGameInfo();
     if (info) {
       const [validnum, alivenum] = await Promise.all([
         Player.countDocuments({ type: 0 }),

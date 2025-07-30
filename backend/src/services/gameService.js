@@ -39,6 +39,14 @@ async function ensureGameInfo() {
   }
 }
 
+async function getGameInfo() {
+  const cached = await cache.get('game:info');
+  if (cached) return cached;
+  const info = await GameInfo.findOne().lean();
+  if (info) await cache.set('game:info', info, 5);
+  return info;
+}
+
 async function generateItemsFromCategories(type, stage = 'start') {
   const categories = await ItemCategory.find({ type });
   const map = {};
@@ -199,6 +207,7 @@ async function startGame() {
     recv: '',
     msg: '游戏开始！',
   });
+  await cache.invalidate('game:info');
 
   return { msg: '游戏已开始', gamestate: info.gamestate };
 }
@@ -284,6 +293,7 @@ async function stopGame() {
   } catch (e) {
     console.error('清理玩家数据失败', e);
   }
+  await cache.invalidate('game:info');
   return { msg: '游戏已停止', gamestate: info.gamestate };
 }
 
@@ -291,8 +301,8 @@ async function mapAreas() {
   const cached = await cache.get('map:areas');
   if (cached) return cached;
   const [areas, info] = await Promise.all([
-    MapArea.find({}, 'pid name danger').sort({ pid: 1 }),
-    GameInfo.findOne(),
+    MapArea.find({}, 'pid name danger').sort({ pid: 1 }).lean(),
+    GameInfo.findOne().lean(),
   ]);
   const res = areas.map((a) => ({
     pid: a.pid,
@@ -408,4 +418,5 @@ module.exports = {
   spawnNpcs,
   spawnMapItems,
   spawnMapTraps,
+  getGameInfo,
 };

@@ -4,7 +4,7 @@ const Player = require('../models/Player');
 async function list(query) {
   let lastcid = Number(query.lastcid) || 0;
   const filter = lastcid ? { cid: { $gt: lastcid } } : {};
-  const chats = await Chat.find(filter).sort({ cid: 1 }).limit(50);
+  const chats = await Chat.find(filter).sort({ cid: 1 }).limit(50).lean();
   const newLast = chats.length ? chats[chats.length - 1].cid : lastcid;
   return { lastcid: newLast, chats };
 }
@@ -16,13 +16,13 @@ async function send(user, body) {
     err.status = 400;
     throw err;
   }
-  const player = await Player.findOne({ pid, uid: user._id });
+  const player = await Player.findOne({ pid, uid: user._id }).lean();
   if (!player) {
     const err = new Error('玩家不存在');
     err.status = 404;
     throw err;
   }
-  const last = await Chat.findOne().sort({ cid: -1 });
+  const last = await Chat.findOne().sort({ cid: -1 }).lean();
   const cid = last ? last.cid + 1 : 1;
   const chat = await Chat.create({
     cid,
