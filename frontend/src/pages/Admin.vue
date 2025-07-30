@@ -626,6 +626,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* 导入暗色主题 */
+@import '../styles/dark-theme.css';
+
+
 .admin-page {
   min-height: 100%;
   background: transparent;
@@ -718,11 +723,102 @@ onMounted(() => {
   border-top: 1px solid #333;
   padding-top: 16px;
 }
+/* 后台表格样式 - 与游戏页面一致 */
+.admin-page :deep(.el-table) {
+  background: rgba(15, 25, 35, 0.85) !important;
+  border: 1px solid rgba(64, 224, 208, 0.2) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
+              0 0 20px rgba(64, 224, 208, 0.05) !important;
+  color: #E8F4F8 !important;
+}
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+.admin-page :deep(.el-table th.el-table__cell) {
+  background: rgba(5, 15, 25, 0.9) !important;
+  color: #40E0D0 !important;
+  border-bottom: 2px solid rgba(64, 224, 208, 0.3) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.1) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 12px 8px !important;
+  text-shadow: 0 0 5px rgba(64, 224, 208, 0.3) !important;
+}
+
+.admin-page :deep(.el-table td.el-table__cell) {
+  background: rgba(20, 30, 40, 0.7) !important;
+  color: #E8F4F8 !important;
+  border-bottom: 1px solid rgba(64, 224, 208, 0.1) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.05) !important;
+  padding: 10px 8px !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+.admin-page :deep(.el-table tbody tr:hover > td.el-table__cell) {
+  background: rgba(25, 40, 55, 0.9) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 0 10px rgba(64, 224, 208, 0.1) !important;
+}
+
+.admin-page :deep(.el-table .el-table__row--striped td.el-table__cell) {
+  background: rgba(25, 35, 45, 0.7) !important;
+}
+
+.admin-page :deep(.el-table .el-button) {
+  background: rgba(64, 224, 208, 0.1) !important;
+  border: 1px solid rgba(64, 224, 208, 0.3) !important;
+  color: #40E0D0 !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 3px !important;
+  transition: all 0.3s ease !important;
+}
+
+.admin-page :deep(.el-table .el-button:hover) {
+  background: rgba(64, 224, 208, 0.2) !important;
+  border-color: #40E0D0 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 8px rgba(64, 224, 208, 0.3) !important;
+}
+
+.admin-page :deep(.el-table .el-button--danger) {
+  background: rgba(255, 99, 71, 0.1) !important;
+  border-color: rgba(255, 99, 71, 0.3) !important;
+  color: #FF6347 !important;
+}
+
+.admin-page :deep(.el-table .el-button--danger:hover) {
+  background: rgba(255, 99, 71, 0.2) !important;
+  border-color: #FF6347 !important;
+  box-shadow: 0 0 8px rgba(255, 99, 71, 0.3) !important;
+}
+
+.admin-page :deep(.el-table .data-number) {
+  color: #87CEEB !important;
+  font-family: 'Consolas', 'Monaco', monospace !important;
+  font-weight: 500 !important;
+}
+
+.admin-page :deep(.el-table .data-status) {
+  color: #98FB98 !important;
+  font-weight: 500 !important;
+}
+
+.admin-page :deep(.el-table .data-warning) {
+  color: #FFB347 !important;
+  font-weight: 500 !important;
+}
+
+.admin-page :deep(.el-table__empty-block) {
+  background: transparent !important;
+  color: #888 !important;
+}
+
+.admin-page :deep(.el-table__empty-text) {
+  color: #888 !important;
 }
 
 /* 响应式设计 */
@@ -744,6 +840,17 @@ onMounted(() => {
   .toolbar-card,
   .table-card {
     margin: 0 16px 16px 16px;
+  }
+
+  .admin-page :deep(.el-table th.el-table__cell),
+  .admin-page :deep(.el-table td.el-table__cell) {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
+
+  .admin-page :deep(.el-table .el-button) {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
   }
 }
 </style>
