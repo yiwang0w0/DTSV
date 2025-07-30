@@ -137,13 +137,13 @@ const handleCommand = (command) => {
 }
 
 .admin-header {
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid #333;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
 .header-left {
@@ -155,7 +155,7 @@ const handleCommand = (command) => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1f2937;
+  color: #e0e6ed;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -168,14 +168,14 @@ const handleCommand = (command) => {
 }
 
 .admin-aside {
-  background: #fff;
-  border-right: 1px solid #e4e7ed;
+  background: rgba(0, 0, 0, 0.6);
+  border-right: 1px solid #333;
   transition: width 0.3s;
 }
 
 .aside-toggle {
   padding: 16px;
-  border-bottom: 1px solid #e4e7ed;
+  border-bottom: 1px solid #333;
   text-align: center;
 }
 
@@ -185,7 +185,7 @@ const handleCommand = (command) => {
 }
 
 .admin-main {
-  background: #f5f7fa;
+  background: transparent;
   padding: 0;
 }
 
