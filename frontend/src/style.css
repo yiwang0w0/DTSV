@@ -72,8 +72,8 @@ button:focus-visible {
   right: 0;
   width: 100%;
   z-index: 1000;
-  background-color: #ffffff;
-  border-bottom: 1px solid #dcdfe6;
+  background-color: #000;
+  border-bottom: 1px solid #333;
 }
 
 @media (prefers-color-scheme: light) {
