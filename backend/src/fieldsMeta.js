@@ -235,4 +235,13 @@ module.exports = {
     { name: 'name', label: '区域名', type: 'text' },
     { name: 'players', label: '玩家列表', type: 'text' },
   ],
+  craftrecipes: [
+    { name: 'materials', label: '材料列表', type: 'array' },
+    { name: 'materialHash', label: '材料哈希', type: 'text' },
+    { name: 'result.name', label: '产物名称', type: 'text' },
+    { name: 'result.kind', label: '产物类型', type: 'text' },
+    { name: 'result.effect', label: '产物效果', type: 'number' },
+    { name: 'result.dur', label: '产物耐久', type: 'text' },
+    { name: 'result.skill', label: '产物属性', type: 'text' },
+  ],
 };
