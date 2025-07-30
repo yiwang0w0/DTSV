@@ -433,10 +433,16 @@ function sendChatMsg(text) {
 </script>
 
 <style scoped>
+/* 导入暗色主题 */
+@import '../styles/dark-theme.css';
+
 .map-page {
   padding: 30px 20px;
   max-width: 960px;
   margin: 0 auto;
+  background: #0a0f1c;
+  color: #e0e6ed;
+  min-height: calc(100vh - 60px);
 }
 
 .layout {
@@ -453,10 +459,15 @@ function sendChatMsg(text) {
   text-align: center;
   font-size: 24px;
   margin-bottom: 20px;
+  color: #40E0D0;
+  text-shadow: 0 0 10px rgba(64, 224, 208, 0.3);
 }
 
 .card-section {
   margin-bottom: 20px;
+  background: rgba(15, 25, 35, 0.85) !important;
+  border: 1px solid rgba(64, 224, 208, 0.2) !important;
+  backdrop-filter: blur(8px);
 }
 
 .status-block {
@@ -464,7 +475,7 @@ function sendChatMsg(text) {
 }
 
 .percent-label {
-  color: #303133;
+  color: #E8F4F8;
   font-size: 14px;
   margin-top: 4px;
 }
@@ -472,5 +483,133 @@ function sendChatMsg(text) {
 .label {
   font-weight: bold;
   margin-right: 8px;
+  color: #40E0D0;
+}
+
+/* 游戏页面专用表格样式 - 科幻风格但护眼 */
+.map-page :deep(.el-table) {
+  background: rgba(15, 25, 35, 0.85) !important;
+  border: 1px solid rgba(64, 224, 208, 0.2) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 
+              0 0 20px rgba(64, 224, 208, 0.05) !important;
+  color: #E8F4F8 !important;
+}
+
+/* 表格头部 - 青色主题 */
+.map-page :deep(.el-table th.el-table__cell) {
+  background: rgba(5, 15, 25, 0.9) !important;
+  color: #40E0D0 !important;
+  border-bottom: 2px solid rgba(64, 224, 208, 0.3) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.1) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 12px 8px !important;
+  text-shadow: 0 0 5px rgba(64, 224, 208, 0.3) !important;
+}
+
+/* 表格单元格 - 高对比度 */
+.map-page :deep(.el-table td.el-table__cell) {
+  background: rgba(20, 30, 40, 0.7) !important;
+  color: #E8F4F8 !important;
+  border-bottom: 1px solid rgba(64, 224, 208, 0.1) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.05) !important;
+  padding: 10px 8px !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+/* 表格行悬停效果 */
+.map-page :deep(.el-table tbody tr:hover > td.el-table__cell) {
+  background: rgba(25, 40, 55, 0.9) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 0 10px rgba(64, 224, 208, 0.1) !important;
+}
+
+/* 斑马纹行 */
+.map-page :deep(.el-table .el-table__row--striped td.el-table__cell) {
+  background: rgba(25, 35, 45, 0.7) !important;
+}
+
+/* 表格内按钮样式 */
+.map-page :deep(.el-table .el-button) {
+  background: rgba(64, 224, 208, 0.1) !important;
+  border: 1px solid rgba(64, 224, 208, 0.3) !important;
+  color: #40E0D0 !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 3px !important;
+  transition: all 0.3s ease !important;
+}
+
+.map-page :deep(.el-table .el-button:hover) {
+  background: rgba(64, 224, 208, 0.2) !important;
+  border-color: #40E0D0 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 8px rgba(64, 224, 208, 0.3) !important;
+}
+
+.map-page :deep(.el-table .el-button--danger) {
+  background: rgba(255, 99, 71, 0.1) !important;
+  border-color: rgba(255, 99, 71, 0.3) !important;
+  color: #FF6347 !important;
+}
+
+.map-page :deep(.el-table .el-button--danger:hover) {
+  background: rgba(255, 99, 71, 0.2) !important;
+  border-color: #FF6347 !important;
+  box-shadow: 0 0 8px rgba(255, 99, 71, 0.3) !important;
+}
+
+/* 数据类型样式 */
+.map-page :deep(.el-table .data-number) {
+  color: #87CEEB !important;
+  font-family: 'Consolas', 'Monaco', monospace !important;
+  font-weight: 500 !important;
+}
+
+.map-page :deep(.el-table .data-status) {
+  color: #98FB98 !important;
+  font-weight: 500 !important;
+}
+
+.map-page :deep(.el-table .data-warning) {
+  color: #FFB347 !important;
+  font-weight: 500 !important;
+}
+
+/* 空状态 */
+.map-page :deep(.el-table__empty-block) {
+  background: transparent !important;
+  color: #888 !important;
+}
+
+.map-page :deep(.el-table__empty-text) {
+  color: #888 !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+  
+  .map-page {
+    padding: 20px 15px;
+  }
+  
+  .map-page :deep(.el-table th.el-table__cell),
+  .map-page :deep(.el-table td.el-table__cell) {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
+  
+  .map-page :deep(.el-table .el-button) {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+  }
 }
 </style>

@@ -1,0 +1,195 @@
+/* 游戏页面表格样式优化 - 保持科幻风格但增加可读性 */
+
+/* 游戏页面专用表格样式 */
+.game-page .el-table,
+.page:not(.admin-page) .el-table {
+  background: rgba(15, 25, 35, 0.85) !important;
+  border: 1px solid rgba(0, 255, 65, 0.2) !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 
+              0 0 20px rgba(0, 255, 65, 0.05) !important;
+}
+
+/* 表格头部 - 科幻感但易读 */
+.game-page .el-table th.el-table__cell,
+.page:not(.admin-page) .el-table th.el-table__cell {
+  background: rgba(5, 15, 25, 0.9) !important;
+  color: #40E0D0 !important; /* 青色，比绿色更柔和 */
+  border-bottom: 2px solid rgba(64, 224, 208, 0.3) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.1) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  padding: 12px 8px !important;
+  text-shadow: 0 0 5px rgba(64, 224, 208, 0.3) !important;
+}
+
+/* 表格单元格 - 提高对比度和可读性 */
+.game-page .el-table td.el-table__cell,
+.page:not(.admin-page) .el-table td.el-table__cell {
+  background: rgba(20, 30, 40, 0.7) !important;
+  color: #E8F4F8 !important; /* 淡蓝白色，易于阅读 */
+  border-bottom: 1px solid rgba(64, 224, 208, 0.1) !important;
+  border-right: 1px solid rgba(64, 224, 208, 0.05) !important;
+  padding: 10px 8px !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+/* 表格行悬停效果 */
+.game-page .el-table tbody tr:hover > td.el-table__cell,
+.page:not(.admin-page) .el-table tbody tr:hover > td.el-table__cell {
+  background: rgba(25, 40, 55, 0.9) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 0 10px rgba(64, 224, 208, 0.1) !important;
+}
+
+/* 斑马纹行 */
+.game-page .el-table .el-table__row--striped td.el-table__cell,
+.page:not(.admin-page) .el-table .el-table__row--striped td.el-table__cell {
+  background: rgba(25, 35, 45, 0.7) !important;
+}
+
+/* 空状态 */
+.game-page .el-table__empty-block,
+.page:not(.admin-page) .el-table__empty-block {
+  background: transparent !important;
+  color: #888 !important;
+}
+
+.game-page .el-table__empty-text,
+.page:not(.admin-page) .el-table__empty-text {
+  color: #888 !important;
+}
+
+/* 特殊数据类型高亮 */
+.game-page .el-table .data-number,
+.page:not(.admin-page) .el-table .data-number {
+  color: #87CEEB !important; /* 天蓝色用于数字 */
+  font-family: 'Consolas', 'Monaco', monospace !important;
+  font-weight: 500 !important;
+}
+
+.game-page .el-table .data-status,
+.page:not(.admin-page) .el-table .data-status {
+  color: #98FB98 !important; /* 淡绿色用于状态 */
+  font-weight: 500 !important;
+}
+
+.game-page .el-table .data-warning,
+.page:not(.admin-page) .el-table .data-warning {
+  color: #FFB347 !important; /* 柔和橙色用于警告 */
+  font-weight: 500 !important;
+}
+
+/* 表格内按钮样式 */
+.game-page .el-table .el-button,
+.page:not(.admin-page) .el-table .el-button {
+  background: rgba(64, 224, 208, 0.1) !important;
+  border: 1px solid rgba(64, 224, 208, 0.3) !important;
+  color: #40E0D0 !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 3px !important;
+  transition: all 0.3s ease !important;
+}
+
+.game-page .el-table .el-button:hover,
+.page:not(.admin-page) .el-table .el-button:hover {
+  background: rgba(64, 224, 208, 0.2) !important;
+  border-color: #40E0D0 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 8px rgba(64, 224, 208, 0.3) !important;
+}
+
+.game-page .el-table .el-button--danger,
+.page:not(.admin-page) .el-table .el-button--danger {
+  background: rgba(255, 99, 71, 0.1) !important;
+  border-color: rgba(255, 99, 71, 0.3) !important;
+  color: #FF6347 !important;
+}
+
+.game-page .el-table .el-button--danger:hover,
+.page:not(.admin-page) .el-table .el-button--danger:hover {
+  background: rgba(255, 99, 71, 0.2) !important;
+  border-color: #FF6347 !important;
+  box-shadow: 0 0 8px rgba(255, 99, 71, 0.3) !important;
+}
+
+/* 表格滚动条样式 */
+.game-page .el-table__body-wrapper::-webkit-scrollbar,
+.page:not(.admin-page) .el-table__body-wrapper::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.game-page .el-table__body-wrapper::-webkit-scrollbar-track,
+.page:not(.admin-page) .el-table__body-wrapper::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 4px !important;
+}
+
+.game-page .el-table__body-wrapper::-webkit-scrollbar-thumb,
+.page:not(.admin-page) .el-table__body-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(64, 224, 208, 0.3) !important;
+  border-radius: 4px !important;
+}
+
+.game-page .el-table__body-wrapper::-webkit-scrollbar-thumb:hover,
+.page:not(.admin-page) .el-table__body-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(64, 224, 208, 0.5) !important;
+}
+
+/* 游戏页面特有的表格增强效果 */
+.game-page .el-table,
+.page:not(.admin-page) .el-table {
+  position: relative;
+}
+
+.game-page .el-table::before,
+.page:not(.admin-page) .el-table::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, 
+    rgba(64, 224, 208, 0.02) 0%, 
+    transparent 20%, 
+    transparent 80%, 
+    rgba(64, 224, 208, 0.02) 100%);
+  pointer-events: none;
+  border-radius: 6px;
+}
+
+/* 表格加载状态 */
+.game-page .el-table .el-loading-mask,
+.page:not(.admin-page) .el-table .el-loading-mask {
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.game-page .el-table .el-loading-spinner,
+.page:not(.admin-page) .el-table .el-loading-spinner {
+  color: #40E0D0 !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .game-page .el-table th.el-table__cell,
+  .page:not(.admin-page) .el-table th.el-table__cell,
+  .game-page .el-table td.el-table__cell,
+  .page:not(.admin-page) .el-table td.el-table__cell {
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
+  
+  .game-page .el-table .el-button,
+  .page:not(.admin-page) .el-table .el-button {
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+  }
+}
