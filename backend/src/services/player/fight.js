@@ -232,7 +232,10 @@ async function attack(user, body) {
     err.status = 400;
     throw err;
   }
-  const player = await Player.findOne({ pid, uid: user._id });
+  const [player, enemy] = await Promise.all([
+    Player.findOne({ pid, uid: user._id }),
+    Player.findOne({ pid: eid })
+  ]);
   if (!player) {
     const err = new Error('玩家不存在');
     err.status = 404;
@@ -243,7 +246,6 @@ async function attack(user, body) {
     err.status = 400;
     throw err;
   }
-  const enemy = await Player.findOne({ pid: eid });
   if (!enemy) {
     const err = new Error('目标不存在');
     err.status = 404;
