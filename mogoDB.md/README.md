@@ -7,7 +7,11 @@
 2. 切换数据库：`use dts`
 3. 为 `users` 集合创建唯一索引：
    ```javascript
-   db.users.createIndex({ username: 1 }, { unique: true })
+  db.users.createIndex({ username: 1 }, { unique: true })
+  ```
+4. 为 `lastgame` 与 `lastpid` 字段创建复合索引：
+   ```javascript
+   db.users.createIndex({ lastgame: 1, lastpid: 1 })
    ```
 
 ## 初始管理员账号

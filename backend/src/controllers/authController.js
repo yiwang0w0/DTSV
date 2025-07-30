@@ -21,7 +21,7 @@ exports.register = async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ msg: '用户名和密码不能为空' });
     }
-    const exists = await User.findOne({ username });
+    const exists = await User.findOne({ username }).lean();
     if (exists) {
       return res.status(400).json({ msg: '用户名已存在' });
     }
@@ -77,7 +77,7 @@ exports.refresh = async (req, res) => {
       return res.status(400).json({ msg: '缺少刷新令牌' });
     }
     const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(payload.id);
+    const user = await User.findById(payload.id).lean();
     if (!user || user.refreshToken !== refreshToken) {
       return res.status(401).json({ msg: '刷新令牌无效' });
     }
@@ -106,7 +106,7 @@ exports.logout = async (req, res) => {
       }
     }
     if (uid) {
-      const user = await User.findById(uid);
+      const user = await User.findById(uid).lean();
       if (user && user.lastpid) {
         await Player.updateOne(
           { pid: user.lastpid, uid },

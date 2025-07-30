@@ -13,10 +13,11 @@ const cache = {
   CRIT_BASE_RATE: 0.05,
   DODGE_BASE_RATE: 0.05,
   CRIT_MULTIPLIER: 1.5,
+  SLOW_REQUEST_THRESHOLD: 1000,
 };
 
 async function loadConstants() {
-  const list = await Constant.find({});
+  const list = await Constant.find({}).lean();
   list.forEach((c) => {
     cache[c.key] = c.value;
   });

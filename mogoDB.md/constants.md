@@ -31,3 +31,14 @@ db.constants.insertMany([
 ```
 
 若集合中已存在同名键，可通过 `updateOne` 调整对应数值。
+
+## 新增慢请求警告阈值
+
+用于性能监控的中间件依赖 `SLOW_REQUEST_THRESHOLD` 常量，单位为毫秒：
+
+```javascript
+use dts;
+db.constants.insertOne({ key: 'SLOW_REQUEST_THRESHOLD', value: 1000 });
+```
+
+可根据需求调整阈值大小后重启服务生效。

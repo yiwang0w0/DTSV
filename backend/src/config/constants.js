@@ -19,4 +19,7 @@ module.exports = {
   get WEATHER_ACTIVE_OBBS() {
     return constantsService.get('WEATHER_ACTIVE_OBBS');
   },
+  get SLOW_REQUEST_THRESHOLD() {
+    return constantsService.get('SLOW_REQUEST_THRESHOLD');
+  },
 };
