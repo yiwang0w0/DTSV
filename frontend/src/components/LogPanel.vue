@@ -14,7 +14,8 @@ defineProps({
 .log-panel {
   max-height: 200px;
   overflow-y: auto;
-  background: #f9f9f9;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #333;
   padding: 10px;
   margin-bottom: 20px;
 }

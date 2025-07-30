@@ -102,7 +102,8 @@ const errorDetails = computed(() => {
 }
 
 .error-stack {
-  background: #f5f7fa;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #333;
   padding: 12px;
   border-radius: 4px;
   font-size: 12px;
