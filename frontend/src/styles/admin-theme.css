@@ -9,9 +9,10 @@
   --admin-primary-dark: #337ecc;
   
   /* 成功色 */
-  --admin-success: #67c23a;
-  --admin-success-light: #85ce61;
-  --admin-success-lighter: #b3e19d;
+  /* 调整为更柔和的绿色，便于阅读 */
+  --admin-success: #4caf50;
+  --admin-success-light: #69c168;
+  --admin-success-lighter: #a1d9a9;
   
   /* 警告色 */
   --admin-warning: #e6a23c;
@@ -29,8 +30,9 @@
   --admin-info-lighter: #c8c9cc;
   
   /* 文字颜色 */
-  --admin-text-primary: #303133;
-  --admin-text-regular: #606266;
+  /* 更柔和的文字颜色 */
+  --admin-text-primary: #2e2f32;
+  --admin-text-regular: #50545a;
   --admin-text-secondary: #909399;
   --admin-text-placeholder: #c0c4cc;
   
@@ -84,7 +86,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* 使用更通用的中文友好字体 */
+  font-family: 'Noto Sans', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: var(--admin-font-size-base);
   line-height: var(--admin-line-height-base);
   color: var(--admin-text-primary);
