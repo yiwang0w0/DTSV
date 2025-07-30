@@ -59,6 +59,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 .page { padding: 20px; }
 .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; margin-top: 20px; }
 .grid-cell { border: 1px solid #ddd; padding: 4px; text-align: center; background: #f5f7fa; }
