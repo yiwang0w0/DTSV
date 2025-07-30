@@ -125,6 +125,7 @@
       <!-- 数据表格 -->
       <div v-else>
         <el-table
+          class="admin-table"
           :data="items"
           stripe
           border
@@ -626,6 +627,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import '../styles/admin-theme.css';
 .admin-page {
   min-height: 100%;
   background: #f5f7fa;
