@@ -626,6 +626,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 .admin-page {
   min-height: 100%;
   background: #f5f7fa;
