@@ -1,7 +1,7 @@
 <template>
   <div>
     <div v-if="info">
-      <el-card
+  <el-card
         v-if="latestLog"
         class="card-section latest-log-card"
         shadow="never"
@@ -143,6 +143,7 @@ function confirmDrop() {
 <style scoped>
 .latest-log-card {
   margin-bottom: 10px;
-  background: #fdfdfd;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #333;
 }
 </style>
