@@ -1,5 +1,7 @@
 const Player = require('../models/Player');
 const History = require('../models/History');
+const GameInfo = require('../models/GameInfo');
+const cache = require('../services/cacheService');
 const gameService = require('../services/gameService');
 
 exports.getInfo = async (req, res) => {
@@ -13,12 +15,9 @@ exports.getInfo = async (req, res) => {
         Player.countDocuments({ type: 0, hp: { $gt: 0 } }),
       ]);
       const deathnum = validnum - alivenum;
-      info.validnum = validnum;
-      info.alivenum = alivenum;
-      info.deathnum = deathnum;
-      await info.save();
-      const data = info.toObject();
-      data.now = Date.now();
+      await GameInfo.updateOne({}, { validnum, alivenum, deathnum });
+      await cache.invalidate('game:info');
+      const data = { ...info, validnum, alivenum, deathnum, now: Date.now() };
       res.json(data);
     } else {
       res.json({});
