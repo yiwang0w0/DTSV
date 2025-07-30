@@ -27,13 +27,9 @@ const loggedIn = computed(() => !!token.value)
   </div>
 </template>
 
-<style>
-/* 引入暗色主题样式 - 这里只需要这一行！ */
-@import './styles/dark-theme.css';
-</style>
-
 <style scoped>
-@import './styles/dark-theme.css';
+/* 暗色主题暂不默认启用，如需启用可在此处引入 */
+/* @import './styles/dark-theme.css'; */
 
 .dark-nav {
   display: flex;
