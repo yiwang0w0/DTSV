@@ -11,6 +11,7 @@ const NpcSpawn = require('../models/NpcSpawn');
 const Club = require('../models/Club');
 const Chat = require('../models/Chat');
 const constants = require('../config/constants');
+const cache = require('./cacheService');
 const fs = require('fs');
 const path = require('path');
 
@@ -287,6 +288,8 @@ async function stopGame() {
 }
 
 async function mapAreas() {
+  const cached = await cache.get('map:areas');
+  if (cached) return cached;
   const [areas, info] = await Promise.all([
     MapArea.find({}, 'pid name danger').sort({ pid: 1 }),
     GameInfo.findOne(),
@@ -311,6 +314,7 @@ async function mapAreas() {
       }
     }
   }
+  await cache.set('map:areas', res, 600);
   return res;
 }
 
@@ -373,6 +377,7 @@ async function checkGameOver() {
 
 async function openArea(pid) {
   await MapArea.updateOne({ pid }, { danger: 1 });
+  await cache.invalidate('map:areas');
   const info = await GameInfo.findOne();
   if (info) {
     info.areanum = await MapArea.countDocuments({ danger: 1 });
@@ -382,6 +387,7 @@ async function openArea(pid) {
 
 async function closeArea(pid) {
   await MapArea.updateOne({ pid }, { danger: 0 });
+  await cache.invalidate('map:areas');
   const info = await GameInfo.findOne();
   if (info) {
     info.areanum = await MapArea.countDocuments({ danger: 1 });

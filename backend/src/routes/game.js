@@ -4,6 +4,8 @@ const gameController = require('../controllers/gameController');
 const playerController = require('../controllers/playerController');
 const chatController = require('../controllers/chatController');
 const auth = require('../middlewares/auth');
+const validate = require('../middlewares/validation');
+const { body } = require('express-validator');
 
 router.get('/info', gameController.getInfo);
 router.post('/start', gameController.startGame);
@@ -25,7 +27,13 @@ router.post('/pickequip', auth, playerController.pickEquip);
 router.post('/use', auth, playerController.useItem);
 router.post('/equip', auth, playerController.equip);
 router.post('/unequip', auth, playerController.unequip);
-router.post('/attack', auth, playerController.attack);
+router.post(
+  '/attack',
+  auth,
+  [body('pid').isInt().withMessage('Invalid player ID'), body('eid').isInt().withMessage('Invalid enemy ID')],
+  validate,
+  playerController.attack,
+);
 router.post('/escape', auth, playerController.escape);
 router.post('/drop', auth, playerController.dropItem);
 router.post('/dropequip', auth, playerController.dropEquip);

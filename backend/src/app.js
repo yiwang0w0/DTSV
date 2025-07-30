@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const redis = require('redis');
+const redisClient = require('./config/redis');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -26,8 +26,9 @@ mongoose
   })
   .catch((err) => console.error('MongoDB 连接失败', err));
 
-const redisClient = redis.createClient({ url: process.env.REDIS_URL });
-redisClient.connect().then(() => console.log('Redis 已连接'));
+
+const performanceMiddleware = require('./middlewares/performance');
+app.use(performanceMiddleware);
 
 app.get('/api/ping', (req, res) => res.json({ msg: 'pong' }));
 app.use('/api/auth', authRoutes);

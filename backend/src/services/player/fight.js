@@ -1,6 +1,7 @@
 const Player = require('../../models/Player');
 const GameInfo = require('../../models/GameInfo');
 const Log = require('../../models/Log');
+const mongoose = require('mongoose');
 const constants = require('../../config/constants');
 const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
@@ -8,6 +9,7 @@ const clubPro = require('../../config/clubProficiency');
 const playerUtils = require('./utils');
 const { applyRest, restoreMemoryItem, formatPlayer } = playerUtils;
 const combat = require('./combat');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 // 武器系别到熟练度字段的映射
 const SKILL_FIELDS = {
@@ -224,51 +226,34 @@ function collectItems(target) {
 }
 
 async function attack(user, body) {
-  const { pid, eid } = body;
-  await checkDangerAreas();
-  const info = await GameInfo.findOne();
-  if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
-    const err = new Error('游戏未开始');
-    err.status = 400;
-    throw err;
-  }
-  const player = await Player.findOne({ pid, uid: user._id });
-  if (!player) {
-    const err = new Error('玩家不存在');
-    err.status = 404;
-    throw err;
-  }
-  if (player.hp <= 0) {
-    const err = new Error('你已经死亡');
-    err.status = 400;
-    throw err;
-  }
-  const enemy = await Player.findOne({ pid: eid });
-  if (!enemy) {
-    const err = new Error('目标不存在');
-    err.status = 404;
-    throw err;
-  }
-  if (enemy.hp <= 0) {
-    const err = new Error('目标已死亡');
-    err.status = 400;
-    throw err;
-  }
-  const memory = player.enemymemory ? JSON.parse(player.enemymemory) : null;
-  if (!memory || memory.id !== eid) {
-    const err = new Error('当前没有与该目标交战');
-    err.status = 400;
-    throw err;
-  }
-  await restoreMemoryItem(player);
-  applyRest(player);
-  const cost = constants.get('ATTACK_SP_COST');
-  if (player.sp < cost) {
-    const err = new Error('体力不足，不能攻击');
-    err.status = 400;
-    throw err;
-  }
-  player.sp -= cost;
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const { pid, eid } = body;
+    await checkDangerAreas();
+    const info = await GameInfo.findOne().session(session);
+    if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
+      throw new ValidationError('游戏未开始');
+    }
+    const [player, enemy] = await Promise.all([
+      Player.findOne({ pid, uid: user._id }).session(session),
+      Player.findOne({ pid: eid }).session(session),
+    ]);
+    if (!player) throw new NotFoundError('玩家不存在');
+    if (player.hp <= 0) throw new ValidationError('你已经死亡');
+    if (!enemy) throw new NotFoundError('目标不存在');
+    if (enemy.hp <= 0) throw new ValidationError('目标已死亡');
+    const memory = player.enemymemory ? JSON.parse(player.enemymemory) : null;
+    if (!memory || memory.id !== eid) {
+      throw new ValidationError('当前没有与该目标交战');
+    }
+    await restoreMemoryItem(player);
+    applyRest(player);
+    const cost = constants.get('ATTACK_SP_COST');
+    if (player.sp < cost) {
+      throw new ValidationError('体力不足，不能攻击');
+    }
+    player.sp -= cost;
   let log = '';
 
   const r1 = calcDamage(player, enemy);
@@ -308,13 +293,20 @@ async function attack(user, body) {
   }
 
   const time = Math.floor(Date.now() / 1000);
-  await Log.create([
-    { toid: player.pid, type: 'b', time, log },
-    { toid: enemy.pid, type: 'b', time, log },
-  ]);
-  if (!loot) player.enemymemory = '';
-  enemy.enemymemory = '';
-  await Promise.all([player.save(), enemy.save()]);
+    await Log.create(
+      [
+        { toid: player.pid, type: 'b', time, log },
+        { toid: enemy.pid, type: 'b', time, log },
+      ],
+      { session },
+    );
+    if (!loot) player.enemymemory = '';
+    enemy.enemymemory = '';
+    await Promise.all([
+      player.save({ session }),
+      enemy.save({ session }),
+    ]);
+    await session.commitTransaction();
   const ret = {
     log,
     player: formatPlayer(player),
@@ -330,7 +322,13 @@ async function attack(user, body) {
     },
   };
   if (loot) ret.loot = loot;
-  return ret;
+    return ret;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 }
 
 async function escape(user, body) {

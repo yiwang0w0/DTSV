@@ -126,4 +126,8 @@ const playerSchema = new mongoose.Schema({
   nskillpara: { type: String, default: '' },
 });
 
+playerSchema.index({ pid: 1, uid: 1 });
+playerSchema.index({ pls: 1, hp: 1, type: 1 });
+playerSchema.index({ type: 1, state: 1 });
+
 module.exports = mongoose.model('Player', playerSchema);
