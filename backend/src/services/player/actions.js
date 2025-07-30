@@ -4,6 +4,7 @@ const MapArea = require('../../models/MapArea');
 const MapItem = require('../../models/MapItem');
 const MapTrap = require('../../models/MapTrap');
 const constants = require('../../config/constants');
+const { PLAYER_STATES } = require('../../config/gameConstants');
 const { checkDangerAreas } = require('../gameService');
 // 引入完整的工具模块，防止部分函数因解构失败而未定义
 const playerUtils = require('./utils');
@@ -33,7 +34,7 @@ async function exploreScene(player, pid) {
       player.hp = Math.max(player.hp - dmg, 0);
       log += `你触发了陷阱【${trap.itm}】，受到了${dmg}点伤害！<br>`;
       if (player.hp <= 0) {
-        player.state = 27;
+        player.state = PLAYER_STATES.DEAD_BY_TRAP;
         log += '你被陷阱杀死了！<br>';
       }
       await player.save();
@@ -83,7 +84,7 @@ async function exploreScene(player, pid) {
       player.hp = Math.max(player.hp - dmg, 0);
       log += `${enemy.type > 0 ? 'NPC' : '玩家'}【${enemy.name}】的先制攻击使你受到${dmg}点伤害！<br>`;
       if (player.hp <= 0) {
-        player.state = 27;
+        player.state = enemy.type === 0 ? PLAYER_STATES.DEAD_BY_PLAYER : PLAYER_STATES.DEAD_BY_NPC;
         log += '你遭到致命打击！<br>';
       }
       player.enemymemory = JSON.stringify({ id: enemy.pid, initiator: false });

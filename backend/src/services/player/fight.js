@@ -3,6 +3,7 @@ const GameInfo = require('../../models/GameInfo');
 const Log = require('../../models/Log');
 const mongoose = require('mongoose');
 const constants = require('../../config/constants');
+const { PLAYER_STATES } = require('../../config/gameConstants');
 const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
 // 引入完整工具避免解构失败
@@ -268,8 +269,8 @@ async function attack(user, body) {
     log += '<br>';
   }
   let loot = null;
-  if (enemy.hp <= 0) {
-    enemy.state = 21;
+    if (enemy.hp <= 0) {
+      enemy.state = player.type === 0 ? PLAYER_STATES.DEAD_BY_PLAYER : PLAYER_STATES.DEAD_BY_NPC;
     enemy.endtime = Math.floor(Date.now() / 1000);
     log += '对方被击倒了！<br>';
     loot = collectItems(enemy);
@@ -286,8 +287,8 @@ async function attack(user, body) {
       if (r2.critical) log += '<span class="red">暴击！</span>';
       log += '<br>';
     }
-    if (player.hp <= 0) {
-      player.state = 27;
+      if (player.hp <= 0) {
+        player.state = enemy.type === 0 ? PLAYER_STATES.DEAD_BY_PLAYER : PLAYER_STATES.DEAD_BY_NPC;
       log += '你被击倒了！<br>';
     }
   }

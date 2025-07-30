@@ -14,6 +14,7 @@ const constants = require('../config/constants');
 const cache = require('./cacheService');
 const fs = require('fs');
 const path = require('path');
+const { PLAYER_STATES } = require('../config/gameConstants');
 
 async function ensureDefaultClubs() {
   const count = await Club.countDocuments();
@@ -352,7 +353,7 @@ async function checkDangerAreas() {
       const players = await Player.find({ pls: pid, hp: { $gt: 0 } });
       for (const p of players) {
         p.hp = 0;
-        p.state = 11;
+        p.state = PLAYER_STATES.DEAD_BY_AREA;
         p.endtime = now;
         await p.save();
       }

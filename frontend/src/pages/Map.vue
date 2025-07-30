@@ -93,7 +93,7 @@ async function refreshMapAreas() {
 }
 
 function checkDeath() {
-  if (info.value && info.value.hp <= 0) {
+  if (info.value && info.value.hp <= 0 && info.value.state > 0) {
     router.replace('/gameover')
   }
 }
