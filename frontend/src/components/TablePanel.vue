@@ -576,16 +576,27 @@ const handleCurrentChange = (page) => {
   padding: 16px 8px;
 }
 
+
+/* 暗色主题表格样式 */
 :deep(.el-table th.el-table__cell) {
-  background: #fafafa !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: #00ff41 !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+:deep(.el-table td.el-table__cell) {
+  background: transparent !important;
+  color: #e0e6ed !important;
+  border-bottom: 1px solid #333 !important;
 }
 
 :deep(.el-table tr:hover > td.el-table__cell) {
-  background: #f5f7fa !important;
+  background: rgba(0, 255, 65, 0.05) !important;
 }
 
 :deep(.el-table__empty-block) {
-  background: #fff;
+  background: transparent !important;
+  color: #888 !important;
 }
 
 :deep(.el-dropdown-menu__item.active) {
