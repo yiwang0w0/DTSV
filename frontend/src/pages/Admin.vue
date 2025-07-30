@@ -626,9 +626,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import '../styles/dark-theme.css';
 .admin-page {
   min-height: 100%;
-  background: #f5f7fa;
+  background: transparent;
 }
 
 .page-header {
@@ -659,7 +660,7 @@ onMounted(() => {
 .table-card {
   max-width: 1200px;
   margin: 0 auto 24px auto;
-  border: 1px solid #e4e7ed;
+  border: 1px solid #333;
 }
 
 .toolbar {
@@ -705,7 +706,7 @@ onMounted(() => {
 
 .skeleton-header {
   padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid #333;
 }
 
 .empty-container {
@@ -715,7 +716,7 @@ onMounted(() => {
 .load-more {
   margin-top: 16px;
   text-align: center;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid #333;
   padding-top: 16px;
 }
 
