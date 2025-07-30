@@ -41,6 +41,7 @@ function isEquip(kind){
   margin-bottom: 20px;
 }
 .search-result {
-  background: #fdfdfd;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #333;
 }
 </style>

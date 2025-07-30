@@ -309,14 +309,16 @@ watch(() => props.fieldMeta, (newFields) => {
 
 // 样式配置
 const headerCellStyle = {
-  background: '#fafafa',
-  color: '#262626',
+  background: 'rgba(0,0,0,0.6)',
+  color: '#00ff41',
   fontWeight: '600',
-  borderBottom: '1px solid #e8e8e8'
+  borderBottom: '1px solid #333'
 }
 
 const cellStyle = {
-  borderBottom: '1px solid #f0f0f0'
+  background: 'transparent',
+  color: '#e0e6ed',
+  borderBottom: '1px solid #333'
 }
 
 // 计算操作列宽度
@@ -428,7 +430,7 @@ const handleCurrentChange = (page) => {
 
 <style scoped>
 .table-panel {
-  background: #fff;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .table-toolbar {
@@ -436,7 +438,7 @@ const handleCurrentChange = (page) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #333;
   margin-bottom: 16px;
 }
 
@@ -446,7 +448,7 @@ const handleCurrentChange = (page) => {
 }
 
 .data-count {
-  color: #666;
+  color: #ccc;
   font-size: 14px;
 }
 
@@ -520,7 +522,7 @@ const handleCurrentChange = (page) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #333;
   margin-top: 16px;
 }
 
@@ -530,7 +532,7 @@ const handleCurrentChange = (page) => {
 }
 
 .selection-info {
-  color: #666;
+  color: #ccc;
   font-size: 14px;
 }
 
@@ -576,16 +578,27 @@ const handleCurrentChange = (page) => {
   padding: 16px 8px;
 }
 
+
+/* 暗色主题表格样式 */
 :deep(.el-table th.el-table__cell) {
-  background: #fafafa !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: #00ff41 !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+:deep(.el-table td.el-table__cell) {
+  background: transparent !important;
+  color: #e0e6ed !important;
+  border-bottom: 1px solid #333 !important;
 }
 
 :deep(.el-table tr:hover > td.el-table__cell) {
-  background: #f5f7fa !important;
+  background: rgba(0, 255, 65, 0.05) !important;
 }
 
 :deep(.el-table__empty-block) {
-  background: #fff;
+  background: transparent !important;
+  color: #888 !important;
 }
 
 :deep(.el-dropdown-menu__item.active) {
