@@ -425,33 +425,33 @@ html, body {
 }
 
 /* 表格 */
-.dark-container .el-table {
+.el-table {
   background: rgba(0, 0, 0, 0.4) !important;
   color: #e0e6ed !important;
 }
 
-.dark-container .el-table th.el-table__cell {
+.el-table th.el-table__cell {
   background: rgba(0, 0, 0, 0.6) !important;
   color: #00ff41 !important;
   border-bottom: 1px solid #333 !important;
 }
 
-.dark-container .el-table td.el-table__cell {
+.el-table td.el-table__cell {
   background: transparent !important;
   color: #e0e6ed !important;
   border-bottom: 1px solid #333 !important;
 }
 
-.dark-container .el-table tr:hover > td {
+.el-table tr:hover > td {
   background: rgba(0, 255, 65, 0.05) !important;
 }
 
-.dark-container .el-table__empty-block {
+.el-table__empty-block {
   background: transparent !important;
   color: #888 !important;
 }
 
-.dark-container .el-table__empty-text {
+.el-table__empty-text {
   color: #888 !important;
 }
 
