@@ -20,8 +20,8 @@ mongoimport --db dts --collection mapitems --file ../data/mapitems.json --jsonAr
 
 以上字段对齐 `backend/src/models/MapItem.js`，仅为示例可按需调整。
 
-在 MongoDB shell 中可以为 `stage` 字段建立索引：
+在 MongoDB shell 中可以为位置和阶段建立复合索引：
 
 ```javascript
-db.mapitems.createIndex({ stage: 1 });
+db.mapitems.createIndex({ pls: 1, stage: 1 });
 ```

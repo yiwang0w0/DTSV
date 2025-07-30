@@ -11,4 +11,6 @@ const mapItemSchema = new mongoose.Schema({
   stage: { type: String, default: 'start', index: true },
 });
 
+mapItemSchema.index({ pls: 1, stage: 1 });
+
 module.exports = mongoose.model('MapItem', mapItemSchema);

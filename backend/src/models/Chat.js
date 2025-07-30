@@ -9,4 +9,6 @@ const chatSchema = new mongoose.Schema({
   msg: { type: String, default: '' },
 });
 
+chatSchema.index({ cid: 1, time: -1 });
+
 module.exports = mongoose.model('Chat', chatSchema);

@@ -39,3 +39,13 @@ db.players.updateMany(
 ```
 
 该字段对应 `backend/src/models/Player.js` 中的 `enemymemory`。
+
+## 新增复合索引
+
+为提升查询效率，在 `players` 集合创建以下索引：
+
+```javascript
+db.players.createIndex({ pid: 1, uid: 1 });
+db.players.createIndex({ pls: 1, hp: 1, type: 1 });
+db.players.createIndex({ type: 1, state: 1 });
+```

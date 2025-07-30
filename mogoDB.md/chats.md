@@ -11,3 +11,11 @@ db.chats.insertMany([
 ```
 
 字段含义与 `backend/src/models/Chat.js` 完全一致。
+
+## 推荐索引
+
+按照聊天编号和时间建立复合索引，以便按时间倒序查询：
+
+```javascript
+db.chats.createIndex({ cid: 1, time: -1 });
+```
