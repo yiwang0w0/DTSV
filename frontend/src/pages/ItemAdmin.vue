@@ -104,6 +104,7 @@ async function remove(row) {
 </script>
 
 <style scoped>
+@import '../styles/game-tables.css';
 .page {
   padding: 20px;
 }

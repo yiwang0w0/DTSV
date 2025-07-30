@@ -115,6 +115,7 @@ const areaRows = [
 
 <style scoped>
 @import '../styles/dark-theme.css';
+@import '../styles/game-tables.css';
 .page {
   padding: 20px;
 }

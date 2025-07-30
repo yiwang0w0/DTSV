@@ -304,6 +304,7 @@ async function removeItem(cat, row) {
 </script>
 
 <style scoped>
+@import '../styles/game-tables.css';
 .page {
   padding: 20px;
 }

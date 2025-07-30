@@ -5,6 +5,7 @@ import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 import './style.css';
 import './styles/dark-theme.css';
+import './styles/game-tables.css';
 
 const app = createApp(App);
 app.use(router);

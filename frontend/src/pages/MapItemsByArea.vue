@@ -169,6 +169,7 @@ function goBack() {
 </script>
 
 <style scoped>
+@import '../styles/game-tables.css';
 .page { padding: 20px; }
 </style>
 
