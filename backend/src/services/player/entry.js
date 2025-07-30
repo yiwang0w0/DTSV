@@ -7,13 +7,13 @@ const { checkDangerAreas } = require('../gameService');
 const clubPro = require('../../config/clubProficiency');
 
 async function clubs() {
-  const clubs = await Club.find({}, 'cid name');
+  const clubs = await Club.find({}, 'cid name').lean();
   return clubs;
 }
 
 async function enter(user, body) {
   await checkDangerAreas();
-  const info = await GameInfo.findOne();
+  const info = await GameInfo.findOne().lean();
   if (!info || info.gamestate < constants.get('START_THRESHOLD')) {
     const err = new Error('游戏未开始');
     err.status = 400;
@@ -23,16 +23,16 @@ async function enter(user, body) {
 
   let player = null;
   if (user.lastgame === gid && user.lastpid) {
-    player = await Player.findOne({ pid: user.lastpid, uid: user._id });
+    player = await Player.findOne({ pid: user.lastpid, uid: user._id }).lean();
   }
 
   if (!player) {
-    const last = await Player.findOne().sort({ pid: -1 });
+    const last = await Player.findOne().sort({ pid: -1 }).lean();
     const pid = last ? last.pid + 1 : 1;
     const { club } = body;
     let base = { hp: 100, sp: 200, att: 0, def: 0, money: 20 };
     if (club) {
-      const c = await Club.findOne({ cid: club });
+      const c = await Club.findOne({ cid: club }).lean();
       if (c) {
         base.hp += c.hp;
         base.sp += c.sp;
@@ -85,8 +85,8 @@ async function enter(user, body) {
     }
 
     try {
-      const startItems = await Item.find({ kind: { $not: /^W/ } });
-      const startWeps = await Item.find({ kind: /^W/ });
+      const startItems = await Item.find({ kind: { $not: /^W/ } }).lean();
+      const startWeps = await Item.find({ kind: /^W/ }).lean();
 
       const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
