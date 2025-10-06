@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>地图资源管理</h2>
     <el-button type="primary" size="small" style="margin-bottom:10px" @click="openCreateArea">新建地图</el-button>
     <el-button size="small" style="margin-left:10px" @click="goNpcDir">NPC目录</el-button>

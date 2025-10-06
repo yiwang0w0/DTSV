@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>NPC刷新机制管理</h2>
     <div style="margin-bottom:10px">
       <el-button v-if="areaId" size="small" @click="router.push(`/admin/mapresources?area=${areaId}`)">返回</el-button>

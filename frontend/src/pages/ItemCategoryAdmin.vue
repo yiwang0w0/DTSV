@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>物品刷新管理
       <span v-if="area">- {{ areaName(area) }}</span>
     </h2>

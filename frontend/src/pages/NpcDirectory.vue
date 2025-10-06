@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>NPC目录</h2>
     <el-table :data="items" style="width:100%" size="small">
       <el-table-column prop="pid" label="ID" width="80" />

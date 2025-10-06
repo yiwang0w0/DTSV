@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>物品管理</h2>
     <el-segmented v-model="currentKind" :options="kindOptions" style="margin-bottom:10px" />
     <el-button type="primary" size="small" @click="openCreate" style="margin-left:10px">新建</el-button>

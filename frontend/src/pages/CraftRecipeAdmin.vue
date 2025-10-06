@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h2>合成配方管理</h2>
     <el-button type="primary" size="small" @click="openCreate">新建</el-button>
     <el-table :data="recipes" style="margin-top:10px" @row-click="openEdit">
