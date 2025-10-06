@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h3>NPC 列表 - {{ areaName(area) }}</h3>
     <el-button size="small" @click="goBack" style="margin-bottom:10px">返回</el-button>
     <el-table :data="items" style="width:100%" size="small">

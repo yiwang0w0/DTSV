@@ -1,5 +1,5 @@
 <template>
-  <div class="page">
+  <div class="page admin-page">
     <h3>刷新表 - {{ areaName(area) }}</h3>
     <el-button size="small" @click="goBack" style="margin-bottom:10px">返回</el-button>
     <el-tabs v-model="tab">
