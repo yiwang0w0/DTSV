@@ -1,12 +1,22 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
 import { isAdmin } from '@/lib/auth'
-import { MAP_LIST, WEATHER_OPTIONS, ITEM_KIND_META, NPC_LEVEL_META } from '@/lib/constants'
+import { MAP_LIST, WEATHER_OPTIONS, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
 
-/* ─── Toast Hook ─── */
+const WEAPON_SUB_KINDS = {
+  slashing: '斩击', striking: '打击', throwing: '投掷',
+  shooting: '射击', explosive: '爆炸', spirit: '灵力',
+}
+const ROOM_STATE = {
+  0: { label: '等待中', color: '#d29922' },
+  1: { label: '进行中', color: '#3fb950' },
+  2: { label: '已结束', color: '#8b949e' },
+}
+
+/* ─── Toast ─── */
 function useToast() {
   const [toasts, setToasts] = useState([])
   const show = useCallback((msg, type = 'success') => {
@@ -37,13 +47,13 @@ function Modal({ open, onClose, title, children }) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
       <div className="animate-in" style={{
-        position: 'relative', width: 600, maxWidth: '90vw', maxHeight: '85vh', overflowY: 'auto',
+        position: 'relative', width: 620, maxWidth: '92vw', maxHeight: '88vh', overflowY: 'auto',
         background: '#1c2129', borderRadius: 16, border: '1px solid #30363d', padding: 28,
         boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>✕</button>
         </div>
         {children}
       </div>
@@ -51,15 +61,43 @@ function Modal({ open, onClose, title, children }) {
   )
 }
 
+/* ─── StatCard ─── */
+function StatCard({ label, value, sub, color = '#58a6ff', icon }) {
+  return (
+    <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: '18px 22px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color, fontFamily: "'JetBrains Mono'" }}>{value}</div>
+          {sub && <div style={{ fontSize: 11, color: '#8b949e', marginTop: 6 }}>{sub}</div>}
+        </div>
+        {icon && <span style={{ fontSize: 28, opacity: 0.3 }}>{icon}</span>}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Spinner ─── */
+function Spinner() {
+  return (
+    <div style={{ textAlign: 'center', padding: 80, color: '#8b949e' }}>
+      <style>{`@keyframes _spin { to { transform: rotate(360deg) } }`}</style>
+      <div style={{ display: 'inline-block', width: 36, height: 36, border: '3px solid #30363d', borderTopColor: '#58a6ff', borderRadius: '50%', animation: '_spin 0.8s linear infinite' }} />
+      <div style={{ marginTop: 12, fontSize: 13 }}>加载中...</div>
+    </div>
+  )
+}
+
+/* ─── Shared styles ─── */
 const INPUT = {
   width: '100%', padding: '10px 14px', borderRadius: 8,
   border: '1px solid #30363d', background: '#161b22', color: '#e6edf3',
   fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 const LABEL = { display: 'block', fontSize: 11, color: '#8b949e', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }
-const BTN = (bg, color) => ({
+const BTN = (bg, color, extra) => ({
   padding: '10px 20px', borderRadius: 8, border: 'none', background: bg,
-  color, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+  color, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, ...extra,
 })
 
 /* ═══════════════════════════════════════
@@ -67,21 +105,22 @@ const BTN = (bg, color) => ({
    ═══════════════════════════════════════ */
 export default function AdminPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const { show: toast, Container: ToastContainer } = useToast()
-  const [tab, setTab] = useState('items')
+  const [tab, setTab] = useState('overview')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user || !isAdmin(user)) {
-      // 未登录或非管理员返回首页
+    if (user !== undefined && (!user || !isAdmin(user))) {
       router.replace('/')
     }
   }, [user])
-
 
   // Data
   const [items, setItems] = useState([])
   const [npcs, setNpcs] = useState([])
   const [maps, setMaps] = useState([])
+  const [rooms, setRooms] = useState([])
 
   // Modals
   const [itemModal, setItemModal] = useState(false)
@@ -89,12 +128,34 @@ export default function AdminPage() {
   const [editItem, setEditItem] = useState(null)
   const [editNpc, setEditNpc] = useState(null)
 
+  // Inline delete confirm: { type: 'item'|'npc'|'room', id }
+  const [confirmDelete, setConfirmDelete] = useState(null)
+
   // Filters
   const [itemFilter, setItemFilter] = useState('all')
+  const [itemSearch, setItemSearch] = useState('')
+  const [npcFilter, setNpcFilter] = useState('all')
+  const [npcSearch, setNpcSearch] = useState('')
   const [mapSearch, setMapSearch] = useState('')
   const [selectedMap, setSelectedMap] = useState(null)
+  const [roomFilter, setRoomFilter] = useState('all')
 
   /* ─── Load data ─── */
+  async function loadAll() {
+    setLoading(true)
+    const [{ data: d1 }, { data: d2 }, { data: d3 }, { data: d4 }] = await Promise.all([
+      supabase.from('item_pool').select('*').order('kind'),
+      supabase.from('npc_pool').select('*').order('level'),
+      supabase.from('map_config').select('*').order('map_id'),
+      supabase.from('rooms').select('id,gamenum,gametype,gamestate,validnum,alivenum,deathnum,winner,created_at,started_at')
+        .order('created_at', { ascending: false }).limit(200),
+    ])
+    setItems(d1 || [])
+    setNpcs(d2 || [])
+    setMaps(d3 || [])
+    setRooms(d4 || [])
+    setLoading(false)
+  }
   async function loadItems() {
     const { data } = await supabase.from('item_pool').select('*').order('kind')
     setItems(data || [])
@@ -103,12 +164,13 @@ export default function AdminPage() {
     const { data } = await supabase.from('npc_pool').select('*').order('level')
     setNpcs(data || [])
   }
-  async function loadMaps() {
-    const { data } = await supabase.from('map_config').select('*').order('map_id')
-    setMaps(data || [])
+  async function loadRooms() {
+    const { data } = await supabase.from('rooms').select('id,gamenum,gametype,gamestate,validnum,alivenum,deathnum,winner,created_at,started_at')
+      .order('created_at', { ascending: false }).limit(200)
+    setRooms(data || [])
   }
 
-  useEffect(() => { loadItems(); loadNpcs(); loadMaps() }, [])
+  useEffect(() => { loadAll() }, [])
 
   /* ─── ITEM CRUD ─── */
   function openAddItem() {
@@ -120,23 +182,26 @@ export default function AdminPage() {
     setItemModal(true)
   }
   async function saveItem() {
-    if (!editItem.name) { toast('请填写道具名称', 'error'); return }
+    if (!editItem.name.trim()) { toast('请填写道具名称', 'error'); return }
     const payload = { ...editItem }
     delete payload.created_at
     if (editItem.id) {
       const id = payload.id; delete payload.id
-      await supabase.from('item_pool').update(payload).eq('id', id)
+      const { error } = await supabase.from('item_pool').update(payload).eq('id', id)
+      if (error) { toast('更新失败', 'error'); return }
       toast('道具已更新')
     } else {
       delete payload.id
-      await supabase.from('item_pool').insert(payload)
+      const { error } = await supabase.from('item_pool').insert(payload)
+      if (error) { toast('添加失败', 'error'); return }
       toast('道具已添加')
     }
     setItemModal(false); setEditItem(null); loadItems()
   }
   async function deleteItem(id) {
-    await supabase.from('item_pool').delete().eq('id', id)
-    toast('道具已删除'); loadItems()
+    const { error } = await supabase.from('item_pool').delete().eq('id', id)
+    if (error) { toast('删除失败', 'error'); return }
+    toast('道具已删除'); setConfirmDelete(null); loadItems()
   }
 
   /* ─── NPC CRUD ─── */
@@ -149,143 +214,332 @@ export default function AdminPage() {
     setNpcModal(true)
   }
   async function saveNpc() {
-    if (!editNpc.name) { toast('请填写NPC名称', 'error'); return }
+    if (!editNpc.name.trim()) { toast('请填写NPC名称', 'error'); return }
     const payload = { ...editNpc }
     delete payload.created_at
     if (editNpc.id) {
       const id = payload.id; delete payload.id
-      await supabase.from('npc_pool').update(payload).eq('id', id)
+      const { error } = await supabase.from('npc_pool').update(payload).eq('id', id)
+      if (error) { toast('更新失败', 'error'); return }
       toast('NPC已更新')
     } else {
       delete payload.id
-      await supabase.from('npc_pool').insert(payload)
+      const { error } = await supabase.from('npc_pool').insert(payload)
+      if (error) { toast('添加失败', 'error'); return }
       toast('NPC已添加')
     }
     setNpcModal(false); setEditNpc(null); loadNpcs()
   }
   async function deleteNpc(id) {
-    await supabase.from('npc_pool').delete().eq('id', id)
-    toast('NPC已删除'); loadNpcs()
+    const { error } = await supabase.from('npc_pool').delete().eq('id', id)
+    if (error) { toast('删除失败', 'error'); return }
+    toast('NPC已删除'); setConfirmDelete(null); loadNpcs()
   }
 
   /* ─── MAP CONFIG ─── */
-  async function updateMap(mapId, updates) {
-    await supabase.from('map_config').update(updates).eq('map_id', mapId)
-    loadMaps()
+  const mapTimers = useRef({})
+  function updateMap(mapId, updates) {
+    // Optimistic UI update immediately
+    setMaps(prev => prev.map(m => m.map_id === mapId ? { ...m, ...updates } : m))
+    // Debounce the save (for number inputs)
+    clearTimeout(mapTimers.current[mapId])
+    mapTimers.current[mapId] = setTimeout(() => {
+      supabase.from('map_config').update(updates).eq('map_id', mapId)
+    }, 600)
+  }
+  function updateMapNow(mapId, updates, msg) {
+    setMaps(prev => prev.map(m => m.map_id === mapId ? { ...m, ...updates } : m))
+    supabase.from('map_config').update(updates).eq('map_id', mapId)
+    if (msg) toast(msg)
   }
 
-  /* ─── toggle map in array ─── */
+  /* ─── ROOM actions ─── */
+  async function deleteRoom(id) {
+    const { error } = await supabase.from('rooms').delete().eq('id', id)
+    if (error) { toast('删除失败', 'error'); return }
+    toast('房间已删除'); setConfirmDelete(null); loadRooms()
+  }
+  async function endRoom(id) {
+    const { error } = await supabase.from('rooms').update({ gamestate: 2 }).eq('id', id)
+    if (error) { toast('操作失败', 'error'); return }
+    toast('已强制结束房间'); loadRooms()
+  }
+
+  /* ─── Toggle map in array ─── */
   function toggleMap(arr, mapId) {
     return arr.includes(mapId) ? arr.filter(m => m !== mapId) : [...arr, mapId]
   }
 
   if (!user) return <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>请先登录</div>
+  if (loading) return <Spinner />
 
-  /* ─── filter items ─── */
-  const filteredItems = items.filter(i => itemFilter === 'all' || i.kind === itemFilter)
+  /* ─── Derived ─── */
+  const filteredItems = items.filter(i =>
+    (itemFilter === 'all' || i.kind === itemFilter) &&
+    (!itemSearch || i.name.includes(itemSearch) || (i.description || '').includes(itemSearch))
+  )
+  const filteredNpcs = npcs.filter(n =>
+    (npcFilter === 'all' || n.level === npcFilter) &&
+    (!npcSearch || n.name.includes(npcSearch))
+  )
+  const filteredMaps = maps.filter(m => !mapSearch || m.name.includes(mapSearch))
+  const filteredRooms = rooms.filter(r => roomFilter === 'all' || String(r.gamestate) === roomFilter)
+
+  const activeRooms = rooms.filter(r => r.gamestate === 1).length
+  const waitingRooms = rooms.filter(r => r.gamestate === 0).length
+  const blockedMaps = maps.filter(m => m.blocked).length
 
   const tabs = [
+    { key: 'overview', label: '📊 概览' },
     { key: 'items', label: '⚔️ 道具池', count: items.length },
     { key: 'npcs', label: '🤖 NPC', count: npcs.length },
     { key: 'maps', label: '🗺️ 地图', count: maps.length },
+    { key: 'rooms', label: '🏠 房间', count: rooms.length },
   ]
 
   return (
     <div className="animate-in">
       <ToastContainer />
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      {/* ─── Header ─── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>⚙️ 管理后台</h2>
-        <nav style={{ display: 'flex', gap: 4, background: '#161b22', borderRadius: 10, padding: 4, border: '1px solid #30363d' }}>
+        <nav style={{ display: 'flex', gap: 3, background: '#161b22', borderRadius: 10, padding: 4, border: '1px solid #30363d', flexWrap: 'wrap' }}>
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
-              padding: '8px 18px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              padding: '8px 16px', borderRadius: 7, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer',
               background: tab === t.key ? '#58a6ff' : 'transparent',
               color: tab === t.key ? '#fff' : '#8b949e',
-            }}>{t.label} <span style={{ fontSize: 11, opacity: 0.7 }}>({t.count})</span></button>
+              transition: 'background 0.15s, color 0.15s',
+            }}>
+              {t.label}
+              {t.count !== undefined && <span style={{ fontSize: 11, opacity: 0.65, marginLeft: 4 }}>({t.count})</span>}
+            </button>
           ))}
         </nav>
       </div>
 
+      {/* ═══ TAB: 概览 ═══ */}
+      {tab === 'overview' && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, marginBottom: 20 }}>
+            <StatCard label="道具总数" value={items.length} icon="⚔️" color="#f85149"
+              sub={`武器 ${items.filter(i => i.kind === 'weapon').length} / 防具 ${items.filter(i => i.kind === 'armor').length} / 消耗品 ${items.filter(i => i.kind === 'consumable').length}`} />
+            <StatCard label="NPC总数" value={npcs.length} icon="🤖" color="#bc8cff"
+              sub={`BOSS ${npcs.filter(n => n.level === 'boss').length} / 困难 ${npcs.filter(n => n.level === 'hard').length} / 中等 ${npcs.filter(n => n.level === 'medium').length}`} />
+            <StatCard label="活跃地图" value={maps.length - blockedMaps} icon="🗺️" color="#3fb950"
+              sub={blockedMaps > 0 ? `${blockedMaps} 个禁区 / 共 ${maps.length}` : `共 ${maps.length} 个地图`} />
+            <StatCard label="进行中房间" value={activeRooms} icon="🏠" color="#58a6ff"
+              sub={`等待中 ${waitingRooms} / 历史记录 ${rooms.length}`} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            {/* Item breakdown */}
+            <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>道具分布</div>
+              {Object.entries(ITEM_KIND_META).map(([k, v]) => {
+                const count = items.filter(i => i.kind === k).length
+                const pct = items.length ? (count / items.length * 100) : 0
+                return (
+                  <div key={k} style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
+                      <span style={{ color: v.color }}>{v.emoji} {v.label}</span>
+                      <span style={{ color: '#8b949e', fontFamily: "'JetBrains Mono'" }}>{count}</span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 3, background: '#30363d' }}>
+                      <div style={{ height: '100%', borderRadius: 3, background: v.color, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* NPC breakdown */}
+            <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>NPC 等级分布</div>
+              {Object.entries(NPC_LEVEL_META).map(([k, v]) => {
+                const count = npcs.filter(n => n.level === k).length
+                const pct = npcs.length ? (count / npcs.length * 100) : 0
+                return (
+                  <div key={k} style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
+                      <span style={{ color: v.color }}>{v.label}</span>
+                      <span style={{ color: '#8b949e', fontFamily: "'JetBrains Mono'" }}>{count}</span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 3, background: '#30363d' }}>
+                      <div style={{ height: '100%', borderRadius: 3, background: v.color, width: `${pct}%`, transition: 'width 0.6s ease' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Recent rooms */}
+          <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>最近房间</div>
+              <button onClick={() => setTab('rooms')} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>查看全部 →</button>
+            </div>
+            {rooms.length === 0
+              ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#8b949e', fontSize: 13 }}>暂无房间记录</div>
+              : rooms.slice(0, 6).map(r => {
+                  const st = ROOM_STATE[r.gamestate] || ROOM_STATE[0]
+                  return (
+                    <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #21262d' }}>
+                      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: '#484f58', minWidth: 36 }}>#{r.id}</span>
+                        <span style={{ fontSize: 13 }}>{GAME_TYPES[r.gametype] || `类型${r.gametype}`}</span>
+                        <span style={{ fontSize: 11, color: st.color, background: `${st.color}18`, padding: '2px 10px', borderRadius: 10 }}>{st.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 14, fontSize: 11, color: '#8b949e' }}>
+                        <span>{r.validnum || 0} 人</span>
+                        {r.winner && <span style={{ color: '#d29922' }}>🏆 {r.winner}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+          </div>
+        </div>
+      )}
+
       {/* ═══ TAB: 道具池 ═══ */}
       {tab === 'items' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {['all', ...Object.keys(ITEM_KIND_META)].map(k => (
-                <button key={k} onClick={() => setItemFilter(k)} style={{
-                  padding: '6px 14px', borderRadius: 20, border: `1px solid ${itemFilter === k ? '#58a6ff' : '#30363d'}`,
-                  background: itemFilter === k ? 'rgba(88,166,255,0.12)' : 'transparent',
-                  color: itemFilter === k ? '#58a6ff' : '#8b949e', fontSize: 12, cursor: 'pointer',
-                }}>{k === 'all' ? '全部' : ITEM_KIND_META[k].label}</button>
-              ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input style={{ ...INPUT, width: 190 }} placeholder="🔍 搜索道具..."
+                value={itemSearch} onChange={e => setItemSearch(e.target.value)} />
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {['all', ...Object.keys(ITEM_KIND_META)].map(k => (
+                  <button key={k} onClick={() => setItemFilter(k)} style={{
+                    padding: '6px 12px', borderRadius: 20, border: `1px solid ${itemFilter === k ? '#58a6ff' : '#30363d'}`,
+                    background: itemFilter === k ? 'rgba(88,166,255,0.12)' : 'transparent',
+                    color: itemFilter === k ? '#58a6ff' : '#8b949e', fontSize: 12, cursor: 'pointer',
+                  }}>{k === 'all' ? '全部' : ITEM_KIND_META[k].label}</button>
+                ))}
+              </div>
             </div>
             <button onClick={openAddItem} style={BTN('#58a6ff', '#fff')}>+ 新增道具</button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
             {filteredItems.map(item => {
               const meta = ITEM_KIND_META[item.kind] || ITEM_KIND_META.special
+              const isConf = confirmDelete?.type === 'item' && confirmDelete?.id === item.id
               return (
                 <div key={item.id} style={{
-                  background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 18,
-                  transition: 'border-color 0.2s',
+                  background: '#1c2129', borderRadius: 12, padding: 18, transition: 'border-color 0.2s',
+                  border: `1px solid ${isConf ? '#f85149' : '#30363d'}`,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 20 }}>{meta.emoji}</span>
+                      <span style={{ fontSize: 22 }}>{meta.emoji}</span>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</div>
-                        <span style={{ fontSize: 10, color: meta.color, background: `${meta.color}18`, padding: '1px 8px', borderRadius: 10 }}>{meta.label}</span>
+                        <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                          <span style={{ fontSize: 10, color: meta.color, background: `${meta.color}18`, padding: '1px 8px', borderRadius: 10 }}>{meta.label}</span>
+                          {item.kind === 'weapon' && item.sub_kind &&
+                            <span style={{ fontSize: 10, color: '#8b949e', background: 'rgba(139,148,158,0.1)', padding: '1px 8px', borderRadius: 10 }}>
+                              {WEAPON_SUB_KINDS[item.sub_kind] || item.sub_kind}
+                            </span>}
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => openEditItem(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b949e', fontSize: 14 }}>✏️</button>
-                      <button onClick={() => deleteItem(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f85149', fontSize: 14 }}>🗑️</button>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+                      <button onClick={() => openEditItem(item)}
+                        style={{ background: 'rgba(88,166,255,0.08)', border: '1px solid rgba(88,166,255,0.2)', borderRadius: 6, cursor: 'pointer', color: '#58a6ff', fontSize: 12, padding: '4px 10px' }}>
+                        编辑
+                      </button>
+                      {isConf
+                        ? <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={() => deleteItem(item.id)}
+                              style={{ background: 'rgba(248,81,73,0.15)', border: '1px solid rgba(248,81,73,0.3)', borderRadius: 6, cursor: 'pointer', color: '#f85149', fontSize: 12, padding: '4px 10px' }}>确认</button>
+                            <button onClick={() => setConfirmDelete(null)}
+                              style={{ background: 'none', border: '1px solid #30363d', borderRadius: 6, cursor: 'pointer', color: '#8b949e', fontSize: 12, padding: '4px 10px' }}>取消</button>
+                          </div>
+                        : <button onClick={() => setConfirmDelete({ type: 'item', id: item.id })}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: '2px 4px' }}>🗑️</button>
+                      }
                     </div>
                   </div>
-                  {item.description && <p style={{ fontSize: 11, color: '#8b949e', margin: '0 0 10px' }}>{item.description}</p>}
+                  {item.description && <p style={{ fontSize: 11, color: '#8b949e', margin: '0 0 10px', lineHeight: 1.5 }}>{item.description}</p>}
                   <div style={{ display: 'flex', gap: 14, fontSize: 11, marginBottom: 10 }}>
                     {item.atk > 0 && <span style={{ color: '#f85149' }}>ATK {item.atk}</span>}
                     {item.def > 0 && <span style={{ color: '#58a6ff' }}>DEF {item.def}</span>}
                     {item.heal > 0 && <span style={{ color: '#3fb950' }}>HEAL {item.heal}</span>}
+                    {item.effect > 0 && <span style={{ color: '#bc8cff' }}>EFX {item.effect}</span>}
                     <span style={{ color: '#8b949e' }}>×{item.amount}</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {(item.maps || []).slice(0, 4).map(mid => {
+                    {(item.maps || []).slice(0, 5).map(mid => {
                       const m = MAP_LIST.find(x => x.id === mid)
                       return <span key={mid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{m?.name || mid}</span>
                     })}
-                    {(item.maps || []).length > 4 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{item.maps.length - 4}</span>}
+                    {(item.maps || []).length > 5 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{item.maps.length - 5}</span>}
+                    {(item.maps || []).length === 0 && <span style={{ fontSize: 10, color: '#484f58' }}>未分配地图</span>}
                   </div>
                 </div>
               )
             })}
           </div>
-          {filteredItems.length === 0 && <div style={{ textAlign: 'center', padding: 48, color: '#8b949e' }}>暂无道具</div>}
+          {filteredItems.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>
+              {itemSearch ? `未找到"${itemSearch}"` : '暂无道具'}
+            </div>
+          )}
         </div>
       )}
 
       {/* ═══ TAB: NPC ═══ */}
       {tab === 'npcs' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input style={{ ...INPUT, width: 190 }} placeholder="🔍 搜索NPC..."
+                value={npcSearch} onChange={e => setNpcSearch(e.target.value)} />
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['all', ...Object.keys(NPC_LEVEL_META)].map(k => (
+                  <button key={k} onClick={() => setNpcFilter(k)} style={{
+                    padding: '6px 12px', borderRadius: 20, border: `1px solid ${npcFilter === k ? '#58a6ff' : '#30363d'}`,
+                    background: npcFilter === k ? 'rgba(88,166,255,0.12)' : 'transparent',
+                    color: npcFilter === k ? '#58a6ff' : '#8b949e', fontSize: 12, cursor: 'pointer',
+                  }}>{k === 'all' ? '全部' : NPC_LEVEL_META[k].label}</button>
+                ))}
+              </div>
+            </div>
             <button onClick={openAddNpc} style={BTN('#58a6ff', '#fff')}>+ 新增 NPC</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            {npcs.map(npc => {
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {filteredNpcs.map(npc => {
               const lv = NPC_LEVEL_META[npc.level] || NPC_LEVEL_META.easy
+              const isConf = confirmDelete?.type === 'npc' && confirmDelete?.id === npc.id
               return (
-                <div key={npc.id} style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 18 }}>
+                <div key={npc.id} style={{
+                  background: '#1c2129', borderRadius: 12, padding: 18, transition: 'border-color 0.2s',
+                  border: `1px solid ${isConf ? '#f85149' : '#30363d'}`,
+                }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>🤖 {npc.name}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>🤖 {npc.name}</div>
                       <span style={{ fontSize: 10, color: lv.color, background: `${lv.color}18`, padding: '1px 8px', borderRadius: 10 }}>{lv.label}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => openEditNpc(npc)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b949e', fontSize: 14 }}>✏️</button>
-                      <button onClick={() => deleteNpc(npc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f85149', fontSize: 14 }}>🗑️</button>
+                    <div style={{ display: 'flex', gap: 5, alignItems: 'flex-start' }}>
+                      <button onClick={() => openEditNpc(npc)}
+                        style={{ background: 'rgba(88,166,255,0.08)', border: '1px solid rgba(88,166,255,0.2)', borderRadius: 6, cursor: 'pointer', color: '#58a6ff', fontSize: 12, padding: '4px 10px' }}>
+                        编辑
+                      </button>
+                      {isConf
+                        ? <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={() => deleteNpc(npc.id)}
+                              style={{ background: 'rgba(248,81,73,0.15)', border: '1px solid rgba(248,81,73,0.3)', borderRadius: 6, cursor: 'pointer', color: '#f85149', fontSize: 12, padding: '4px 10px' }}>确认</button>
+                            <button onClick={() => setConfirmDelete(null)}
+                              style={{ background: 'none', border: '1px solid #30363d', borderRadius: 6, cursor: 'pointer', color: '#8b949e', fontSize: 12, padding: '4px 10px' }}>取消</button>
+                          </div>
+                        : <button onClick={() => setConfirmDelete({ type: 'npc', id: npc.id })}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: '2px 4px' }}>🗑️</button>
+                      }
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px', fontSize: 11, marginBottom: 10 }}>
@@ -293,7 +547,8 @@ export default function AdminPage() {
                       { l: 'DEF', v: npc.def, c: '#58a6ff', max: 40 }, { l: 'EXP', v: npc.exp, c: '#d29922', max: 500 }].map(s => (
                       <div key={s.l}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8b949e', marginBottom: 2 }}>
-                          <span>{s.l}</span><span style={{ color: s.c, fontFamily: "'JetBrains Mono'", fontWeight: 600 }}>{s.v}</span>
+                          <span>{s.l}</span>
+                          <span style={{ color: s.c, fontFamily: "'JetBrains Mono'", fontWeight: 600 }}>{s.v}</span>
                         </div>
                         <div style={{ height: 3, borderRadius: 2, background: `${s.c}20` }}>
                           <div style={{ height: '100%', borderRadius: 2, background: s.c, width: `${Math.min(100, s.v / s.max * 100)}%` }} />
@@ -306,11 +561,17 @@ export default function AdminPage() {
                       const m = MAP_LIST.find(x => x.id === mid)
                       return <span key={mid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: `${lv.color}15`, color: lv.color }}>{m?.name || mid}</span>
                     })}
+                    {(npc.maps || []).length === 0 && <span style={{ fontSize: 10, color: '#484f58' }}>未分配地图</span>}
                   </div>
                 </div>
               )
             })}
           </div>
+          {filteredNpcs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>
+              {npcSearch ? `未找到"${npcSearch}"` : '暂无NPC'}
+            </div>
+          )}
         </div>
       )}
 
@@ -318,11 +579,11 @@ export default function AdminPage() {
       {tab === 'maps' && (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <input style={{ ...INPUT, maxWidth: 300 }} placeholder="🔍 搜索地图..."
+            <input style={{ ...INPUT, maxWidth: 280 }} placeholder="🔍 搜索地图..."
               value={mapSearch} onChange={e => setMapSearch(e.target.value)} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-            {maps.filter(m => !mapSearch || m.name.includes(mapSearch)).map(map => {
+            {filteredMaps.map(map => {
               const itemCount = items.filter(i => (i.maps || []).includes(map.map_id)).reduce((s, i) => s + i.amount, 0)
               const npcCount = npcs.filter(n => (n.maps || []).includes(map.map_id)).length
               const w = WEATHER_OPTIONS.find(o => o.value === map.weather) || WEATHER_OPTIONS[0]
@@ -348,28 +609,28 @@ export default function AdminPage() {
                     <span style={{ color: '#f85149' }}>NPC {npcCount}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10 }}>
-                    <span style={{ color: '#8b949e' }}>危险度</span>
-                    {[1,2,3,4,5].map(lv => (
+                    <span style={{ color: '#8b949e', marginRight: 2 }}>危险度</span>
+                    {[1, 2, 3, 4, 5].map(lv => (
                       <div key={lv} style={{ width: 14, height: 3, borderRadius: 2, background: lv <= map.danger_level ? dangerColors[map.danger_level] : 'rgba(72,79,88,0.4)' }} />
                     ))}
                   </div>
 
                   {isOpen && (
                     <div onClick={e => e.stopPropagation()}
-                      style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #30363d' }}>
+                      style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #30363d' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
                           <label style={LABEL}>天气</label>
                           <select style={INPUT} value={map.weather}
-                            onChange={e => { updateMap(map.map_id, { weather: e.target.value }); toast(`${map.name} 天气已更新`) }}>
+                            onChange={e => updateMapNow(map.map_id, { weather: e.target.value }, `${map.name} 天气已更新`)}>
                             {WEATHER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
                         </div>
                         <div>
                           <label style={LABEL}>危险等级</label>
                           <select style={INPUT} value={map.danger_level}
-                            onChange={e => updateMap(map.map_id, { danger_level: Number(e.target.value) })}>
-                            {[1,2,3,4,5].map(v => <option key={v} value={v}>Lv.{v}</option>)}
+                            onChange={e => updateMapNow(map.map_id, { danger_level: Number(e.target.value) })}>
+                            {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>Lv.{v}</option>)}
                           </select>
                         </div>
                         <div>
@@ -383,8 +644,11 @@ export default function AdminPage() {
                             onChange={e => updateMap(map.map_id, { max_npcs: Number(e.target.value) })} />
                         </div>
                       </div>
-                      <button style={{ ...BTN(map.blocked ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)', map.blocked ? '#3fb950' : '#f85149'), marginTop: 10, width: '100%', justifyContent: 'center' }}
-                        onClick={() => { updateMap(map.map_id, { blocked: !map.blocked }); toast(map.blocked ? '已解除禁区' : '已设为禁区') }}>
+                      <button style={{
+                        ...BTN(map.blocked ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)', map.blocked ? '#3fb950' : '#f85149'),
+                        marginTop: 10, width: '100%', justifyContent: 'center',
+                        border: `1px solid ${map.blocked ? 'rgba(63,185,80,0.25)' : 'rgba(248,81,73,0.25)'}`,
+                      }} onClick={() => updateMapNow(map.map_id, { blocked: !map.blocked }, map.blocked ? '已解除禁区' : '已设为禁区')}>
                         {map.blocked ? '✅ 解除禁区' : '⛔ 设为禁区'}
                       </button>
                     </div>
@@ -396,31 +660,113 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ═══ TAB: 房间 ═══ */}
+      {tab === 'rooms' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[{ k: 'all', l: '全部' }, { k: '1', l: '进行中' }, { k: '0', l: '等待中' }, { k: '2', l: '已结束' }].map(f => (
+                <button key={f.k} onClick={() => setRoomFilter(f.k)} style={{
+                  padding: '6px 14px', borderRadius: 20, border: `1px solid ${roomFilter === f.k ? '#58a6ff' : '#30363d'}`,
+                  background: roomFilter === f.k ? 'rgba(88,166,255,0.12)' : 'transparent',
+                  color: roomFilter === f.k ? '#58a6ff' : '#8b949e', fontSize: 12, cursor: 'pointer',
+                }}>{f.l}</button>
+              ))}
+            </div>
+            <button onClick={loadRooms}
+              style={{ ...BTN('transparent', '#8b949e'), border: '1px solid #30363d', padding: '8px 16px' }}>
+              ↻ 刷新
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filteredRooms.map(room => {
+              const st = ROOM_STATE[room.gamestate] || ROOM_STATE[0]
+              const isConf = confirmDelete?.type === 'room' && confirmDelete?.id === room.id
+              const createdAt = room.created_at
+                ? new Date(room.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                : '-'
+              return (
+                <div key={room.id} style={{
+                  background: '#1c2129', borderRadius: 12, padding: '14px 20px',
+                  border: `1px solid ${isConf ? '#f85149' : '#30363d'}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: '#484f58', minWidth: 40 }}>#{room.id}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{GAME_TYPES[room.gametype] || `类型${room.gametype}`}</div>
+                      <div style={{ fontSize: 11, color: '#8b949e', marginTop: 2 }}>{createdAt}</div>
+                    </div>
+                    <span style={{ fontSize: 11, color: st.color, background: `${st.color}15`, padding: '3px 10px', borderRadius: 10 }}>{st.label}</span>
+                    <div style={{ display: 'flex', gap: 14, fontSize: 11 }}>
+                      <span style={{ color: '#8b949e' }}>玩家 <span style={{ color: '#58a6ff' }}>{room.validnum || 0}</span></span>
+                      {room.gamestate !== 0 && <span style={{ color: '#8b949e' }}>存活 <span style={{ color: '#3fb950' }}>{room.alivenum || 0}</span></span>}
+                      {room.gamestate !== 0 && <span style={{ color: '#8b949e' }}>阵亡 <span style={{ color: '#f85149' }}>{room.deathnum || 0}</span></span>}
+                      {room.winner && <span style={{ color: '#d29922' }}>🏆 {room.winner}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {room.gamestate === 1 && (
+                      <button onClick={() => endRoom(room.id)}
+                        style={{ ...BTN('rgba(210,153,34,0.12)', '#d29922', { padding: '6px 14px', fontSize: 12, border: '1px solid rgba(210,153,34,0.3)' }) }}>
+                        强制结束
+                      </button>
+                    )}
+                    {isConf
+                      ? <>
+                          <button onClick={() => deleteRoom(room.id)}
+                            style={{ ...BTN('rgba(248,81,73,0.15)', '#f85149', { padding: '6px 14px', fontSize: 12, border: '1px solid rgba(248,81,73,0.3)' }) }}>
+                            确认删除
+                          </button>
+                          <button onClick={() => setConfirmDelete(null)}
+                            style={{ ...BTN('transparent', '#8b949e', { padding: '6px 14px', fontSize: 12, border: '1px solid #30363d' }) }}>
+                            取消
+                          </button>
+                        </>
+                      : <button onClick={() => setConfirmDelete({ type: 'room', id: room.id })}
+                          style={{ ...BTN('transparent', '#8b949e', { padding: '6px 14px', fontSize: 12, border: '1px solid #30363d' }) }}>
+                          删除
+                        </button>
+                    }
+                  </div>
+                </div>
+              )
+            })}
+            {filteredRooms.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>暂无房间记录</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ ITEM MODAL ═══ */}
       <Modal open={itemModal} onClose={() => { setItemModal(false); setEditItem(null) }}
-        title={editItem?.id ? '编辑道具' : '添加道具'}>
+        title={editItem?.id ? `编辑道具：${editItem.name}` : '添加道具'}>
         {editItem && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
+              <div style={{ gridColumn: editItem.kind === 'weapon' ? '1' : '1 / -1' }}>
                 <label style={LABEL}>名称</label>
                 <input style={INPUT} value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} />
               </div>
               <div>
                 <label style={LABEL}>类型</label>
                 <select style={INPUT} value={editItem.kind} onChange={e => setEditItem({ ...editItem, kind: e.target.value })}>
-                  {Object.entries(ITEM_KIND_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  {Object.entries(ITEM_KIND_META).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
                 </select>
               </div>
-              {editItem.kind === 'weapon' && <div>
-                <label style={LABEL}>子类</label>
-                <select style={INPUT} value={editItem.sub_kind} onChange={e => setEditItem({ ...editItem, sub_kind: e.target.value })}>
-                  {['slashing','striking','throwing','shooting','explosive','spirit'].map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>}
-              <div><label style={LABEL}>ATK</label><input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>DEF</label><input type="number" style={INPUT} value={editItem.def} onChange={e => setEditItem({ ...editItem, def: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>HEAL</label><input type="number" style={INPUT} value={editItem.heal} onChange={e => setEditItem({ ...editItem, heal: Number(e.target.value) })} /></div>
+              {editItem.kind === 'weapon' && (
+                <div>
+                  <label style={LABEL}>武器子类</label>
+                  <select style={INPUT} value={editItem.sub_kind} onChange={e => setEditItem({ ...editItem, sub_kind: e.target.value })}>
+                    {Object.entries(WEAPON_SUB_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              )}
+              <div><label style={LABEL}>ATK 攻击</label><input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>DEF 防御</label><input type="number" style={INPUT} value={editItem.def} onChange={e => setEditItem({ ...editItem, def: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>HEAL 治疗</label><input type="number" style={INPUT} value={editItem.heal} onChange={e => setEditItem({ ...editItem, heal: Number(e.target.value) })} /></div>
               <div><label style={LABEL}>特效值</label><input type="number" style={INPUT} value={editItem.effect} onChange={e => setEditItem({ ...editItem, effect: Number(e.target.value) })} /></div>
               <div><label style={LABEL}>数量</label><input type="number" min={1} style={INPUT} value={editItem.amount} onChange={e => setEditItem({ ...editItem, amount: Math.max(1, Number(e.target.value)) })} /></div>
             </div>
@@ -428,9 +774,19 @@ export default function AdminPage() {
               <label style={LABEL}>描述</label>
               <input style={INPUT} value={editItem.description} onChange={e => setEditItem({ ...editItem, description: e.target.value })} />
             </div>
-            <div style={{ marginTop: 12 }}>
-              <label style={LABEL}>分配地图 (已选 {editItem.maps.length})</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 160, overflowY: 'auto', padding: '6px 0' }}>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ ...LABEL, margin: 0 }}>
+                  分配地图 <span style={{ color: '#58a6ff', fontStyle: 'normal', textTransform: 'none', letterSpacing: 0 }}>({editItem.maps.length} 已选)</span>
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setEditItem({ ...editItem, maps: MAP_LIST.map(m => m.id) })}
+                    style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
+                  <button onClick={() => setEditItem({ ...editItem, maps: [] })}
+                    style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 150, overflowY: 'auto', padding: '4px 0' }}>
                 {MAP_LIST.map(m => (
                   <button key={m.id} onClick={() => setEditItem({ ...editItem, maps: toggleMap(editItem.maps, m.id) })}
                     style={{
@@ -442,7 +798,7 @@ export default function AdminPage() {
                 ))}
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
               <button onClick={() => { setItemModal(false); setEditItem(null) }}
                 style={{ ...BTN('transparent', '#8b949e'), border: '1px solid #30363d' }}>取消</button>
               <button onClick={saveItem} style={BTN('#58a6ff', '#fff')}>
@@ -455,24 +811,35 @@ export default function AdminPage() {
 
       {/* ═══ NPC MODAL ═══ */}
       <Modal open={npcModal} onClose={() => { setNpcModal(false); setEditNpc(null) }}
-        title={editNpc?.id ? '编辑 NPC' : '添加 NPC'}>
+        title={editNpc?.id ? `编辑NPC：${editNpc.name}` : '添加 NPC'}>
         {editNpc && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div><label style={LABEL}>名称</label><input style={INPUT} value={editNpc.name} onChange={e => setEditNpc({ ...editNpc, name: e.target.value })} /></div>
-              <div><label style={LABEL}>难度</label>
+              <div>
+                <label style={LABEL}>难度</label>
                 <select style={INPUT} value={editNpc.level} onChange={e => setEditNpc({ ...editNpc, level: e.target.value })}>
                   {Object.entries(NPC_LEVEL_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
-              <div><label style={LABEL}>HP</label><input type="number" style={INPUT} value={editNpc.hp} onChange={e => setEditNpc({ ...editNpc, hp: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>ATK</label><input type="number" style={INPUT} value={editNpc.atk} onChange={e => setEditNpc({ ...editNpc, atk: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>DEF</label><input type="number" style={INPUT} value={editNpc.def} onChange={e => setEditNpc({ ...editNpc, def: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>EXP</label><input type="number" style={INPUT} value={editNpc.exp} onChange={e => setEditNpc({ ...editNpc, exp: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>HP 生命值</label><input type="number" style={INPUT} value={editNpc.hp} onChange={e => setEditNpc({ ...editNpc, hp: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>ATK 攻击</label><input type="number" style={INPUT} value={editNpc.atk} onChange={e => setEditNpc({ ...editNpc, atk: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>DEF 防御</label><input type="number" style={INPUT} value={editNpc.def} onChange={e => setEditNpc({ ...editNpc, def: Number(e.target.value) })} /></div>
+              <div><label style={LABEL}>EXP 经验</label><input type="number" style={INPUT} value={editNpc.exp} onChange={e => setEditNpc({ ...editNpc, exp: Number(e.target.value) })} /></div>
             </div>
-            <div style={{ marginTop: 12 }}>
-              <label style={LABEL}>分配地图 (已选 {editNpc.maps.length})</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 160, overflowY: 'auto', padding: '6px 0' }}>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ ...LABEL, margin: 0 }}>
+                  分配地图 <span style={{ color: '#58a6ff', fontStyle: 'normal', textTransform: 'none', letterSpacing: 0 }}>({editNpc.maps.length} 已选)</span>
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setEditNpc({ ...editNpc, maps: MAP_LIST.map(m => m.id) })}
+                    style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
+                  <button onClick={() => setEditNpc({ ...editNpc, maps: [] })}
+                    style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 150, overflowY: 'auto', padding: '4px 0' }}>
                 {MAP_LIST.map(m => (
                   <button key={m.id} onClick={() => setEditNpc({ ...editNpc, maps: toggleMap(editNpc.maps, m.id) })}
                     style={{
@@ -484,7 +851,7 @@ export default function AdminPage() {
                 ))}
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
               <button onClick={() => { setNpcModal(false); setEditNpc(null) }}
                 style={{ ...BTN('transparent', '#8b949e'), border: '1px solid #30363d' }}>取消</button>
               <button onClick={saveNpc} style={BTN('#58a6ff', '#fff')}>
