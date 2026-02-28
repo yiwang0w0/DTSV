@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
+import { isAdmin } from '@/lib/auth'
 import { GAME_TYPES } from '@/lib/constants'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -51,8 +52,14 @@ export default function Rooms() {
   }
 
   async function deleteRoom(roomId) {
+    if (!isAdmin(user)) return
     if (!confirm('确定要删除这个房间吗？')) return
-    await supabase.from('rooms').delete().eq('id', roomId)
+    // 调用管理员专用 API，避免匿名权限漏洞
+    const session = await supabase.auth.getSession()
+    await fetch(`/api/admin/rooms?id=${roomId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.data?.session?.access_token}` },
+    })
     loadRooms()
   }
 
@@ -112,9 +119,11 @@ export default function Rooms() {
                       <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(88,166,255,0.12)', color: '#58a6ff' }}>{GAME_TYPES[r.gametype] || '个人战'}</span>
                     </div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id) }} title="删除房间"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: 4 }}
-                    onMouseEnter={e => e.target.style.color = '#f85149'} onMouseLeave={e => e.target.style.color = '#484f58'}>🗑️</button>
+                  {isAdmin(user) && (
+                    <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id) }} title="删除房间"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: 4 }}
+                      onMouseEnter={e => e.target.style.color = '#f85149'} onMouseLeave={e => e.target.style.color = '#484f58'}>🗑️</button>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
