@@ -3,6 +3,7 @@ import { useAuth } from './layout'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { isAdmin } from '@/lib/auth'
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -42,10 +43,12 @@ export default function Home() {
               padding: '12px 32px', borderRadius: 10, background: '#58a6ff', color: '#fff',
               textDecoration: 'none', fontWeight: 600, fontSize: 15,
             }}>进入游戏大厅</Link>
-            <Link href="/admin" style={{
-              padding: '12px 32px', borderRadius: 10, border: '1px solid #30363d',
-              background: 'transparent', color: '#8b949e', textDecoration: 'none', fontWeight: 500, fontSize: 15,
-            }}>管理后台</Link>
+            {isAdmin(user) && (
+              <Link href="/admin" style={{
+                padding: '12px 32px', borderRadius: 10, border: '1px solid #30363d',
+                background: 'transparent', color: '#8b949e', textDecoration: 'none', fontWeight: 500, fontSize: 15,
+              }}>管理后台</Link>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
