@@ -16,9 +16,15 @@ export default function Register() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    // 默认为普通用户，注册时设定分组信息；如果是指定管理员邮箱则自动加上 admin
+    const metadata = { username, groups: ['user'] }
+    if (email === '2949215486@qq.com') {
+      metadata.groups.push('admin')
+    }
     const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { username } }
+      email,
+      password,
+      options: { data: metadata },
     })
     setLoading(false)
     if (error) {

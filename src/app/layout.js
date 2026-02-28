@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, createContext, useContext } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 
 // Auth context
 const AuthContext = createContext(null)
@@ -14,7 +15,8 @@ function Nav({ user, onLogout }) {
   const links = [
     { href: '/', label: '首页' },
     { href: '/rooms', label: '房间大厅' },
-    { href: '/admin', label: '管理后台' },
+    // 管理后台链接仅对管理员可见
+    ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
   ]
   return (
     <header style={{
@@ -65,12 +67,19 @@ export default function RootLayout({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
+    supabase.auth.getUser().then(async ({ data }) => {
+      const u = data.user
+      // 如果是指定的管理员邮箱，确保 metadata 中有 admin 组
+      await ensureAdminMetadata(u)
+      setUser(u)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
+      const u = session?.user ?? null
+      if (u) {
+        await ensureAdminMetadata(u)
+      }
+      setUser(u)
     })
     return () => subscription.unsubscribe()
   }, [])

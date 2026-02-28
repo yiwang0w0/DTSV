@@ -15,11 +15,20 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
       setError(error.message)
     } else {
+      // 登录后更新元数据以确保管理员用户组信息
+      if (data?.user) {
+        const { user } = data
+        // 直接调用服务端函数：
+        // 这里简单重复一次后端的邮箱判断，如果需要可移入 authjs
+        if (user.email === '2949215486@qq.com' && !(user.user_metadata?.groups || []).includes('admin')) {
+          await supabase.auth.updateUser({ data: { ...user.user_metadata, groups: [...(user.user_metadata?.groups||[]), 'admin'] } })
+        }
+      }
       router.push('/')
     }
   }

@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
+import { isAdmin } from '@/lib/auth'
 import { MAP_LIST, WEATHER_OPTIONS, ITEM_KIND_META, NPC_LEVEL_META } from '@/lib/constants'
 
 /* ─── Toast Hook ─── */
@@ -67,6 +69,14 @@ export default function AdminPage() {
   const { user } = useAuth()
   const { show: toast, Container: ToastContainer } = useToast()
   const [tab, setTab] = useState('items')
+
+  useEffect(() => {
+    if (!user || !isAdmin(user)) {
+      // 未登录或非管理员返回首页
+      router.replace('/')
+    }
+  }, [user])
+
 
   // Data
   const [items, setItems] = useState([])
