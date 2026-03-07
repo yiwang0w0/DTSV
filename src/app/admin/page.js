@@ -10,8 +10,8 @@ import ItemsTab     from './_tabs/ItemsTab'
 import NpcsTab      from './_tabs/NpcsTab'
 import MapsTab      from './_tabs/MapsTab'
 import RoomsTab     from './_tabs/RoomsTab'
-import RulesTab     from './RulesTab'
-import EquipmentTab from './EquipmentTab'
+import RulesTab     from './_tabs/RulesTab'
+import EquipmentTab from './_tabs/EquipmentTab'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },

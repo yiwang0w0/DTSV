@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { evalFormula } from '@/lib/gameEngine'
 
 export const BTN = (bg, color, extra = {}) => ({
   padding: '8px 16px', borderRadius: 7, border: 'none', background: bg,
@@ -76,6 +77,53 @@ export function StatCard({ label, value, icon, color, sub }) {
           {sub && <div style={{ fontSize: 11, color: '#8b949e', marginTop: 6 }}>{sub}</div>}
         </div>
         {icon && <span style={{ fontSize: 28, opacity: 0.3 }}>{icon}</span>}
+      </div>
+    </div>
+  )
+}
+
+export function FormulaPreview({ formula, testVars }) {
+  const vars = testVars || { atk: 15, def: 8, hp: 60, maxHp: 100, targetDef: 8, targetHp: 80, targetMaxHp: 100, targetAtk: 12, atkMultiplier: 1.0, defMultiplier: 0.5, heal: 30, effect: 5, value: 5 }
+  if (!formula?.trim()) return null
+  let result = null, isError = false
+  try { result = evalFormula(formula, vars) } catch { isError = true }
+  if (result === null) isError = true
+  return (
+    <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 6, background: isError ? 'rgba(248,81,73,0.08)' : 'rgba(63,185,80,0.08)', border: `1px solid ${isError ? 'rgba(248,81,73,0.2)' : 'rgba(63,185,80,0.2)'}`, fontSize: 12 }}>
+      <span style={{ color: '#8b949e' }}>预览（atk=15, def=8, heal=30）：</span>
+      {isError
+        ? <span style={{ color: '#f85149', marginLeft: 8 }}>⚠ 公式有误</span>
+        : <span style={{ color: '#3fb950', fontFamily: "'JetBrains Mono'", marginLeft: 8, fontWeight: 700 }}>= {result}</span>}
+    </div>
+  )
+}
+
+export function DeleteBtn({ onConfirm }) {
+  const [confirming, setConfirming] = useState(false)
+  if (confirming) return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <button onClick={onConfirm} style={BTN('rgba(248,81,73,0.15)', '#f85149', { padding: '4px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>确认</button>
+      <button onClick={() => setConfirming(false)} style={BTN('transparent', '#8b949e', { padding: '4px 10px', border: '1px solid #30363d' })}>取消</button>
+    </div>
+  )
+  return (
+    <button onClick={() => setConfirming(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 15, padding: '2px 4px' }}>🗑️</button>
+  )
+}
+
+export function Drawer({ open, onClose, title, children, width = 680 }) {
+  if (!open) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }} />
+      <div style={{ position: 'relative', width, maxWidth: '95vw', height: '100vh', background: '#13171f', borderLeft: '1px solid #30363d', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 40px rgba(0,0,0,0.5)', animation: 'slideInRight 0.22s ease-out' }}>
+        <style>{`@keyframes slideInRight { from { transform: translateX(40px); opacity:0 } to { transform: translateX(0); opacity:1 } }`}</style>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #21262d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1c2129', flexShrink: 0 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>{children}</div>
       </div>
     </div>
   )
