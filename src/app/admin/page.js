@@ -98,7 +98,7 @@ export default function AdminPage() {
       {tab === 'overview'  && <OverviewTab  items={items} npcs={npcs} maps={maps} rooms={rooms} />}
       {tab === 'items'     && <ItemsTab     items={items} buffPool={buffPool} onRefresh={refresh} toast={toast} />}
       {tab === 'npcs'      && <NpcsTab      npcs={npcs} onRefresh={refresh} toast={toast} />}
-      {tab === 'maps'      && <MapsTab      maps={maps} setMaps={setMaps} toast={toast} />}
+      {tab === 'maps'      && <MapsTab      maps={maps} setMaps={setMaps} items={items} onRefreshItems={() => refresh('items')} toast={toast} />}
       {tab === 'rooms'     && <RoomsTab     rooms={rooms} onRefresh={refresh} toast={toast} />}
       {tab === 'rules'     && <RulesTab     toast={toast} />}
       {tab === 'equipment' && <EquipmentTab toast={toast} />}

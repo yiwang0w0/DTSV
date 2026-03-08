@@ -606,11 +606,8 @@ export default function GamePage() {
                   onClick={doSearch} disabled={busy || !me?.alive}>
                   {busy ? '搜索中...' : '🔍 搜索区域'}
                 </Btn>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-                  <Btn disabled sx={{ width:'100%' }}>😴 睡眠</Btn>
-                  <Btn disabled sx={{ width:'100%' }}>💊 治疗</Btn>
+                <div style={{ display:'flex', gap:6 }}>
                   <Btn variant="warn" onClick={() => setCraft(true)} sx={{ width:'100%' }}>🔨 道具合成</Btn>
-                  <Btn disabled sx={{ width:'100%' }}>⬆️ 升级技能</Btn>
                 </div>
                 {!me?.alive && <div style={{ textAlign:'center', color:T.red, fontSize:12, marginTop:8 }}>💀 你已阵亡，只能观战</div>}
               </div>

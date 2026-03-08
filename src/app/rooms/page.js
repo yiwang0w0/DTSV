@@ -64,6 +64,7 @@ export default function Rooms() {
   }
 
   async function startGame(roomId) {
+    if (!isAdmin(user)) return
     await supabase.from('rooms').update({ gamestate: 1, started_at: new Date().toISOString() }).eq('id', roomId)
     loadRooms()
   }
@@ -158,7 +159,7 @@ export default function Rooms() {
                   ) : isActive ? (
                     <button onClick={() => router.push(`/game/${r.id}`)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(210,153,34,0.12)', color: '#d29922', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 1 }}>👁️ 观战</button>
                   ) : null}
-                  {isWaiting && playerCount >= 1 && (
+                  {isAdmin(user) && isWaiting && playerCount >= 1 && (
                     <button onClick={() => startGame(r.id)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🚀 开始</button>
                   )}
                 </div>
