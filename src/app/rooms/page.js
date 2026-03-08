@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
 import { isAdmin } from '@/lib/auth'
-import { GAME_TYPES } from '@/lib/constants'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -28,14 +27,6 @@ export default function Rooms() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  async function createRoom() {
-    const gamevars = { players: {}, log: [], turn: 0, mapItems: {}, mapNpcs: {} }
-    await supabase.from('rooms').insert({
-      gamenum: Date.now() % 100000, gametype: 0, gamestate: 0, gamevars,
-    })
-    loadRooms()
-  }
-
   async function joinRoom(room) {
     if (!user) return
     setJoining(room.id)
@@ -54,18 +45,11 @@ export default function Rooms() {
   async function deleteRoom(roomId) {
     if (!isAdmin(user)) return
     if (!confirm('确定要删除这个房间吗？')) return
-    // 调用管理员专用 API，避免匿名权限漏洞
     const session = await supabase.auth.getSession()
     await fetch(`/api/admin/rooms?id=${roomId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${session.data?.session?.access_token}` },
     })
-    loadRooms()
-  }
-
-  async function startGame(roomId) {
-    if (!isAdmin(user)) return
-    await supabase.from('rooms').update({ gamestate: 1, started_at: new Date().toISOString() }).eq('id', roomId)
     loadRooms()
   }
 
@@ -77,26 +61,26 @@ export default function Rooms() {
 
   return (
     <div className="animate-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>🏠 房间大厅</h2>
-        <button onClick={createRoom} style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#58a6ff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ 创建房间</button>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>系统将自动开启新一局游戏，等待房间开放后加入即可</p>
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#8b949e' }}>加载中...</div>
       ) : rooms.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🏚️</div>
-          <p>暂无房间，创建一个吧！</p>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+          <p>暂无进行中的游戏，等待系统开启新一局</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
           {rooms.map(r => {
-            const isActive = r.gamestate === 1
+            const isActive  = r.gamestate === 1
             const isWaiting = r.gamestate === 0
-            const isEnded = r.gamestate === 2
+            const isEnded   = r.gamestate === 2
             const playerCount = Object.keys(r.gamevars?.players || {}).length
-            const isInRoom = !!r.gamevars?.players?.[user.id]
+            const isInRoom  = !!r.gamevars?.players?.[user.id]
             const isJoining = joining === r.id
 
             return (
@@ -111,13 +95,12 @@ export default function Rooms() {
                       <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono'" }}>房间 #{r.id}</span>
                       {isInRoom && <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: 'rgba(88,166,255,0.15)', color: '#58a6ff' }}>你在这里</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <div style={{ marginTop: 6 }}>
                       <span style={{
                         padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                         background: isEnded ? 'rgba(72,79,88,0.3)' : isActive ? 'rgba(63,185,80,0.12)' : 'rgba(210,153,34,0.12)',
                         color: isEnded ? '#8b949e' : isActive ? '#3fb950' : '#d29922',
                       }}>{isEnded ? '已结束' : isActive ? '进行中' : '等待中'}</span>
-                      <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(88,166,255,0.12)', color: '#58a6ff' }}>{GAME_TYPES[r.gametype] || '个人战'}</span>
                     </div>
                   </div>
                   {isAdmin(user) && (
@@ -159,9 +142,6 @@ export default function Rooms() {
                   ) : isActive ? (
                     <button onClick={() => router.push(`/game/${r.id}`)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(210,153,34,0.12)', color: '#d29922', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 1 }}>👁️ 观战</button>
                   ) : null}
-                  {isAdmin(user) && isWaiting && playerCount >= 1 && (
-                    <button onClick={() => startGame(r.id)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🚀 开始</button>
-                  )}
                 </div>
               </div>
             )

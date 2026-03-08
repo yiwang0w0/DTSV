@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../layout'
+import { MAP_LIST } from '@/lib/constants'
 import {
   loadGameRules, loadBuffPool, clearRulesCache,
   getRule, calcDamage, calcItemEffect,
@@ -155,14 +156,13 @@ export default function GamePage() {
     if (!rm) { router.push('/'); return }
     setRoom(rm)
 
-    const { data: mc } = await supabase.from('map_config').select('*').eq('map_id', rm.current_map || 1).single()
-    setMapConfig(mc)
-
-    const mid = rm.current_map || 1
-    const [{ data: items }, { data: npcs }] = await Promise.all([
+    const mid = rm.gamevars?.players?.[user.id]?.map ?? 0
+    const [{ data: mc }, { data: items }, { data: npcs }] = await Promise.all([
+      supabase.from('map_config').select('*').eq('map_id', mid).single(),
       supabase.from('item_pool').select('*').contains('maps', [mid]),
       supabase.from('npc_pool').select('*').contains('maps', [mid]),
     ])
+    setMapConfig(mc)
     itemPoolRef.current = items || []; npcPoolRef.current = npcs || []
 
     const { data: eq } = await supabase
@@ -379,6 +379,26 @@ export default function GamePage() {
     setBusy(false)
   }
 
+  /* 转移地图 */
+  async function doMove(mapId) {
+    const uid = user?.id
+    if (!gamevars?.players?.[uid]?.alive) return
+    setBusy(true)
+    const mapName = MAP_LIST.find(m => m.id === mapId)?.name || mapId
+    const np = { ...gamevars.players[uid], map: mapId }
+    await save({ ...gamevars, players: { ...gamevars.players, [uid]: np } })
+    const [{ data: mc }, { data: items }, { data: npcs }] = await Promise.all([
+      supabase.from('map_config').select('*').eq('map_id', mapId).single(),
+      supabase.from('item_pool').select('*').contains('maps', [mapId]),
+      supabase.from('npc_pool').select('*').contains('maps', [mapId]),
+    ])
+    setMapConfig(mc)
+    itemPoolRef.current = items || []
+    npcPoolRef.current = npcs || []
+    log(`🚶 转移至【${mapName}】`, 'system')
+    setBusy(false)
+  }
+
   /* 攻击玩家 PvP */
   async function atkPlayer(targetUid) {
     const uid = user?.id
@@ -456,7 +476,6 @@ export default function GamePage() {
   const uid      = user?.id
   const me       = getMe()
   const allP     = Object.values(gamevars?.players || {})
-  const otherP   = allP.filter(p => p.uid !== uid)
   const inGame   = !!gamevars?.players?.[uid]
   const w        = WEATHER[mapConfig?.weather || 'clear'] || WEATHER.clear
   const bp       = buffPoolRef.current || []
@@ -504,7 +523,7 @@ export default function GamePage() {
 
           {/* 我的状态 */}
           <PanelTitle>👤 {me ? me.name : '未加入'}</PanelTitle>
-          <div style={{ padding:'10px 12px', borderBottom:`1px solid ${T.border}`, flexShrink:0 }}>
+          <div style={{ padding:'10px 12px', flex:1, overflowY:'auto' }}>
             {me ? (
               <>
                 <HpBar hp={me.hp || 0} max={me.maxHp || 100} h={8} />
@@ -529,36 +548,6 @@ export default function GamePage() {
             )}
           </div>
 
-          {/* 在场玩家 */}
-          <PanelTitle>在场玩家 ({allP.filter(p => p.alive).length} 存活)</PanelTitle>
-          <div style={{ flex:1, overflowY:'auto' }}>
-            {allP.length === 0 && <div style={{ textAlign:'center', color:T.dim, fontSize:12, marginTop:20 }}>暂无玩家</div>}
-            {allP.map(p => (
-              <div key={p.uid} style={{ margin:'6px 8px', padding:'8px 10px', borderRadius:8,
-                background: p.uid === uid ? `${T.cyan}08` : T.bg2,
-                border:`1px solid ${p.uid === uid ? T.cyan + '30' : T.border}`,
-                opacity: p.alive ? 1 : 0.45 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                  <span style={{ fontWeight:600, fontSize:12, color: p.uid === uid ? T.cyan : T.text }}>
-                    {p.uid === uid ? '▶ ' : ''}{p.name}
-                    {!p.alive && <span style={{ color:T.red, marginLeft:6, fontSize:10 }}>†</span>}
-                  </span>
-                  {p.alive && p.uid !== uid && me?.alive && !battle && (
-                    <Btn variant="danger" size="sm" onClick={() => atkPlayer(p.uid)} disabled={busy}>攻击</Btn>
-                  )}
-                </div>
-                <HpBar hp={p.hp || 0} max={p.maxHp || 100} h={4} />
-                <div style={{ display:'flex', gap:8, marginTop:4, fontSize:10, color:T.dim }}>
-                  <span>ATK {p.atk}</span><span>DEF {p.def}</span><span>击杀 {p.kills || 0}</span>
-                </div>
-                {(p.buffs || []).length > 0 && (
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:3, marginTop:5 }}>
-                    {p.buffs.map((b, i) => <BuffTag key={i} buffDef={bp.find(x => x.id === b.buffId)} remaining={b.remainingTurns} />)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* ═ 中栏：行动 + 日志/背包/装备 ═ */}
@@ -715,33 +704,9 @@ export default function GamePage() {
           </div>
         </div>
 
-        {/* ═ 右栏：地图 + 战斗记录 ═ */}
+        {/* ═ 右栏：地图导航 ═ */}
         <div style={{ borderLeft:`1px solid ${T.border}`, display:'flex', flexDirection:'column', overflow:'hidden', background:T.bg1 }}>
-          <PanelTitle>🗺️ 当前区域</PanelTitle>
-          <div style={{ padding:'10px 12px', borderBottom:`1px solid ${T.border}`, flexShrink:0 }}>
-            {mapConfig ? (
-              <>
-                <div style={{ fontWeight:700, fontSize:13, marginBottom:6 }}>{w.icon} {mapConfig.name || '未知区域'}</div>
-                <div style={{ display:'flex', gap:10, fontSize:11, color:T.dimB, marginBottom:6 }}>
-                  <span>天气：{w.label}</span>
-                  {mapConfig.danger_level && (
-                    <span style={{ color: mapConfig.danger_level >= 4 ? T.red : mapConfig.danger_level >= 3 ? T.yellow : T.green }}>
-                      危险度 {'★'.repeat(mapConfig.danger_level)}
-                    </span>
-                  )}
-                </div>
-                {w.mod && (
-                  <div style={{ fontSize:11, color:T.dim, padding:'5px 8px', background:T.bg0, borderRadius:5, border:`1px solid ${T.border}` }}>
-                    {w.icon} {w.mod}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div style={{ color:T.dim, fontSize:12 }}>加载中...</div>
-            )}
-          </div>
-
-          {battle && battle.log.length > 0 && (
+          {battle && battle.log.length > 0 ? (
             <>
               <PanelTitle>⚔️ 战斗记录</PanelTitle>
               <div style={{ flex:1, overflowY:'auto', padding:'6px 10px' }}>
@@ -750,15 +715,32 @@ export default function GamePage() {
                 ))}
               </div>
             </>
-          )}
-
-          {(!battle || battle.log.length === 0) && (
-            <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ textAlign:'center', color:T.dim, fontSize:12 }}>
-                <div style={{ fontSize:32, marginBottom:8, opacity:0.3 }}>🗺️</div>
-                搜索区域以探索地图
+          ) : (
+            <>
+              <PanelTitle right={me?.alive && <span style={{ fontSize:10, color:T.dim, fontWeight:400 }}>点击转移</span>}>🗺️ 地图</PanelTitle>
+              <div style={{ flex:1, overflowY:'auto' }}>
+                {MAP_LIST.map(m => {
+                  const isCurrent = (me?.map ?? 0) === m.id
+                  const canMove = me?.alive && !battle && !busy && !isCurrent
+                  return (
+                    <div key={m.id} onClick={() => canMove && doMove(m.id)}
+                      style={{
+                        padding:'8px 12px', borderBottom:`1px solid ${T.border}`,
+                        borderLeft:`3px solid ${isCurrent ? T.cyan : 'transparent'}`,
+                        background: isCurrent ? `${T.cyan}10` : 'transparent',
+                        cursor: canMove ? 'pointer' : 'default',
+                        display:'flex', alignItems:'center', justifyContent:'space-between',
+                        transition:'background .15s',
+                      }}>
+                      <span style={{ fontSize:12, color: isCurrent ? T.cyan : T.dimB, fontWeight: isCurrent ? 700 : 400 }}>
+                        {m.name}
+                      </span>
+                      {isCurrent && <span style={{ fontSize:10, color:T.cyan, opacity:0.7 }}>◀ 当前</span>}
+                    </div>
+                  )
+                })}
               </div>
-            </div>
+            </>
           )}
         </div>
 
