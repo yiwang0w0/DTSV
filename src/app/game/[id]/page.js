@@ -140,7 +140,8 @@ export default function GamePage() {
 
   const rulesRef    = useRef(null)
   const buffPoolRef = useRef(null)
-  const itemPoolRef = useRef(null)
+  const itemPoolRef = useRef([])   // 当前地图物品（搜索权重）
+  const allItemsRef = useRef([])   // 全量道具定义（背包/使用查找）
   const npcPoolRef  = useRef(null)
   const equipsRef   = useRef([])
   const logRef      = useRef(null)
@@ -157,13 +158,16 @@ export default function GamePage() {
     setRoom(rm)
 
     const mid = rm.gamevars?.players?.[user.id]?.map ?? 0
-    const [{ data: mc }, { data: items }, { data: npcs }] = await Promise.all([
+    const [{ data: mc }, { data: items }, { data: npcs }, { data: allItems }] = await Promise.all([
       supabase.from('map_config').select('*').eq('map_id', mid).single(),
       supabase.from('item_pool').select('*').contains('maps', [mid]),
       supabase.from('npc_pool').select('*').contains('maps', [mid]),
+      supabase.from('item_pool').select('*'),
     ])
     setMapConfig(mc)
-    itemPoolRef.current = items || []; npcPoolRef.current = npcs || []
+    itemPoolRef.current = items || []
+    npcPoolRef.current = npcs || []
+    allItemsRef.current = allItems || []
 
     const { data: eq } = await supabase
       .from('equipment_instances')
@@ -435,7 +439,7 @@ export default function GamePage() {
     if (!gamevars?.players?.[uid]?.alive) return
     setBusy(true)
     const me = getMe()
-    const def = (itemPoolRef.current || []).find(i => i.name === name)
+    const def = (allItemsRef.current || []).find(i => i.name === name)
     if (!def) { log(`未知道具：${name}`, 'dim'); setBusy(false); return }
     const fx = calcItemEffect(def, me, rulesRef.current || {})
     const bp = buffPoolRef.current || []
@@ -637,7 +641,7 @@ export default function GamePage() {
                 {!inGame && <div style={{ textAlign:'center', color:T.dim, marginTop:24, fontSize:12 }}>加入游戏后显示背包</div>}
                 {inGame && Object.keys(invCount).length === 0 && <div style={{ textAlign:'center', color:T.dim, marginTop:24, fontSize:12 }}>背包空空如也</div>}
                 {inGame && Object.entries(invCount).map(([name, count]) => {
-                  const def = (itemPoolRef.current || []).find(i => i.name === name)
+                  const def = (allItemsRef.current || []).find(i => i.name === name)
                   return (
                     <div key={name} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
                       padding:'8px 10px', borderRadius:8, background:T.bg2,
