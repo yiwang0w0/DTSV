@@ -1,142 +1,192 @@
 # Readme_Claude
 
 更新时间：2026-03-18（Asia/Tokyo）
-整理方式：基于 Readme_GPT（同日版本）+ 全量源码交叉验证。
+整理方式：基于全量源码交叉验证，覆盖最新 commit `6ae6cc0`。
 
 ---
 
-## 对 Readme_GPT 的验证结论
+## 一、项目概述
 
-**GPT 本轮 Readme 准确度极高，所有声明均与代码实际状态一致。** 无需纠偏，以下做确认与补充。
+DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中文 UI）。
+当前状态：主流程闭环的 v1 雏形，具备完整的服务端动作层、装备合成系统、动态规则引擎和 7 标签页管理后台。
 
 ---
 
-## 一、已落地项 —— 逐项确认
+## 二、技术栈
 
-### API 路由 ✅ 全部存在且实现完整
-- `POST /api/game/rooms` — 管理员创建房间，调用 `createRoom()`
-- `POST /api/game/actions` — 处理 join / search / move / attackNpc / flee / attackPlayer / useItem
-- `POST /api/game/equipment` — 处理 craft / equip / unequip
+- **框架**: Next.js 14 (App Router) + React 18
+- **后端**: Supabase (PostgreSQL + Realtime + Auth)
+- **样式**: Tailwind CSS, GitHub Dark 主题 (#0e1117 bg, #58a6ff accent, #f85149 danger, #3fb950 success)
+- **字体**: DM Sans, JetBrains Mono, Noto Sans SC
 
-### 服务端通用能力 ✅
-- `src/lib/serverSupabase.js` (12行) — `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()`
-- `src/lib/server/gameActions.js` — 核心动作解析，30+ 处日志写入
-- `src/lib/roomState.js` (124行) — `computeRoomStats()` + `applyRoomLifecycle()`，完整管理 validnum/alivenum/deathnum/winner/gamestate
-- `src/lib/gameApi.js` (26行) — 客户端统一调用入口 `postGameApi()`
+---
 
-### 房间大厅改造 ✅
-- `rooms/page.js` 已改为 API 驱动：
-  - 创建房间：`postGameApi('/api/game/rooms', { gametype: 0 })`
-  - 加入房间：`postGameApi('/api/game/actions', { roomId, action: 'join' })`
-- `getInitPlayerStats()` 在服务端 `gameActions.js:155` 调用，初始属性数据驱动
+## 三、目录结构与关键文件
 
-### 游戏页拆分 ✅
-- `game/[id]/page.js` — 仅 1 行，纯入口转发
-- `GameClientPage.jsx` — 538 行，页面主容器
-- `CraftModal.jsx` — 合成面板
-- `gameUi.js` — 局内通用 UI
+### 页面
 
-### 共享日志 ✅
-- 所有关键操作（搜索、移动、NPC 战斗、逃跑、PvP、用药、合成、装备/卸下、死亡、胜利）均写入 `gamevars.log`
-- 通过 `appendGameLog()` / `createLogEntry()` 统一管理
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| `src/app/page.js` | — | 首页 |
+| `src/app/login/page.js` | — | 登录页 |
+| `src/app/register/page.js` | — | 注册页 |
+| `src/app/rooms/page.js` | ~100 | 房间大厅：实时列表、创建/加入房间（API 驱动） |
+| `src/app/game/[id]/page.js` | 2 | 入口转发 |
+| `src/app/game/[id]/GameClientPage.jsx` | 538 | 局内主容器：实时订阅、状态管理、动作分发 |
+| `src/app/game/[id]/CraftModal.jsx` | 262 | 装备合成面板：配方预览、成功率、耐久消耗 |
+| `src/app/game/[id]/gameUi.js` | 170 | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
+| `src/app/admin/page.js` | 107 | 管理后台入口，7 标签页 + 集中数据加载 |
 
-### 房间生命周期 ✅
+### 管理后台标签页 (`src/app/admin/_tabs/`)
+
+| 标签 | 文件 | 行数 | 功能 |
+|------|------|------|------|
+| 📊 概览 | OverviewTab.jsx | 61 | 统计卡片 + 分布图 |
+| ⚔️ 道具池 | ItemsTab.jsx | 340 | 道具 CRUD + 搜索/按 kind 筛选 |
+| 🤖 NPC | NpcsTab.jsx | 330 | NPC CRUD + 按等级筛选 |
+| 🗺️ 地图 | MapsTab.jsx | 640 | 地图配置编辑 (debounced 600ms) |
+| 🏠 房间 | RoomsTab.jsx | 154 | 查看/按状态筛选/强制结束/删除 |
+| ⚙️ 战斗规则 | RulesTab.jsx | 356 | 规则公式编辑 + Buff 池管理 |
+| 🗡️ 装备引擎 | EquipmentTab.jsx | 32 | 装备子板块入口 |
+
+装备引擎子组件：
+- `EquipmentSeriesSection.jsx` (1431 行) — 系列/阶/变体编辑 + 合成树预览
+- `EquipmentPassivesSection.jsx` (444 行) — 被动技能编辑
+- `RulesRuleRow.jsx` (123 行) — 规则行组件
+- `RulesBuffModal.jsx` (233 行) — Buff 创建/编辑弹窗
+
+### API 路由
+
+| 路由 | 方法 | 鉴权 | 功能 |
+|------|------|------|------|
+| `/api/game/actions` | POST | User | 执行游戏动作 (join/move/search/attackNpc/flee/attackPlayer/useItem) |
+| `/api/game/equipment` | POST | User | 装备操作 (craft/equip/unequip) |
+| `/api/game/rooms` | POST | Admin | 创建房间 |
+| `/api/admin/rooms` | DELETE | Admin | 删除房间 |
+
+### 核心库 (`src/lib/`)
+
+| 文件 | 行数 | 关键导出 |
+|------|------|----------|
+| `gameEngine.js` | 314 | `evalFormula()` 沙盒公式求值, `loadGameRules()`, `loadBuffPool()`, `calcDamage()`, `calcItemEffect()`, `processBuffs()`, `getSearchChances()`, `getInitPlayerStats()` |
+| `equipmentEngine.js` | 605 | `getCraftingTree()`, `getSeriesTree()`, `checkCanCraft()`, `executeCraft()`, `calcEquippedStats()`, `triggerPassives()`, `RARITY_META`, `ELEMENT_META`, `SLOT_META` |
+| `roomState.js` | 123 | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()`, `applyRoomLifecycle()` |
+| `constants.js` | 46 | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META`, `NPC_LEVEL_META` |
+| `gameApi.js` | 25 | `postGameApi()` — 客户端统一 fetch 入口 |
+| `serverSupabase.js` | 52 | `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()` (支持 admin 标志) |
+| `auth.js` | 26 | `isAdmin()`, `PRIMARY_ADMIN_EMAIL` |
+| `supabase.js` | 10 | Supabase 客户端 |
+| `server/gameActions.js` | 1000+ | `createRoom()`, `joinRoom()`, `executeGameAction()`, `movePlayer()`, `searchArea()`, `attackNpc()`, `fleeNpc()`, `attackPlayer()`, `useItem()`, `executeEquipmentAction()` + Buff/被动技能集成 |
+
+### 共享 UI (`src/app/admin/_shared/ui.js`)
+
+管理后台共享样式常量与组件（BTN, INPUT, LABEL 等）。
+
+---
+
+## 四、数据库表 (Supabase)
+
+| 表名 | 用途 |
+|------|------|
+| `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner) |
+| `profiles` | 用户档案 (id FK auth.users, roomid) |
+| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description) |
+| `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]) |
+| `map_config` | 地图配置 (map_id, name, weather, danger_level 1-5, max_items, max_npcs, blocked) |
+| `game_rules` | 动态规则 (key, value, category: combat/items/search/player/weather/general) |
+| `buff_pool` | Buff 池 (name, icon, is_debuff) |
+| `equipment_series` | 装备系列 (name, slot: weapon/armor/helmet/boots/accessory, icon) |
+| `equipment_tiers` | 装备阶 (series_id, tier, rarity, variant, name, base_atk, base_def, element, passive_id) |
+| `equipment_instances` | 装备实例 (owner_id, room_id, tier_id, is_equipped, durability_current/max, equipped_slot) |
+| `tier_recipes` | 合成配方 (result_tier_id, success_rate, gold_cost, fail_behavior, requires_prev_tier/series) |
+| `recipe_ingredients` | 配方材料 (quantity, is_consumed, is_catalyst, ingredient_type, item/equipment FK) |
+| `passive_skills` | 被动技能 (name, icon, trigger_chance, effect 定义) |
+
+共 **13 张表**。
+
+---
+
+## 五、已实现的核心系统
+
+### 1. 服务端动作层
+- 所有关键写操作收口到 API 路由，客户端通过 `postGameApi()` 调用
+- `gameActions.js` 统一处理：加入房间、移动、搜索、NPC 战斗、逃跑、PvP、道具使用、装备操作
+- 30+ 处日志写入 `gamevars.log`
+
+### 2. 房间生命周期
 - gamestate: 0(等待) → 1(进行中) → 2(结束)
-- 首位玩家加入后切为进行中
-- 最后一人存活时写入 winner 并结束房间
+- 首位玩家加入后自动开始
+- 最后存活者自动判胜并结束房间
+- `computeRoomStats()` + `applyRoomLifecycle()` 集中管理
 
-### 旧文件清理 ✅
-- 根目录 `admin_page.js`, `equipmentEngine.js`, `EquipmentTab.js`, `gameEngine.js` 已删除（git status 标记为 deleted）
+### 3. 装备系统
+- 系列 → 阶 → 变体三级结构
+- 合成树：`checkCanCraft()` 预检 → `executeCraft()` 执行，支持成功率与失败行为
+- 槽位装备/卸下，同槽自动顶替
+- 耐久度系统
+- 被动技能系统 (`triggerPassives()`) 与战斗集成
 
-### 工程辅助 ✅
-- `.eslintrc.json` 已创建
-- `package.json` 含 `lint` / `smoke` 脚本
-- `scripts/smoke-check.mjs` 已创建
-- `.env.example` 含 `SUPABASE_SERVICE_ROLE_KEY`
+### 4. 动态规则引擎
+- `game_rules` 表存储公式字符串
+- `evalFormula()` 沙盒求值，支持变量注入
+- 覆盖：伤害计算、道具效果、搜索概率、玩家初始属性
+- 6 个规则分类：combat / items / search / player / weather / general
+
+### 5. Buff 系统
+- `buff_pool` 表定义 Buff/Debuff
+- `processBuffs()` 处理回合效果
+- 与规则引擎联动
+
+### 6. 实时同步
+- 房间大厅 + 局内页面均通过 Supabase `postgres_changes` 频道实时更新
+
+### 7. 共享日志
+- 所有关键操作统一写入 `gamevars.log`（服务端 JSONB）
+- 通过 `appendGameLog()` / `createLogEntry()` 管理
 
 ---
 
-## 二、与旧版 Readme_Claude 的差异
+## 六、工程配置
 
-上一版 Readme_Claude 指出的大量"未实现"问题，**本轮已全部解决**：
-
-| 旧版指出的问题 | 本轮状态 |
-|---|---|
-| 装备合成 UI 未接入 | ✅ CraftModal.jsx 已实现 |
-| 装备穿戴流程未打通 | ✅ equipment API 支持 equip/unequip |
-| 房间创建无代码 | ✅ rooms API + 大厅按钮 |
-| 胜负结算缺失 | ✅ roomState.js 完整实现 |
-| 共享日志仅本地 | ✅ gamevars.log 服务端写入 |
-| 客户端直接操作 DB | ✅ 关键写操作已收口到 API |
-| 玩家初始属性硬编码 | ✅ getInitPlayerStats() 在服务端调用 |
-| game/[id]/page.js 754行 | ✅ 已拆分，入口仅 1 行 |
-| 根目录旧文件未清理 | ✅ 已删除 |
+- `.eslintrc.json` — extends next/core-web-vitals
+- `scripts/smoke-check.mjs` (50 行) — roomState 函数单元测试
+- `.env.example` — 含 `SUPABASE_SERVICE_ROLE_KEY`
+- `package.json` scripts: `dev`, `build`, `start`, `lint`, `smoke`
 
 ---
 
-## 三、仍需优化 —— 同意 GPT 的判断，补充量化
+## 七、仍需优化
 
-| 问题 | 量化 | 优先级 |
+| 问题 | 说明 | 优先级 |
 |------|------|--------|
-| GameClientPage.jsx 偏重 | 538 行，可继续拆为子组件 | 中 |
-| gameActions.js 分支多 | 单文件承载所有动作 | 中 |
-| 并发安全未升级 | 先读后整包写回，未用 RPC | 高 — 多人核心 |
+| 并发安全 | 先读后整包写回，未用 Supabase RPC / Postgres 原子更新 | 高 |
+| gameActions.js 过大 | 1000+ 行单文件承载所有动作，可按模块拆分 | 中 |
+| GameClientPage.jsx 偏重 | 538 行，可拆为子面板组件 | 中 |
+| EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 中 |
 | smoke 覆盖有限 | 仅核心状态函数 | 低 |
-| 未完成构建验证 | 本地未 `npm run build` | 推送前需验证 |
+| 构建验证 | 需确认 `npm run build` 通过 | 推送前必做 |
 
 ---
 
-## 四、推送前检查清单
+## 八、未实现
 
-### 必做
-- [ ] `npm install && npm run build` — 确认构建通过
-- [ ] `npm run smoke` — 确认 smoke 测试通过
-- [ ] `npm run lint` — 确认无严重 lint 错误
-- [ ] 确认 `.env.example` 不含真实密钥
-- [ ] 确认 `.gitignore` 排除了 `.env`、`node_modules`、`.next`
-
-### 建议
-- [ ] 本地 `npm run dev` 快速走一遍大厅→创建房间→加入→基本操作
-- [ ] 检查 Supabase RLS 策略是否允许新 API 路由的操作
+- 随机装备掉落（搜索/战斗触发）
+- 排行榜 / 战绩沉淀 / 局后奖励
+- 深度移动端适配
+- Supabase RPC 并发写保护
+- 断线重连机制
+- 端到端自动化测试
 
 ---
 
-## 五、当前关键入口（与 GPT 一致）
-
-- `src/app/rooms/page.js` — 大厅、创建房间、加入房间
-- `src/app/game/[id]/GameClientPage.jsx` — 局内页面主容器
-- `src/app/game/[id]/CraftModal.jsx` — 装备合成 UI
-- `src/app/api/game/rooms/route.js` — 管理员创建房间 API
-- `src/app/api/game/actions/route.js` — 局内动作 API
-- `src/app/api/game/equipment/route.js` — 合成/穿戴/卸下 API
-- `src/lib/server/gameActions.js` — 服务端核心动作解析
-- `src/lib/roomState.js` — 房间状态、日志、胜负统计
-
----
-
-## 六、后续工作建议
-
-### P0 — 推送前
-1. 完成上方检查清单
-2. 确认 build 通过后正式提交
-
-### P1 — 下一轮迭代
-3. 随机装备掉落（搜索/战斗时触发）
-4. GameClientPage.jsx 继续拆分（角色面板、背包、地图、战斗）
-5. Supabase RPC 并发写保护
-
-### P2 — 体验完善
-6. 排行榜 / 战绩沉淀
-7. 局后奖励结算
-8. 移动端适配
-
----
-
-## 七、GPT 工作注意事项
+## 九、GPT / 其他 AI 协作注意事项
 
 - **现用代码只在 `src/` 下**，根目录旧文件已删除
-- **gamevars 是整块 jsonb 写入**，加新字段时读最新再写
+- **gamevars 是整块 JSONB 写入**，加新字段时必须读最新再写
 - **后台 tab 用中文**，UI 文案保持中文
 - **样式遵循 GitHub Dark 主题**：bg `#0e1117`，accent `#58a6ff`，danger `#f85149`，success `#3fb950`
-- **Toast 用 useToast()**，弹窗用 Modal，按钮用 BTN() helper
+- **Toast 用 `useToast()`**，弹窗用 Modal，按钮用 `BTN()` helper
 - **管理员判断**用 `isAdmin()`（`src/lib/auth.js`）
+- **装备引擎**和**游戏引擎**支持客户端与服务端双端注入
+- **规则引擎**用 `evalFormula()` 求值，不要硬编码数值
+- **13 张数据库表**，新增表时注意 RLS 策略

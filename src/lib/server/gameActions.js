@@ -14,6 +14,7 @@ import {
   calcEquippedStats,
   consumeDurability,
   executeCraft,
+  rollbackCraftSideEffects,
   triggerPassives,
   tickPassiveCooldowns,
 } from '@/lib/equipmentEngine'
@@ -25,6 +26,48 @@ import {
   getDisplayName,
   normalizeGamevars,
 } from '@/lib/roomState'
+
+/* ── 并发安全：乐观锁 ─────────────────────────── */
+
+export class VersionConflictError extends Error {
+  constructor() {
+    super('VERSION_CONFLICT')
+    this.name = 'VersionConflictError'
+  }
+}
+
+const MAX_RETRIES = 3
+
+export async function withRetry(fn, retries = MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (err instanceof VersionConflictError && attempt < retries) {
+        continue
+      }
+      throw err
+    }
+  }
+}
+
+async function safeConsumeDurability(ownerId, roomId, amount, client) {
+  try {
+    await consumeDurability(ownerId, roomId, amount, client)
+  } catch (error) {
+    console.error('consumeDurability failed', error)
+  }
+}
+
+async function rollbackCraftResult(result, client) {
+  if (!result?.rollback) return
+
+  try {
+    await rollbackCraftSideEffects(result.rollback, client)
+  } catch (error) {
+    console.error('rollbackCraftSideEffects failed', error)
+  }
+}
 
 function getPlayer(gamevars, userId) {
   return gamevars.players?.[userId] || null
@@ -111,15 +154,24 @@ function applyTurnEffects(gamevars, buffPool) {
 async function persistRoom(client, room, gamevars, logs = [], options = {}) {
   const withLogs = logs.length ? appendGameLog(gamevars, logs) : normalizeGamevars(gamevars)
   const { gamevars: nextGamevars, roomPatch } = applyRoomLifecycle(room, withLogs, options)
+
+  const currentVersion = room.version ?? 0
   const { data, error } = await client
     .from('rooms')
-    .update({ ...roomPatch, gamevars: nextGamevars })
+    .update({ ...roomPatch, gamevars: nextGamevars, version: currentVersion + 1 })
     .eq('id', room.id)
+    .eq('version', currentVersion)
     .select('*')
     .single()
 
-  if (error || !data) {
-    throw new Error(error?.message || '房间状态更新失败')
+  if (!data && !error) {
+    throw new VersionConflictError()
+  }
+  if (error?.code === 'PGRST116') {
+    throw new VersionConflictError()
+  }
+  if (error) {
+    throw new Error(error.message || '房间状态更新失败')
   }
 
   return data
@@ -162,6 +214,7 @@ export async function createRoom(client, user, payload = {}) {
       deathnum: 0,
       winner: null,
       started_at: null,
+      version: 0,
       gamevars: appendGameLog(gamevars, createLogEntry(`${getDisplayName(user)} 创建了房间`, 'system')),
     })
     .select('*')
@@ -389,8 +442,9 @@ async function attackNpc(client, room, gamevars, user) {
     if (drops.length) {
       logs.push(createLogEntry(`${player.name} 获得：${drops.join('、')}`, 'heal'))
     }
-    await consumeDurability(user.id, room.id, 1, client)
-    return persistRoom(client, room, nextGamevars, logs)
+    const nextRoom = await persistRoom(client, room, nextGamevars, logs)
+    await safeConsumeDurability(user.id, room.id, 1, client)
+    return nextRoom
   }
 
   const damageIn = calcDamage({ ...battle.npc, hp: npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
@@ -412,8 +466,9 @@ async function attackNpc(client, room, gamevars, user) {
     logs.push(createLogEntry(`${player.name} 在与【${battle.npc.name}】的战斗中倒下了`, 'death'))
   }
 
-  await consumeDurability(user.id, room.id, 1, client)
-  return persistRoom(client, room, nextGamevars, logs)
+  const nextRoom = await persistRoom(client, room, nextGamevars, logs)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
 }
 
 async function fleeNpc(client, room, gamevars, user) {
@@ -530,8 +585,9 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
     logs.push(createLogEntry(`${attacker.name} 击败了 ${target.name}`, 'kill'))
   }
 
-  await consumeDurability(user.id, room.id, 1, client)
-  return persistRoom(client, room, working, logs)
+  const nextRoom = await persistRoom(client, room, working, logs)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
 }
 
 async function useItem(client, room, gamevars, user, itemName) {
@@ -598,10 +654,15 @@ export async function executeEquipmentAction(client, user, payload) {
     const resultTierId = Number(payload.resultTierId)
     if (!resultTierId) throw new Error('缺少目标装备')
     const result = await executeCraft(resultTierId, user.id, roomId, gamevars, client)
-    const nextRoom = await persistRoom(client, room, result.gamevars, [
-      createLogEntry(result.log, result.success ? 'heal' : 'system'),
-    ])
-    return { room: nextRoom, success: result.success }
+    try {
+      const nextRoom = await persistRoom(client, room, result.gamevars, [
+        createLogEntry(result.log, result.success ? 'heal' : 'system'),
+      ])
+      return { room: nextRoom, success: result.success }
+    } catch (error) {
+      await rollbackCraftResult(result, client)
+      throw error
+    }
   }
 
   const { data: instance } = await client

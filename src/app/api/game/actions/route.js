@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { executeGameAction } from '@/lib/server/gameActions'
+import { executeGameAction, withRetry, VersionConflictError } from '@/lib/server/gameActions'
 import { requireRequestUser } from '@/lib/serverSupabase'
 
 export async function POST(request) {
@@ -10,10 +10,12 @@ export async function POST(request) {
 
   try {
     const payload = await request.json()
-    const room = await executeGameAction(auth.supabase, auth.user, payload)
+    const room = await withRetry(() => executeGameAction(auth.supabase, auth.user, payload))
     return NextResponse.json({ room })
   } catch (error) {
+    if (error instanceof VersionConflictError) {
+      return NextResponse.json({ error: '操作冲突，请重试' }, { status: 409 })
+    }
     return NextResponse.json({ error: error.message || '动作执行失败' }, { status: 400 })
   }
 }
-

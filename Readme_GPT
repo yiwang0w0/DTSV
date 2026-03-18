@@ -1,93 +1,82 @@
 # Readme_GPT
 
-更新时间：2026-03-18（Asia/Tokyo）
-整理方式：基于当前仓库源码的二次实现结果整理；已做本地 smoke 校验，未完成实际联机验收与完整构建。
+更新时间：2026-03-19（Asia/Tokyo）
+整理方式：基于当前仓库源码与本轮并发修补结果整理；已完成本地 smoke 与语法级校验，未完成完整构建与浏览器联机回归。
 
-## 本轮更新说明
+## 当前状态
 
-本轮已按“Claude 反馈版计划”完成第一阶段主链路落地，项目状态从“可玩的联机原型”推进到“主流程基本闭环的 v1 雏形”。
+项目现在已经是“主链路基本闭环的 v1 雏形 + rooms 乐观锁一期收尾版”。
 
-已落地的核心变更：
-- 新增服务端写操作入口：
-  - `POST /api/game/rooms`：管理员创建房间
-  - `POST /api/game/actions`：处理 join / search / move / attackNpc / flee / attackPlayer / useItem
-  - `POST /api/game/equipment`：处理 craft / equip / unequip
-- 新增服务端通用能力：
-  - `src/lib/serverSupabase.js`
+相比 2026-03-18 的版本，本轮重点补的是并发写安全：
+- `rooms` 表已经要求存在 `version integer not null default 0`
+- 游戏动作与装备动作的 `rooms` 更新已基于 `id + version` 做乐观锁更新
+- 服务端版本冲突会返回 `409`
+- 客户端遇到 `409` 会自动短重试
+
+## 本轮新增 / 修正
+
+- 并发安全收尾：
   - `src/lib/server/gameActions.js`
-  - `src/lib/roomState.js`
-  - `src/lib/gameApi.js`
-- 房间大厅 `src/app/rooms/page.js` 已改成：
-  - 管理员可直接创建房间
-  - 玩家加入房间走 Next API，不再在前端直接写房间运行态
-  - 加入时改为调用 `getInitPlayerStats()` 初始化角色属性
-- 游戏页已完成拆分：
-  - `src/app/game/[id]/page.js` 仅作入口转发
-  - `src/app/game/[id]/GameClientPage.jsx` 作为页面容器
-  - `src/app/game/[id]/CraftModal.jsx` 负责合成面板
-  - `src/app/game/[id]/gameUi.js` 负责局内通用 UI
-- 共享日志已统一写入 `rooms.gamevars.log`
-  - 搜索、移动、NPC 战斗、逃跑、PvP、用药、合成、装备/卸下、死亡、胜利等都会写共享日志
-- 房间统计与生命周期已收口到服务端：
-  - `validnum / alivenum / deathnum / winner / gamestate` 统一由服务端计算并写回
-  - 房间创建后默认等待中
-  - 首位玩家正式加入后切为进行中
-  - 当只剩最后一名存活玩家时，服务端立即写入 `winner` 并结束房间
-- 装备一期已落地：
-  - 游戏页有合成面板
-  - 支持 `checkCanCraft()` 预检、缺失条件展示、`executeCraft()` 实际执行
-  - 支持查看未装备实例
-  - 支持按槽位装备、同槽自动顶替、主动卸下
-- 旧版重复文件已清理：
-  - 根目录 `admin_page.js`
-  - 根目录 `equipmentEngine.js`
-  - 根目录 `EquipmentTab.js`
-  - 根目录 `gameEngine.js`
-- 工程辅助已补齐：
-  - 新增 `.eslintrc.json`
-  - `package.json` 增加 `lint` / `smoke`
-  - 新增 `scripts/smoke-check.mjs`
-  - `.env.example` 新增 `SUPABASE_SERVICE_ROLE_KEY`
+    - `persistRoom()` 使用 `eq('version', currentVersion)` + `version + 1`
+    - 保留 `VersionConflictError` 和 `withRetry()`
+    - NPC/PvP 战斗的耐久扣减已移动到 `persistRoom()` 成功之后执行，避免版本冲突时重复扣耐久
+  - `src/lib/equipmentEngine.js`
+    - `executeCraft()` 现在会记录合成副作用 journal
+    - 如果 `rooms` 持久化失败或发生版本冲突，会回滚：
+      - 新插入的装备实例
+      - 被消耗的前置装备实例
+      - 失败降阶时被扣掉的前置耐久
+    - 新增 `rollbackCraftSideEffects()`
+- 管理后台不再绕过乐观锁：
+  - `src/app/admin/_tabs/RoomsTab.jsx` 已从前端直连 Supabase 改为调用 `/api/admin/rooms`
+  - `src/app/api/admin/rooms/route.js` 新增 `PATCH`：
+    - 管理员可强制结束房间
+    - 强制结束会写共享日志
+    - 强制结束也会带 `version` 检查
+- 协作记录：
+  - 新增 `progress.md`，记录本轮问题、修补点和验证结果
 
-## 当前已完成
+## 已完成
 
-- 登录、房间大厅、进入对局、后台配置等原有流程继续可用。
-- 大厅页可以实时看到房间变化，创建和加入流程已经改成 API 驱动。
-- 玩家加入房间时，初始 HP / ATK / DEF 已不再硬编码，而是读取 `game_rules`。
-- 游戏主页面已经从单文件大页拆出为容器 + UI + 合成面板，后续继续迭代的可维护性明显更好。
-- 服务端动作层已覆盖第一轮计划中的关键写操作，客户端不再直接承担胜负与状态统计逻辑。
-- `equipmentEngine` 和 `gameEngine` 已补成可注入 client 的形式，能同时服务客户端与服务端动作层。
-- 共享日志机制已经从本地 `useState` 日志改为 `gamevars.log`。
+- 大厅创建房间、加入房间、进入游戏、共享日志、基础战斗、PvP、道具使用、装备合成、穿戴/卸下、管理员后台等主流程继续可用。
+- 关键写操作仍统一走 Next API：
+  - `POST /api/game/rooms`
+  - `POST /api/game/actions`
+  - `POST /api/game/equipment`
+- `rooms.gamevars.log` 仍是共享日志单一来源。
+- `validnum / alivenum / deathnum / winner / gamestate` 仍由服务端统一维护。
+- 根目录旧版重复文件仍已删除，现用代码以 `src/` 为准。
 
 ## 仍需优化
 
-- 目前并发安全仍是“服务端先读最新房间再整包写回”的第一阶段方案，尚未升级到 Supabase RPC / Postgres 原子更新。
-- `src/lib/server/gameActions.js` 现在承载了较多动作分支，后续可以按房间、战斗、道具、装备进一步拆分。
-- 游戏页虽然已拆分，但 `GameClientPage.jsx` 依然偏重，后续可继续拆为角色面板、背包面板、地图面板、战斗面板等子组件。
-- 目前 smoke 只覆盖核心状态函数，尚未形成真正的端到端自动化回归。
-- 实机联机、异常断线重连、多人同时操作覆盖写入等场景还没有完整压测。
+- 当前乐观锁只保护 `rooms` 这一层，尚未上 Supabase RPC / Postgres 事务级原子方案。
+- `gameActions.js` 仍然偏大，后续可以继续按房间、战斗、道具、装备拆分。
+- 装备穿戴/卸下目前虽然已不再绕过房间版本写入，但 `equipment_instances` 自身仍不是事务式更新。
+- 还没有真正的端到端浏览器回归；本地当前缺少 Playwright 包。
+- 仍需要一次完整的 `npm run build` / 联机实测来确认本轮没有隐藏回归。
 
-## 本轮未实现
+## 未实现
 
 - 随机装备掉落
 - 排行榜 / 战绩沉淀 / 局后奖励
 - 深度移动端适配
-- Supabase RPC 并发写保护
-- 管理后台直连 Supabase 的现有编辑逻辑改造
+- 基于 RPC/事务的彻底并发保护
+- 断线重连机制
+- 完整端到端自动化测试
 
-## 验证情况
+## 验证结果
 
 - `npm run smoke`：通过
-- `npm run build`：当前本地环境未安装项目依赖，`next` 不可执行，因此未完成构建验证
-- JSX 文件未跑完整 lint；本次主要依靠 smoke + 关键文件人工复查
+- `node --check src/lib/server/gameActions.js`：通过
+- `node --check src/lib/equipmentEngine.js`：通过
+- `node --check src/app/api/admin/rooms/route.js`：通过
+- Playwright：本地未安装，无法执行浏览器自动回归
 
 ## 当前关键入口
 
-- `src/app/rooms/page.js`：大厅、创建房间、加入房间
-- `src/app/game/[id]/GameClientPage.jsx`：局内页面主容器
-- `src/app/game/[id]/CraftModal.jsx`：装备合成 UI
-- `src/app/api/game/rooms/route.js`：管理员创建房间
-- `src/app/api/game/actions/route.js`：局内动作入口
-- `src/app/api/game/equipment/route.js`：合成/穿戴/卸下入口
-- `src/lib/server/gameActions.js`：服务端核心动作解析
-- `src/lib/roomState.js`：房间状态、日志、胜负统计
+- `src/lib/server/gameActions.js`：游戏动作、版本冲突、房间持久化
+- `src/lib/equipmentEngine.js`：合成执行、合成回滚、耐久逻辑
+- `src/app/api/game/actions/route.js`：动作 API
+- `src/app/api/game/equipment/route.js`：装备 API
+- `src/app/api/admin/rooms/route.js`：管理员删除 / 强制结束房间
+- `src/app/admin/_tabs/RoomsTab.jsx`：后台房间管理 UI

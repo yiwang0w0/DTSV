@@ -1,41 +1,94 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { isAdmin } from '@/lib/auth';
+import { NextResponse } from 'next/server'
+import { requireRequestUser } from '@/lib/serverSupabase'
+import {
+  appendGameLog,
+  computeRoomStats,
+  createLogEntry,
+  getDisplayName,
+  normalizeGamevars,
+} from '@/lib/roomState'
+import { VersionConflictError, withRetry } from '@/lib/server/gameActions'
 
-const serverSupabase = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+async function forceEndRoom(client, user, roomId) {
+  const { data: room, error } = await client.from('rooms').select('*').eq('id', roomId).single()
+  if (error || !room) {
+    throw new Error('房间不存在')
+  }
+
+  if (room.gamestate === 2) {
+    return room
+  }
+
+  const currentVersion = room.version ?? 0
+  const gamevars = normalizeGamevars(room.gamevars)
+  const { alivePlayers } = computeRoomStats(gamevars)
+  const nextGamevars = appendGameLog(gamevars, createLogEntry(`${getDisplayName(user)} 强制结束了房间`, 'system'))
+  const winner = room.winner || (alivePlayers.length === 1 ? alivePlayers[0]?.name || null : null)
+
+  const { data, error: updateError } = await client
+    .from('rooms')
+    .update({
+      gamestate: 2,
+      winner,
+      version: currentVersion + 1,
+      gamevars: nextGamevars,
+    })
+    .eq('id', roomId)
+    .eq('version', currentVersion)
+    .select('*')
+    .single()
+
+  if (!data && !updateError) {
+    throw new VersionConflictError()
+  }
+  if (updateError?.code === 'PGRST116') {
+    throw new VersionConflictError()
+  }
+  if (updateError) {
+    throw new Error(updateError.message || '结束房间失败')
+  }
+
+  return data
+}
+
+export async function PATCH(request) {
+  const auth = await requireRequestUser(request, { admin: true })
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.response.error }, { status: auth.response.status })
+  }
+
+  const payload = await request.json().catch(() => ({}))
+  const roomId = Number(payload.id)
+  if (!roomId) {
+    return NextResponse.json({ error: '缺少房间ID' }, { status: 400 })
+  }
+
+  try {
+    const room = await withRetry(() => forceEndRoom(auth.supabase, auth.user, roomId))
+    return NextResponse.json({ room })
+  } catch (error) {
+    if (error instanceof VersionConflictError) {
+      return NextResponse.json({ error: '操作冲突，请重试' }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message || '结束房间失败' }, { status: 400 })
+  }
+}
 
 export async function DELETE(request) {
-  const url = new URL(request.url);
-  const roomId = url.searchParams.get('id');
+  const auth = await requireRequestUser(request, { admin: true })
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.response.error }, { status: auth.response.status })
+  }
+
+  const roomId = Number(new URL(request.url).searchParams.get('id'))
   if (!roomId) {
-    return NextResponse.json({ error: '缺少房间ID' }, { status: 400 });
+    return NextResponse.json({ error: '缺少房间ID' }, { status: 400 })
   }
 
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (!token) {
-    return NextResponse.json({ error: '未登录' }, { status: 401 });
-  }
-
-  const supabase = serverSupabase();
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser(token);
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: '身份验证失败' }, { status: 401 });
-  }
-  if (!isAdmin(user)) {
-    return NextResponse.json({ error: '无权限' }, { status: 403 });
-  }
-
-  const { error } = await supabase.from('rooms').delete().eq('id', roomId);
+  const { error } = await auth.supabase.from('rooms').delete().eq('id', roomId)
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  return NextResponse.json({ success: true });
+
+  return NextResponse.json({ success: true })
 }

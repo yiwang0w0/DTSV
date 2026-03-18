@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { executeEquipmentAction } from '@/lib/server/gameActions'
+import { executeEquipmentAction, withRetry, VersionConflictError } from '@/lib/server/gameActions'
 import { requireRequestUser } from '@/lib/serverSupabase'
 
 export async function POST(request) {
@@ -10,10 +10,12 @@ export async function POST(request) {
 
   try {
     const payload = await request.json()
-    const result = await executeEquipmentAction(auth.supabase, auth.user, payload)
+    const result = await withRetry(() => executeEquipmentAction(auth.supabase, auth.user, payload))
     return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof VersionConflictError) {
+      return NextResponse.json({ error: '操作冲突，请重试' }, { status: 409 })
+    }
     return NextResponse.json({ error: error.message || '装备操作失败' }, { status: 400 })
   }
 }
-

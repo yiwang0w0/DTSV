@@ -275,6 +275,11 @@ export async function checkCanCraft(
  * @returns {{ success: boolean, instance: object|null, gamevars: object, log: string }}
  */
 export async function executeCraft(resultTierId, ownerId, roomId, gamevars, client = supabase) {
+  const rollback = {
+    insertedInstanceId: null,
+    deletedInstances: [],
+    degradedInstances: [],
+  }
   const { canCraft, missing, recipe } = await checkCanCraft(
     resultTierId,
     buildInventoryMap(gamevars.players?.[ownerId]?.inventory || []),
@@ -285,7 +290,7 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars, clie
   )
 
   if (!canCraft) {
-    return { success: false, instance: null, gamevars, log: `合成失败: ${missing[0]}` }
+    return { success: false, instance: null, gamevars, log: `合成失败: ${missing[0]}`, rollback }
   }
 
   // 掷骰判断成功/失败
@@ -303,13 +308,14 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars, clie
       failLog += '（材料已损失）'
     } else if (recipe.fail_behavior === 'downgrade') {
       // 降阶处理（前置装备耐久度-50%或降为上一阶）
-      await degradePrevTier(ownerId, roomId, recipe.requires_prev_tier_id, client)
+      const degraded = await degradePrevTier(ownerId, roomId, recipe.requires_prev_tier_id, client)
+      if (degraded) rollback.degradedInstances.push(degraded)
       failLog += '（前置装备受损）'
     } else {
       failLog += '（材料保留，可重试）'
     }
 
-    return { success: false, instance: null, gamevars: newGv, log: failLog }
+    return { success: false, instance: null, gamevars: newGv, log: failLog, rollback }
   }
 
   // ✅ 合成成功
@@ -317,34 +323,15 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars, clie
   const newGv = consumeIngredients(gamevars, ownerId, recipe)
 
   // 2. 消耗前置装备（升阶：从实例表删除）
-  if (recipe.requires_prev_tier_id) {
-    await client
-      .from('equipment_instances')
-      .delete()
-      .eq('owner_id', ownerId)
-      .eq('tier_id', recipe.requires_prev_tier_id)
-      .eq('room_id', roomId)
-      .eq('is_equipped', false)
-      .limit(1)
-  } else if (recipe.requires_prev_series_id && recipe.requires_prev_tier_num) {
-    // 宽松匹配：删除任意满足条件的前置装备
-    const { data: prevInstances } = await client
-      .from('equipment_instances')
-      .select('id, tier_id')
-      .eq('owner_id', ownerId)
-      .eq('room_id', roomId)
-      .eq('is_equipped', false)
-
-    const { data: validPrevIds } = await client
-      .from('equipment_tiers')
-      .select('id')
-      .eq('series_id', recipe.requires_prev_series_id)
-      .eq('tier', recipe.requires_prev_tier_num)
-
-    const validIds = new Set((validPrevIds || []).map(t => t.id))
-    const toDelete = (prevInstances || []).find(e => validIds.has(e.tier_id))
-    if (toDelete) {
-      await client.from('equipment_instances').delete().eq('id', toDelete.id)
+  const deletedInstances = await consumePrevTierForCraft(ownerId, roomId, recipe, client)
+  rollback.deletedInstances.push(...deletedInstances)
+  if ((recipe.requires_prev_tier_id || (recipe.requires_prev_series_id && recipe.requires_prev_tier_num)) && deletedInstances.length === 0) {
+    return {
+      success: false,
+      instance: null,
+      gamevars,
+      log: `合成失败: ${playerName} 的前置装备已变化，请重试`,
+      rollback,
     }
   }
 
@@ -366,10 +353,11 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars, clie
     })
     .select()
     .single()
+  rollback.insertedInstanceId = newInstance?.id || null
 
   const log = `🔨 ${playerName} 合成了【${resultTier?.name}】！`
 
-  return { success: true, instance: newInstance, gamevars: newGv, log }
+  return { success: true, instance: newInstance, gamevars: newGv, log, rollback }
 }
 
 /* ── 合成辅助函数 ── */
@@ -420,6 +408,50 @@ async function getPlayerEquipments(ownerId, roomId, client = supabase) {
   return data || []
 }
 
+async function consumePrevTierForCraft(ownerId, roomId, recipe, client = supabase) {
+  if (recipe.requires_prev_tier_id) {
+    const { data: prevInstance } = await client
+      .from('equipment_instances')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .eq('tier_id', recipe.requires_prev_tier_id)
+      .eq('room_id', roomId)
+      .eq('is_equipped', false)
+      .order('id')
+      .limit(1)
+      .maybeSingle()
+
+    if (!prevInstance) return []
+
+    await client.from('equipment_instances').delete().eq('id', prevInstance.id)
+    return [prevInstance]
+  }
+
+  if (recipe.requires_prev_series_id && recipe.requires_prev_tier_num) {
+    const { data: prevInstances } = await client
+      .from('equipment_instances')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .eq('room_id', roomId)
+      .eq('is_equipped', false)
+
+    const { data: validPrevIds } = await client
+      .from('equipment_tiers')
+      .select('id')
+      .eq('series_id', recipe.requires_prev_series_id)
+      .eq('tier', recipe.requires_prev_tier_num)
+
+    const validIds = new Set((validPrevIds || []).map(t => t.id))
+    const toDelete = (prevInstances || []).find(instance => validIds.has(instance.tier_id))
+    if (!toDelete) return []
+
+    await client.from('equipment_instances').delete().eq('id', toDelete.id)
+    return [toDelete]
+  }
+
+  return []
+}
+
 async function degradePrevTier(ownerId, roomId, prevTierId, client = supabase) {
   if (!prevTierId) return
   const { data: inst } = await client
@@ -434,6 +466,27 @@ async function degradePrevTier(ownerId, roomId, prevTierId, client = supabase) {
   // 耐久减半（最低1）
   const newDur = Math.max(1, Math.floor((inst.durability_current || 50) * 0.5))
   await client.from('equipment_instances').update({ durability_current: newDur }).eq('id', inst.id)
+  return { id: inst.id, durability_current: inst.durability_current }
+}
+
+export async function rollbackCraftSideEffects(rollback, client = supabase) {
+  if (!rollback) return
+
+  if (rollback.insertedInstanceId) {
+    await client.from('equipment_instances').delete().eq('id', rollback.insertedInstanceId)
+  }
+
+  for (const instance of rollback.deletedInstances || []) {
+    const { id, ...rest } = instance
+    await client.from('equipment_instances').insert(rest)
+  }
+
+  for (const snapshot of rollback.degradedInstances || []) {
+    await client
+      .from('equipment_instances')
+      .update({ durability_current: snapshot.durability_current })
+      .eq('id', snapshot.id)
+  }
 }
 
 /* ══════════════════════════════════════════════════════
