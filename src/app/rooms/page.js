@@ -1,147 +1,267 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '../layout'
-import { isAdmin } from '@/lib/auth'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
-export default function Rooms() {
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { isAdmin } from '@/lib/auth'
+import { useAuth } from '../layout'
+import { Spinner, useToast } from '../admin/_shared/ui'
+import { postGameApi } from '@/lib/gameApi'
+
+export default function RoomsPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const { show: toast, Container: ToastContainer } = useToast()
+
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(null)
+  const [creating, setCreating] = useState(false)
 
   async function loadRooms() {
-    const { data } = await supabase.from('rooms').select('*').in('gamestate', [0, 1, 2]).order('created_at', { ascending: false })
+    const { data } = await supabase
+      .from('rooms')
+      .select('*')
+      .in('gamestate', [0, 1, 2])
+      .order('created_at', { ascending: false })
     setRooms(data || [])
     setLoading(false)
   }
 
   useEffect(() => {
     loadRooms()
-    const channel = supabase.channel('rooms-changes')
+    const channel = supabase
+      .channel('rooms-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => loadRooms())
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
-  async function joinRoom(room) {
+  async function joinRoom(roomId) {
     if (!user) return
-    setJoining(room.id)
-    const { data: latest } = await supabase.from('rooms').select('gamevars, validnum, alivenum').eq('id', room.id).single()
-    if (!latest) { setJoining(null); return }
-    const gv = latest.gamevars || { players: {}, log: [], turn: 0 }
-    if (gv.players?.[user.id]) { router.push(`/game/${room.id}`); return }
-    const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Player'
-    gv.players[user.id] = { id: user.id, name: username, hp: 100, maxHp: 100, atk: 10, def: 5, map: 0, inventory: [], alive: true, kills: 0 }
-    gv.log = [...(gv.log || []), `${username} 加入了游戏`]
-    await supabase.from('rooms').update({ gamevars: gv, validnum: (latest.validnum || 0) + 1, alivenum: (latest.alivenum || 0) + 1 }).eq('id', room.id)
-    await supabase.from('profiles').update({ roomid: room.id }).eq('id', user.id)
-    router.push(`/game/${room.id}`)
+    setJoining(roomId)
+    try {
+      await postGameApi('/api/game/actions', { roomId, action: 'join' })
+      router.push(`/game/${roomId}`)
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setJoining(null)
+    }
+  }
+
+  async function createRoom() {
+    setCreating(true)
+    try {
+      const { room } = await postGameApi('/api/game/rooms', { gametype: 0 })
+      toast(`房间 #${room.gamenum || room.id} 已创建`)
+      await loadRooms()
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setCreating(false)
+    }
   }
 
   async function deleteRoom(roomId) {
     if (!isAdmin(user)) return
     if (!confirm('确定要删除这个房间吗？')) return
     const session = await supabase.auth.getSession()
-    await fetch(`/api/admin/rooms?id=${roomId}`, {
+    const response = await fetch(`/api/admin/rooms?id=${roomId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${session.data?.session?.access_token}` },
+      headers: {
+        Authorization: `Bearer ${session.data?.session?.access_token}`,
+      },
     })
+
+    if (!response.ok) {
+      toast('删除房间失败', 'error')
+      return
+    }
+
+    toast('房间已删除')
     loadRooms()
   }
 
-  if (!user) return (
-    <div className="animate-in" style={{ textAlign: 'center', padding: 60 }}>
-      <p style={{ color: '#8b949e', fontSize: 16 }}>请先 <Link href="/login" style={{ color: '#58a6ff' }}>登录</Link> 后进入游戏大厅</p>
-    </div>
-  )
+  if (!user) {
+    return (
+      <div className="animate-in" style={{ textAlign: 'center', padding: 60 }}>
+        <p style={{ color: '#8b949e', fontSize: 16 }}>
+          请先 <Link href="/login" style={{ color: '#58a6ff' }}>登录</Link> 后进入游戏大厅
+        </p>
+      </div>
+    )
+  }
+
+  if (loading) return <Spinner />
 
   return (
     <div className="animate-in">
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>🏠 房间大厅</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>系统将自动开启新一局游戏，等待房间开放后加入即可</p>
+      <ToastContainer />
+
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>房间大厅</h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>
+            当前由管理员手动开房。加入房间后会自动用 `game_rules` 初始化角色属性。
+          </p>
+        </div>
+        {isAdmin(user) && (
+          <button
+            onClick={createRoom}
+            disabled={creating}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: '1px solid rgba(88,166,255,0.25)',
+              background: 'rgba(88,166,255,0.12)',
+              color: '#58a6ff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: creating ? 'wait' : 'pointer',
+              opacity: creating ? 0.7 : 1,
+            }}
+          >
+            {creating ? '创建中...' : '+ 创建房间'}
+          </button>
+        )}
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#8b949e' }}>加载中...</div>
-      ) : rooms.length === 0 ? (
+      {rooms.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
-          <p>暂无进行中的游戏，等待系统开启新一局</p>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🪹</div>
+          <p>暂无房间，等待管理员创建新局</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          {rooms.map(r => {
-            const isActive  = r.gamestate === 1
-            const isWaiting = r.gamestate === 0
-            const isEnded   = r.gamestate === 2
-            const playerCount = Object.keys(r.gamevars?.players || {}).length
-            const isInRoom  = !!r.gamevars?.players?.[user.id]
-            const isJoining = joining === r.id
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(280px, 1fr))', gap: 16 }}>
+          {rooms.map(room => {
+            const isActive = room.gamestate === 1
+            const isWaiting = room.gamestate === 0
+            const isEnded = room.gamestate === 2
+            const players = Object.values(room.gamevars?.players || {})
+            const isInRoom = !!room.gamevars?.players?.[user.id]
+            const isJoining = joining === room.id
 
             return (
-              <div key={r.id} style={{
-                background: '#1c2129', borderRadius: 12, border: `1px solid ${isInRoom ? '#58a6ff' : '#30363d'}`,
-                padding: 20, borderLeft: `3px solid ${isEnded ? '#484f58' : isActive ? '#3fb950' : isInRoom ? '#58a6ff' : '#484f58'}`,
-                opacity: isEnded ? 0.6 : 1,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div
+                key={room.id}
+                style={{
+                  background: '#1c2129',
+                  borderRadius: 12,
+                  border: `1px solid ${isInRoom ? '#58a6ff' : '#30363d'}`,
+                  padding: 20,
+                  borderLeft: `3px solid ${isEnded ? '#484f58' : isActive ? '#3fb950' : isInRoom ? '#58a6ff' : '#d29922'}`,
+                  opacity: isEnded ? 0.7 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono'" }}>房间 #{r.id}</span>
-                      {isInRoom && <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, background: 'rgba(88,166,255,0.15)', color: '#58a6ff' }}>你在这里</span>}
+                      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        房间 #{room.gamenum || room.id}
+                      </span>
+                      {isInRoom && (
+                        <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: 'rgba(88,166,255,0.15)', color: '#58a6ff' }}>
+                          你已加入
+                        </span>
+                      )}
                     </div>
                     <div style={{ marginTop: 6 }}>
-                      <span style={{
-                        padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        background: isEnded ? 'rgba(72,79,88,0.3)' : isActive ? 'rgba(63,185,80,0.12)' : 'rgba(210,153,34,0.12)',
-                        color: isEnded ? '#8b949e' : isActive ? '#3fb950' : '#d29922',
-                      }}>{isEnded ? '已结束' : isActive ? '进行中' : '等待中'}</span>
+                      <span
+                        style={{
+                          padding: '2px 10px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: isEnded ? 'rgba(72,79,88,0.3)' : isActive ? 'rgba(63,185,80,0.12)' : 'rgba(210,153,34,0.12)',
+                          color: isEnded ? '#8b949e' : isActive ? '#3fb950' : '#d29922',
+                        }}
+                      >
+                        {isEnded ? '已结束' : isActive ? '进行中' : '等待中'}
+                      </span>
                     </div>
                   </div>
                   {isAdmin(user) && (
-                    <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id) }} title="删除房间"
+                    <button
+                      onClick={() => deleteRoom(room.id)}
+                      title="删除房间"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: 4 }}
-                      onMouseEnter={e => e.target.style.color = '#f85149'} onMouseLeave={e => e.target.style.color = '#484f58'}>🗑️</button>
+                    >
+                      🗑️
+                    </button>
                   )}
                 </div>
 
                 <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
-                  {[{ l: '玩家', v: playerCount, c: '#e6edf3' }, { l: '存活', v: r.alivenum, c: '#3fb950' }, { l: '阵亡', v: r.deathnum, c: '#f85149' }].map(s => (
-                    <div key={s.l} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono'", color: s.c }}>{s.v}</div>
-                      <div style={{ fontSize: 11, color: '#8b949e' }}>{s.l}</div>
+                  {[
+                    { label: '玩家', value: players.length, color: '#e6edf3' },
+                    { label: '存活', value: room.alivenum || 0, color: '#3fb950' },
+                    { label: '阵亡', value: room.deathnum || 0, color: '#f85149' },
+                  ].map(stat => (
+                    <div key={stat.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono'", color: stat.color }}>{stat.value}</div>
+                      <div style={{ fontSize: 11, color: '#8b949e' }}>{stat.label}</div>
                     </div>
                   ))}
                 </div>
 
-                {playerCount > 0 && (
+                {players.length > 0 && (
                   <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {Object.values(r.gamevars?.players || {}).map(p => (
-                      <span key={p.id} style={{
-                        padding: '2px 10px', borderRadius: 12, fontSize: 11,
-                        background: p.alive ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)',
-                        color: p.alive ? '#3fb950' : '#f85149',
-                        border: `1px solid ${p.alive ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)'}`,
-                      }}>{p.id === user.id ? '👤 ' : ''}{p.name}{!p.alive && ' 💀'}</span>
+                    {players.map(player => (
+                      <span
+                        key={player.id || player.uid}
+                        style={{
+                          padding: '2px 10px',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          background: player.alive ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)',
+                          color: player.alive ? '#3fb950' : '#f85149',
+                          border: `1px solid ${player.alive ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)'}`,
+                        }}
+                      >
+                        {(player.id || player.uid) === user.id ? '👤 ' : ''}
+                        {player.name}
+                        {!player.alive && ' 💀'}
+                      </span>
                     ))}
                   </div>
                 )}
 
                 <div style={{ display: 'flex', gap: 8 }}>
                   {isInRoom ? (
-                    <button onClick={() => router.push(`/game/${r.id}`)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: '#58a6ff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 1 }}>▶ 进入游戏</button>
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: '#58a6ff', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      进入游戏
+                    </button>
                   ) : isWaiting ? (
-                    <button onClick={() => joinRoom(r)} disabled={isJoining} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 600, cursor: isJoining ? 'wait' : 'pointer', flex: 1, opacity: isJoining ? 0.6 : 1 }}>
-                      {isJoining ? '加入中...' : '➕ 加入房间'}
+                    <button
+                      onClick={() => joinRoom(room.id)}
+                      disabled={isJoining}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 700, cursor: isJoining ? 'wait' : 'pointer', flex: 1, opacity: isJoining ? 0.6 : 1 }}
+                    >
+                      {isJoining ? '加入中...' : '加入房间'}
                     </button>
                   ) : isActive ? (
-                    <button onClick={() => router.push(`/game/${r.id}`)} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(210,153,34,0.12)', color: '#d29922', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 1 }}>👁️ 观战</button>
-                  ) : null}
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(210,153,34,0.12)', color: '#d29922', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      观战 / 查看
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(72,79,88,0.2)', color: '#8b949e', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      查看结算
+                    </button>
+                  )}
                 </div>
               </div>
             )

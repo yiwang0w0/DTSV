@@ -1,101 +1,93 @@
 # Readme_GPT
 
 更新时间：2026-03-18（Asia/Tokyo）
-整理方式：基于当前仓库源码梳理，未做实际联机/构建验证。
+整理方式：基于当前仓库源码的二次实现结果整理；已做本地 smoke 校验，未完成实际联机验收与完整构建。
 
-## 当前定位
+## 本轮更新说明
 
-- 这是一个基于 `Next.js 14 App Router + React 18 + Supabase` 的 Web 大逃杀项目。
-- 当前已经不是“纯静态原型”，而是具备登录、房间大厅、进入对局、基础战斗和后台配置的可玩原型。
-- 现阶段最成熟的部分是“数据驱动的后台配置 + 单局内基础玩法”；最欠缺的是“房间生命周期闭环”和“装备系统玩家侧落地”。
+本轮已按“Claude 反馈版计划”完成第一阶段主链路落地，项目状态从“可玩的联机原型”推进到“主流程基本闭环的 v1 雏形”。
 
-## 已完成
+已落地的核心变更：
+- 新增服务端写操作入口：
+  - `POST /api/game/rooms`：管理员创建房间
+  - `POST /api/game/actions`：处理 join / search / move / attackNpc / flee / attackPlayer / useItem
+  - `POST /api/game/equipment`：处理 craft / equip / unequip
+- 新增服务端通用能力：
+  - `src/lib/serverSupabase.js`
+  - `src/lib/server/gameActions.js`
+  - `src/lib/roomState.js`
+  - `src/lib/gameApi.js`
+- 房间大厅 `src/app/rooms/page.js` 已改成：
+  - 管理员可直接创建房间
+  - 玩家加入房间走 Next API，不再在前端直接写房间运行态
+  - 加入时改为调用 `getInitPlayerStats()` 初始化角色属性
+- 游戏页已完成拆分：
+  - `src/app/game/[id]/page.js` 仅作入口转发
+  - `src/app/game/[id]/GameClientPage.jsx` 作为页面容器
+  - `src/app/game/[id]/CraftModal.jsx` 负责合成面板
+  - `src/app/game/[id]/gameUi.js` 负责局内通用 UI
+- 共享日志已统一写入 `rooms.gamevars.log`
+  - 搜索、移动、NPC 战斗、逃跑、PvP、用药、合成、装备/卸下、死亡、胜利等都会写共享日志
+- 房间统计与生命周期已收口到服务端：
+  - `validnum / alivenum / deathnum / winner / gamestate` 统一由服务端计算并写回
+  - 房间创建后默认等待中
+  - 首位玩家正式加入后切为进行中
+  - 当只剩最后一名存活玩家时，服务端立即写入 `winner` 并结束房间
+- 装备一期已落地：
+  - 游戏页有合成面板
+  - 支持 `checkCanCraft()` 预检、缺失条件展示、`executeCraft()` 实际执行
+  - 支持查看未装备实例
+  - 支持按槽位装备、同槽自动顶替、主动卸下
+- 旧版重复文件已清理：
+  - 根目录 `admin_page.js`
+  - 根目录 `equipmentEngine.js`
+  - 根目录 `EquipmentTab.js`
+  - 根目录 `gameEngine.js`
+- 工程辅助已补齐：
+  - 新增 `.eslintrc.json`
+  - `package.json` 增加 `lint` / `smoke`
+  - 新增 `scripts/smoke-check.mjs`
+  - `.env.example` 新增 `SUPABASE_SERVICE_ROLE_KEY`
 
-- 账号体系已接好：注册、登录、登出、Auth Context、管理员识别都已完成。
-- 首页、房间大厅、游戏页、后台页都已接通，前端主流程完整。
-- 房间大厅可实时拉取房间列表，并通过 Supabase realtime 监听房间变化。
-- 玩家可以加入房间，角色会写入 `rooms.gamevars.players`，并同步更新 `profiles.roomid`。
-- 游戏内基础动作已经可用：
-- 搜索区域
-- 地图切换
-- 遭遇 NPC、攻击 NPC、逃跑
-- 玩家间 PvP 攻击
-- 使用道具
-- Buff 结算
-- 天气对搜索/战斗的影响
-- 规则系统已做成数据驱动，`src/lib/gameEngine.js` 会从 `game_rules`、`buff_pool` 读取参数并计算战斗。
-- 装备引擎的核心库已经存在，包含：
-- 装备属性汇总
-- 被动技能触发
-- 耐久消耗
-- 合成树查询
-- 合成条件检查
-- 合成执行逻辑
-- 后台已具备较完整的数据维护能力，能管理：
-- 道具池
-- NPC 池
-- 地图配置
-- 房间列表
-- 战斗规则 / Buff
-- 装备系列 / 升阶树 / 被动技能
+## 当前已完成
 
-## 需优化
+- 登录、房间大厅、进入对局、后台配置等原有流程继续可用。
+- 大厅页可以实时看到房间变化，创建和加入流程已经改成 API 驱动。
+- 玩家加入房间时，初始 HP / ATK / DEF 已不再硬编码，而是读取 `game_rules`。
+- 游戏主页面已经从单文件大页拆出为容器 + UI + 合成面板，后续继续迭代的可维护性明显更好。
+- 服务端动作层已覆盖第一轮计划中的关键写操作，客户端不再直接承担胜负与状态统计逻辑。
+- `equipmentEngine` 和 `gameEngine` 已补成可注入 client 的形式，能同时服务客户端与服务端动作层。
+- 共享日志机制已经从本地 `useState` 日志改为 `gamevars.log`。
 
-- `src/app/game/[id]/page.js` 目前接近单文件承载全部游戏 UI 和业务逻辑，维护成本较高，建议拆成：
-- 页面容器
-- 战斗逻辑 hooks
-- 背包/日志/地图/角色状态等子组件
-- 装备后台相关文件也偏大，例如：
-- `src/app/admin/_tabs/EquipmentSeriesSection.jsx`
-- `src/lib/equipmentEngine.js`
-- 当前大量更新是前端直接整块写回 `rooms.gamevars`，多人同时操作时存在覆盖写入风险，后续需要做更稳的并发控制。
-- 当前绝大多数数据库写操作都在客户端直接调用 Supabase；服务端 API 目前只看到一个删除房间接口，权限与安全策略后续还要补强。
-- 房间页展示的统计字段一部分来自 `rooms` 表字段，一部分来自 `gamevars.players` 现算，数据来源还不够统一。
-- 缺少自动化保障：`package.json` 里目前没有 `test` / `lint` 脚本，仓库里也没看到测试体系。
-- 游戏页布局明显偏桌面端，固定三栏宽度较重，移动端体验大概率还需要专门优化。
-- 根目录存在一批和 `src/` 内逻辑重复的旧文件：
-- `admin_page.js`
-- `equipmentEngine.js`
-- `EquipmentTab.js`
-- `gameEngine.js`
-- 这些文件容易干扰后续 AI/开发者判断“哪份才是现用代码”，建议后续整理。
+## 仍需优化
 
-## 未实现 / 未完全打通
+- 目前并发安全仍是“服务端先读最新房间再整包写回”的第一阶段方案，尚未升级到 Supabase RPC / Postgres 原子更新。
+- `src/lib/server/gameActions.js` 现在承载了较多动作分支，后续可以按房间、战斗、道具、装备进一步拆分。
+- 游戏页虽然已拆分，但 `GameClientPage.jsx` 依然偏重，后续可继续拆为角色面板、背包面板、地图面板、战斗面板等子组件。
+- 目前 smoke 只覆盖核心状态函数，尚未形成真正的端到端自动化回归。
+- 实机联机、异常断线重连、多人同时操作覆盖写入等场景还没有完整压测。
 
-- 玩家侧装备合成还没有真正接入游戏页面。
-- `src/app/game/[id]/page.js` 里有 `craftOpen` 状态和“道具合成”按钮。
-- `src/lib/equipmentEngine.js` 里也已经有 `executeCraft()`。
-- 但当前游戏页里没有看到真正渲染出的合成面板/弹窗，也没有看到实际调用 `executeCraft()` 的代码。
-- 装备“穿上”流程没有打通。
-- 当前游戏页能展示已装备物品，也能“卸下装备”。
-- 但没有看到玩家在正常流程中获得装备实例、查看未装备实例、把实例装备到槽位的完整代码。
-- 房间生命周期闭环还不完整。
-- 在当前 `src/` 中没有看到创建新房间/自动开新局的实现。
-- 也没有看到玩家死亡后同步更新 `alivenum`、`deathnum`、`winner`、`gamestate` 的完整逻辑。
-- 也就是说，“能进房、能打”，但“谁赢了、何时结算、房间何时正式结束”还没有真正闭环。
-- 游戏日志目前主要是本地页面状态。
-- `game/[id]/page.js` 里的日志通过 `useState` 本地维护。
-- 除了加入房间时对 `gv.log` 写入一条外，没有看到完整的共享战斗日志持久化逻辑。
-- 因此多人视角下的统一战报、回放感、旁观一致性都还不完整。
-- 没看到结算奖励、掉落归档、战绩沉淀、排行榜等局后系统。
-- 没看到真正的“开局 -> 进行中 -> 结算 -> 下一局”调度链路。
+## 本轮未实现
 
-## 当前判断
+- 随机装备掉落
+- 排行榜 / 战绩沉淀 / 局后奖励
+- 深度移动端适配
+- Supabase RPC 并发写保护
+- 管理后台直连 Supabase 的现有编辑逻辑改造
 
-- 这个项目现在更像“可玩的联机原型 + 内容配置后台”，而不是已经完整闭环的正式版。
-- 核心战斗和后台配置已经搭起来了，说明基础方向是对的。
-- 下一阶段最值得优先补的是：
-- 房间创建 / 开局 / 结束 / 胜负结算
-- `gamevars` 并发写入安全
-- 装备获取 / 装备 / 合成 UI 真正接到玩家流程
-- 多人共享日志与局内状态一致性
+## 验证情况
 
-## 关键入口文件
+- `npm run smoke`：通过
+- `npm run build`：当前本地环境未安装项目依赖，`next` 不可执行，因此未完成构建验证
+- JSX 文件未跑完整 lint；本次主要依靠 smoke + 关键文件人工复查
 
-- `src/app/page.js`：首页
-- `src/app/rooms/page.js`：房间大厅 / 加入房间
-- `src/app/game/[id]/page.js`：主游戏页面，当前核心玩法主要集中在这里
-- `src/app/admin/page.js`：后台入口
-- `src/lib/gameEngine.js`：规则、伤害、Buff、搜索概率
-- `src/lib/equipmentEngine.js`：装备、被动、耐久、合成相关逻辑
+## 当前关键入口
 
+- `src/app/rooms/page.js`：大厅、创建房间、加入房间
+- `src/app/game/[id]/GameClientPage.jsx`：局内页面主容器
+- `src/app/game/[id]/CraftModal.jsx`：装备合成 UI
+- `src/app/api/game/rooms/route.js`：管理员创建房间
+- `src/app/api/game/actions/route.js`：局内动作入口
+- `src/app/api/game/equipment/route.js`：合成/穿戴/卸下入口
+- `src/lib/server/gameActions.js`：服务端核心动作解析
+- `src/lib/roomState.js`：房间状态、日志、胜负统计

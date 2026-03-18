@@ -55,11 +55,11 @@ export const SLOT_META = {
  * @param {number} depth - 内部递归深度控制
  * @returns {object} 树节点
  */
-export async function getCraftingTree(tierId, depth = 0) {
+export async function getCraftingTree(tierId, depth = 0, client = supabase) {
   if (depth > 10) return null  // 防止循环依赖
 
   // 查询装备定义
-  const { data: tier } = await supabase
+  const { data: tier } = await client
     .from('equipment_tiers')
     .select(`
       *,
@@ -72,7 +72,7 @@ export async function getCraftingTree(tierId, depth = 0) {
   if (!tier) return null
 
   // 查询配方
-  const { data: recipe } = await supabase
+  const { data: recipe } = await client
     .from('tier_recipes')
     .select(`
       *,
@@ -86,7 +86,7 @@ export async function getCraftingTree(tierId, depth = 0) {
     .single()
 
   // 查询同阶兄弟变体（分支展示用）
-  const { data: siblings } = await supabase
+  const { data: siblings } = await client
     .from('equipment_tiers')
     .select('id, name, variant, rarity, element, base_atk, base_def')
     .eq('series_id', tier.series_id)
@@ -96,10 +96,10 @@ export async function getCraftingTree(tierId, depth = 0) {
   // 递归查询前置装备
   let prevTierTree = null
   if (recipe?.requires_prev_tier_id) {
-    prevTierTree = await getCraftingTree(recipe.requires_prev_tier_id, depth + 1)
+    prevTierTree = await getCraftingTree(recipe.requires_prev_tier_id, depth + 1, client)
   } else if (recipe?.requires_prev_series_id && recipe?.requires_prev_tier_num) {
     // 宽松匹配：接受任意变体，取主线（variant=null）作代表展示
-    const { data: anyPrev } = await supabase
+    const { data: anyPrev } = await client
       .from('equipment_tiers')
       .select('id')
       .eq('series_id', recipe.requires_prev_series_id)
@@ -107,7 +107,7 @@ export async function getCraftingTree(tierId, depth = 0) {
       .is('variant', null)
       .single()
     if (anyPrev) {
-      prevTierTree = await getCraftingTree(anyPrev.id, depth + 1)
+      prevTierTree = await getCraftingTree(anyPrev.id, depth + 1, client)
       prevTierTree._isFlexMatch = true  // 标记为宽松匹配（接受任意变体）
     }
   }
@@ -128,8 +128,8 @@ export async function getCraftingTree(tierId, depth = 0) {
  * 获取某系列的完整升阶树（从 T1 开始向下展开）
  * 用于后台「金字塔预览」
  */
-export async function getSeriesTree(seriesId) {
-  const { data: allTiers } = await supabase
+export async function getSeriesTree(seriesId, client = supabase) {
+  const { data: allTiers } = await client
     .from('equipment_tiers')
     .select(`
       *,
@@ -179,10 +179,11 @@ export async function checkCanCraft(
   playerInventory,
   playerEquipments,
   playerLevel = 1,
-  playerClass = ''
+  playerClass = '',
+  client = supabase
 ) {
   // 加载配方
-  const { data: recipe } = await supabase
+  const { data: recipe } = await client
     .from('tier_recipes')
     .select(`
       *,
@@ -224,7 +225,7 @@ export async function checkCanCraft(
 
   // ③' 前置装备（宽松匹配：接受任意变体）
   if (!recipe.requires_prev_tier_id && recipe.requires_prev_series_id && recipe.requires_prev_tier_num) {
-    const { data: validPrevIds } = await supabase
+    const { data: validPrevIds } = await client
       .from('equipment_tiers')
       .select('id')
       .eq('series_id', recipe.requires_prev_series_id)
@@ -241,8 +242,8 @@ export async function checkCanCraft(
   for (const ing of recipe.ingredients || []) {
     if (ing.ingredient_type === 'item') {
       const have = playerInventory
-        .filter(i => i.item_id === ing.item_id)
-        .reduce((s, i) => s + i.count, 0)
+        .filter(i => i.item_id === ing.item_id || i.name === ing.item?.name)
+        .reduce((s, i) => s + (i.count || 0), 0)
       if (have < ing.quantity) {
         missing.push(`${ing.item?.name || '材料'} 不足（${have}/${ing.quantity}）`)
       }
@@ -273,12 +274,14 @@ export async function checkCanCraft(
  * @param {object} gamevars - 当前 gamevars（用于从 inventory 扣材料）
  * @returns {{ success: boolean, instance: object|null, gamevars: object, log: string }}
  */
-export async function executeCraft(resultTierId, ownerId, roomId, gamevars) {
+export async function executeCraft(resultTierId, ownerId, roomId, gamevars, client = supabase) {
   const { canCraft, missing, recipe } = await checkCanCraft(
     resultTierId,
     buildInventoryMap(gamevars.players?.[ownerId]?.inventory || []),
-    await getPlayerEquipments(ownerId, roomId),
-    gamevars.players?.[ownerId]?.level || 1
+    await getPlayerEquipments(ownerId, roomId, client),
+    gamevars.players?.[ownerId]?.level || 1,
+    '',
+    client
   )
 
   if (!canCraft) {
@@ -300,7 +303,7 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars) {
       failLog += '（材料已损失）'
     } else if (recipe.fail_behavior === 'downgrade') {
       // 降阶处理（前置装备耐久度-50%或降为上一阶）
-      await degradePrevTier(ownerId, roomId, recipe.requires_prev_tier_id)
+      await degradePrevTier(ownerId, roomId, recipe.requires_prev_tier_id, client)
       failLog += '（前置装备受损）'
     } else {
       failLog += '（材料保留，可重试）'
@@ -315,7 +318,7 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars) {
 
   // 2. 消耗前置装备（升阶：从实例表删除）
   if (recipe.requires_prev_tier_id) {
-    await supabase
+    await client
       .from('equipment_instances')
       .delete()
       .eq('owner_id', ownerId)
@@ -325,14 +328,14 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars) {
       .limit(1)
   } else if (recipe.requires_prev_series_id && recipe.requires_prev_tier_num) {
     // 宽松匹配：删除任意满足条件的前置装备
-    const { data: prevInstances } = await supabase
+    const { data: prevInstances } = await client
       .from('equipment_instances')
       .select('id, tier_id')
       .eq('owner_id', ownerId)
       .eq('room_id', roomId)
       .eq('is_equipped', false)
 
-    const { data: validPrevIds } = await supabase
+    const { data: validPrevIds } = await client
       .from('equipment_tiers')
       .select('id')
       .eq('series_id', recipe.requires_prev_series_id)
@@ -341,19 +344,19 @@ export async function executeCraft(resultTierId, ownerId, roomId, gamevars) {
     const validIds = new Set((validPrevIds || []).map(t => t.id))
     const toDelete = (prevInstances || []).find(e => validIds.has(e.tier_id))
     if (toDelete) {
-      await supabase.from('equipment_instances').delete().eq('id', toDelete.id)
+      await client.from('equipment_instances').delete().eq('id', toDelete.id)
     }
   }
 
   // 3. 获取新装备的耐久度默认值
-  const { data: resultTier } = await supabase
+  const { data: resultTier } = await client
     .from('equipment_tiers')
     .select('durability_max, name')
     .eq('id', resultTierId)
     .single()
 
   // 4. 创建新装备实例
-  const { data: newInstance } = await supabase
+  const { data: newInstance } = await client
     .from('equipment_instances')
     .insert({
       tier_id: resultTierId,
@@ -408,8 +411,8 @@ function consumeIngredients(gamevars, ownerId, recipe) {
   }
 }
 
-async function getPlayerEquipments(ownerId, roomId) {
-  const { data } = await supabase
+async function getPlayerEquipments(ownerId, roomId, client = supabase) {
+  const { data } = await client
     .from('equipment_instances')
     .select('id, tier_id, is_equipped, durability_current')
     .eq('owner_id', ownerId)
@@ -417,9 +420,9 @@ async function getPlayerEquipments(ownerId, roomId) {
   return data || []
 }
 
-async function degradePrevTier(ownerId, roomId, prevTierId) {
+async function degradePrevTier(ownerId, roomId, prevTierId, client = supabase) {
   if (!prevTierId) return
-  const { data: inst } = await supabase
+  const { data: inst } = await client
     .from('equipment_instances')
     .select('id, durability_current')
     .eq('owner_id', ownerId)
@@ -430,7 +433,7 @@ async function degradePrevTier(ownerId, roomId, prevTierId) {
   if (!inst) return
   // 耐久减半（最低1）
   const newDur = Math.max(1, Math.floor((inst.durability_current || 50) * 0.5))
-  await supabase.from('equipment_instances').update({ durability_current: newDur }).eq('id', inst.id)
+  await client.from('equipment_instances').update({ durability_current: newDur }).eq('id', inst.id)
 }
 
 /* ══════════════════════════════════════════════════════
@@ -583,8 +586,8 @@ export function tickPassiveCooldowns(player) {
 /**
  * 耐久度扣减（每次战斗/搜索后调用）
  */
-export async function consumeDurability(ownerId, roomId, amount = 1) {
-  const { data: instances } = await supabase
+export async function consumeDurability(ownerId, roomId, amount = 1, client = supabase) {
+  const { data: instances } = await client
     .from('equipment_instances')
     .select('id, durability_current')
     .eq('owner_id', ownerId)
@@ -594,7 +597,7 @@ export async function consumeDurability(ownerId, roomId, amount = 1) {
 
   for (const inst of instances || []) {
     const newDur = Math.max(0, inst.durability_current - amount)
-    await supabase.from('equipment_instances')
+    await client.from('equipment_instances')
       .update({ durability_current: newDur, is_equipped: newDur > 0 })
       .eq('id', inst.id)
     // 耐久归零时自动卸下

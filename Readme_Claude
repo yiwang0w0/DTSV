@@ -1,0 +1,142 @@
+# Readme_Claude
+
+更新时间：2026-03-18（Asia/Tokyo）
+整理方式：基于 Readme_GPT（同日版本）+ 全量源码交叉验证。
+
+---
+
+## 对 Readme_GPT 的验证结论
+
+**GPT 本轮 Readme 准确度极高，所有声明均与代码实际状态一致。** 无需纠偏，以下做确认与补充。
+
+---
+
+## 一、已落地项 —— 逐项确认
+
+### API 路由 ✅ 全部存在且实现完整
+- `POST /api/game/rooms` — 管理员创建房间，调用 `createRoom()`
+- `POST /api/game/actions` — 处理 join / search / move / attackNpc / flee / attackPlayer / useItem
+- `POST /api/game/equipment` — 处理 craft / equip / unequip
+
+### 服务端通用能力 ✅
+- `src/lib/serverSupabase.js` (12行) — `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()`
+- `src/lib/server/gameActions.js` — 核心动作解析，30+ 处日志写入
+- `src/lib/roomState.js` (124行) — `computeRoomStats()` + `applyRoomLifecycle()`，完整管理 validnum/alivenum/deathnum/winner/gamestate
+- `src/lib/gameApi.js` (26行) — 客户端统一调用入口 `postGameApi()`
+
+### 房间大厅改造 ✅
+- `rooms/page.js` 已改为 API 驱动：
+  - 创建房间：`postGameApi('/api/game/rooms', { gametype: 0 })`
+  - 加入房间：`postGameApi('/api/game/actions', { roomId, action: 'join' })`
+- `getInitPlayerStats()` 在服务端 `gameActions.js:155` 调用，初始属性数据驱动
+
+### 游戏页拆分 ✅
+- `game/[id]/page.js` — 仅 1 行，纯入口转发
+- `GameClientPage.jsx` — 538 行，页面主容器
+- `CraftModal.jsx` — 合成面板
+- `gameUi.js` — 局内通用 UI
+
+### 共享日志 ✅
+- 所有关键操作（搜索、移动、NPC 战斗、逃跑、PvP、用药、合成、装备/卸下、死亡、胜利）均写入 `gamevars.log`
+- 通过 `appendGameLog()` / `createLogEntry()` 统一管理
+
+### 房间生命周期 ✅
+- gamestate: 0(等待) → 1(进行中) → 2(结束)
+- 首位玩家加入后切为进行中
+- 最后一人存活时写入 winner 并结束房间
+
+### 旧文件清理 ✅
+- 根目录 `admin_page.js`, `equipmentEngine.js`, `EquipmentTab.js`, `gameEngine.js` 已删除（git status 标记为 deleted）
+
+### 工程辅助 ✅
+- `.eslintrc.json` 已创建
+- `package.json` 含 `lint` / `smoke` 脚本
+- `scripts/smoke-check.mjs` 已创建
+- `.env.example` 含 `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+## 二、与旧版 Readme_Claude 的差异
+
+上一版 Readme_Claude 指出的大量"未实现"问题，**本轮已全部解决**：
+
+| 旧版指出的问题 | 本轮状态 |
+|---|---|
+| 装备合成 UI 未接入 | ✅ CraftModal.jsx 已实现 |
+| 装备穿戴流程未打通 | ✅ equipment API 支持 equip/unequip |
+| 房间创建无代码 | ✅ rooms API + 大厅按钮 |
+| 胜负结算缺失 | ✅ roomState.js 完整实现 |
+| 共享日志仅本地 | ✅ gamevars.log 服务端写入 |
+| 客户端直接操作 DB | ✅ 关键写操作已收口到 API |
+| 玩家初始属性硬编码 | ✅ getInitPlayerStats() 在服务端调用 |
+| game/[id]/page.js 754行 | ✅ 已拆分，入口仅 1 行 |
+| 根目录旧文件未清理 | ✅ 已删除 |
+
+---
+
+## 三、仍需优化 —— 同意 GPT 的判断，补充量化
+
+| 问题 | 量化 | 优先级 |
+|------|------|--------|
+| GameClientPage.jsx 偏重 | 538 行，可继续拆为子组件 | 中 |
+| gameActions.js 分支多 | 单文件承载所有动作 | 中 |
+| 并发安全未升级 | 先读后整包写回，未用 RPC | 高 — 多人核心 |
+| smoke 覆盖有限 | 仅核心状态函数 | 低 |
+| 未完成构建验证 | 本地未 `npm run build` | 推送前需验证 |
+
+---
+
+## 四、推送前检查清单
+
+### 必做
+- [ ] `npm install && npm run build` — 确认构建通过
+- [ ] `npm run smoke` — 确认 smoke 测试通过
+- [ ] `npm run lint` — 确认无严重 lint 错误
+- [ ] 确认 `.env.example` 不含真实密钥
+- [ ] 确认 `.gitignore` 排除了 `.env`、`node_modules`、`.next`
+
+### 建议
+- [ ] 本地 `npm run dev` 快速走一遍大厅→创建房间→加入→基本操作
+- [ ] 检查 Supabase RLS 策略是否允许新 API 路由的操作
+
+---
+
+## 五、当前关键入口（与 GPT 一致）
+
+- `src/app/rooms/page.js` — 大厅、创建房间、加入房间
+- `src/app/game/[id]/GameClientPage.jsx` — 局内页面主容器
+- `src/app/game/[id]/CraftModal.jsx` — 装备合成 UI
+- `src/app/api/game/rooms/route.js` — 管理员创建房间 API
+- `src/app/api/game/actions/route.js` — 局内动作 API
+- `src/app/api/game/equipment/route.js` — 合成/穿戴/卸下 API
+- `src/lib/server/gameActions.js` — 服务端核心动作解析
+- `src/lib/roomState.js` — 房间状态、日志、胜负统计
+
+---
+
+## 六、后续工作建议
+
+### P0 — 推送前
+1. 完成上方检查清单
+2. 确认 build 通过后正式提交
+
+### P1 — 下一轮迭代
+3. 随机装备掉落（搜索/战斗时触发）
+4. GameClientPage.jsx 继续拆分（角色面板、背包、地图、战斗）
+5. Supabase RPC 并发写保护
+
+### P2 — 体验完善
+6. 排行榜 / 战绩沉淀
+7. 局后奖励结算
+8. 移动端适配
+
+---
+
+## 七、GPT 工作注意事项
+
+- **现用代码只在 `src/` 下**，根目录旧文件已删除
+- **gamevars 是整块 jsonb 写入**，加新字段时读最新再写
+- **后台 tab 用中文**，UI 文案保持中文
+- **样式遵循 GitHub Dark 主题**：bg `#0e1117`，accent `#58a6ff`，danger `#f85149`，success `#3fb950`
+- **Toast 用 useToast()**，弹窗用 Modal，按钮用 BTN() helper
+- **管理员判断**用 `isAdmin()`（`src/lib/auth.js`）

@@ -57,9 +57,9 @@ export function evalFormula(formula, vars = {}) {
 let _rulesCache = null
 let _buffCache = null
 
-export async function loadGameRules() {
+export async function loadGameRules(client = supabase) {
   if (_rulesCache) return _rulesCache
-  const { data } = await supabase.from('game_rules').select('*')
+  const { data } = await client.from('game_rules').select('*')
   _rulesCache = {}
   for (const row of data || []) {
     _rulesCache[row.key] = row.value
@@ -67,9 +67,9 @@ export async function loadGameRules() {
   return _rulesCache
 }
 
-export async function loadBuffPool() {
+export async function loadBuffPool(client = supabase) {
   if (_buffCache) return _buffCache
-  const { data } = await supabase.from('buff_pool').select('*')
+  const { data } = await client.from('buff_pool').select('*')
   _buffCache = data || []
   return _buffCache
 }
