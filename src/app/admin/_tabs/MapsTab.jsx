@@ -140,7 +140,6 @@ export default function MapsTab({ maps, setMaps, items = [], onRefreshItems, toa
               </select>
             </div>
             <div><label style={LABEL}>最大玩家数</label><input type="number" style={INPUT} value={sel.max_players || 10} onChange={e => update(sel.map_id, { max_players: Number(e.target.value) })} /></div>
-            <div><label style={LABEL}>危险度 (1-5)</label><input type="number" min={1} max={5} style={INPUT} value={sel.danger_level || 1} onChange={e => update(sel.map_id, { danger_level: Number(e.target.value) })} /></div>
             <div style={{ gridColumn: '1/-1' }}><label style={LABEL}>地图名称</label><input style={INPUT} value={sel.name || ''} onChange={e => update(sel.map_id, { name: e.target.value })} /></div>
             <div style={{ gridColumn: '1/-1' }}><label style={LABEL}>描述</label><input style={INPUT} value={sel.description || ''} onChange={e => update(sel.map_id, { description: e.target.value })} placeholder="地图描述（可选）" /></div>
           </div>

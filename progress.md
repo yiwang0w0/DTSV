@@ -1,6 +1,30 @@
 Original prompt: 那帮我补齐，记得最后更新readme_GPT
 
 2026-03-20
+- 目标：按“优先事件结算器”的方向，先给现有动作层补一层轻量共享结算管线，并移除地图冗余的 `danger_level` 配置。
+- 已完成：
+  - 新增 `src/lib/eventResolver.js`
+    - 提供 `createActionResolution()`、`runTurnStartSettlement()`、`settleNewDeaths()`、日志/玩家状态写回 helper。
+  - `src/lib/server/gameActions.js`
+    - 新增 `resolveSearchAction()`、`resolveNpcAttackAction()`、`resolveNpcFleeAction()`、`resolvePlayerAttackAction()`、`resolveUseItemAction()`。
+    - `search / attackNpc / flee / attackPlayer / useItem` 现已统一走新的事件结算器入口。
+    - 抽出 `settleCorpseGeneration()` 与 `persistResolution()`，把 Buff 结算、死亡转尸体、日志累积收口到共享流程。
+  - `src/app/admin/_tabs/MapsTab.jsx`
+    - 删除 `danger_level` 编辑项。
+    - `src/` 内已搜索确认无 `danger_level` 残留引用。
+    - 这轮默认只做代码层移除，数据库列未实际 drop。
+- 验证：
+  - `node --check src/lib/server/gameActions.js`：通过
+  - `node --check src/lib/eventResolver.js`：通过
+  - `npm run smoke`：通过
+  - `npm ls playwright`：本地未安装
+  - `node --check src/app/admin/_tabs/MapsTab.jsx`：Node 原生不支持直接检查 `.jsx`
+- 剩余：
+  - `gameActions.js` 里旧版实现残段仍在，虽然主入口已不再走它们，但后续最好继续拆掉，避免文件继续膨胀。
+  - 还没补事件结算/尸体专项 smoke。
+  - 本地依旧缺浏览器回归环境，未做 Playwright / build / lint 完整验证。
+
+2026-03-20
 - 目标：实现“尸体战利品系统”，替代随机装备掉落设想。
 - 规则确认：
   - NPC / 玩家死亡后不会直接随机掉装。

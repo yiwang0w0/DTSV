@@ -1,4 +1,31 @@
 # Readme_GPT
+## 2026-03-20 / 事件结算器与地图配置整理
+- 状态：已新增 `src/lib/eventResolver.js`，作为当前服务端动作层的轻量事件结算器。
+- 已接入动作：
+  - `search`
+  - `attackNpc`
+  - `flee`
+  - `attackPlayer`
+  - `useItem`
+- 统一结算内容：
+  - 回合开始 Buff 结算
+  - 新死亡玩家的尸体生成
+  - 玩家状态写回
+  - 共享日志累积
+- 地图配置：
+  - `src/app/admin/_tabs/MapsTab.jsx` 已移除 `danger_level` 编辑项。
+  - 当前 `src/` 内已无 `danger_level` 引用，可视为废弃冗余配置。
+  - 假设本轮先做代码层移除，数据库里的 `map_config.danger_level` 列暂未执行删库。
+- 验证：
+  - `node --check src/lib/server/gameActions.js` 通过
+  - `node --check src/lib/eventResolver.js` 通过
+  - `npm run smoke` 通过
+  - `npm ls playwright` 显示本地未安装
+- 待继续：
+  - `gameActions.js` 里仍保留旧实现残段，后续可继续按动作模块拆分
+  - 尸体/事件结算还缺专项 smoke
+  - 当前环境仍未完成 `build` / `lint` / Playwright 浏览器回归
+
 ## 2026-03-20 / 尸体战利品系统更新
 
 - 状态：已实现第一版尸体搜刮链路，方向改为“尸体保留剩余物资”，不做随机装备掉落。

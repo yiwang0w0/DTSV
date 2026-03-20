@@ -8,8 +8,18 @@ import {
   getSearchChances,
   loadBuffPool,
   loadGameRules,
-  processBuffs,
 } from '@/lib/gameEngine'
+import {
+  appendResolutionLog,
+  appendResolutionLogs,
+  createActionResolution,
+  finalizeResolution,
+  getResolutionPlayer,
+  runTurnStartSettlement,
+  setResolutionPlayer,
+  settleNewDeaths,
+  updateResolutionPlayer,
+} from '@/lib/eventResolver'
 import {
   calcEquippedStats,
   consumeDurability,
@@ -135,24 +145,17 @@ function buildCombatPlayer(basePlayer, instances = []) {
   }
 }
 
-function applyTurnEffects(gamevars, buffPool) {
-  const nextPlayers = { ...gamevars.players }
-  const logEntries = []
+async function settleCorpseGeneration(resolution) {
+  await settleNewDeaths(resolution, async ({ player }) => {
+    const result = ensurePlayerCorpse(resolution.gamevars, player)
+    resolution.gamevars = result.gamevars
+  })
+  return resolution
+}
 
-  for (const [playerId, player] of Object.entries(nextPlayers)) {
-    if (!player?.alive) continue
-    const { updatedPlayer, logEntries: playerLogs } = processBuffs(player, buffPool || [])
-    logEntries.push(...playerLogs)
-    nextPlayers[playerId] = {
-      ...tickPassiveCooldowns(updatedPlayer),
-      battle: updatedPlayer.alive ? updatedPlayer.battle || player.battle || null : null,
-    }
-  }
-
-  return {
-    gamevars: { ...gamevars, players: nextPlayers },
-    logs: logEntries,
-  }
+async function persistResolution(client, room, resolution, options = {}) {
+  const settled = finalizeResolution(resolution)
+  return persistRoom(client, room, settled.gamevars, settled.logs, options)
 }
 
 async function persistRoom(client, room, gamevars, logs = [], options = {}) {
@@ -247,23 +250,6 @@ function ensurePlayerCorpse(gamevars, player) {
     gamevars: addCorpse(gamevars, corpse),
     corpse,
   }
-}
-
-function ensureCorpsesForNewDeaths(prevGamevars, nextGamevars) {
-  const previous = normalizeGamevars(prevGamevars)
-  let working = normalizeGamevars(nextGamevars)
-  const created = []
-
-  for (const [playerId, player] of Object.entries(working.players || {})) {
-    const wasAlive = previous.players?.[playerId]?.alive !== false
-    if (wasAlive && player?.alive === false) {
-      const result = ensurePlayerCorpse(working, player)
-      working = result.gamevars
-      if (result.corpse) created.push(result.corpse)
-    }
-  }
-
-  return { gamevars: working, created }
 }
 
 async function resolveNpcDropEntry(client, name) {
@@ -506,6 +492,383 @@ async function collectLootableCorpses(client, roomId, gamevars, mapId) {
   }
 
   return { gamevars: working, lootable }
+}
+
+async function resolveSearchAction(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('闃典骸鐜╁鏃犳硶鎼滅储')
+  if (player.battle) throw new Error('鎴樻枟涓棤娉曟悳绱?)
+
+  const [rules, buffPool] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+  ])
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  await runTurnStartSettlement(resolution, buffPool)
+  await settleCorpseGeneration(resolution)
+
+  const nextPlayer = getResolutionPlayer(resolution, user.id)
+  if (!nextPlayer?.alive) {
+    appendResolutionLog(resolution, `${player.name} 琚寔缁晥鏋滃嚮鍊掍簡`, 'death')
+    return persistResolution(client, room, resolution)
+  }
+
+  const bundle = await fetchMapBundle(client, nextPlayer.map ?? 0)
+  const weather = bundle.mapConfig?.weather || 'clear'
+  const { itemChance, npcChance } = getSearchChances(rules, weather)
+  const { gamevars: workingWithCorpses, lootable } = await collectLootableCorpses(
+    client,
+    room.id,
+    resolution.gamevars,
+    nextPlayer.map ?? 0,
+  )
+  resolution.gamevars = workingWithCorpses
+
+  const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
+  const looseItemChance = Math.max(0, itemChance - corpseChance)
+  const roll = Math.random()
+
+  appendResolutionLog(resolution, `${player.name} 寮€濮嬫悳绱㈠尯鍩焋, 'system')
+
+  if (roll < npcChance && bundle.npcPool.length > 0) {
+    const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
+    setResolutionPlayer(resolution, user.id, {
+      ...nextPlayer,
+      battle: {
+        npc,
+        npcHp: npc.hp,
+        npcMaxHp: npc.hp,
+        turn: 1,
+        log: [],
+      },
+    })
+    appendResolutionLog(resolution, `${player.name} 閬亣浜?${npc.name}`, 'damage')
+    return persistResolution(client, room, resolution)
+  }
+
+  if (roll < npcChance + corpseChance && lootable.length > 0) {
+    const found = lootable[Math.floor(Math.random() * lootable.length)]
+    resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, found.prompt)
+    appendResolutionLog(resolution, `${player.name} 鍙戠幇浜?${found.corpse.name}`, 'system')
+    return persistResolution(client, room, resolution)
+  }
+
+  if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
+    const totalWeight = bundle.itemPool.reduce((sum, item) => sum + (item.amount || 1), 0)
+    let remain = Math.random() * totalWeight
+    let found = bundle.itemPool[0]
+    for (const item of bundle.itemPool) {
+      remain -= item.amount || 1
+      if (remain <= 0) {
+        found = item
+        break
+      }
+    }
+
+    setResolutionPlayer(resolution, user.id, {
+      ...nextPlayer,
+      inventory: [...(nextPlayer.inventory || []), found.name],
+    })
+    appendResolutionLog(resolution, `${player.name} 鎵惧埌浜?${found.name}`, 'heal')
+    return persistResolution(client, room, resolution)
+  }
+
+  appendResolutionLog(resolution, `${player.name} 鎼滅储浜嗕竴鍦堬紝浣嗘病鏈夊彂鐜版湁鐢ㄧ殑涓滆タ`, 'system')
+  return persistResolution(client, room, resolution)
+}
+
+async function resolveNpcAttackAction(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  const battle = player?.battle
+  if (!battle?.npc) throw new Error('褰撳墠娌℃湁 NPC 鎴樻枟')
+
+  const [rules, buffPool, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+  ])
+
+  const equipMap = groupEquipsByOwner(equippedInstances)
+  const myEquips = equipMap[user.id] || []
+  let me = buildCombatPlayer(player, myEquips)
+  const battleLog = [...(battle.log || [])]
+  const weapon = myEquips.find(instance => instance.tier?.series?.slot === 'weapon')
+  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+
+  const damageOut = calcDamage(
+    me,
+    { ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp },
+    rules,
+    weapon?.tier?.sub_kind || '',
+    weather,
+  )
+  const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
+    'on_attack',
+    me,
+    { ...battle.npc, hp: battle.npcHp },
+    me._pass || [],
+    buffPool,
+  )
+  me = meAfterAttack
+
+  appendResolutionLogs(resolution, passiveLogs, 'buff')
+  const npcHp = Math.max(0, battle.npcHp - damageOut)
+  const attackLog = `${player.name} 鏀诲嚮 ${battle.npc.name}锛岄€犳垚 ${damageOut} 浼ゅ`
+  battleLog.push(attackLog)
+  appendResolutionLog(resolution, attackLog, 'damage')
+
+  if (npcHp <= 0) {
+    const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
+    setResolutionPlayer(resolution, user.id, {
+      ...player,
+      hp: meAfterKill.hp,
+      buffs: meAfterKill.buffs || [],
+      passiveCooldowns: meAfterKill.passiveCooldowns || {},
+      kills: (player.kills || 0) + 1,
+      battle: null,
+      lootPrompt: null,
+    })
+
+    const corpseResult = await createNpcCorpse(client, resolution.gamevars, battle.npc, player.map ?? 0)
+    resolution.gamevars = corpseResult.gamevars
+    let lootPrompt = null
+    if (corpseResult.corpse) {
+      lootPrompt = await buildLootPrompt(client, room.id, resolution.gamevars, corpseResult.corpse, 'kill')
+      if (lootPrompt) {
+        resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, lootPrompt)
+      } else {
+        resolution.gamevars = await cleanupCorpseIfEmpty(client, room.id, resolution.gamevars, corpseResult.corpse.id)
+      }
+    }
+
+    appendResolutionLog(resolution, `${player.name} 鍑昏触浜?${battle.npc.name}`, 'kill')
+    if (lootPrompt) {
+      appendResolutionLog(resolution, `${player.name} 鍙互浠?${corpseResult.corpse.name} 閲屽甫璧颁竴浠舵垬鍒╁搧`, 'system')
+    }
+
+    const nextRoom = await persistResolution(client, room, resolution)
+    await safeConsumeDurability(user.id, room.id, 1, client)
+    return nextRoom
+  }
+
+  const damageIn = calcDamage({ ...battle.npc, hp: npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
+  const nextHp = Math.max(0, (me.hp || 0) - damageIn)
+  const counterLog = `${battle.npc.name} 鍙嶅嚮锛岄€犳垚 ${damageIn} 浼ゅ`
+  battleLog.push(counterLog)
+  appendResolutionLog(resolution, counterLog, 'damage')
+
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    hp: nextHp,
+    alive: nextHp > 0,
+    buffs: me.buffs || [],
+    passiveCooldowns: me.passiveCooldowns || {},
+    battle: nextHp > 0 ? { ...battle, npcHp, turn: battle.turn + 1, log: battleLog } : null,
+    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
+  })
+
+  if (nextHp <= 0) {
+    appendResolutionLog(resolution, `${player.name} 鍦ㄤ笌 ${battle.npc.name} 鐨勬垬鏂椾腑鍊掍笅浜哷, 'death')
+    await settleCorpseGeneration(resolution)
+  }
+
+  const nextRoom = await persistResolution(client, room, resolution)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
+}
+
+async function resolveNpcFleeAction(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  const battle = player?.battle
+  if (!battle?.npc) throw new Error('褰撳墠娌℃湁 NPC 鎴樻枟')
+
+  const [rules, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+  ])
+
+  const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
+  const me = buildCombatPlayer(player, myEquips)
+  const fleeRate = getRule(rules, 'flee_success_rate', 0.6)
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+
+  if (Math.random() < fleeRate) {
+    setResolutionPlayer(resolution, user.id, { ...player, battle: null })
+    appendResolutionLog(resolution, `${player.name} 鎴愬姛閫冪浜?${battle.npc.name}`, 'system')
+    return persistResolution(client, room, resolution)
+  }
+
+  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
+  const damage = calcDamage({ ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
+  const nextHp = Math.max(0, (me.hp || 0) - damage)
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    hp: nextHp,
+    alive: nextHp > 0,
+    battle: nextHp > 0 ? battle : null,
+    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
+  })
+
+  appendResolutionLog(resolution, `${player.name} 閫冭窇澶辫触锛岃 ${battle.npc.name} 閫犳垚 ${damage} 浼ゅ`, 'damage')
+  if (nextHp <= 0) {
+    appendResolutionLog(resolution, `${player.name} 鍊掑湪浜嗛€冭窇閫斾腑`, 'death')
+    await settleCorpseGeneration(resolution)
+  }
+
+  return persistResolution(client, room, resolution)
+}
+
+async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid) {
+  const attacker = getPlayer(gamevars, user.id)
+  const defender = getPlayer(gamevars, targetUid)
+  if (!defender) throw new Error('鐩爣鐜╁涓嶅瓨鍦?)
+  if (!attacker?.alive) throw new Error('闃典骸鐜╁鏃犳硶鏀诲嚮')
+  if (!defender.alive) throw new Error('鐩爣宸茬粡闃典骸')
+  if (targetUid === user.id) throw new Error('涓嶈兘鏀诲嚮鑷繁')
+  if ((attacker.map ?? 0) !== (defender.map ?? 0)) throw new Error('鐩爣涓嶅湪鍚屼竴鍦板浘')
+
+  const [rules, buffPool, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id, targetUid]),
+  ])
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  await runTurnStartSettlement(resolution, buffPool)
+  await settleCorpseGeneration(resolution)
+
+  const attackerAfterTurn = getResolutionPlayer(resolution, user.id)
+  const defenderAfterTurn = getResolutionPlayer(resolution, targetUid)
+  if (!attackerAfterTurn?.alive || !defenderAfterTurn?.alive) {
+    return persistResolution(client, room, resolution)
+  }
+
+  const equipMap = groupEquipsByOwner(equippedInstances)
+  let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
+  let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
+  const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
+  const weather = (await fetchMapBundle(client, attackerAfterTurn.map ?? 0)).mapConfig?.weather || 'clear'
+
+  const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '', weather)
+  const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
+    'on_attack',
+    me,
+    target,
+    me._pass || [],
+    buffPool,
+  )
+  me = meAfterAttack
+  if (targetAfterPassive) target = targetAfterPassive
+  appendResolutionLogs(resolution, passiveLogs, 'buff')
+
+  const targetHp = Math.max(0, (target.hp || 0) - damage)
+  appendResolutionLog(resolution, `${attacker.name} 鏀诲嚮 ${target.name}锛岄€犳垚 ${damage} 浼ゅ`, 'damage')
+
+  setResolutionPlayer(resolution, user.id, {
+    ...attackerAfterTurn,
+    hp: me.hp,
+    buffs: me.buffs || [],
+    passiveCooldowns: me.passiveCooldowns || {},
+  })
+  setResolutionPlayer(resolution, targetUid, {
+    ...defenderAfterTurn,
+    hp: targetHp,
+    alive: targetHp > 0,
+    battle: targetHp > 0 ? defenderAfterTurn.battle || null : null,
+    lootPrompt: targetHp > 0 ? defenderAfterTurn.lootPrompt || null : null,
+  })
+
+  if (targetHp <= 0) {
+    const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
+    updateResolutionPlayer(resolution, user.id, current => ({
+      ...current,
+      hp: meAfterKill.hp,
+      buffs: meAfterKill.buffs || [],
+      passiveCooldowns: meAfterKill.passiveCooldowns || {},
+      kills: (attackerAfterTurn.kills || 0) + 1,
+      lootPrompt: null,
+    }))
+    appendResolutionLog(resolution, `${attacker.name} 鍑昏触浜?${target.name}`, 'kill')
+
+    await settleCorpseGeneration(resolution)
+    const corpse = (resolution.gamevars.corpses || []).find(
+      item => item.type === 'player' && item.ownerPlayerId === targetUid,
+    )
+
+    if (corpse) {
+      const prompt = await buildLootPrompt(client, room.id, resolution.gamevars, corpse, 'kill')
+      if (prompt) {
+        resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, prompt)
+        appendResolutionLog(resolution, `${attacker.name} 鍙互浠?${corpse.name} 閲屽甫璧颁竴浠舵垬鍒╁搧`, 'system')
+      } else {
+        resolution.gamevars = await cleanupCorpseIfEmpty(client, room.id, resolution.gamevars, corpse.id)
+      }
+    }
+  }
+
+  const nextRoom = await persistResolution(client, room, resolution)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
+}
+
+async function resolveUseItemAction(client, room, gamevars, user, itemName) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('闃典骸鐜╁鏃犳硶浣跨敤閬撳叿')
+  if (!itemName) throw new Error('缂哄皯閬撳叿鍚嶇О')
+
+  const [rules, buffPool, equippedInstances, itemDef] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+    fetchItemDefByName(client, itemName),
+  ])
+
+  if (!itemDef) throw new Error(`鏈煡閬撳叿锛?{itemName}`)
+
+  const me = buildCombatPlayer(player, groupEquipsByOwner(equippedInstances)[user.id] || [])
+  const nextPlayer = { ...player, lootPrompt: null }
+  const result = calcItemEffect(itemDef, me, rules)
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+
+  if (result.hpDelta) {
+    nextPlayer.hp = Math.max(0, Math.min(me.maxHp, (player.hp || 0) + result.hpDelta))
+    nextPlayer.alive = nextPlayer.hp > 0
+    appendResolutionLog(
+      resolution,
+      `${player.name} 浣跨敤 ${itemName}锛孒P ${result.hpDelta > 0 ? '+' : ''}${result.hpDelta}`,
+      result.hpDelta > 0 ? 'heal' : 'damage',
+    )
+  }
+
+  if (result.atkDelta) {
+    nextPlayer.atk = Math.max(0, (nextPlayer.atk || 0) + result.atkDelta)
+    appendResolutionLog(resolution, `${player.name} 浣跨敤 ${itemName}锛孉TK +${result.atkDelta}`, 'buff')
+  }
+
+  if (result.defDelta) {
+    nextPlayer.def = Math.max(0, (nextPlayer.def || 0) + result.defDelta)
+    appendResolutionLog(resolution, `${player.name} 浣跨敤 ${itemName}锛孌EF +${result.defDelta}`, 'buff')
+  }
+
+  for (const buffId of result.newBuffIds || []) {
+    const buffDef = (buffPool || []).find(buff => buff.id === buffId)
+    if (!buffDef) continue
+    const updated = applyBuff(nextPlayer, buffId, buffDef)
+    nextPlayer.buffs = updated.buffs
+    appendResolutionLog(resolution, `${player.name} 鑾峰緱浜?${buffDef.name}`, 'buff')
+  }
+
+  nextPlayer.inventory = removeInventoryItem(player.inventory, itemName, 1)
+  setResolutionPlayer(resolution, user.id, nextPlayer)
+
+  if (nextPlayer.alive === false) {
+    appendResolutionLog(resolution, `${player.name} 鍥犱娇鐢?${itemName} 鍊掍笅浜哷, 'death')
+    await settleCorpseGeneration(resolution)
+  }
+
+  return persistResolution(client, room, resolution)
 }
 
 async function searchAreaImpl(client, room, gamevars, user) {
@@ -1091,7 +1454,7 @@ async function movePlayer(client, room, gamevars, user, mapId) {
 }
 
 async function searchArea(client, room, gamevars, user) {
-  return searchAreaImpl(client, room, gamevars, user)
+  return resolveSearchAction(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法搜索')
   if (player.battle) throw new Error('战斗中无法搜索')
@@ -1160,7 +1523,7 @@ async function searchArea(client, room, gamevars, user) {
 }
 
 async function attackNpc(client, room, gamevars, user) {
-  return attackNpcImpl(client, room, gamevars, user)
+  return resolveNpcAttackAction(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
@@ -1243,7 +1606,7 @@ async function attackNpc(client, room, gamevars, user) {
 }
 
 async function fleeNpc(client, room, gamevars, user) {
-  return fleeNpcImpl(client, room, gamevars, user)
+  return resolveNpcFleeAction(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
@@ -1286,7 +1649,7 @@ async function fleeNpc(client, room, gamevars, user) {
 }
 
 async function attackPlayer(client, room, gamevars, user, targetUid) {
-  return attackPlayerImpl(client, room, gamevars, user, targetUid)
+  return resolvePlayerAttackAction(client, room, gamevars, user, targetUid)
   const attacker = getPlayer(gamevars, user.id)
   const defender = getPlayer(gamevars, targetUid)
   if (!defender) throw new Error('目标玩家不存在')
@@ -1364,7 +1727,7 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
 }
 
 async function useItem(client, room, gamevars, user, itemName) {
-  return useItemImpl(client, room, gamevars, user, itemName)
+  return resolveUseItemAction(client, room, gamevars, user, itemName)
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法使用道具')
   if (!itemName) throw new Error('缺少道具名称')
