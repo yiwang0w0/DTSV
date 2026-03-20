@@ -1,5 +1,30 @@
 Original prompt: 那帮我补齐，记得最后更新readme_GPT
 
+2026-03-20
+- 目标：实现“尸体战利品系统”，替代随机装备掉落设想。
+- 规则确认：
+  - NPC / 玩家死亡后不会直接随机掉装。
+  - 击杀者会立刻获得一次从尸体中带走 1 件装备或道具的机会。
+  - 尸体和剩余物资继续留在地图上，后续搜索还能继续拿。
+- 已完成：
+  - `src/lib/server/gameActions.js`
+    - 新增 `collectLootableCorpses()`、`searchAreaImpl()`、`attackNpcImpl()`、`fleeNpcImpl()`、`attackPlayerImpl()`、`useItemImpl()`。
+    - 新增 `lootCorpse()`、`dismissLootPrompt()`。
+    - `executeGameAction()` 现在会拦截未处理的 `lootPrompt`，避免覆盖当前战利品提示。
+    - 尸体拾取里的装备转移/实例生成已带回滚，兼容当前 rooms optimistic lock。
+  - `src/app/game/[id]/LootModal.jsx`
+    - 新增尸体拾取弹窗。
+  - `src/app/game/[id]/GameClientPage.jsx`
+    - 已接上 `lootPrompt` 展示、拾取、关闭，以及当前地图尸体数量提示。
+- 验证：
+  - `node --check src/lib/server/gameActions.js`：通过。
+  - `node --check src/lib/roomState.js`：通过。
+  - `npm run smoke`：通过。
+  - `npm run lint`：失败，当前环境缺少可执行 `next`。
+- 剩余：
+  - `scripts/smoke-check.mjs` 还没补到尸体专项断言。
+  - 本地没法跑 `next lint` / `next build` / Playwright 回归。
+
 2026-03-19
 - 目标：补齐 rooms 乐观锁的收尾问题，重点修复重试导致的副作用重复执行，以及后台强制结束房间绕过 version 的问题。
 - 已定位问题：

@@ -1,4 +1,26 @@
 # Readme_GPT
+## 2026-03-20 / 尸体战利品系统更新
+
+- 状态：已实现第一版尸体搜刮链路，方向改为“尸体保留剩余物资”，不做随机装备掉落。
+- 服务端：
+  - `src/lib/server/gameActions.js` 新增尸体发现、即时战利品 prompt、`lootCorpse`、`dismissLootPrompt`。
+  - `search / attackNpc / flee / attackPlayer / useItem` 现在都会在死亡时同步尸体状态。
+  - 玩家尸体继续以 `equipment_instances` 为装备事实源；拾取装备时会做 owner 转移或实例生成，并在 `persistRoom()` 失败时回滚。
+- 前端：
+  - 新增 `src/app/game/[id]/LootModal.jsx`。
+  - `src/app/game/[id]/GameClientPage.jsx` 已接通拾取弹窗、关闭动作和当前地图尸体提示。
+- 规则：
+  - NPC 或玩家死亡后，击杀者可立即从尸体中带走 1 件装备或道具。
+  - 尸体剩余内容会继续留在地图上，后续玩家通过搜索还能继续拿。
+- 验证：
+  - `npm run smoke`：通过。
+  - `node --check src/lib/server/gameActions.js`：通过。
+  - `node --check src/lib/roomState.js`：通过。
+  - `npm run lint`：当前环境失败，因为没有可执行 `next`。
+- 待继续：
+  - `scripts/smoke-check.mjs` 还没补到尸体搜刮专项断言。
+  - 本地仍未完成 `next lint` / `next build` / 浏览器联机回归。
+
 
 更新时间：2026-03-19（Asia/Tokyo）
 整理方式：基于当前仓库源码与本轮并发修补结果整理；已完成本地 smoke 与语法级校验，未完成完整构建与浏览器联机回归。

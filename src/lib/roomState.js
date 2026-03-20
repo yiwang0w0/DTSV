@@ -1,5 +1,9 @@
 const LOG_LIMIT = 200
 
+function makeId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function formatLogTime(date = new Date()) {
   return date.toLocaleTimeString('zh-CN', {
     hour: '2-digit',
@@ -21,10 +25,56 @@ export function normalizeLogEntry(entry) {
   }
 }
 
+export function normalizeCorpseEntry(entry) {
+  if (!entry) return null
+  return {
+    id: entry.id || makeId('loot'),
+    type: entry.type || 'item',
+    name: entry.name || '',
+    itemName: entry.itemName || null,
+    tierId: entry.tierId ?? null,
+    instanceId: entry.instanceId ?? null,
+    slot: entry.slot || '',
+    rarity: entry.rarity || '',
+    durability: entry.durability ?? null,
+    durabilityMax: entry.durabilityMax ?? null,
+  }
+}
+
+export function normalizeCorpse(corpse) {
+  if (!corpse) return null
+  return {
+    id: corpse.id || makeId('corpse'),
+    type: corpse.type || 'npc',
+    name: corpse.name || '未知尸体',
+    mapId: corpse.mapId ?? 0,
+    ownerPlayerId: corpse.ownerPlayerId || null,
+    createdAt: corpse.createdAt || '',
+    entries: Array.isArray(corpse.entries)
+      ? corpse.entries.map(normalizeCorpseEntry).filter(Boolean)
+      : [],
+  }
+}
+
+export function normalizeLootPrompt(prompt) {
+  if (!prompt) return null
+  return {
+    corpseId: prompt.corpseId || '',
+    corpseName: prompt.corpseName || '未知尸体',
+    source: prompt.source || 'search',
+    options: Array.isArray(prompt.options)
+      ? prompt.options.map(normalizeCorpseEntry).filter(Boolean)
+      : [],
+  }
+}
+
 export function normalizeGamevars(gamevars = {}) {
   return {
     ...gamevars,
     players: gamevars.players || {},
+    corpses: Array.isArray(gamevars.corpses)
+      ? gamevars.corpses.map(normalizeCorpse).filter(Boolean)
+      : [],
     log: Array.isArray(gamevars.log)
       ? gamevars.log.map(normalizeLogEntry).filter(Boolean)
       : [],
@@ -74,7 +124,37 @@ export function createPlayerState(user, stats = {}) {
     buffs: stats.buffs || [],
     passiveCooldowns: {},
     battle: null,
+    lootPrompt: null,
   }
+}
+
+export function createCorpse(payload = {}) {
+  return normalizeCorpse({
+    ...payload,
+    id: payload.id || makeId('corpse'),
+    createdAt: payload.createdAt || new Date().toISOString(),
+  })
+}
+
+export function setPlayerLootPrompt(gamevars, playerId, prompt) {
+  const normalized = normalizeGamevars(gamevars)
+  const player = normalized.players?.[playerId]
+  if (!player) return normalized
+
+  return {
+    ...normalized,
+    players: {
+      ...normalized.players,
+      [playerId]: {
+        ...player,
+        lootPrompt: normalizeLootPrompt(prompt),
+      },
+    },
+  }
+}
+
+export function clearPlayerLootPrompt(gamevars, playerId) {
+  return setPlayerLootPrompt(gamevars, playerId, null)
 }
 
 export function computeRoomStats(gamevars) {
@@ -120,4 +200,3 @@ export function applyRoomLifecycle(room, gamevars, options = {}) {
     },
   }
 }
-

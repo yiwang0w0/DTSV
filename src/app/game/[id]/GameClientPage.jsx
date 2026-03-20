@@ -11,6 +11,7 @@ import { normalizeGamevars } from '@/lib/roomState'
 import { postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
+import LootModal from './LootModal'
 import {
   Btn,
   BuffTag,
@@ -147,6 +148,7 @@ export default function GameClientPage() {
   const equipped = useMemo(() => equipments.filter(item => item.is_equipped), [equipments])
   const bagEquipments = useMemo(() => equipments.filter(item => !item.is_equipped), [equipments])
   const me = useMemo(() => buildPlayerView(meBase, equipped), [equipped, meBase])
+  const lootPrompt = meBase?.lootPrompt || null
   const logs = useMemo(() => (gamevars?.log || []).slice().reverse(), [gamevars?.log])
   const allPlayers = useMemo(() => Object.values(gamevars?.players || {}), [gamevars?.players])
   const eqMap = useMemo(
@@ -164,10 +166,29 @@ export default function GameClientPage() {
   const inGame = !!meBase
   const weather = WEATHER[mapConfig?.weather || 'clear'] || WEATHER.clear
   const aliveCount = room?.alivenum ?? allPlayers.filter(player => player.alive).length
+  const currentMapCorpseCount = useMemo(
+    () => (gamevars?.corpses || []).filter(corpse => corpse.mapId === (meBase?.map ?? 0)).length,
+    [gamevars?.corpses, meBase?.map],
+  )
   const pvpTargets = useMemo(
     () => allPlayers.filter(player => (player.id || player.uid) !== user?.id && player.alive && (player.map ?? 0) === (meBase?.map ?? 0)),
     [allPlayers, meBase?.map, user?.id],
   )
+
+  async function handleTakeLoot(option) {
+    const nextRoom = await runGameAction('lootCorpse', {
+      corpseId: lootPrompt?.corpseId,
+      entryId: option.id,
+    }, { refreshEquipment: true })
+
+    if (nextRoom) {
+      toast(`已带走 ${option.name}`, 'success')
+    }
+  }
+
+  async function handleDismissLootPrompt() {
+    await runGameAction('dismissLootPrompt')
+  }
 
   async function runGameAction(action, payload = {}, options = {}) {
     setBusy(true)
@@ -213,6 +234,23 @@ export default function GameClientPage() {
   }
 
   if (authLoading || loading) {
+  /*
+  async function handleTakeLoot(option) {
+    const nextRoom = await runGameAction('lootCorpse', {
+      corpseId: lootPrompt?.corpseId,
+      entryId: option.id,
+    }, { refreshEquipment: true })
+
+    if (nextRoom) {
+      toast(`已带走 ${option.name}`, 'success')
+    }
+  }
+
+  async function handleDismissLootPrompt() {
+    await runGameAction('dismissLootPrompt')
+  }
+
+  */
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
         <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.cyan, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
@@ -241,6 +279,13 @@ export default function GameClientPage() {
         player={meBase}
         equipments={equipments}
         onCraft={handleCraft}
+      />
+      <LootModal
+        open={!!lootPrompt}
+        prompt={lootPrompt}
+        busy={busy}
+        onClose={handleDismissLootPrompt}
+        onTake={handleTakeLoot}
       />
 
       <style>{`
@@ -323,6 +368,11 @@ export default function GameClientPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
+            {currentMapCorpseCount > 0 && (
+              <div style={{ textAlign: 'center', color: T.dimB, fontSize: 11, marginBottom: 10 }}>
+                当前地图有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
+              </div>
+            )}
             {battle ? (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

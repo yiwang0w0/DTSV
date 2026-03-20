@@ -21,10 +21,14 @@ import {
 import {
   appendGameLog,
   applyRoomLifecycle,
+  clearPlayerLootPrompt,
   createLogEntry,
+  createCorpse,
   createPlayerState,
   getDisplayName,
   normalizeGamevars,
+  normalizeCorpseEntry,
+  setPlayerLootPrompt,
 } from '@/lib/roomState'
 
 /* ── 并发安全：乐观锁 ─────────────────────────── */
@@ -193,6 +197,760 @@ function removeInventoryItem(inventory, itemName, count = 1) {
   })
 }
 
+function getCurrentMapCorpses(gamevars, mapId) {
+  return (gamevars.corpses || []).filter(corpse => corpse.mapId === (mapId ?? 0))
+}
+
+function hasPlayerCorpse(gamevars, playerId) {
+  return (gamevars.corpses || []).some(corpse => corpse.type === 'player' && corpse.ownerPlayerId === playerId)
+}
+
+function addCorpse(gamevars, corpse) {
+  const normalized = normalizeGamevars(gamevars)
+  return {
+    ...normalized,
+    corpses: [...(normalized.corpses || []), corpse],
+  }
+}
+
+function replaceCorpse(gamevars, corpseId, updater) {
+  const normalized = normalizeGamevars(gamevars)
+  return {
+    ...normalized,
+    corpses: (normalized.corpses || [])
+      .map(corpse => (corpse.id === corpseId ? updater(corpse) : corpse))
+      .filter(Boolean),
+  }
+}
+
+function removeCorpse(gamevars, corpseId) {
+  const normalized = normalizeGamevars(gamevars)
+  return {
+    ...normalized,
+    corpses: (normalized.corpses || []).filter(corpse => corpse.id !== corpseId),
+  }
+}
+
+function ensurePlayerCorpse(gamevars, player) {
+  if (!player || !player.id || hasPlayerCorpse(gamevars, player.id)) {
+    return { gamevars, corpse: null }
+  }
+
+  const corpse = createCorpse({
+    type: 'player',
+    name: `${player.name} 的尸体`,
+    mapId: player.map ?? 0,
+    ownerPlayerId: player.id,
+  })
+
+  return {
+    gamevars: addCorpse(gamevars, corpse),
+    corpse,
+  }
+}
+
+function ensureCorpsesForNewDeaths(prevGamevars, nextGamevars) {
+  const previous = normalizeGamevars(prevGamevars)
+  let working = normalizeGamevars(nextGamevars)
+  const created = []
+
+  for (const [playerId, player] of Object.entries(working.players || {})) {
+    const wasAlive = previous.players?.[playerId]?.alive !== false
+    if (wasAlive && player?.alive === false) {
+      const result = ensurePlayerCorpse(working, player)
+      working = result.gamevars
+      if (result.corpse) created.push(result.corpse)
+    }
+  }
+
+  return { gamevars: working, created }
+}
+
+async function resolveNpcDropEntry(client, name) {
+  const { data: tier } = await client
+    .from('equipment_tiers')
+    .select('id, name, rarity, series:equipment_series(slot,name), durability_max')
+    .eq('name', name)
+    .maybeSingle()
+
+  if (tier) {
+    return normalizeCorpseEntry({
+      id: `npc-equip-${tier.id}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'equipment_tier',
+      name: tier.name,
+      tierId: tier.id,
+      slot: tier.series?.slot || '',
+      rarity: tier.rarity || '',
+      durability: tier.durability_max ?? null,
+      durabilityMax: tier.durability_max ?? null,
+    })
+  }
+
+  return normalizeCorpseEntry({
+    id: `npc-item-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'item',
+    name,
+    itemName: name,
+  })
+}
+
+async function createNpcCorpse(client, gamevars, npc, mapId) {
+  const entries = []
+  for (const name of npc.drop_items || []) {
+    const entry = await resolveNpcDropEntry(client, name)
+    if (entry) entries.push(entry)
+  }
+
+  const corpse = createCorpse({
+    type: 'npc',
+    name: `${npc.name} 的尸体`,
+    mapId,
+    entries,
+  })
+
+  return {
+    gamevars: addCorpse(gamevars, corpse),
+    corpse,
+  }
+}
+
+async function fetchOwnerEquipmentInstances(client, roomId, ownerId) {
+  const { data } = await client
+    .from('equipment_instances')
+    .select('*, tier:equipment_tiers(*, passive:passive_skills(*), series:equipment_series(slot,name))')
+    .eq('room_id', roomId)
+    .eq('owner_id', ownerId)
+    .order('is_equipped', { ascending: false })
+    .order('acquired_at', { ascending: true })
+
+  return data || []
+}
+
+async function buildCorpseLootOptions(client, roomId, gamevars, corpse) {
+  if (!corpse) return []
+
+  if (corpse.type === 'npc') {
+    return (corpse.entries || []).map(normalizeCorpseEntry).filter(Boolean)
+  }
+
+  const owner = getPlayer(gamevars, corpse.ownerPlayerId)
+  if (!owner) return []
+
+  const inventoryOptions = (owner.inventory || []).map((itemName, index) => normalizeCorpseEntry({
+    id: `item:${itemName}:${index}`,
+    type: 'item',
+    name: itemName,
+    itemName,
+  }))
+
+  const equipmentOptions = (await fetchOwnerEquipmentInstances(client, roomId, corpse.ownerPlayerId))
+    .map(instance => normalizeCorpseEntry({
+      id: `equip:${instance.id}`,
+      type: 'equipment_instance',
+      name: instance.tier?.name || '未知装备',
+      instanceId: instance.id,
+      slot: instance.tier?.series?.slot || '',
+      rarity: instance.tier?.rarity || '',
+      durability: instance.durability_current ?? null,
+      durabilityMax: instance.tier?.durability_max ?? null,
+    }))
+
+  return [...equipmentOptions, ...inventoryOptions]
+}
+
+async function buildLootPrompt(client, roomId, gamevars, corpse, source) {
+  const options = await buildCorpseLootOptions(client, roomId, gamevars, corpse)
+  if (!options.length) return null
+
+  return {
+    corpseId: corpse.id,
+    corpseName: corpse.name,
+    source,
+    options,
+  }
+}
+
+async function cleanupCorpseIfEmpty(client, roomId, gamevars, corpseId) {
+  const normalized = normalizeGamevars(gamevars)
+  const corpse = (normalized.corpses || []).find(item => item.id === corpseId)
+  if (!corpse) return normalized
+
+  const options = await buildCorpseLootOptions(client, roomId, normalized, corpse)
+  if (options.length > 0) return normalized
+
+  return removeCorpse(normalized, corpseId)
+}
+
+function getCorpseById(gamevars, corpseId) {
+  return (normalizeGamevars(gamevars).corpses || []).find(corpse => corpse.id === corpseId) || null
+}
+
+async function createLootSideEffect(client, roomId, looterId, corpse, entry) {
+  if (!entry || entry.type === 'item') return null
+
+  if (entry.type === 'equipment_tier') {
+    const { data: tier, error: tierError } = await client
+      .from('equipment_tiers')
+      .select('id, name, durability_max')
+      .eq('id', entry.tierId)
+      .single()
+
+    if (tierError || !tier) {
+      throw new Error('尸体上的装备定义不存在')
+    }
+
+    const { data: inserted, error: insertError } = await client
+      .from('equipment_instances')
+      .insert({
+        tier_id: tier.id,
+        owner_id: looterId,
+        room_id: roomId,
+        is_equipped: false,
+        equipped_slot: null,
+        durability_current: tier.durability_max ?? entry.durabilityMax ?? 0,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !inserted) {
+      throw new Error(insertError?.message || '战利品装备生成失败')
+    }
+
+    return {
+      kind: 'created_instance',
+      instanceId: inserted.id,
+    }
+  }
+
+  if (entry.type === 'equipment_instance') {
+    const { data: instance, error: instanceError } = await client
+      .from('equipment_instances')
+      .select('id, owner_id, room_id, is_equipped, equipped_slot')
+      .eq('id', entry.instanceId)
+      .eq('room_id', roomId)
+      .maybeSingle()
+
+    if (instanceError) {
+      throw new Error(instanceError.message || '尸体上的装备读取失败')
+    }
+    if (!instance || (corpse.ownerPlayerId && instance.owner_id !== corpse.ownerPlayerId)) {
+      throw new Error('这件装备已经被别人拿走了')
+    }
+
+    const { data: updated, error: updateError } = await client
+      .from('equipment_instances')
+      .update({
+        owner_id: looterId,
+        is_equipped: false,
+        equipped_slot: null,
+      })
+      .eq('id', instance.id)
+      .eq('room_id', roomId)
+      .eq('owner_id', instance.owner_id)
+      .select('id')
+      .maybeSingle()
+
+    if (updateError) {
+      throw new Error(updateError.message || '尸体上的装备转移失败')
+    }
+    if (!updated) {
+      throw new Error('这件装备已经被别人拿走了')
+    }
+
+    return {
+      kind: 'transferred_instance',
+      instanceId: instance.id,
+      snapshot: {
+        ownerId: instance.owner_id,
+        isEquipped: instance.is_equipped,
+        equippedSlot: instance.equipped_slot,
+      },
+    }
+  }
+
+  throw new Error('不支持的战利品类型')
+}
+
+async function rollbackLootSideEffect(client, sideEffect) {
+  if (!sideEffect) return
+
+  if (sideEffect.kind === 'created_instance') {
+    await client.from('equipment_instances').delete().eq('id', sideEffect.instanceId)
+    return
+  }
+
+  if (sideEffect.kind === 'transferred_instance') {
+    await client
+      .from('equipment_instances')
+      .update({
+        owner_id: sideEffect.snapshot.ownerId,
+        is_equipped: sideEffect.snapshot.isEquipped,
+        equipped_slot: sideEffect.snapshot.equippedSlot,
+      })
+      .eq('id', sideEffect.instanceId)
+  }
+}
+
+async function collectLootableCorpses(client, roomId, gamevars, mapId) {
+  let working = normalizeGamevars(gamevars)
+  const lootable = []
+
+  for (const corpse of getCurrentMapCorpses(working, mapId)) {
+    const prompt = await buildLootPrompt(client, roomId, working, corpse, 'search')
+    if (prompt) {
+      lootable.push({ corpse, prompt })
+      continue
+    }
+
+    working = removeCorpse(working, corpse.id)
+  }
+
+  return { gamevars: working, lootable }
+}
+
+async function searchAreaImpl(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法搜索')
+  if (player.battle) throw new Error('战斗中无法搜索')
+
+  const [rules, buffPool] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+  ])
+
+  let working = normalizeGamevars(gamevars)
+  const turnResult = applyTurnEffects(working, buffPool)
+  working = turnResult.gamevars
+  let logs = turnResult.logs.map(log => createLogEntry(log, log.includes('损失') ? 'damage' : 'buff'))
+
+  const deathResult = ensureCorpsesForNewDeaths(gamevars, working)
+  working = deathResult.gamevars
+
+  const nextPlayer = getPlayer(working, user.id)
+  if (!nextPlayer?.alive) {
+    logs.push(createLogEntry(`${player.name} 被持续效果击倒了`, 'death'))
+    return persistRoom(client, room, working, logs)
+  }
+
+  const bundle = await fetchMapBundle(client, nextPlayer.map ?? 0)
+  const weather = bundle.mapConfig?.weather || 'clear'
+  const { itemChance, npcChance } = getSearchChances(rules, weather)
+  const { gamevars: workingWithCorpses, lootable } = await collectLootableCorpses(client, room.id, working, nextPlayer.map ?? 0)
+  working = workingWithCorpses
+
+  const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
+  const looseItemChance = Math.max(0, itemChance - corpseChance)
+  const roll = Math.random()
+
+  logs.push(createLogEntry(`${player.name} 开始搜索区域`, 'system'))
+
+  if (roll < npcChance && bundle.npcPool.length > 0) {
+    const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
+    working.players[user.id] = {
+      ...nextPlayer,
+      battle: {
+        npc,
+        npcHp: npc.hp,
+        npcMaxHp: npc.hp,
+        turn: 1,
+        log: [],
+      },
+    }
+    logs.push(createLogEntry(`${player.name} 遭遇了 ${npc.name}`, 'damage'))
+    return persistRoom(client, room, working, logs)
+  }
+
+  if (roll < npcChance + corpseChance && lootable.length > 0) {
+    const found = lootable[Math.floor(Math.random() * lootable.length)]
+    working = setPlayerLootPrompt(working, user.id, found.prompt)
+    logs.push(createLogEntry(`${player.name} 发现了 ${found.corpse.name}`, 'system'))
+    return persistRoom(client, room, working, logs)
+  }
+
+  if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
+    const totalWeight = bundle.itemPool.reduce((sum, item) => sum + (item.amount || 1), 0)
+    let remain = Math.random() * totalWeight
+    let found = bundle.itemPool[0]
+    for (const item of bundle.itemPool) {
+      remain -= item.amount || 1
+      if (remain <= 0) {
+        found = item
+        break
+      }
+    }
+
+    working.players[user.id] = {
+      ...nextPlayer,
+      inventory: [...(nextPlayer.inventory || []), found.name],
+    }
+    logs.push(createLogEntry(`${player.name} 找到了 ${found.name}`, 'heal'))
+    return persistRoom(client, room, working, logs)
+  }
+
+  logs.push(createLogEntry(`${player.name} 搜索了一圈，但没有发现有用的东西`, 'system'))
+  return persistRoom(client, room, working, logs)
+}
+
+async function attackNpcImpl(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  const battle = player?.battle
+  if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
+
+  const [rules, buffPool, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+  ])
+
+  const equipMap = groupEquipsByOwner(equippedInstances)
+  const myEquips = equipMap[user.id] || []
+  let me = buildCombatPlayer(player, myEquips)
+  const battleLog = [...(battle.log || [])]
+  const weapon = myEquips.find(instance => instance.tier?.series?.slot === 'weapon')
+  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
+
+  const damageOut = calcDamage(me, { ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp }, rules, weapon?.tier?.sub_kind || '', weather)
+  const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
+    'on_attack',
+    me,
+    { ...battle.npc, hp: battle.npcHp },
+    me._pass || [],
+    buffPool,
+  )
+  me = meAfterAttack
+
+  const logs = passiveLogs.map(entry => createLogEntry(entry, 'buff'))
+  const npcHp = Math.max(0, battle.npcHp - damageOut)
+  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOut} 伤害`
+  battleLog.push(attackLog)
+  logs.push(createLogEntry(attackLog, 'damage'))
+
+  let nextGamevars = normalizeGamevars(gamevars)
+
+  if (npcHp <= 0) {
+    const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
+    nextGamevars.players[user.id] = {
+      ...player,
+      hp: meAfterKill.hp,
+      buffs: meAfterKill.buffs || [],
+      passiveCooldowns: meAfterKill.passiveCooldowns || {},
+      kills: (player.kills || 0) + 1,
+      battle: null,
+      lootPrompt: null,
+    }
+
+    const corpseResult = await createNpcCorpse(client, nextGamevars, battle.npc, player.map ?? 0)
+    nextGamevars = corpseResult.gamevars
+    let lootPrompt = null
+    if (corpseResult.corpse) {
+      lootPrompt = await buildLootPrompt(client, room.id, nextGamevars, corpseResult.corpse, 'kill')
+      if (lootPrompt) {
+        nextGamevars = setPlayerLootPrompt(nextGamevars, user.id, lootPrompt)
+      } else {
+        nextGamevars = await cleanupCorpseIfEmpty(client, room.id, nextGamevars, corpseResult.corpse.id)
+      }
+    }
+
+    logs.push(createLogEntry(`${player.name} 击败了 ${battle.npc.name}`, 'kill'))
+    if (lootPrompt) {
+      logs.push(createLogEntry(`${player.name} 可以从 ${corpseResult.corpse.name} 里带走一件战利品`, 'system'))
+    }
+    const nextRoom = await persistRoom(client, room, nextGamevars, logs)
+    await safeConsumeDurability(user.id, room.id, 1, client)
+    return nextRoom
+  }
+
+  const damageIn = calcDamage({ ...battle.npc, hp: npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
+  const nextHp = Math.max(0, (me.hp || 0) - damageIn)
+  const counterLog = `${battle.npc.name} 反击，造成 ${damageIn} 伤害`
+  battleLog.push(counterLog)
+  logs.push(createLogEntry(counterLog, 'damage'))
+
+  nextGamevars.players[user.id] = {
+    ...player,
+    hp: nextHp,
+    alive: nextHp > 0,
+    buffs: me.buffs || [],
+    passiveCooldowns: me.passiveCooldowns || {},
+    battle: nextHp > 0 ? { ...battle, npcHp, turn: battle.turn + 1, log: battleLog } : null,
+    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
+  }
+
+  if (nextHp <= 0) {
+    logs.push(createLogEntry(`${player.name} 在与 ${battle.npc.name} 的战斗中倒下了`, 'death'))
+    nextGamevars = ensureCorpsesForNewDeaths(gamevars, nextGamevars).gamevars
+  }
+
+  const nextRoom = await persistRoom(client, room, nextGamevars, logs)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
+}
+
+async function fleeNpcImpl(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  const battle = player?.battle
+  if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
+
+  const [rules, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+  ])
+
+  const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
+  const me = buildCombatPlayer(player, myEquips)
+  const fleeRate = getRule(rules, 'flee_success_rate', 0.6)
+  let nextGamevars = normalizeGamevars(gamevars)
+
+  if (Math.random() < fleeRate) {
+    nextGamevars.players[user.id] = { ...player, battle: null }
+    return persistRoom(client, room, nextGamevars, [
+      createLogEntry(`${player.name} 成功逃离了 ${battle.npc.name}`, 'system'),
+    ])
+  }
+
+  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
+  const damage = calcDamage({ ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
+  const nextHp = Math.max(0, (me.hp || 0) - damage)
+  nextGamevars.players[user.id] = {
+    ...player,
+    hp: nextHp,
+    alive: nextHp > 0,
+    battle: nextHp > 0 ? battle : null,
+    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
+  }
+
+  const logs = [
+    createLogEntry(`${player.name} 逃跑失败，被 ${battle.npc.name} 造成 ${damage} 伤害`, 'damage'),
+  ]
+  if (nextHp <= 0) {
+    logs.push(createLogEntry(`${player.name} 倒在了逃跑途中`, 'death'))
+    nextGamevars = ensureCorpsesForNewDeaths(gamevars, nextGamevars).gamevars
+  }
+
+  return persistRoom(client, room, nextGamevars, logs)
+}
+
+async function attackPlayerImpl(client, room, gamevars, user, targetUid) {
+  const attacker = getPlayer(gamevars, user.id)
+  const defender = getPlayer(gamevars, targetUid)
+  if (!defender) throw new Error('目标玩家不存在')
+  if (!attacker?.alive) throw new Error('阵亡玩家无法攻击')
+  if (!defender.alive) throw new Error('目标已经阵亡')
+  if (targetUid === user.id) throw new Error('不能攻击自己')
+  if ((attacker.map ?? 0) !== (defender.map ?? 0)) throw new Error('目标不在同一地图')
+
+  const [rules, buffPool, equippedInstances] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id, targetUid]),
+  ])
+
+  let working = normalizeGamevars(gamevars)
+  const turnResult = applyTurnEffects(working, buffPool)
+  working = turnResult.gamevars
+  const logs = turnResult.logs.map(log => createLogEntry(log, 'buff'))
+
+  const afterTurnDeaths = ensureCorpsesForNewDeaths(gamevars, working)
+  working = afterTurnDeaths.gamevars
+
+  const attackerAfterTurn = getPlayer(working, user.id)
+  const defenderAfterTurn = getPlayer(working, targetUid)
+  if (!attackerAfterTurn?.alive || !defenderAfterTurn?.alive) {
+    return persistRoom(client, room, working, logs)
+  }
+
+  const equipMap = groupEquipsByOwner(equippedInstances)
+  let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
+  let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
+  const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
+  const weather = (await fetchMapBundle(client, attackerAfterTurn.map ?? 0)).mapConfig?.weather || 'clear'
+
+  const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '', weather)
+  const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
+    'on_attack',
+    me,
+    target,
+    me._pass || [],
+    buffPool,
+  )
+  me = meAfterAttack
+  if (targetAfterPassive) target = targetAfterPassive
+  logs.push(...passiveLogs.map(entry => createLogEntry(entry, 'buff')))
+
+  const targetHp = Math.max(0, (target.hp || 0) - damage)
+  logs.push(createLogEntry(`${attacker.name} 攻击 ${target.name}，造成 ${damage} 伤害`, 'damage'))
+
+  working.players[user.id] = {
+    ...attackerAfterTurn,
+    hp: me.hp,
+    buffs: me.buffs || [],
+    passiveCooldowns: me.passiveCooldowns || {},
+  }
+  working.players[targetUid] = {
+    ...defenderAfterTurn,
+    hp: targetHp,
+    alive: targetHp > 0,
+    battle: targetHp > 0 ? defenderAfterTurn.battle || null : null,
+    lootPrompt: targetHp > 0 ? defenderAfterTurn.lootPrompt || null : null,
+  }
+
+  if (targetHp <= 0) {
+    const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
+    working.players[user.id] = {
+      ...working.players[user.id],
+      hp: meAfterKill.hp,
+      buffs: meAfterKill.buffs || [],
+      passiveCooldowns: meAfterKill.passiveCooldowns || {},
+      kills: (attackerAfterTurn.kills || 0) + 1,
+      lootPrompt: null,
+    }
+    logs.push(createLogEntry(`${attacker.name} 击败了 ${target.name}`, 'kill'))
+
+    const corpseResult = ensurePlayerCorpse(working, working.players[targetUid])
+    working = corpseResult.gamevars
+    if (corpseResult.corpse) {
+      const prompt = await buildLootPrompt(client, room.id, working, corpseResult.corpse, 'kill')
+      if (prompt) {
+        working = setPlayerLootPrompt(working, user.id, prompt)
+        logs.push(createLogEntry(`${attacker.name} 可以从 ${corpseResult.corpse.name} 里带走一件战利品`, 'system'))
+      } else {
+        working = await cleanupCorpseIfEmpty(client, room.id, working, corpseResult.corpse.id)
+      }
+    }
+  }
+
+  const nextRoom = await persistRoom(client, room, working, logs)
+  await safeConsumeDurability(user.id, room.id, 1, client)
+  return nextRoom
+}
+
+async function useItemImpl(client, room, gamevars, user, itemName) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法使用道具')
+  if (!itemName) throw new Error('缺少道具名称')
+
+  const [rules, buffPool, equippedInstances, itemDef] = await Promise.all([
+    loadGameRules(client),
+    loadBuffPool(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+    fetchItemDefByName(client, itemName),
+  ])
+
+  if (!itemDef) throw new Error(`未知道具：${itemName}`)
+
+  const me = buildCombatPlayer(player, groupEquipsByOwner(equippedInstances)[user.id] || [])
+  const nextPlayer = { ...player, lootPrompt: null }
+  const result = calcItemEffect(itemDef, me, rules)
+  const logs = []
+
+  if (result.hpDelta) {
+    nextPlayer.hp = Math.max(0, Math.min(me.maxHp, (player.hp || 0) + result.hpDelta))
+    nextPlayer.alive = nextPlayer.hp > 0
+    logs.push(createLogEntry(`${player.name} 使用 ${itemName}，HP ${result.hpDelta > 0 ? '+' : ''}${result.hpDelta}`, result.hpDelta > 0 ? 'heal' : 'damage'))
+  }
+
+  if (result.atkDelta) {
+    nextPlayer.atk = Math.max(0, (nextPlayer.atk || 0) + result.atkDelta)
+    logs.push(createLogEntry(`${player.name} 使用 ${itemName}，ATK +${result.atkDelta}`, 'buff'))
+  }
+
+  if (result.defDelta) {
+    nextPlayer.def = Math.max(0, (nextPlayer.def || 0) + result.defDelta)
+    logs.push(createLogEntry(`${player.name} 使用 ${itemName}，DEF +${result.defDelta}`, 'buff'))
+  }
+
+  for (const buffId of result.newBuffIds || []) {
+    const buffDef = (buffPool || []).find(buff => buff.id === buffId)
+    if (!buffDef) continue
+    const updated = applyBuff(nextPlayer, buffId, buffDef)
+    nextPlayer.buffs = updated.buffs
+    logs.push(createLogEntry(`${player.name} 获得了 ${buffDef.name}`, 'buff'))
+  }
+
+  nextPlayer.inventory = removeInventoryItem(player.inventory, itemName, 1)
+
+  let nextGamevars = normalizeGamevars(gamevars)
+  nextGamevars.players[user.id] = nextPlayer
+  if (nextPlayer.alive === false) {
+    logs.push(createLogEntry(`${player.name} 因使用 ${itemName} 倒下了`, 'death'))
+    nextGamevars = ensureCorpsesForNewDeaths(gamevars, nextGamevars).gamevars
+  }
+  return persistRoom(client, room, nextGamevars, logs)
+}
+
+async function dismissLootPrompt(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player) throw new Error('你还未加入该房间')
+  if (!player.lootPrompt) return room
+
+  const nextGamevars = clearPlayerLootPrompt(normalizeGamevars(gamevars), user.id)
+  return persistRoom(client, room, nextGamevars, [])
+}
+
+async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法拾取战利品')
+  if (!corpseId || !entryId) throw new Error('缺少尸体或战利品信息')
+
+  let working = clearPlayerLootPrompt(normalizeGamevars(gamevars), user.id)
+  const corpse = getCorpseById(working, corpseId)
+  if (!corpse) throw new Error('这具尸体已经不存在了')
+  if ((player.map ?? 0) !== (corpse.mapId ?? 0)) throw new Error('尸体不在当前地图')
+
+  const options = await buildCorpseLootOptions(client, room.id, working, corpse)
+  const selected = options.find(option => option.id === entryId)
+  if (!selected) throw new Error('这件战利品已经被别人拿走了')
+
+  let sideEffect = null
+  try {
+    if (selected.type === 'item') {
+      const nextPlayer = {
+        ...getPlayer(working, user.id),
+        inventory: [...(getPlayer(working, user.id)?.inventory || []), selected.itemName || selected.name],
+      }
+      working.players[user.id] = nextPlayer
+
+      if (corpse.type === 'npc') {
+        working = replaceCorpse(working, corpse.id, current => ({
+          ...current,
+          entries: (current.entries || []).filter(entry => entry.id !== selected.id),
+        }))
+      } else {
+        const owner = getPlayer(working, corpse.ownerPlayerId)
+        if (!owner) throw new Error('尸体主人不存在')
+        working.players[corpse.ownerPlayerId] = {
+          ...owner,
+          inventory: removeInventoryItem(owner.inventory, selected.itemName || selected.name, 1),
+        }
+      }
+    } else {
+      sideEffect = await createLootSideEffect(client, room.id, user.id, corpse, selected)
+
+      if (corpse.type === 'npc') {
+        working = replaceCorpse(working, corpse.id, current => ({
+          ...current,
+          entries: (current.entries || []).filter(entry => entry.id !== selected.id),
+        }))
+      }
+    }
+
+    working = await cleanupCorpseIfEmpty(client, room.id, working, corpse.id)
+
+    const logs = [
+      createLogEntry(`${player.name} 从 ${corpse.name} 里带走了 ${selected.name}`, selected.type === 'item' ? 'heal' : 'system'),
+    ]
+    if (!getCorpseById(working, corpse.id)) {
+      logs.push(createLogEntry(`${corpse.name} 已经被搜空了`, 'system'))
+    }
+
+    const nextRoom = await persistRoom(client, room, working, logs)
+    return nextRoom
+  } catch (error) {
+    await rollbackLootSideEffect(client, sideEffect)
+    throw error
+  }
+}
+
 export async function createRoom(client, user, payload = {}) {
   const { data: latestRoom } = await client
     .from('rooms')
@@ -265,6 +1023,9 @@ export async function executeGameAction(client, user, payload) {
   const room = await fetchRoom(client, roomId)
   const gamevars = normalizeGamevars(room.gamevars)
   const me = getPlayer(gamevars, user.id)
+  if (!['join', 'lootCorpse', 'dismissLootPrompt'].includes(payload.action) && me?.lootPrompt) {
+    throw new Error('请先处理当前战利品')
+  }
 
   if (payload.action !== 'join' && !me) {
     throw new Error('你还未加入该房间')
@@ -298,6 +1059,14 @@ export async function executeGameAction(client, user, payload) {
     return useItem(client, room, gamevars, user, payload.itemName)
   }
 
+  if (payload.action === 'lootCorpse') {
+    return lootCorpse(client, room, gamevars, user, payload.corpseId, payload.entryId)
+  }
+
+  if (payload.action === 'dismissLootPrompt') {
+    return dismissLootPrompt(client, room, gamevars, user)
+  }
+
   throw new Error('未知动作')
 }
 
@@ -322,6 +1091,7 @@ async function movePlayer(client, room, gamevars, user, mapId) {
 }
 
 async function searchArea(client, room, gamevars, user) {
+  return searchAreaImpl(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法搜索')
   if (player.battle) throw new Error('战斗中无法搜索')
@@ -390,6 +1160,7 @@ async function searchArea(client, room, gamevars, user) {
 }
 
 async function attackNpc(client, room, gamevars, user) {
+  return attackNpcImpl(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
@@ -472,6 +1243,7 @@ async function attackNpc(client, room, gamevars, user) {
 }
 
 async function fleeNpc(client, room, gamevars, user) {
+  return fleeNpcImpl(client, room, gamevars, user)
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
@@ -514,6 +1286,7 @@ async function fleeNpc(client, room, gamevars, user) {
 }
 
 async function attackPlayer(client, room, gamevars, user, targetUid) {
+  return attackPlayerImpl(client, room, gamevars, user, targetUid)
   const attacker = getPlayer(gamevars, user.id)
   const defender = getPlayer(gamevars, targetUid)
   if (!defender) throw new Error('目标玩家不存在')
@@ -591,6 +1364,7 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
 }
 
 async function useItem(client, room, gamevars, user, itemName) {
+  return useItemImpl(client, room, gamevars, user, itemName)
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法使用道具')
   if (!itemName) throw new Error('缺少道具名称')
