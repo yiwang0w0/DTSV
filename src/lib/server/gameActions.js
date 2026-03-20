@@ -8,6 +8,7 @@ import {
   getSearchChances,
   loadBuffPool,
   loadGameRules,
+  processBuffs,
 } from '@/lib/gameEngine'
 import {
   appendResolutionLog,
@@ -143,6 +144,43 @@ function buildCombatPlayer(basePlayer, instances = []) {
     def: (basePlayer.def || 0) + equipped.totalDef,
     _pass: instances.map(instance => instance.tier?.passive).filter(Boolean),
   }
+}
+
+function applyTurnEffects(gamevars, buffPool) {
+  const nextPlayers = { ...gamevars.players }
+  const logEntries = []
+
+  for (const [playerId, player] of Object.entries(nextPlayers)) {
+    if (!player?.alive) continue
+    const { updatedPlayer, logEntries: playerLogs } = processBuffs(player, buffPool || [])
+    logEntries.push(...playerLogs)
+    nextPlayers[playerId] = {
+      ...tickPassiveCooldowns(updatedPlayer),
+      battle: updatedPlayer.alive ? updatedPlayer.battle || player.battle || null : null,
+    }
+  }
+
+  return {
+    gamevars: { ...gamevars, players: nextPlayers },
+    logs: logEntries,
+  }
+}
+
+function ensureCorpsesForNewDeaths(prevGamevars, nextGamevars) {
+  const previous = normalizeGamevars(prevGamevars)
+  let working = normalizeGamevars(nextGamevars)
+  const created = []
+
+  for (const [playerId, player] of Object.entries(working.players || {})) {
+    const wasAlive = previous.players?.[playerId]?.alive !== false
+    if (wasAlive && player?.alive === false) {
+      const result = ensurePlayerCorpse(working, player)
+      working = result.gamevars
+      if (result.corpse) created.push(result.corpse)
+    }
+  }
+
+  return { gamevars: working, created }
 }
 
 async function settleCorpseGeneration(resolution) {

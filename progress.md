@@ -1,5 +1,17 @@
 Original prompt: 那帮我补齐，记得最后更新readme_GPT
 
+2026-03-21
+- 目标：做一次整体 debug，确认当前仓库是代码问题还是环境问题。
+- 已完成：
+  - 对 `src/lib/**/*.js`、`src/app/api/**/*.js`、`scripts/*.mjs` 跑了 `node --check`，全部通过。
+  - `npm run smoke` 通过。
+  - `npm run build` / `npm run lint` 均失败，原因不是新代码报错，而是本地没有可执行的 `next`。
+  - `npm ls next` 与 `npm ls playwright` 都为空，确认当前工作区缺少这两类依赖。
+  - `src/lib/server/gameActions.js` 补回 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()` 兼容 helper，防止文件里仍残留的旧实现路径在误触发时直接炸掉。
+- 结论：
+  - 当前最主要的问题是环境没有装依赖，不是新一轮代码语法回归。
+  - 事件结算器主入口还能正常工作，但 `gameActions.js` 里旧残段依旧建议后续继续清掉。
+
 2026-03-20
 - 目标：按“优先事件结算器”的方向，先给现有动作层补一层轻量共享结算管线，并移除地图冗余的 `danger_level` 配置。
 - 已完成：

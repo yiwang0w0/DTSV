@@ -1,4 +1,21 @@
 # Readme_GPT
+## 2026-03-21 / 全局 debug 巡检
+- 范围：对当前工作区做一次整体 debug，重点检查 `src/lib`、`src/app/api`、smoke、以及构建依赖环境。
+- 已修复：
+  - `src/lib/server/gameActions.js` 补回 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()` 兼容 helper。
+  - 目的不是回退事件结算器，而是给仍留在文件里的旧实现残段补护栏，避免这些旧路径在被误调用时直接因为 helper 缺失而报错。
+- 当前代码检查结果：
+  - `node --check` 已通过 `src/lib/**/*.js`、`src/app/api/**/*.js`、`scripts/*.mjs`
+  - `npm run smoke` 通过
+  - 现阶段没有发现新的语法级错误或 smoke 回归
+- 当前环境问题：
+  - `npm run build` 失败，原因是本地没有可执行的 `next`
+  - `npm run lint` 失败，原因同上
+  - `npm ls next` 与 `npm ls playwright` 都是空，说明当前工作区未安装对应依赖
+- 结论：
+  - 现在主风险不在代码语法，而在本地依赖环境缺失
+  - `gameActions.js` 依旧偏大，后续仍建议继续删除旧残段并按模块拆分
+
 ## 2026-03-20 / 事件结算器与地图配置整理
 - 状态：已新增 `src/lib/eventResolver.js`，作为当前服务端动作层的轻量事件结算器。
 - 已接入动作：
