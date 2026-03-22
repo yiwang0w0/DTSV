@@ -32,14 +32,15 @@ export const WEATHER_OPTIONS = [
 ]
 
 export const ITEM_KIND_META = {
-  weapon: { label: '武器', color: '#f85149', emoji: '⚔️' },
-  armor: { label: '防具', color: '#58a6ff', emoji: '🛡️' },
-  consumable: { label: '消耗品', color: '#3fb950', emoji: '💊' },
-  special: { label: '特殊', color: '#bc8cff', emoji: '✨' },
+  weapon:     { label: '武器',   color: '#f85149', icon: '⚔️' },
+  armor:      { label: '防具',   color: '#58a6ff', icon: '🛡️' },
+  consumable: { label: '消耗品', color: '#3fb950', icon: '💊' },
+  material:   { label: '材料',   color: '#d29922', icon: '🧱' },
+  special:    { label: '特殊',   color: '#bc8cff', icon: '✨' },
 }
 
 export const NPC_LEVEL_META = {
-  easy: { label: '简单', color: '#3fb950' },
+  easy: { label: '普通', color: '#3fb950' },
   medium: { label: '中等', color: '#d29922' },
   hard: { label: '困难', color: '#f85149' },
   boss: { label: 'BOSS', color: '#bc8cff' },

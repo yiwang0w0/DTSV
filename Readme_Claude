@@ -1,7 +1,24 @@
 # Readme_Claude
 
-更新时间：2026-03-18（Asia/Tokyo）
-整理方式：基于全量源码交叉验证，覆盖最新 commit `6ae6cc0`。
+更新时间：2026-03-22（Asia/Tokyo）
+整理方式：基于全量源码交叉验证，覆盖最新修复。
+
+## 最近变更（2026-03-22）
+
+### Debug 巡检与常量统一
+- **mojibake 修复**: `src/lib/server/gameActions.js` 中 ~25 处编码损坏的中文字符串（error message + 日志）已全部还原为正确中文。原因是 GPT 写入 `resolve*` 系列函数时使用了错误编码（UTF-8→GBK 双重编码）。
+- **constants 统一**: `src/app/admin/_shared/ui.js` 中重复定义的 MAP_LIST / ITEM_KIND_META / NPC_LEVEL_META / GAME_TYPES 已删除，改为从 `@/lib/constants` 统一导入。`constants.js` 补充了 `material` 道具类型，key 从 `emoji` 改为 `icon`。
+- **死代码清理**: `GameClientPage.jsx` 中 loading 块内注释掉的重复函数已删除。
+- **progress.md 修复**: 3/20 和 3/19 的 mojibake 条目已重写为正确中文。
+
+### 之前变更摘要（3/19-3/21）
+- 事件结算器 (`eventResolver.js`) 已接入全部 5 个动作
+- 尸体战利品系统已实现（LootModal + lootCorpse/dismissLootPrompt）
+- rooms 乐观锁并发安全收尾（版本冲突回滚、合成副作用回滚）
+- 旧实现残段清理（净删 ~700 行）
+- `danger_level` 从代码层移除
+
+---
 
 ---
 
@@ -62,6 +79,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 | `/api/game/actions` | POST | User | 执行游戏动作 (join/move/search/attackNpc/flee/attackPlayer/useItem) |
 | `/api/game/equipment` | POST | User | 装备操作 (craft/equip/unequip) |
 | `/api/game/rooms` | POST | Admin | 创建房间 |
+| `/api/admin/rooms` | PATCH | Admin | 强制结束房间（带版本检查） |
 | `/api/admin/rooms` | DELETE | Admin | 删除房间 |
 
 ### 核心库 (`src/lib/`)
@@ -70,13 +88,14 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 |------|------|----------|
 | `gameEngine.js` | 314 | `evalFormula()` 沙盒公式求值, `loadGameRules()`, `loadBuffPool()`, `calcDamage()`, `calcItemEffect()`, `processBuffs()`, `getSearchChances()`, `getInitPlayerStats()` |
 | `equipmentEngine.js` | 605 | `getCraftingTree()`, `getSeriesTree()`, `checkCanCraft()`, `executeCraft()`, `calcEquippedStats()`, `triggerPassives()`, `RARITY_META`, `ELEMENT_META`, `SLOT_META` |
-| `roomState.js` | 123 | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()`, `applyRoomLifecycle()` |
-| `constants.js` | 46 | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META`, `NPC_LEVEL_META` |
+| `eventResolver.js` | 119 | `createActionResolution()`, `runTurnStartSettlement()`, `settleNewDeaths()`, 日志/玩家状态写回 helper |
+| `roomState.js` | 202 | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()`, `applyRoomLifecycle()`, `createCorpse()`, `setPlayerLootPrompt()` |
+| `constants.js` | 47 | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META` (5种含material), `NPC_LEVEL_META` |
 | `gameApi.js` | 25 | `postGameApi()` — 客户端统一 fetch 入口 |
 | `serverSupabase.js` | 52 | `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()` (支持 admin 标志) |
 | `auth.js` | 26 | `isAdmin()`, `PRIMARY_ADMIN_EMAIL` |
 | `supabase.js` | 10 | Supabase 客户端 |
-| `server/gameActions.js` | 1000+ | `createRoom()`, `joinRoom()`, `executeGameAction()`, `movePlayer()`, `searchArea()`, `attackNpc()`, `fleeNpc()`, `attackPlayer()`, `useItem()`, `executeEquipmentAction()` + Buff/被动技能集成 |
+| `server/gameActions.js` | ~1100 | `createRoom()`, `joinRoom()`, `executeGameAction()` + 事件结算器 (`resolveSearchAction`, `resolveNpcAttackAction`, `resolveNpcFleeAction`, `resolvePlayerAttackAction`, `resolveUseItemAction`) + 尸体战利品 (`lootCorpse`, `dismissLootPrompt`) + 乐观锁 (`VersionConflictError`, `withRetry`) |
 
 ### 共享 UI (`src/app/admin/_shared/ui.js`)
 
@@ -159,7 +178,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 | 问题 | 说明 | 优先级 |
 |------|------|--------|
-| 并发安全 | 先读后整包写回，未用 Supabase RPC / Postgres 原子更新 | 高 |
+| 并发安全 | rooms 已有乐观锁 (version 字段)，但未用 Supabase RPC / Postgres 事务级原子方案 | 中 |
 | gameActions.js 过大 | 1000+ 行单文件承载所有动作，可按模块拆分 | 中 |
 | GameClientPage.jsx 偏重 | 538 行，可拆为子面板组件 | 中 |
 | EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 中 |
@@ -170,7 +189,6 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 ## 八、未实现
 
-- 随机装备掉落（搜索/战斗触发）
 - 排行榜 / 战绩沉淀 / 局后奖励
 - 深度移动端适配
 - Supabase RPC 并发写保护

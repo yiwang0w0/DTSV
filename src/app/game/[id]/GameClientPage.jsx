@@ -234,23 +234,6 @@ export default function GameClientPage() {
   }
 
   if (authLoading || loading) {
-  /*
-  async function handleTakeLoot(option) {
-    const nextRoom = await runGameAction('lootCorpse', {
-      corpseId: lootPrompt?.corpseId,
-      entryId: option.id,
-    }, { refreshEquipment: true })
-
-    if (nextRoom) {
-      toast(`已带走 ${option.name}`, 'success')
-    }
-  }
-
-  async function handleDismissLootPrompt() {
-    await runGameAction('dismissLootPrompt')
-  }
-
-  */
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
         <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.cyan, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />

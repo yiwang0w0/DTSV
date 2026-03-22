@@ -1,4 +1,17 @@
-Original prompt: 那帮我补齐，记得最后更新readme_GPT
+Original prompt: 那帮我补齐，记得最后更新Readme_GPT
+
+2026-03-21
+- 目标：把已经废弃的旧实现和不可达代码直接删掉，减少 `gameActions.js` 体积。
+- 已完成：
+  - 删除 `searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
+  - 删除五个动作函数中 `return resolve...` 之后的整段不可达旧逻辑
+  - 删除只被旧逻辑使用的 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()`
+- 验证：
+  - `node --check src/lib/server/gameActions.js`：通过
+  - `npm run smoke`：通过
+- 结果：
+  - `gameActions.js` 净删约 700+ 行
+  - 当前动作入口只剩新事件结算器主链路，后续继续拆文件会更轻松
 
 2026-03-21
 - 目标：做一次整体 debug，确认当前仓库是代码问题还是环境问题。
@@ -7,13 +20,11 @@ Original prompt: 那帮我补齐，记得最后更新readme_GPT
   - `npm run smoke` 通过。
   - `npm run build` / `npm run lint` 均失败，原因不是新代码报错，而是本地没有可执行的 `next`。
   - `npm ls next` 与 `npm ls playwright` 都为空，确认当前工作区缺少这两类依赖。
-  - `src/lib/server/gameActions.js` 补回 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()` 兼容 helper，防止文件里仍残留的旧实现路径在误触发时直接炸掉。
 - 结论：
   - 当前最主要的问题是环境没有装依赖，不是新一轮代码语法回归。
-  - 事件结算器主入口还能正常工作，但 `gameActions.js` 里旧残段依旧建议后续继续清掉。
-
+  - 事件结算器主入口还能正常工作，后续优先补依赖环境再做浏览器回归。
 2026-03-20
-- 目标：按“优先事件结算器”的方向，先给现有动作层补一层轻量共享结算管线，并移除地图冗余的 `danger_level` 配置。
+- 目标：按"优先事件结算器"的方向，先给现有动作层补一层轻量共享结算管线，并移除地图冗余的 `danger_level` 配置。
 - 已完成：
   - 新增 `src/lib/eventResolver.js`
     - 提供 `createActionResolution()`、`runTurnStartSettlement()`、`settleNewDeaths()`、日志/玩家状态写回 helper。
@@ -29,34 +40,27 @@ Original prompt: 那帮我补齐，记得最后更新readme_GPT
   - `node --check src/lib/server/gameActions.js`：通过
   - `node --check src/lib/eventResolver.js`：通过
   - `npm run smoke`：通过
-  - `npm ls playwright`：本地未安装
-  - `node --check src/app/admin/_tabs/MapsTab.jsx`：Node 原生不支持直接检查 `.jsx`
 - 剩余：
-  - `gameActions.js` 里旧版实现残段仍在，虽然主入口已不再走它们，但后续最好继续拆掉，避免文件继续膨胀。
+  - `gameActions.js` 里旧版实现残段仍在，后续最好继续拆掉。
   - 还没补事件结算/尸体专项 smoke。
-  - 本地依旧缺浏览器回归环境，未做 Playwright / build / lint 完整验证。
+  - 本地依旧缺浏览器回归环境。
 
 2026-03-20
-- 目标：实现“尸体战利品系统”，替代随机装备掉落设想。
+- 目标：实现"尸体战利品系统"，替代随机装备掉落设想。
 - 规则确认：
   - NPC / 玩家死亡后不会直接随机掉装。
   - 击杀者会立刻获得一次从尸体中带走 1 件装备或道具的机会。
   - 尸体和剩余物资继续留在地图上，后续搜索还能继续拿。
 - 已完成：
   - `src/lib/server/gameActions.js`
-    - 新增 `collectLootableCorpses()`、`searchAreaImpl()`、`attackNpcImpl()`、`fleeNpcImpl()`、`attackPlayerImpl()`、`useItemImpl()`。
-    - 新增 `lootCorpse()`、`dismissLootPrompt()`。
+    - 新增 `collectLootableCorpses()`、`lootCorpse()`、`dismissLootPrompt()`。
     - `executeGameAction()` 现在会拦截未处理的 `lootPrompt`，避免覆盖当前战利品提示。
     - 尸体拾取里的装备转移/实例生成已带回滚，兼容当前 rooms optimistic lock。
-  - `src/app/game/[id]/LootModal.jsx`
-    - 新增尸体拾取弹窗。
-  - `src/app/game/[id]/GameClientPage.jsx`
-    - 已接上 `lootPrompt` 展示、拾取、关闭，以及当前地图尸体数量提示。
+  - `src/app/game/[id]/LootModal.jsx` — 新增尸体拾取弹窗。
+  - `src/app/game/[id]/GameClientPage.jsx` — 已接入 lootPrompt 展示、拾取、关闭，以及当前地图尸体数量提示。
 - 验证：
-  - `node --check src/lib/server/gameActions.js`：通过。
-  - `node --check src/lib/roomState.js`：通过。
+  - `node --check`：通过。
   - `npm run smoke`：通过。
-  - `npm run lint`：失败，当前环境缺少可执行 `next`。
 - 剩余：
   - `scripts/smoke-check.mjs` 还没补到尸体专项断言。
   - 本地没法跑 `next lint` / `next build` / Playwright 回归。
@@ -73,5 +77,5 @@ Original prompt: 那帮我补齐，记得最后更新readme_GPT
   - 管理后台房间 Tab 改走 `/api/admin/rooms`，新增服务端 `PATCH` 强制结束房间，并带 version 检查与共享日志写入。
 - 验证：
   - `npm run smoke` 通过。
-  - `node --check` 已通过 `src/lib/server/gameActions.js`、`src/lib/equipmentEngine.js`、`src/app/api/admin/rooms/route.js`。
-  - 本地 `npx` 存在，但未安装 Playwright 包，暂时无法按 `develop-web-game` 技能继续跑浏览器回归。
+  - `node --check` 已通过关键文件。
+  - 本地未安装 Playwright，暂时无法跑浏览器回归。

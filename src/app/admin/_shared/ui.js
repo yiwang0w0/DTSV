@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { evalFormula } from '@/lib/gameEngine'
 
+export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
+
 export const BTN = (bg, color, extra = {}) => ({
   padding: '8px 16px', borderRadius: 7, border: 'none', background: bg,
   color, fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -17,28 +19,12 @@ export const LABEL = {
   fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
 }
 
-export const MAP_LIST = Array.from({ length: 34 }, (_, i) => ({ id: i + 1, name: `地图 ${i + 1}` }))
-
-export const ITEM_KIND_META = {
-  weapon:     { label: '武器',   color: '#f85149', icon: '⚔️' },
-  armor:      { label: '防具',   color: '#58a6ff', icon: '🛡️' },
-  consumable: { label: '消耗品', color: '#3fb950', icon: '💊' },
-  material:   { label: '材料',   color: '#d29922', icon: '🧱' },
-  special:    { label: '特殊',   color: '#bc8cff', icon: '✨' },
-}
-export const NPC_LEVEL_META = {
-  easy:   { label: '普通', color: '#3fb950' },
-  medium: { label: '中等', color: '#d29922' },
-  hard:   { label: '困难', color: '#f85149' },
-  boss:   { label: 'BOSS', color: '#bc8cff' },
-}
 export const ROOM_STATE = {
   0: { label: '等待中', color: '#d29922' },
   1: { label: '进行中', color: '#3fb950' },
   2: { label: '已结束', color: '#484f58' },
 }
 export const WEATHER_OPTIONS = ['clear', 'rain', 'fog', 'storm', 'night', 'snow']
-export const GAME_TYPES = { 0: '个人战', 2: 'PVE', 11: '2v2', 12: '3v3', 13: '4v4', 14: '自由团战' }
 
 export function Spinner() {
   return (

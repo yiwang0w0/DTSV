@@ -1,4 +1,18 @@
 # Readme_GPT
+## 2026-03-21 / 清理旧实现与不可达代码
+- 状态：已从 `src/lib/server/gameActions.js` 删除确认不再使用的旧实现与不可达分支。
+- 本轮清理：
+  - 删除旧的 `searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
+  - 删除五个动作 wrapper 里 `return` 之后的整段不可达旧逻辑
+  - 连带删除只为旧逻辑服务的 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()`
+- 结果：
+  - `gameActions.js` 现在只保留当前事件结算器所需的主链路实现
+  - 本轮共净删约 700+ 行旧代码
+  - 服务端动作入口更清晰，后续继续按模块拆分会更容易
+- 验证：
+  - `node --check src/lib/server/gameActions.js` 通过
+  - `npm run smoke` 通过
+
 ## 2026-03-21 / 全局 debug 巡检
 - 范围：对当前工作区做一次整体 debug，重点检查 `src/lib`、`src/app/api`、smoke、以及构建依赖环境。
 - 已修复：
