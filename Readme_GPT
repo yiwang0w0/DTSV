@@ -1,4 +1,18 @@
 # Readme_GPT
+## 2026-03-24 / 修复 `gameActions.js` 坏掉的字符串
+- 状态：已修复 `src/lib/server/gameActions.js` 中由上轮乱码修复遗留的坏字符串，恢复服务端动作模块的可解析状态。
+- 本轮修复：
+  - 修正 NPC / PvP 攻击日志里残留的异常字符 ``
+  - 修复两处死亡日志模板字符串缺失结尾，避免模块解析时报 `SyntaxError`
+  - 修复 `未知道具` 错误消息中的错误插值 `${{itemName}`，恢复为 `${itemName}`
+  - 顺手整理 NPC 逃跑失败日志里的多余空格
+- 影响范围：
+  - 仅修改字符串与报错文案，不改变房间结算、战斗公式、尸体战利品或乐观锁逻辑
+- 验证：
+  - `node -e "import('./src/lib/server/gameActions.js')"` 不再报语法错误，当前只会停在普通 Node 无法解析 `@/` 别名
+  - `npm.cmd run smoke` 通过
+  - 已确认 `伤害`、`${{itemName}`、`倒下了, 'death'` 等坏模式已从文件中移除
+
 ## 2026-03-21 / 清理旧实现与不可达代码
 - 状态：已从 `src/lib/server/gameActions.js` 删除确认不再使用的旧实现与不可达分支。
 - 本轮清理：

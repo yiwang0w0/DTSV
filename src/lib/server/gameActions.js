@@ -614,7 +614,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
   appendResolutionLogs(resolution, passiveLogs, 'buff')
   const npcHp = Math.max(0, battle.npcHp - damageOut)
-  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOut} 伤害`
+  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOut} 伤害`
   battleLog.push(attackLog)
   appendResolutionLog(resolution, attackLog, 'damage')
 
@@ -654,7 +654,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
   const damageIn = calcDamage({ ...battle.npc, hp: npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
   const nextHp = Math.max(0, (me.hp || 0) - damageIn)
-  const counterLog = `${battle.npc.name} 反击，造成 ${damageIn} 伤害`
+  const counterLog = `${battle.npc.name} 反击，造成 ${damageIn} 伤害`
   battleLog.push(counterLog)
   appendResolutionLog(resolution, counterLog, 'damage')
 
@@ -669,7 +669,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   })
 
   if (nextHp <= 0) {
-    appendResolutionLog(resolution, `${player.name} 在与 ${battle.npc.name} 的战斗中倒下了, 'death')
+    appendResolutionLog(resolution, `${player.name} 在与 ${battle.npc.name} 的战斗中倒下了`, 'death')
     await settleCorpseGeneration(resolution)
   }
 
@@ -710,7 +710,7 @@ async function resolveNpcFleeAction(client, room, gamevars, user) {
     lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
   })
 
-  appendResolutionLog(resolution, `${player.name} 逃跑失败，被  ${battle.npc.name} 造成  ${damage} 伤害`, 'damage')
+  appendResolutionLog(resolution, `${player.name} 逃跑失败，被 ${battle.npc.name} 造成 ${damage} 伤害`, 'damage')
   if (nextHp <= 0) {
     appendResolutionLog(resolution, `${player.name} 倒在了逃跑途中`, 'death')
     await settleCorpseGeneration(resolution)
@@ -763,7 +763,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   appendResolutionLogs(resolution, passiveLogs, 'buff')
 
   const targetHp = Math.max(0, (target.hp || 0) - damage)
-  appendResolutionLog(resolution, `${attacker.name} 攻击 ${target.name}，造成 ${damage} 伤害`, 'damage')
+  appendResolutionLog(resolution, `${attacker.name} 攻击 ${target.name}，造成 ${damage} 伤害`, 'damage')
 
   setResolutionPlayer(resolution, user.id, {
     ...attackerAfterTurn,
@@ -824,7 +824,7 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
     fetchItemDefByName(client, itemName),
   ])
 
-  if (!itemDef) throw new Error(`未知道具：${{itemName}`)
+  if (!itemDef) throw new Error(`未知道具：${itemName}`)
 
   const me = buildCombatPlayer(player, groupEquipsByOwner(equippedInstances)[user.id] || [])
   const nextPlayer = { ...player, lootPrompt: null }
@@ -863,7 +863,7 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
   setResolutionPlayer(resolution, user.id, nextPlayer)
 
   if (nextPlayer.alive === false) {
-    appendResolutionLog(resolution, `${player.name} 因使用 ${itemName} 倒下了, 'death')
+    appendResolutionLog(resolution, `${player.name} 因使用 ${itemName} 倒下了`, 'death')
     await settleCorpseGeneration(resolution)
   }
 
