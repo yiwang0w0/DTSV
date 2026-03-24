@@ -79,3 +79,17 @@ Original prompt: 那帮我补齐，记得最后更新Readme_GPT
   - `npm run smoke` 通过。
   - `node --check` 已通过关键文件。
   - 本地未安装 Playwright，暂时无法跑浏览器回归。
+
+2026-03-24
+- 目标：去掉首页里不需要的“常磐大逃杀”文案，并补上房间轮次的自动准备逻辑。
+- 已完成：
+  - `src/app/page.js` 删除副标题“常磐大逃杀 · 现代Web重制版”。
+  - `src/app/api/game/rooms/route.js` 增加 `ensureNextRound` 逻辑：允许已登录用户请求“若当前没有等待中/进行中的房间，则创建一个新的等待房间”。
+  - `src/app/rooms/page.js` 增加每 60 秒轮询房间状态；当没有可用房间时会自动触发下一轮准备，并更新大厅提示文案。
+- 验证：
+  - `node --check src/app/api/game/rooms/route.js` 通过。
+  - `npm.cmd run smoke` 通过。
+  - 检查确认首页源码中已不存在“常磐大逃杀”文本。
+  - 本地 `next` / `playwright` 仍不存在，因此没有做浏览器层回归。
+- 备注：
+  - 当前“自动准备下一轮”是通过大厅页面驱动的，不是独立后台定时任务；只要有已登录用户进入大厅，就会在首次进入和之后每分钟巡检时补房。

@@ -1,204 +1,146 @@
-# Readme_GPT
-## 2026-03-24 / 后台用户组与权限组管理
-- 状态：已在管理后台新增“用户权限”页，支持查询用户、查看当前分组、按分组筛选，并编辑 `auth.users.user_metadata.groups`。
-- 本轮新增：
-  - 新增 `src/app/api/admin/users/route.js`
-    - `GET /api/admin/users`：管理员拉取 Supabase Auth 用户列表，并合并 `profiles.roomid`
-    - `PATCH /api/admin/users`：管理员更新指定用户的 `groups`
-  - 新增 `src/app/admin/_tabs/UsersTab.jsx`
-    - 支持按用户名 / 邮箱 / ID / 分组搜索
-    - 支持按权限组筛选
-    - 支持查看注册时间、最后登录时间、当前房间
-    - 支持通过弹窗编辑预设组与自定义组
-  - 更新 `src/app/admin/page.js`
-    - 新增“👥 用户权限”标签页入口
-  - 更新 `src/lib/auth.js`
-    - 新增 `KNOWN_PERMISSION_GROUPS`
-    - 新增 `normalizeGroups()` / `getUserGroups()`
-    - `ensureAdminMetadata()` 改为统一走分组规范化
-- 当前权限模型：
-  - 仍以 `user_metadata.groups` 为单一事实来源
-  - 保存时会自动去重、转小写，并始终保留 `user`
-  - 主管理员邮箱 `PRIMARY_ADMIN_EMAIL` 会被强制保留 `admin`
-  - 当前已真正接入鉴权判断的是 `admin`，其余组先作为预留运营/权限分层
+﻿# Readme_GPT
+## 2026-03-24 / 首页文案与房间自动准备下一轮
+- 状态：已移除首页中“常磐大逃杀”文案，并让大厅在没有等待中/进行中房间时自动准备下一轮。
+- 本轮调整：
+  - `src/app/page.js`：删除首页副标题中的“常磐大逃杀 · 现代Web重制版”文字，仅保留主标题与入口按钮
+  - `src/app/api/game/rooms/route.js`：新增“ensure next round”分支；当请求携带 `ensureNextRound: true` 时，会先检查是否已有等待中/进行中的房间，没有才创建新房间
+  - `src/app/rooms/page.js`：
+    - 新增每 60 秒一次的房间状态轮询
+    - 当当前没有等待中/进行中的房间时，会自动调用接口准备下一轮
+    - 大厅提示文案改为“系统自动准备下一轮”，管理员手动创建仍保留
+- 当前行为：
+  - 房间仍然在首位玩家加入后自动开始
+  - 当所有房间都已结束，下一次大厅巡检会自动补出一个新的等待中房间
+  - 自动准备下一轮现在对已登录用户生效，不再只依赖管理员手动开房
 - 验证：
-  - `node --check src/lib/auth.js` 通过
-  - `node --check src/app/api/admin/users/route.js` 通过
+  - `node --check src/app/api/game/rooms/route.js` 通过
   - `npm.cmd run smoke` 通过
-  - `npm.cmd run lint` 失败，原因是当前环境仍没有可执行的 `next`
+  - 已确认首页源码中不再包含“常磐大逃杀”文本
+  - 本地仍无 `next` 与 `playwright`，因此未执行浏览器层回归
+## 2026-03-24 / 鍚庡彴鐢ㄦ埛缁勪笌鏉冮檺缁勭鐞?- 鐘舵€侊細宸插湪绠＄悊鍚庡彴鏂板鈥滅敤鎴锋潈闄愨€濋〉锛屾敮鎸佹煡璇㈢敤鎴枫€佹煡鐪嬪綋鍓嶅垎缁勩€佹寜鍒嗙粍绛涢€夛紝骞剁紪杈?`auth.users.user_metadata.groups`銆?- 鏈疆鏂板锛?  - 鏂板 `src/app/api/admin/users/route.js`
+    - `GET /api/admin/users`锛氱鐞嗗憳鎷夊彇 Supabase Auth 鐢ㄦ埛鍒楄〃锛屽苟鍚堝苟 `profiles.roomid`
+    - `PATCH /api/admin/users`锛氱鐞嗗憳鏇存柊鎸囧畾鐢ㄦ埛鐨?`groups`
+  - 鏂板 `src/app/admin/_tabs/UsersTab.jsx`
+    - 鏀寔鎸夌敤鎴峰悕 / 閭 / ID / 鍒嗙粍鎼滅储
+    - 鏀寔鎸夋潈闄愮粍绛涢€?    - 鏀寔鏌ョ湅娉ㄥ唽鏃堕棿銆佹渶鍚庣櫥褰曟椂闂淬€佸綋鍓嶆埧闂?    - 鏀寔閫氳繃寮圭獥缂栬緫棰勮缁勪笌鑷畾涔夌粍
+  - 鏇存柊 `src/app/admin/page.js`
+    - 鏂板鈥滒煈?鐢ㄦ埛鏉冮檺鈥濇爣绛鹃〉鍏ュ彛
+  - 鏇存柊 `src/lib/auth.js`
+    - 鏂板 `KNOWN_PERMISSION_GROUPS`
+    - 鏂板 `normalizeGroups()` / `getUserGroups()`
+    - `ensureAdminMetadata()` 鏀逛负缁熶竴璧板垎缁勮鑼冨寲
+- 褰撳墠鏉冮檺妯″瀷锛?  - 浠嶄互 `user_metadata.groups` 涓哄崟涓€浜嬪疄鏉ユ簮
+  - 淇濆瓨鏃朵細鑷姩鍘婚噸銆佽浆灏忓啓锛屽苟濮嬬粓淇濈暀 `user`
+  - 涓荤鐞嗗憳閭 `PRIMARY_ADMIN_EMAIL` 浼氳寮哄埗淇濈暀 `admin`
+  - 褰撳墠宸茬湡姝ｆ帴鍏ラ壌鏉冨垽鏂殑鏄?`admin`锛屽叾浣欑粍鍏堜綔涓洪鐣欒繍钀?鏉冮檺鍒嗗眰
+- 楠岃瘉锛?  - `node --check src/lib/auth.js` 閫氳繃
+  - `node --check src/app/api/admin/users/route.js` 閫氳繃
+  - `npm.cmd run smoke` 閫氳繃
+  - `npm.cmd run lint` 澶辫触锛屽師鍥犳槸褰撳墠鐜浠嶆病鏈夊彲鎵ц鐨?`next`
 
-## 2026-03-24 / 修复 `gameActions.js` 坏掉的字符串
-- 状态：已修复 `src/lib/server/gameActions.js` 中由上轮乱码修复遗留的坏字符串，恢复服务端动作模块的可解析状态。
-- 本轮修复：
-  - 修正 NPC / PvP 攻击日志里残留的异常字符 ``
-  - 修复两处死亡日志模板字符串缺失结尾，避免模块解析时报 `SyntaxError`
-  - 修复 `未知道具` 错误消息中的错误插值 `${{itemName}`，恢复为 `${itemName}`
-  - 顺手整理 NPC 逃跑失败日志里的多余空格
-- 影响范围：
-  - 仅修改字符串与报错文案，不改变房间结算、战斗公式、尸体战利品或乐观锁逻辑
-- 验证：
-  - `node -e "import('./src/lib/server/gameActions.js')"` 不再报语法错误，当前只会停在普通 Node 无法解析 `@/` 别名
-  - `npm.cmd run smoke` 通过
-  - 已确认 `伤害`、`${{itemName}`、`倒下了, 'death'` 等坏模式已从文件中移除
+## 2026-03-24 / 淇 `gameActions.js` 鍧忔帀鐨勫瓧绗︿覆
+- 鐘舵€侊細宸蹭慨澶?`src/lib/server/gameActions.js` 涓敱涓婅疆涔辩爜淇閬楃暀鐨勫潖瀛楃涓诧紝鎭㈠鏈嶅姟绔姩浣滄ā鍧楃殑鍙В鏋愮姸鎬併€?- 鏈疆淇锛?  - 淇 NPC / PvP 鏀诲嚮鏃ュ織閲屾畫鐣欑殑寮傚父瀛楃 `顔奰
+  - 淇涓ゅ姝讳骸鏃ュ織妯℃澘瀛楃涓茬己澶辩粨灏撅紝閬垮厤妯″潡瑙ｆ瀽鏃舵姤 `SyntaxError`
+  - 淇 `鏈煡閬撳叿` 閿欒娑堟伅涓殑閿欒鎻掑€?`${{itemName}`锛屾仮澶嶄负 `${itemName}`
+  - 椤烘墜鏁寸悊 NPC 閫冭窇澶辫触鏃ュ織閲岀殑澶氫綑绌烘牸
+- 褰卞搷鑼冨洿锛?  - 浠呬慨鏀瑰瓧绗︿覆涓庢姤閿欐枃妗堬紝涓嶆敼鍙樻埧闂寸粨绠椼€佹垬鏂楀叕寮忋€佸案浣撴垬鍒╁搧鎴栦箰瑙傞攣閫昏緫
+- 楠岃瘉锛?  - `node -e "import('./src/lib/server/gameActions.js')"` 涓嶅啀鎶ヨ娉曢敊璇紝褰撳墠鍙細鍋滃湪鏅€?Node 鏃犳硶瑙ｆ瀽 `@/` 鍒悕
+  - `npm.cmd run smoke` 閫氳繃
+  - 宸茬‘璁?`浼ゅ顔奰銆乣${{itemName}`銆乣鍊掍笅浜? 'death'` 绛夊潖妯″紡宸蹭粠鏂囦欢涓Щ闄?
+## 2026-03-21 / 娓呯悊鏃у疄鐜颁笌涓嶅彲杈句唬鐮?- 鐘舵€侊細宸蹭粠 `src/lib/server/gameActions.js` 鍒犻櫎纭涓嶅啀浣跨敤鐨勬棫瀹炵幇涓庝笉鍙揪鍒嗘敮銆?- 鏈疆娓呯悊锛?  - 鍒犻櫎鏃х殑 `searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
+  - 鍒犻櫎浜斾釜鍔ㄤ綔 wrapper 閲?`return` 涔嬪悗鐨勬暣娈典笉鍙揪鏃ч€昏緫
+  - 杩炲甫鍒犻櫎鍙负鏃ч€昏緫鏈嶅姟鐨?`applyTurnEffects()` 涓?`ensureCorpsesForNewDeaths()`
+- 缁撴灉锛?  - `gameActions.js` 鐜板湪鍙繚鐣欏綋鍓嶄簨浠剁粨绠楀櫒鎵€闇€鐨勪富閾捐矾瀹炵幇
+  - 鏈疆鍏卞噣鍒犵害 700+ 琛屾棫浠ｇ爜
+  - 鏈嶅姟绔姩浣滃叆鍙ｆ洿娓呮櫚锛屽悗缁户缁寜妯″潡鎷嗗垎浼氭洿瀹规槗
+- 楠岃瘉锛?  - `node --check src/lib/server/gameActions.js` 閫氳繃
+  - `npm run smoke` 閫氳繃
 
-## 2026-03-21 / 清理旧实现与不可达代码
-- 状态：已从 `src/lib/server/gameActions.js` 删除确认不再使用的旧实现与不可达分支。
-- 本轮清理：
-  - 删除旧的 `searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
-  - 删除五个动作 wrapper 里 `return` 之后的整段不可达旧逻辑
-  - 连带删除只为旧逻辑服务的 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()`
-- 结果：
-  - `gameActions.js` 现在只保留当前事件结算器所需的主链路实现
-  - 本轮共净删约 700+ 行旧代码
-  - 服务端动作入口更清晰，后续继续按模块拆分会更容易
-- 验证：
-  - `node --check src/lib/server/gameActions.js` 通过
-  - `npm run smoke` 通过
-
-## 2026-03-21 / 全局 debug 巡检
-- 范围：对当前工作区做一次整体 debug，重点检查 `src/lib`、`src/app/api`、smoke、以及构建依赖环境。
-- 已修复：
-  - `src/lib/server/gameActions.js` 补回 `applyTurnEffects()` 与 `ensureCorpsesForNewDeaths()` 兼容 helper。
-  - 目的不是回退事件结算器，而是给仍留在文件里的旧实现残段补护栏，避免这些旧路径在被误调用时直接因为 helper 缺失而报错。
-- 当前代码检查结果：
-  - `node --check` 已通过 `src/lib/**/*.js`、`src/app/api/**/*.js`、`scripts/*.mjs`
-  - `npm run smoke` 通过
-  - 现阶段没有发现新的语法级错误或 smoke 回归
-- 当前环境问题：
-  - `npm run build` 失败，原因是本地没有可执行的 `next`
-  - `npm run lint` 失败，原因同上
-  - `npm ls next` 与 `npm ls playwright` 都是空，说明当前工作区未安装对应依赖
-- 结论：
-  - 现在主风险不在代码语法，而在本地依赖环境缺失
-  - `gameActions.js` 依旧偏大，后续仍建议继续删除旧残段并按模块拆分
-
-## 2026-03-20 / 事件结算器与地图配置整理
-- 状态：已新增 `src/lib/eventResolver.js`，作为当前服务端动作层的轻量事件结算器。
-- 已接入动作：
+## 2026-03-21 / 鍏ㄥ眬 debug 宸℃
+- 鑼冨洿锛氬褰撳墠宸ヤ綔鍖哄仛涓€娆℃暣浣?debug锛岄噸鐐规鏌?`src/lib`銆乣src/app/api`銆乻moke銆佷互鍙婃瀯寤轰緷璧栫幆澧冦€?- 宸蹭慨澶嶏細
+  - `src/lib/server/gameActions.js` 琛ュ洖 `applyTurnEffects()` 涓?`ensureCorpsesForNewDeaths()` 鍏煎 helper銆?  - 鐩殑涓嶆槸鍥為€€浜嬩欢缁撶畻鍣紝鑰屾槸缁欎粛鐣欏湪鏂囦欢閲岀殑鏃у疄鐜版畫娈佃ˉ鎶ゆ爮锛岄伩鍏嶈繖浜涙棫璺緞鍦ㄨ璇皟鐢ㄦ椂鐩存帴鍥犱负 helper 缂哄け鑰屾姤閿欍€?- 褰撳墠浠ｇ爜妫€鏌ョ粨鏋滐細
+  - `node --check` 宸查€氳繃 `src/lib/**/*.js`銆乣src/app/api/**/*.js`銆乣scripts/*.mjs`
+  - `npm run smoke` 閫氳繃
+  - 鐜伴樁娈垫病鏈夊彂鐜版柊鐨勮娉曠骇閿欒鎴?smoke 鍥炲綊
+- 褰撳墠鐜闂锛?  - `npm run build` 澶辫触锛屽師鍥犳槸鏈湴娌℃湁鍙墽琛岀殑 `next`
+  - `npm run lint` 澶辫触锛屽師鍥犲悓涓?  - `npm ls next` 涓?`npm ls playwright` 閮芥槸绌猴紝璇存槑褰撳墠宸ヤ綔鍖烘湭瀹夎瀵瑰簲渚濊禆
+- 缁撹锛?  - 鐜板湪涓婚闄╀笉鍦ㄤ唬鐮佽娉曪紝鑰屽湪鏈湴渚濊禆鐜缂哄け
+  - `gameActions.js` 渚濇棫鍋忓ぇ锛屽悗缁粛寤鸿缁х画鍒犻櫎鏃ф畫娈靛苟鎸夋ā鍧楁媶鍒?
+## 2026-03-20 / 浜嬩欢缁撶畻鍣ㄤ笌鍦板浘閰嶇疆鏁寸悊
+- 鐘舵€侊細宸叉柊澧?`src/lib/eventResolver.js`锛屼綔涓哄綋鍓嶆湇鍔＄鍔ㄤ綔灞傜殑杞婚噺浜嬩欢缁撶畻鍣ㄣ€?- 宸叉帴鍏ュ姩浣滐細
   - `search`
   - `attackNpc`
   - `flee`
   - `attackPlayer`
   - `useItem`
-- 统一结算内容：
-  - 回合开始 Buff 结算
-  - 新死亡玩家的尸体生成
-  - 玩家状态写回
-  - 共享日志累积
-- 地图配置：
-  - `src/app/admin/_tabs/MapsTab.jsx` 已移除 `danger_level` 编辑项。
-  - 当前 `src/` 内已无 `danger_level` 引用，可视为废弃冗余配置。
-  - 假设本轮先做代码层移除，数据库里的 `map_config.danger_level` 列暂未执行删库。
-- 验证：
-  - `node --check src/lib/server/gameActions.js` 通过
-  - `node --check src/lib/eventResolver.js` 通过
-  - `npm run smoke` 通过
-  - `npm ls playwright` 显示本地未安装
-- 待继续：
-  - `gameActions.js` 里仍保留旧实现残段，后续可继续按动作模块拆分
-  - 尸体/事件结算还缺专项 smoke
-  - 当前环境仍未完成 `build` / `lint` / Playwright 浏览器回归
+- 缁熶竴缁撶畻鍐呭锛?  - 鍥炲悎寮€濮?Buff 缁撶畻
+  - 鏂版浜＄帺瀹剁殑灏镐綋鐢熸垚
+  - 鐜╁鐘舵€佸啓鍥?  - 鍏变韩鏃ュ織绱Н
+- 鍦板浘閰嶇疆锛?  - `src/app/admin/_tabs/MapsTab.jsx` 宸茬Щ闄?`danger_level` 缂栬緫椤广€?  - 褰撳墠 `src/` 鍐呭凡鏃?`danger_level` 寮曠敤锛屽彲瑙嗕负搴熷純鍐椾綑閰嶇疆銆?  - 鍋囪鏈疆鍏堝仛浠ｇ爜灞傜Щ闄わ紝鏁版嵁搴撻噷鐨?`map_config.danger_level` 鍒楁殏鏈墽琛屽垹搴撱€?- 楠岃瘉锛?  - `node --check src/lib/server/gameActions.js` 閫氳繃
+  - `node --check src/lib/eventResolver.js` 閫氳繃
+  - `npm run smoke` 閫氳繃
+  - `npm ls playwright` 鏄剧ず鏈湴鏈畨瑁?- 寰呯户缁細
+  - `gameActions.js` 閲屼粛淇濈暀鏃у疄鐜版畫娈碉紝鍚庣画鍙户缁寜鍔ㄤ綔妯″潡鎷嗗垎
+  - 灏镐綋/浜嬩欢缁撶畻杩樼己涓撻」 smoke
+  - 褰撳墠鐜浠嶆湭瀹屾垚 `build` / `lint` / Playwright 娴忚鍣ㄥ洖褰?
+## 2026-03-20 / 灏镐綋鎴樺埄鍝佺郴缁熸洿鏂?
+- 鐘舵€侊細宸插疄鐜扮涓€鐗堝案浣撴悳鍒摼璺紝鏂瑰悜鏀逛负鈥滃案浣撲繚鐣欏墿浣欑墿璧勨€濓紝涓嶅仛闅忔満瑁呭鎺夎惤銆?- 鏈嶅姟绔細
+  - `src/lib/server/gameActions.js` 鏂板灏镐綋鍙戠幇銆佸嵆鏃舵垬鍒╁搧 prompt銆乣lootCorpse`銆乣dismissLootPrompt`銆?  - `search / attackNpc / flee / attackPlayer / useItem` 鐜板湪閮戒細鍦ㄦ浜℃椂鍚屾灏镐綋鐘舵€併€?  - 鐜╁灏镐綋缁х画浠?`equipment_instances` 涓鸿澶囦簨瀹炴簮锛涙嬀鍙栬澶囨椂浼氬仛 owner 杞Щ鎴栧疄渚嬬敓鎴愶紝骞跺湪 `persistRoom()` 澶辫触鏃跺洖婊氥€?- 鍓嶇锛?  - 鏂板 `src/app/game/[id]/LootModal.jsx`銆?  - `src/app/game/[id]/GameClientPage.jsx` 宸叉帴閫氭嬀鍙栧脊绐椼€佸叧闂姩浣滃拰褰撳墠鍦板浘灏镐綋鎻愮ず銆?- 瑙勫垯锛?  - NPC 鎴栫帺瀹舵浜″悗锛屽嚮鏉€鑰呭彲绔嬪嵆浠庡案浣撲腑甯﹁蛋 1 浠惰澶囨垨閬撳叿銆?  - 灏镐綋鍓╀綑鍐呭浼氱户缁暀鍦ㄥ湴鍥句笂锛屽悗缁帺瀹堕€氳繃鎼滅储杩樿兘缁х画鎷裤€?- 楠岃瘉锛?  - `npm run smoke`锛氶€氳繃銆?  - `node --check src/lib/server/gameActions.js`锛氶€氳繃銆?  - `node --check src/lib/roomState.js`锛氶€氳繃銆?  - `npm run lint`锛氬綋鍓嶇幆澧冨け璐ワ紝鍥犱负娌℃湁鍙墽琛?`next`銆?- 寰呯户缁細
+  - `scripts/smoke-check.mjs` 杩樻病琛ュ埌灏镐綋鎼滃埉涓撻」鏂█銆?  - 鏈湴浠嶆湭瀹屾垚 `next lint` / `next build` / 娴忚鍣ㄨ仈鏈哄洖褰掋€?
 
-## 2026-03-20 / 尸体战利品系统更新
+鏇存柊鏃堕棿锛?026-03-19锛圓sia/Tokyo锛?鏁寸悊鏂瑰紡锛氬熀浜庡綋鍓嶄粨搴撴簮鐮佷笌鏈疆骞跺彂淇ˉ缁撴灉鏁寸悊锛涘凡瀹屾垚鏈湴 smoke 涓庤娉曠骇鏍￠獙锛屾湭瀹屾垚瀹屾暣鏋勫缓涓庢祻瑙堝櫒鑱旀満鍥炲綊銆?
+## 褰撳墠鐘舵€?
+椤圭洰鐜板湪宸茬粡鏄€滀富閾捐矾鍩烘湰闂幆鐨?v1 闆忓舰 + rooms 涔愯閿佷竴鏈熸敹灏剧増鈥濄€?
+鐩告瘮 2026-03-18 鐨勭増鏈紝鏈疆閲嶇偣琛ョ殑鏄苟鍙戝啓瀹夊叏锛?- `rooms` 琛ㄥ凡缁忚姹傚瓨鍦?`version integer not null default 0`
+- 娓告垙鍔ㄤ綔涓庤澶囧姩浣滅殑 `rooms` 鏇存柊宸插熀浜?`id + version` 鍋氫箰瑙傞攣鏇存柊
+- 鏈嶅姟绔増鏈啿绐佷細杩斿洖 `409`
+- 瀹㈡埛绔亣鍒?`409` 浼氳嚜鍔ㄧ煭閲嶈瘯
 
-- 状态：已实现第一版尸体搜刮链路，方向改为“尸体保留剩余物资”，不做随机装备掉落。
-- 服务端：
-  - `src/lib/server/gameActions.js` 新增尸体发现、即时战利品 prompt、`lootCorpse`、`dismissLootPrompt`。
-  - `search / attackNpc / flee / attackPlayer / useItem` 现在都会在死亡时同步尸体状态。
-  - 玩家尸体继续以 `equipment_instances` 为装备事实源；拾取装备时会做 owner 转移或实例生成，并在 `persistRoom()` 失败时回滚。
-- 前端：
-  - 新增 `src/app/game/[id]/LootModal.jsx`。
-  - `src/app/game/[id]/GameClientPage.jsx` 已接通拾取弹窗、关闭动作和当前地图尸体提示。
-- 规则：
-  - NPC 或玩家死亡后，击杀者可立即从尸体中带走 1 件装备或道具。
-  - 尸体剩余内容会继续留在地图上，后续玩家通过搜索还能继续拿。
-- 验证：
-  - `npm run smoke`：通过。
-  - `node --check src/lib/server/gameActions.js`：通过。
-  - `node --check src/lib/roomState.js`：通过。
-  - `npm run lint`：当前环境失败，因为没有可执行 `next`。
-- 待继续：
-  - `scripts/smoke-check.mjs` 还没补到尸体搜刮专项断言。
-  - 本地仍未完成 `next lint` / `next build` / 浏览器联机回归。
+## 鏈疆鏂板 / 淇
 
-
-更新时间：2026-03-19（Asia/Tokyo）
-整理方式：基于当前仓库源码与本轮并发修补结果整理；已完成本地 smoke 与语法级校验，未完成完整构建与浏览器联机回归。
-
-## 当前状态
-
-项目现在已经是“主链路基本闭环的 v1 雏形 + rooms 乐观锁一期收尾版”。
-
-相比 2026-03-18 的版本，本轮重点补的是并发写安全：
-- `rooms` 表已经要求存在 `version integer not null default 0`
-- 游戏动作与装备动作的 `rooms` 更新已基于 `id + version` 做乐观锁更新
-- 服务端版本冲突会返回 `409`
-- 客户端遇到 `409` 会自动短重试
-
-## 本轮新增 / 修正
-
-- 并发安全收尾：
-  - `src/lib/server/gameActions.js`
-    - `persistRoom()` 使用 `eq('version', currentVersion)` + `version + 1`
-    - 保留 `VersionConflictError` 和 `withRetry()`
-    - NPC/PvP 战斗的耐久扣减已移动到 `persistRoom()` 成功之后执行，避免版本冲突时重复扣耐久
+- 骞跺彂瀹夊叏鏀跺熬锛?  - `src/lib/server/gameActions.js`
+    - `persistRoom()` 浣跨敤 `eq('version', currentVersion)` + `version + 1`
+    - 淇濈暀 `VersionConflictError` 鍜?`withRetry()`
+    - NPC/PvP 鎴樻枟鐨勮€愪箙鎵ｅ噺宸茬Щ鍔ㄥ埌 `persistRoom()` 鎴愬姛涔嬪悗鎵ц锛岄伩鍏嶇増鏈啿绐佹椂閲嶅鎵ｈ€愪箙
   - `src/lib/equipmentEngine.js`
-    - `executeCraft()` 现在会记录合成副作用 journal
-    - 如果 `rooms` 持久化失败或发生版本冲突，会回滚：
-      - 新插入的装备实例
-      - 被消耗的前置装备实例
-      - 失败降阶时被扣掉的前置耐久
-    - 新增 `rollbackCraftSideEffects()`
-- 管理后台不再绕过乐观锁：
-  - `src/app/admin/_tabs/RoomsTab.jsx` 已从前端直连 Supabase 改为调用 `/api/admin/rooms`
-  - `src/app/api/admin/rooms/route.js` 新增 `PATCH`：
-    - 管理员可强制结束房间
-    - 强制结束会写共享日志
-    - 强制结束也会带 `version` 检查
-- 协作记录：
-  - 新增 `progress.md`，记录本轮问题、修补点和验证结果
-
-## 已完成
-
-- 大厅创建房间、加入房间、进入游戏、共享日志、基础战斗、PvP、道具使用、装备合成、穿戴/卸下、管理员后台等主流程继续可用。
-- 关键写操作仍统一走 Next API：
-  - `POST /api/game/rooms`
+    - `executeCraft()` 鐜板湪浼氳褰曞悎鎴愬壇浣滅敤 journal
+    - 濡傛灉 `rooms` 鎸佷箙鍖栧け璐ユ垨鍙戠敓鐗堟湰鍐茬獊锛屼細鍥炴粴锛?      - 鏂版彃鍏ョ殑瑁呭瀹炰緥
+      - 琚秷鑰楃殑鍓嶇疆瑁呭瀹炰緥
+      - 澶辫触闄嶉樁鏃惰鎵ｆ帀鐨勫墠缃€愪箙
+    - 鏂板 `rollbackCraftSideEffects()`
+- 绠＄悊鍚庡彴涓嶅啀缁曡繃涔愯閿侊細
+  - `src/app/admin/_tabs/RoomsTab.jsx` 宸蹭粠鍓嶇鐩磋繛 Supabase 鏀逛负璋冪敤 `/api/admin/rooms`
+  - `src/app/api/admin/rooms/route.js` 鏂板 `PATCH`锛?    - 绠＄悊鍛樺彲寮哄埗缁撴潫鎴块棿
+    - 寮哄埗缁撴潫浼氬啓鍏变韩鏃ュ織
+    - 寮哄埗缁撴潫涔熶細甯?`version` 妫€鏌?- 鍗忎綔璁板綍锛?  - 鏂板 `progress.md`锛岃褰曟湰杞棶棰樸€佷慨琛ョ偣鍜岄獙璇佺粨鏋?
+## 宸插畬鎴?
+- 澶у巺鍒涘缓鎴块棿銆佸姞鍏ユ埧闂淬€佽繘鍏ユ父鎴忋€佸叡浜棩蹇椼€佸熀纭€鎴樻枟銆丳vP銆侀亾鍏蜂娇鐢ㄣ€佽澶囧悎鎴愩€佺┛鎴?鍗镐笅銆佺鐞嗗憳鍚庡彴绛変富娴佺▼缁х画鍙敤銆?- 鍏抽敭鍐欐搷浣滀粛缁熶竴璧?Next API锛?  - `POST /api/game/rooms`
   - `POST /api/game/actions`
   - `POST /api/game/equipment`
-- `rooms.gamevars.log` 仍是共享日志单一来源。
-- `validnum / alivenum / deathnum / winner / gamestate` 仍由服务端统一维护。
-- 根目录旧版重复文件仍已删除，现用代码以 `src/` 为准。
+- `rooms.gamevars.log` 浠嶆槸鍏变韩鏃ュ織鍗曚竴鏉ユ簮銆?- `validnum / alivenum / deathnum / winner / gamestate` 浠嶇敱鏈嶅姟绔粺涓€缁存姢銆?- 鏍圭洰褰曟棫鐗堥噸澶嶆枃浠朵粛宸插垹闄わ紝鐜扮敤浠ｇ爜浠?`src/` 涓哄噯銆?
+## 浠嶉渶浼樺寲
 
-## 仍需优化
+- 褰撳墠涔愯閿佸彧淇濇姢 `rooms` 杩欎竴灞傦紝灏氭湭涓?Supabase RPC / Postgres 浜嬪姟绾у師瀛愭柟妗堛€?- `gameActions.js` 浠嶇劧鍋忓ぇ锛屽悗缁彲浠ョ户缁寜鎴块棿銆佹垬鏂椼€侀亾鍏枫€佽澶囨媶鍒嗐€?- 瑁呭绌挎埓/鍗镐笅鐩墠铏界劧宸蹭笉鍐嶇粫杩囨埧闂寸増鏈啓鍏ワ紝浣?`equipment_instances` 鑷韩浠嶄笉鏄簨鍔″紡鏇存柊銆?- 杩樻病鏈夌湡姝ｇ殑绔埌绔祻瑙堝櫒鍥炲綊锛涙湰鍦板綋鍓嶇己灏?Playwright 鍖呫€?- 浠嶉渶瑕佷竴娆″畬鏁寸殑 `npm run build` / 鑱旀満瀹炴祴鏉ョ‘璁ゆ湰杞病鏈夐殣钘忓洖褰掋€?
+## 鏈疄鐜?
+- 闅忔満瑁呭鎺夎惤
+- 鎺掕姒?/ 鎴樼哗娌夋穩 / 灞€鍚庡鍔?- 娣卞害绉诲姩绔€傞厤
+- 鍩轰簬 RPC/浜嬪姟鐨勫交搴曞苟鍙戜繚鎶?- 鏂嚎閲嶈繛鏈哄埗
+- 瀹屾暣绔埌绔嚜鍔ㄥ寲娴嬭瘯
 
-- 当前乐观锁只保护 `rooms` 这一层，尚未上 Supabase RPC / Postgres 事务级原子方案。
-- `gameActions.js` 仍然偏大，后续可以继续按房间、战斗、道具、装备拆分。
-- 装备穿戴/卸下目前虽然已不再绕过房间版本写入，但 `equipment_instances` 自身仍不是事务式更新。
-- 还没有真正的端到端浏览器回归；本地当前缺少 Playwright 包。
-- 仍需要一次完整的 `npm run build` / 联机实测来确认本轮没有隐藏回归。
+## 楠岃瘉缁撴灉
 
-## 未实现
+- `npm run smoke`锛氶€氳繃
+- `node --check src/lib/server/gameActions.js`锛氶€氳繃
+- `node --check src/lib/equipmentEngine.js`锛氶€氳繃
+- `node --check src/app/api/admin/rooms/route.js`锛氶€氳繃
+- Playwright锛氭湰鍦版湭瀹夎锛屾棤娉曟墽琛屾祻瑙堝櫒鑷姩鍥炲綊
 
-- 随机装备掉落
-- 排行榜 / 战绩沉淀 / 局后奖励
-- 深度移动端适配
-- 基于 RPC/事务的彻底并发保护
-- 断线重连机制
-- 完整端到端自动化测试
+## 褰撳墠鍏抽敭鍏ュ彛
 
-## 验证结果
+- `src/lib/server/gameActions.js`锛氭父鎴忓姩浣溿€佺増鏈啿绐併€佹埧闂存寔涔呭寲
+- `src/lib/equipmentEngine.js`锛氬悎鎴愭墽琛屻€佸悎鎴愬洖婊氥€佽€愪箙閫昏緫
+- `src/app/api/game/actions/route.js`锛氬姩浣?API
+- `src/app/api/game/equipment/route.js`锛氳澶?API
+- `src/app/api/admin/rooms/route.js`锛氱鐞嗗憳鍒犻櫎 / 寮哄埗缁撴潫鎴块棿
+- `src/app/admin/_tabs/RoomsTab.jsx`锛氬悗鍙版埧闂寸鐞?UI
 
-- `npm run smoke`：通过
-- `node --check src/lib/server/gameActions.js`：通过
-- `node --check src/lib/equipmentEngine.js`：通过
-- `node --check src/app/api/admin/rooms/route.js`：通过
-- Playwright：本地未安装，无法执行浏览器自动回归
-
-## 当前关键入口
-
-- `src/lib/server/gameActions.js`：游戏动作、版本冲突、房间持久化
-- `src/lib/equipmentEngine.js`：合成执行、合成回滚、耐久逻辑
-- `src/app/api/game/actions/route.js`：动作 API
-- `src/app/api/game/equipment/route.js`：装备 API
-- `src/app/api/admin/rooms/route.js`：管理员删除 / 强制结束房间
-- `src/app/admin/_tabs/RoomsTab.jsx`：后台房间管理 UI

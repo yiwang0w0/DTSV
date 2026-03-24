@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useAuth } from './layout'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -25,18 +25,14 @@ export default function Home() {
 
   return (
     <div className="animate-in">
-      {/* Hero */}
       <div style={{
         textAlign: 'center', padding: '60px 20px',
         background: 'radial-gradient(ellipse at center, rgba(88,166,255,0.08) 0%, transparent 70%)',
         borderRadius: 16, marginBottom: 32,
       }}>
-        <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 12px', fontFamily: "'JetBrains Mono', monospace" }}>
+        <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 32px', fontFamily: "'JetBrains Mono', monospace" }}>
           ⚔️ DTS 大逃杀
         </h1>
-        <p style={{ fontSize: 16, color: '#8b949e', margin: '0 0 32px' }}>
-          常磐大逃杀 · 现代Web重制版
-        </p>
         {user ? (
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link href="/rooms" style={{
@@ -64,7 +60,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
           { label: '活跃房间', value: stats.rooms, emoji: '🏠', color: '#58a6ff' },

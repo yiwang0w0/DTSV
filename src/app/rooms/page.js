@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -9,37 +9,83 @@ import { useAuth } from '../layout'
 import { Spinner, useToast } from '../admin/_shared/ui'
 import { postGameApi } from '@/lib/gameApi'
 
+const ROOM_CHECK_INTERVAL_MS = 60_000
+
 export default function RoomsPage() {
   const { user } = useAuth()
   const router = useRouter()
   const { show: toast, Container: ToastContainer } = useToast()
+  const ensureNextRoundLock = useRef(false)
 
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [joining, setJoining] = useState(null)
   const [creating, setCreating] = useState(false)
+  const [preparingNextRound, setPreparingNextRound] = useState(false)
 
-  async function loadRooms() {
+  const loadRooms = useCallback(async () => {
     const { data } = await supabase
       .from('rooms')
       .select('*')
       .in('gamestate', [0, 1, 2])
       .order('created_at', { ascending: false })
+
     setRooms(data || [])
     setLoading(false)
-  }
+  }, [])
+
+  const hasOpenRoom = rooms.some(room => room.gamestate === 0 || room.gamestate === 1)
+
+  const ensureNextRound = useCallback(async ({ silent = true } = {}) => {
+    if (!user || ensureNextRoundLock.current || hasOpenRoom) return
+
+    ensureNextRoundLock.current = true
+    setPreparingNextRound(true)
+
+    try {
+      const { room, created } = await postGameApi('/api/game/rooms', {
+        gametype: 0,
+        ensureNextRound: true,
+      })
+
+      if (created) {
+        await loadRooms()
+        if (!silent) {
+          toast(`房间 #${room.gamenum || room.id} 已准备好，下一轮可以开始了`)
+        }
+      }
+    } catch (error) {
+      if (!silent) {
+        toast(error.message, 'error')
+      }
+    } finally {
+      ensureNextRoundLock.current = false
+      setPreparingNextRound(false)
+    }
+  }, [hasOpenRoom, loadRooms, toast, user])
 
   useEffect(() => {
     loadRooms()
+
     const channel = supabase
       .channel('rooms-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => loadRooms())
       .subscribe()
 
+    const intervalId = setInterval(() => {
+      loadRooms()
+    }, ROOM_CHECK_INTERVAL_MS)
+
     return () => {
+      clearInterval(intervalId)
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [loadRooms])
+
+  useEffect(() => {
+    if (!user || loading || hasOpenRoom) return
+    ensureNextRound({ silent: true })
+  }, [ensureNextRound, hasOpenRoom, loading, user])
 
   async function joinRoom(roomId) {
     if (!user) return
@@ -70,6 +116,7 @@ export default function RoomsPage() {
   async function deleteRoom(roomId) {
     if (!isAdmin(user)) return
     if (!confirm('确定要删除这个房间吗？')) return
+
     const session = await supabase.auth.getSession()
     const response = await fetch(`/api/admin/rooms?id=${roomId}`, {
       method: 'DELETE',
@@ -107,13 +154,13 @@ export default function RoomsPage() {
         <div>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>房间大厅</h2>
           <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>
-            当前由管理员手动开房。加入房间后会自动用 `game_rules` 初始化角色属性。
+            系统会每分钟检查一次房间状态；如果当前没有等待中或进行中的房间，就会自动准备下一轮。管理员仍可手动创建房间。
           </p>
         </div>
         {isAdmin(user) && (
           <button
             onClick={createRoom}
-            disabled={creating}
+            disabled={creating || preparingNextRound}
             style={{
               padding: '10px 16px',
               borderRadius: 8,
@@ -122,19 +169,35 @@ export default function RoomsPage() {
               color: '#58a6ff',
               fontSize: 13,
               fontWeight: 700,
-              cursor: creating ? 'wait' : 'pointer',
-              opacity: creating ? 0.7 : 1,
+              cursor: creating || preparingNextRound ? 'wait' : 'pointer',
+              opacity: creating || preparingNextRound ? 0.7 : 1,
             }}
           >
-            {creating ? '创建中...' : '+ 创建房间'}
+            {preparingNextRound ? '准备下一轮中...' : creating ? '创建中...' : '+ 创建房间'}
           </button>
         )}
       </div>
 
+      {!hasOpenRoom && (
+        <div style={{
+          marginBottom: 16,
+          padding: '12px 14px',
+          borderRadius: 12,
+          background: 'rgba(210,153,34,0.1)',
+          border: '1px solid rgba(210,153,34,0.25)',
+          color: '#d29922',
+          fontSize: 12,
+        }}>
+          {preparingNextRound
+            ? '当前没有可加入的房间，系统正在准备下一轮游戏。'
+            : '当前没有等待中或进行中的房间，系统会自动准备下一轮游戏。'}
+        </div>
+      )}
+
       {rooms.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🪹</div>
-          <p>暂无房间，等待管理员创建新局</p>
+          <p>{preparingNextRound ? '正在自动准备下一轮游戏...' : '暂无房间，系统会自动准备下一轮游戏'}</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(280px, 1fr))', gap: 16 }}>
