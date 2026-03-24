@@ -93,3 +93,12 @@ Original prompt: 那帮我补齐，记得最后更新Readme_GPT
   - 本地 `next` / `playwright` 仍不存在，因此没有做浏览器层回归。
 - 备注：
   - 当前“自动准备下一轮”是通过大厅页面驱动的，不是独立后台定时任务；只要有已登录用户进入大厅，就会在首次进入和之后每分钟巡检时补房。
+
+2026-03-24
+- 目标：修复 Vercel `next build` 被 `react/no-unescaped-entities` 卡住的问题。
+- 已完成：
+  - `src/app/admin/_tabs/EquipmentSeriesSection.jsx` 中两段包含裸双引号的 JSX 文案已改为 `&quot;`。
+  - 对应 Vercel 报错位置为 577 / 606 行，共 5 个 lint 错误。
+- 验证：
+  - 已检查源码，目标文案现在使用 `&quot;`。
+  - 本地没有 `next`，因此未复跑完整 `npm run build`。

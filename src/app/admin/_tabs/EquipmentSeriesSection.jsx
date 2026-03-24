@@ -574,7 +574,7 @@ export default function EquipmentSeriesSection({ toast }) {
                 <div style={{ fontSize: 11, color: '#8b949e', fontWeight: 700 }}>🔩 合成材料 ({er.ingredients.length} 种)</div>
                 <button onClick={addIngredient} style={BTN('rgba(63,185,80,0.1)', '#3fb950', { padding: '5px 10px', border: '1px solid rgba(63,185,80,0.2)', fontSize: 11 })}>+ 添加材料行</button>
               </div>
-              {er.ingredients.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: '#484f58', fontSize: 12 }}>点击"添加材料行"添加所需材料</div>}
+              {er.ingredients.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: '#484f58', fontSize: 12 }}>点击&quot;添加材料行&quot;添加所需材料</div>}
               {er.ingredients.map((ing, idx) => (
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 60px 80px 80px 28px', gap: 6, marginBottom: 8, alignItems: 'center' }}>
                   <select style={{ ...INPUT, fontSize: 11, padding: '7px 8px' }} value={ing.ingredient_type}
@@ -603,7 +603,7 @@ export default function EquipmentSeriesSection({ toast }) {
                   <button onClick={() => removeIng(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 14 }}>✕</button>
                 </div>
               ))}
-              {er.ingredients.length > 0 && <div style={{ fontSize: 10, color: '#484f58', marginTop: 4 }}>勾选"消耗"= 合成后材料消失；"催化剂"= 需持有但不消耗</div>}
+              {er.ingredients.length > 0 && <div style={{ fontSize: 10, color: '#484f58', marginTop: 4 }}>勾选&quot;消耗&quot;= 合成后材料消失；&quot;催化剂&quot;= 需持有但不消耗</div>}
             </div>
             <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(210,153,34,0.05)', border: '1px solid rgba(210,153,34,0.2)' }}>
               <div style={{ fontSize: 11, color: '#d29922', fontWeight: 700, marginBottom: 6 }}>📋 配方预览</div>
