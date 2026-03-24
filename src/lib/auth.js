@@ -1,7 +1,4 @@
 // helpers for user groups and permissions
-import { supabase } from './supabase'
-
-// 在需要的地方调整为你的唯一管理员邮箱
 export const PRIMARY_ADMIN_EMAIL = '2949215486@qq.com'
 
 export const KNOWN_PERMISSION_GROUPS = [
@@ -45,7 +42,7 @@ export function isAdmin(user) {
   return hasGroup(user, 'admin')
 }
 
-// 确保用户登录时正确记录 metadata，用于第一次注册或后来修改
+// Ensure the user's permission metadata stays in sync after login/signup.
 export async function ensureAdminMetadata(user) {
   if (!user) return
   const existing = user.user_metadata || {}
@@ -53,6 +50,7 @@ export async function ensureAdminMetadata(user) {
   const existingGroups = Array.isArray(existing.groups) ? existing.groups : []
 
   if (JSON.stringify(groups) !== JSON.stringify(existingGroups)) {
+    const { supabase } = await import('./supabase')
     await supabase.auth.updateUser({ data: { ...existing, groups } })
   }
 }

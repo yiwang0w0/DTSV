@@ -122,3 +122,19 @@
 
 
 
+## 2026-03-25 / 构建阶段 Supabase 提前初始化修复
+- 更新时间：2026-03-25 00:33:43（Asia/Tokyo）
+- 已修复：
+  - `src/lib/auth.js`：移除对客户端 `supabase` 的顶层静态依赖，`ensureAdminMetadata()` 改为仅在需要同步 metadata 时动态导入。
+  - `src/lib/supabase.js`：改为懒初始化 + Proxy 导出，避免共享库在构建期被导入时立刻读取 `NEXT_PUBLIC_SUPABASE_*`。
+- 背景：
+  - `next build` 会在 `Collecting page data` 阶段加载 API 路由。
+  - 之前 `/api/game/actions`、`/api/game/equipment` 通过 `gameEngine` / `equipmentEngine` / `auth` 链路提前触发客户端 Supabase 初始化，导致构建时报 `Missing Supabase environment variables`。
+- 本地验证：
+  - `npm.cmd run smoke`
+  - `npm.cmd run lint`
+  - `npm.cmd run build`
+  - 三项均已通过。
+- 备注：
+  - 当前仓库仍无 `package-lock.json`，`npm audit` 无法输出精确漏洞清单。
+  - `npm install` 期间 npm 提示依赖树存在 6 个漏洞，并点名 `next@14.2.21` 有安全修复版本，后续建议单独安排依赖升级。

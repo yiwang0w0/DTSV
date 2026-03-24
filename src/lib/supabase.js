@@ -1,10 +1,29 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+let client = null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+function getEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  return value
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export function getSupabaseClient() {
+  if (client) return client
+
+  client = createClient(
+    getEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  )
+
+  return client
+}
+
+export const supabase = new Proxy({}, {
+  get(_target, prop) {
+    const value = getSupabaseClient()[prop]
+    return typeof value === 'function' ? value.bind(getSupabaseClient()) : value
+  },
+})
