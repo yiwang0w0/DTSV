@@ -12,6 +12,7 @@ import MapsTab      from './_tabs/MapsTab'
 import RoomsTab     from './_tabs/RoomsTab'
 import RulesTab     from './_tabs/RulesTab'
 import EquipmentTab from './_tabs/EquipmentTab'
+import UsersTab     from './_tabs/UsersTab'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'npcs',      label: '🤖 NPC',      dataKey: 'npcs' },
   { key: 'maps',      label: '🗺️ 地图',     dataKey: 'maps' },
   { key: 'rooms',     label: '🏠 房间',      dataKey: 'rooms' },
+  { key: 'users',     label: '👥 用户权限' },
   { key: 'rules',     label: '⚙️ 战斗规则' },
   { key: 'equipment', label: '🗡️ 装备引擎' },
 ]
@@ -100,6 +102,7 @@ export default function AdminPage() {
       {tab === 'npcs'      && <NpcsTab      npcs={npcs} onRefresh={refresh} toast={toast} />}
       {tab === 'maps'      && <MapsTab      maps={maps} setMaps={setMaps} items={items} onRefreshItems={() => refresh('items')} toast={toast} />}
       {tab === 'rooms'     && <RoomsTab     rooms={rooms} onRefresh={refresh} toast={toast} />}
+      {tab === 'users'     && <UsersTab     toast={toast} />}
       {tab === 'rules'     && <RulesTab     toast={toast} />}
       {tab === 'equipment' && <EquipmentTab toast={toast} />}
     </div>

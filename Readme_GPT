@@ -1,4 +1,32 @@
 # Readme_GPT
+## 2026-03-24 / 后台用户组与权限组管理
+- 状态：已在管理后台新增“用户权限”页，支持查询用户、查看当前分组、按分组筛选，并编辑 `auth.users.user_metadata.groups`。
+- 本轮新增：
+  - 新增 `src/app/api/admin/users/route.js`
+    - `GET /api/admin/users`：管理员拉取 Supabase Auth 用户列表，并合并 `profiles.roomid`
+    - `PATCH /api/admin/users`：管理员更新指定用户的 `groups`
+  - 新增 `src/app/admin/_tabs/UsersTab.jsx`
+    - 支持按用户名 / 邮箱 / ID / 分组搜索
+    - 支持按权限组筛选
+    - 支持查看注册时间、最后登录时间、当前房间
+    - 支持通过弹窗编辑预设组与自定义组
+  - 更新 `src/app/admin/page.js`
+    - 新增“👥 用户权限”标签页入口
+  - 更新 `src/lib/auth.js`
+    - 新增 `KNOWN_PERMISSION_GROUPS`
+    - 新增 `normalizeGroups()` / `getUserGroups()`
+    - `ensureAdminMetadata()` 改为统一走分组规范化
+- 当前权限模型：
+  - 仍以 `user_metadata.groups` 为单一事实来源
+  - 保存时会自动去重、转小写，并始终保留 `user`
+  - 主管理员邮箱 `PRIMARY_ADMIN_EMAIL` 会被强制保留 `admin`
+  - 当前已真正接入鉴权判断的是 `admin`，其余组先作为预留运营/权限分层
+- 验证：
+  - `node --check src/lib/auth.js` 通过
+  - `node --check src/app/api/admin/users/route.js` 通过
+  - `npm.cmd run smoke` 通过
+  - `npm.cmd run lint` 失败，原因是当前环境仍没有可执行的 `next`
+
 ## 2026-03-24 / 修复 `gameActions.js` 坏掉的字符串
 - 状态：已修复 `src/lib/server/gameActions.js` 中由上轮乱码修复遗留的坏字符串，恢复服务端动作模块的可解析状态。
 - 本轮修复：
