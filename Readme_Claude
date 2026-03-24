@@ -1,9 +1,17 @@
 # Readme_Claude
 
-更新时间：2026-03-24（Asia/Tokyo）
+更新时间：2026-03-25（Asia/Tokyo）
 整理方式：基于全量源码交叉验证，覆盖最新修复。
 
-## 最近变更（2026-03-24）
+## 最近变更（2026-03-25）
+
+### 管理后台无限请求循环修复
+
+- **根因**: `src/app/admin/_shared/ui.js` 的 `useToast()` hook 中 `show` 函数每次渲染都生成新引用，导致 `admin/page.js` 中 `loadAll`（依赖 `[toast]`）被不断重建 → `useEffect` 反复触发 → 5 个表同时疯狂请求 → 浏览器 `ERR_INSUFFICIENT_RESOURCES`
+- **修复**: `useToast()` 中的 `show` 函数用 `useCallback` 包裹，稳定引用，打断循环
+- **影响文件**: `src/app/admin/_shared/ui.js`
+
+## 变更记录（2026-03-24）
 
 ### Bug 修复与健壮性优化
 
