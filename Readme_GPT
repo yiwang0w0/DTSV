@@ -1,3 +1,43 @@
+﻿## 2026-03-24 / Vercel 构建 lint 与字体接线修复
+- 已修复：
+  - `src/lib/server/gameActions.js`：将动作分发里的 `useItem()` 重命名为 `performItemUse()`，避免被 ESLint 误判为 React Hook。
+  - `src/app/admin/_tabs/UsersTab.jsx`：`loadUsers` 改为 `useCallback`，补齐 `useEffect` 依赖。
+  - `src/app/admin/page.js`：补齐 `router` 依赖，并将 `loadAll` 改为 `useCallback` + effect 依赖。
+  - `src/app/layout.js` / `src/app/globals.css`：改用 `next/font/google` 加载 `DM Sans` / `JetBrains Mono` / `Noto Sans SC`，去掉 `<head>` 里的 Google Fonts 链接。
+  - 多处 UI 的 `fontFamily` 改为 `var(--font-jetbrains-mono)` / `var(--font-noto-sans-sc)`，保持字体显示一致。
+- 目标：
+  - 解决 Vercel `next build` 中的 `react-hooks/rules-of-hooks` 阻塞错误。
+  - 一并清理已暴露的 `react-hooks/exhaustive-deps` 与 `@next/next/no-page-custom-font` 警告。
+- 本地验证：
+  - `node --check src/lib/server/gameActions.js`
+  - `node --check src/app/layout.js`
+  - `node --check src/app/admin/page.js`
+  - `npm.cmd run smoke`
+  - 以上通过；本地仍未安装 `next`，未执行完整 `npm run build`。
+## 2026-03-24 / Vercel 构建 lint 与字体接线修复
+- 已修复：
+  - src/lib/server/gameActions.js：将动作分发里的 useItem() 重命名为 performItemUse()，避免被 ESLint 误判为 React Hook。
+  - src/app/admin/_tabs/UsersTab.jsx：loadUsers 改为 useCallback，补齐 useEffect 依赖。
+  - src/app/admin/page.js：补齐 outer 依赖，并将 loadAll 改为 useCallback + effect 依赖。
+  - src/app/layout.js / src/app/globals.css：改用 
+ext/font/google 加载 DM Sans / JetBrains Mono / Noto Sans SC，去掉 <head> 里的 Google Fonts 链接。
+  - 多处 UI 的 ontFamily 改为 ar(--font-jetbrains-mono) / ar(--font-noto-sans-sc)，保持字体显示一致。
+- 目标：
+  - 解决 Vercel 
+ext build 中的 eact-hooks/rules-of-hooks 阻塞错误。
+  - 一并清理已暴露的 eact-hooks/exhaustive-deps 与 @next/next/no-page-custom-font 警告。
+- 本地验证：
+  - 
+ode --check src/lib/server/gameActions.js
+  - 
+ode --check src/app/layout.js
+  - 
+ode --check src/app/admin/page.js
+  - 
+pm.cmd run smoke
+  - 以上通过；本地仍未安装 
+ext，未执行完整 
+pm run build。
 # Readme_GPT
 ## 2026-03-24 / ?? Vercel ???? JSX ?????
 - ?????? `src/app/admin/_tabs/EquipmentSeriesSection.jsx` ??? Vercel ????? `react/no-unescaped-entities` ???
@@ -12,148 +52,96 @@
   - ????? JSX ????? `&quot;`
   - ???? `next`???????? `npm run build`
 
-## 2026-03-24 / 首页文案与房间自动准备下一轮
-- 状态：已移除首页中“常磐大逃杀”文案，并让大厅在没有等待中/进行中房间时自动准备下一轮。
-- 本轮调整：
-  - `src/app/page.js`：删除首页副标题中的“常磐大逃杀 · 现代Web重制版”文字，仅保留主标题与入口按钮
-  - `src/app/api/game/rooms/route.js`：新增“ensure next round”分支；当请求携带 `ensureNextRound: true` 时，会先检查是否已有等待中/进行中的房间，没有才创建新房间
-  - `src/app/rooms/page.js`：
-    - 新增每 60 秒一次的房间状态轮询
-    - 当当前没有等待中/进行中的房间时，会自动调用接口准备下一轮
-    - 大厅提示文案改为“系统自动准备下一轮”，管理员手动创建仍保留
-- 当前行为：
-  - 房间仍然在首位玩家加入后自动开始
-  - 当所有房间都已结束，下一次大厅巡检会自动补出一个新的等待中房间
-  - 自动准备下一轮现在对已登录用户生效，不再只依赖管理员手动开房
-- 验证：
-  - `node --check src/app/api/game/rooms/route.js` 通过
-  - `npm.cmd run smoke` 通过
-  - 已确认首页源码中不再包含“常磐大逃杀”文本
-  - 本地仍无 `next` 与 `playwright`，因此未执行浏览器层回归
-## 2026-03-24 / 鍚庡彴鐢ㄦ埛缁勪笌鏉冮檺缁勭鐞?- 鐘舵€侊細宸插湪绠＄悊鍚庡彴鏂板鈥滅敤鎴锋潈闄愨€濋〉锛屾敮鎸佹煡璇㈢敤鎴枫€佹煡鐪嬪綋鍓嶅垎缁勩€佹寜鍒嗙粍绛涢€夛紝骞剁紪杈?`auth.users.user_metadata.groups`銆?- 鏈疆鏂板锛?  - 鏂板 `src/app/api/admin/users/route.js`
-    - `GET /api/admin/users`锛氱鐞嗗憳鎷夊彇 Supabase Auth 鐢ㄦ埛鍒楄〃锛屽苟鍚堝苟 `profiles.roomid`
-    - `PATCH /api/admin/users`锛氱鐞嗗憳鏇存柊鎸囧畾鐢ㄦ埛鐨?`groups`
-  - 鏂板 `src/app/admin/_tabs/UsersTab.jsx`
-    - 鏀寔鎸夌敤鎴峰悕 / 閭 / ID / 鍒嗙粍鎼滅储
-    - 鏀寔鎸夋潈闄愮粍绛涢€?    - 鏀寔鏌ョ湅娉ㄥ唽鏃堕棿銆佹渶鍚庣櫥褰曟椂闂淬€佸綋鍓嶆埧闂?    - 鏀寔閫氳繃寮圭獥缂栬緫棰勮缁勪笌鑷畾涔夌粍
-  - 鏇存柊 `src/app/admin/page.js`
-    - 鏂板鈥滒煈?鐢ㄦ埛鏉冮檺鈥濇爣绛鹃〉鍏ュ彛
-  - 鏇存柊 `src/lib/auth.js`
-    - 鏂板 `KNOWN_PERMISSION_GROUPS`
-    - 鏂板 `normalizeGroups()` / `getUserGroups()`
-    - `ensureAdminMetadata()` 鏀逛负缁熶竴璧板垎缁勮鑼冨寲
-- 褰撳墠鏉冮檺妯″瀷锛?  - 浠嶄互 `user_metadata.groups` 涓哄崟涓€浜嬪疄鏉ユ簮
-  - 淇濆瓨鏃朵細鑷姩鍘婚噸銆佽浆灏忓啓锛屽苟濮嬬粓淇濈暀 `user`
-  - 涓荤鐞嗗憳閭 `PRIMARY_ADMIN_EMAIL` 浼氳寮哄埗淇濈暀 `admin`
-  - 褰撳墠宸茬湡姝ｆ帴鍏ラ壌鏉冨垽鏂殑鏄?`admin`锛屽叾浣欑粍鍏堜綔涓洪鐣欒繍钀?鏉冮檺鍒嗗眰
-- 楠岃瘉锛?  - `node --check src/lib/auth.js` 閫氳繃
-  - `node --check src/app/api/admin/users/route.js` 閫氳繃
+## 2026-03-24 / 棣栭〉鏂囨涓庢埧闂磋嚜鍔ㄥ噯澶囦笅涓€杞?- 鐘舵€侊細宸茬Щ闄ら椤典腑鈥滃父纾愬ぇ閫冩潃鈥濇枃妗堬紝骞惰澶у巺鍦ㄦ病鏈夌瓑寰呬腑/杩涜涓埧闂存椂鑷姩鍑嗗涓嬩竴杞€?- 鏈疆璋冩暣锛?  - `src/app/page.js`锛氬垹闄ら椤靛壇鏍囬涓殑鈥滃父纾愬ぇ閫冩潃 路 鐜颁唬Web閲嶅埗鐗堚€濇枃瀛楋紝浠呬繚鐣欎富鏍囬涓庡叆鍙ｆ寜閽?  - `src/app/api/game/rooms/route.js`锛氭柊澧炩€渆nsure next round鈥濆垎鏀紱褰撹姹傛惡甯?`ensureNextRound: true` 鏃讹紝浼氬厛妫€鏌ユ槸鍚﹀凡鏈夌瓑寰呬腑/杩涜涓殑鎴块棿锛屾病鏈夋墠鍒涘缓鏂版埧闂?  - `src/app/rooms/page.js`锛?    - 鏂板姣?60 绉掍竴娆＄殑鎴块棿鐘舵€佽疆璇?    - 褰撳綋鍓嶆病鏈夌瓑寰呬腑/杩涜涓殑鎴块棿鏃讹紝浼氳嚜鍔ㄨ皟鐢ㄦ帴鍙ｅ噯澶囦笅涓€杞?    - 澶у巺鎻愮ず鏂囨鏀逛负鈥滅郴缁熻嚜鍔ㄥ噯澶囦笅涓€杞€濓紝绠＄悊鍛樻墜鍔ㄥ垱寤轰粛淇濈暀
+- 褰撳墠琛屼负锛?  - 鎴块棿浠嶇劧鍦ㄩ浣嶇帺瀹跺姞鍏ュ悗鑷姩寮€濮?  - 褰撴墍鏈夋埧闂撮兘宸茬粨鏉燂紝涓嬩竴娆″ぇ鍘呭贰妫€浼氳嚜鍔ㄨˉ鍑轰竴涓柊鐨勭瓑寰呬腑鎴块棿
+  - 鑷姩鍑嗗涓嬩竴杞幇鍦ㄥ宸茬櫥褰曠敤鎴风敓鏁堬紝涓嶅啀鍙緷璧栫鐞嗗憳鎵嬪姩寮€鎴?- 楠岃瘉锛?  - `node --check src/app/api/game/rooms/route.js` 閫氳繃
   - `npm.cmd run smoke` 閫氳繃
-  - `npm.cmd run lint` 澶辫触锛屽師鍥犳槸褰撳墠鐜浠嶆病鏈夊彲鎵ц鐨?`next`
+  - 宸茬‘璁ら椤垫簮鐮佷腑涓嶅啀鍖呭惈鈥滃父纾愬ぇ閫冩潃鈥濇枃鏈?  - 鏈湴浠嶆棤 `next` 涓?`playwright`锛屽洜姝ゆ湭鎵ц娴忚鍣ㄥ眰鍥炲綊
+## 2026-03-24 / 閸氬骸褰撮悽銊﹀煕缂佸嫪绗岄弶鍐缂佸嫮顓搁悶?- 閻樿埖鈧緤绱板鎻掓躬缁狅紕鎮婇崥搴″酱閺傛澘顤冮垾婊呮暏閹撮攱娼堥梽鎰ㄢ偓婵嬨€夐敍灞炬暜閹镐焦鐓＄拠銏㈡暏閹存灚鈧焦鐓￠惇瀣秼閸撳秴鍨庣紒鍕┾偓浣瑰瘻閸掑棛绮嶇粵娑⑩偓澶涚礉楠炲墎绱潏?`auth.users.user_metadata.groups`閵?- 閺堫剝鐤嗛弬鏉款杻閿?  - 閺傛澘顤?`src/app/api/admin/users/route.js`
+    - `GET /api/admin/users`閿涙氨顓搁悶鍡楁喅閹峰褰?Supabase Auth 閻劍鍩涢崚妤勩€冮敍灞借嫙閸氬牆鑻?`profiles.roomid`
+    - `PATCH /api/admin/users`閿涙氨顓搁悶鍡楁喅閺囧瓨鏌婇幐鍥х暰閻劍鍩涢惃?`groups`
+  - 閺傛澘顤?`src/app/admin/_tabs/UsersTab.jsx`
+    - 閺€顖涘瘮閹稿鏁ら幋宄版倳 / 闁喚顔?/ ID / 閸掑棛绮嶉幖婊呭偍
+    - 閺€顖涘瘮閹稿娼堥梽鎰矋缁涙盯鈧?    - 閺€顖涘瘮閺屻儳婀呭▔銊ュ斀閺冨爼妫块妴浣规付閸氬海娅ヨぐ鏇熸闂傛番鈧礁缍嬮崜宥嗗煣闂?    - 閺€顖涘瘮闁俺绻冨鍦崶缂傛牞绶０鍕啎缂佸嫪绗岄懛顏勭暰娑斿绮?  - 閺囧瓨鏌?`src/app/admin/page.js`
+    - 閺傛澘顤冮垾婊掔厛?閻劍鍩涢弶鍐閳ユ繃鐖ｇ粵楣冦€夐崗銉ュ經
+  - 閺囧瓨鏌?`src/lib/auth.js`
+    - 閺傛澘顤?`KNOWN_PERMISSION_GROUPS`
+    - 閺傛澘顤?`normalizeGroups()` / `getUserGroups()`
+    - `ensureAdminMetadata()` 閺€閫涜礋缂佺喍绔寸挧鏉垮瀻缂佸嫯顫夐懠鍐ㄥ
+- 瑜版挸澧犻弶鍐濡€崇€烽敍?  - 娴犲秳浜?`user_metadata.groups` 娑撳搫宕熸稉鈧禍瀣杽閺夈儲绨?  - 娣囨繂鐡ㄩ弮鏈电窗閼奉亜濮╅崢濠氬櫢閵嗕浇娴嗙亸蹇撳晸閿涘苯鑻熸慨瀣矒娣囨繄鏆€ `user`
+  - 娑撹崵顓搁悶鍡楁喅闁喚顔?`PRIMARY_ADMIN_EMAIL` 娴兼俺顫﹀鍝勫煑娣囨繄鏆€ `admin`
+  - 瑜版挸澧犲鑼埂濮濓絾甯撮崗銉╁閺夊啫鍨介弬顓犳畱閺?`admin`閿涘苯鍙炬担娆戠矋閸忓牅缍旀稉娲暕閻ｆ瑨绻嶉拃?閺夊啴妾洪崚鍡楃湴
+- 妤犲矁鐦夐敍?  - `node --check src/lib/auth.js` 闁俺绻?  - `node --check src/app/api/admin/users/route.js` 闁俺绻?  - `npm.cmd run smoke` 闁俺绻?  - `npm.cmd run lint` 婢惰精瑙﹂敍灞藉斧閸ョ姵妲歌ぐ鎾冲閻滎垰顣ㄦ禒宥嗙梾閺堝褰查幍褑顢戦惃?`next`
 
-## 2026-03-24 / 淇 `gameActions.js` 鍧忔帀鐨勫瓧绗︿覆
-- 鐘舵€侊細宸蹭慨澶?`src/lib/server/gameActions.js` 涓敱涓婅疆涔辩爜淇閬楃暀鐨勫潖瀛楃涓诧紝鎭㈠鏈嶅姟绔姩浣滄ā鍧楃殑鍙В鏋愮姸鎬併€?- 鏈疆淇锛?  - 淇 NPC / PvP 鏀诲嚮鏃ュ織閲屾畫鐣欑殑寮傚父瀛楃 `顔奰
-  - 淇涓ゅ姝讳骸鏃ュ織妯℃澘瀛楃涓茬己澶辩粨灏撅紝閬垮厤妯″潡瑙ｆ瀽鏃舵姤 `SyntaxError`
-  - 淇 `鏈煡閬撳叿` 閿欒娑堟伅涓殑閿欒鎻掑€?`${{itemName}`锛屾仮澶嶄负 `${itemName}`
-  - 椤烘墜鏁寸悊 NPC 閫冭窇澶辫触鏃ュ織閲岀殑澶氫綑绌烘牸
-- 褰卞搷鑼冨洿锛?  - 浠呬慨鏀瑰瓧绗︿覆涓庢姤閿欐枃妗堬紝涓嶆敼鍙樻埧闂寸粨绠椼€佹垬鏂楀叕寮忋€佸案浣撴垬鍒╁搧鎴栦箰瑙傞攣閫昏緫
-- 楠岃瘉锛?  - `node -e "import('./src/lib/server/gameActions.js')"` 涓嶅啀鎶ヨ娉曢敊璇紝褰撳墠鍙細鍋滃湪鏅€?Node 鏃犳硶瑙ｆ瀽 `@/` 鍒悕
-  - `npm.cmd run smoke` 閫氳繃
-  - 宸茬‘璁?`浼ゅ顔奰銆乣${{itemName}`銆乣鍊掍笅浜? 'death'` 绛夊潖妯″紡宸蹭粠鏂囦欢涓Щ闄?
-## 2026-03-21 / 娓呯悊鏃у疄鐜颁笌涓嶅彲杈句唬鐮?- 鐘舵€侊細宸蹭粠 `src/lib/server/gameActions.js` 鍒犻櫎纭涓嶅啀浣跨敤鐨勬棫瀹炵幇涓庝笉鍙揪鍒嗘敮銆?- 鏈疆娓呯悊锛?  - 鍒犻櫎鏃х殑 `searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
-  - 鍒犻櫎浜斾釜鍔ㄤ綔 wrapper 閲?`return` 涔嬪悗鐨勬暣娈典笉鍙揪鏃ч€昏緫
-  - 杩炲甫鍒犻櫎鍙负鏃ч€昏緫鏈嶅姟鐨?`applyTurnEffects()` 涓?`ensureCorpsesForNewDeaths()`
-- 缁撴灉锛?  - `gameActions.js` 鐜板湪鍙繚鐣欏綋鍓嶄簨浠剁粨绠楀櫒鎵€闇€鐨勪富閾捐矾瀹炵幇
-  - 鏈疆鍏卞噣鍒犵害 700+ 琛屾棫浠ｇ爜
-  - 鏈嶅姟绔姩浣滃叆鍙ｆ洿娓呮櫚锛屽悗缁户缁寜妯″潡鎷嗗垎浼氭洿瀹规槗
-- 楠岃瘉锛?  - `node --check src/lib/server/gameActions.js` 閫氳繃
-  - `npm run smoke` 閫氳繃
-
-## 2026-03-21 / 鍏ㄥ眬 debug 宸℃
-- 鑼冨洿锛氬褰撳墠宸ヤ綔鍖哄仛涓€娆℃暣浣?debug锛岄噸鐐规鏌?`src/lib`銆乣src/app/api`銆乻moke銆佷互鍙婃瀯寤轰緷璧栫幆澧冦€?- 宸蹭慨澶嶏細
-  - `src/lib/server/gameActions.js` 琛ュ洖 `applyTurnEffects()` 涓?`ensureCorpsesForNewDeaths()` 鍏煎 helper銆?  - 鐩殑涓嶆槸鍥為€€浜嬩欢缁撶畻鍣紝鑰屾槸缁欎粛鐣欏湪鏂囦欢閲岀殑鏃у疄鐜版畫娈佃ˉ鎶ゆ爮锛岄伩鍏嶈繖浜涙棫璺緞鍦ㄨ璇皟鐢ㄦ椂鐩存帴鍥犱负 helper 缂哄け鑰屾姤閿欍€?- 褰撳墠浠ｇ爜妫€鏌ョ粨鏋滐細
-  - `node --check` 宸查€氳繃 `src/lib/**/*.js`銆乣src/app/api/**/*.js`銆乣scripts/*.mjs`
-  - `npm run smoke` 閫氳繃
-  - 鐜伴樁娈垫病鏈夊彂鐜版柊鐨勮娉曠骇閿欒鎴?smoke 鍥炲綊
-- 褰撳墠鐜闂锛?  - `npm run build` 澶辫触锛屽師鍥犳槸鏈湴娌℃湁鍙墽琛岀殑 `next`
-  - `npm run lint` 澶辫触锛屽師鍥犲悓涓?  - `npm ls next` 涓?`npm ls playwright` 閮芥槸绌猴紝璇存槑褰撳墠宸ヤ綔鍖烘湭瀹夎瀵瑰簲渚濊禆
-- 缁撹锛?  - 鐜板湪涓婚闄╀笉鍦ㄤ唬鐮佽娉曪紝鑰屽湪鏈湴渚濊禆鐜缂哄け
-  - `gameActions.js` 渚濇棫鍋忓ぇ锛屽悗缁粛寤鸿缁х画鍒犻櫎鏃ф畫娈靛苟鎸夋ā鍧楁媶鍒?
-## 2026-03-20 / 浜嬩欢缁撶畻鍣ㄤ笌鍦板浘閰嶇疆鏁寸悊
-- 鐘舵€侊細宸叉柊澧?`src/lib/eventResolver.js`锛屼綔涓哄綋鍓嶆湇鍔＄鍔ㄤ綔灞傜殑杞婚噺浜嬩欢缁撶畻鍣ㄣ€?- 宸叉帴鍏ュ姩浣滐細
-  - `search`
+## 2026-03-24 / 娣囶喖顦?`gameActions.js` 閸у繑甯€閻ㄥ嫬鐡х粭锔胯
+- 閻樿埖鈧緤绱板韫叏婢?`src/lib/server/gameActions.js` 娑擃厾鏁辨稉濠呯枂娑旇京鐖滄穱顔碱槻闁鏆€閻ㄥ嫬娼栫€涙顑佹稉璇х礉閹垹顦查張宥呭缁旑垰濮╂担婊勀侀崸妤冩畱閸欘垵袙閺嬫劗濮搁幀浣碘偓?- 閺堫剝鐤嗘穱顔碱槻閿?  - 娣囶喗顒?NPC / PvP 閺€璇插毊閺冦儱绻旈柌灞剧暙閻ｆ瑧娈戝鍌氱埗鐎涙顑?`椤斿グ
+  - 娣囶喖顦叉稉銈咁槱濮濊楠搁弮銉ョ箶濡剝婢樼€涙顑佹稉鑼繁婢惰京绮ㄧ亸鎾呯礉闁灝鍘ゅΟ鈥虫健鐟欙絾鐎介弮鑸靛Г `SyntaxError`
+  - 娣囶喖顦?`閺堫亞鐓￠柆鎾冲徔` 闁挎瑨顕ゅ☉鍫熶紖娑擃厾娈戦柨娆掝嚖閹绘帒鈧?`${{itemName}`閿涘本浠径宥勮礋 `${itemName}`
+  - 妞ょ儤澧滈弫瀵告倞 NPC 闁啳绐囨径杈Е閺冦儱绻旈柌宀€娈戞径姘稇缁岀儤鐗?- 瑜板崬鎼烽懠鍐ㄦ纯閿?  - 娴犲懍鎱ㄩ弨鐟扮摟缁楋缚瑕嗘稉搴㈠Г闁挎瑦鏋冨鍫礉娑撳秵鏁奸崣妯诲煣闂傚绮ㄧ粻妞尖偓浣瑰灛閺傛鍙曞蹇嬧偓浣告娴ｆ挻鍨崚鈺佹惂閹存牔绠扮憴鍌炴敚闁槒绶?- 妤犲矁鐦夐敍?  - `node -e "import('./src/lib/server/gameActions.js')"` 娑撳秴鍟€閹躲儴顕㈠▔鏇㈡晩鐠囶垽绱濊ぐ鎾冲閸欘亙绱伴崑婊冩躬閺咁噣鈧?Node 閺冪姵纭剁憴锝嗙€?`@/` 閸掝偄鎮?  - `npm.cmd run smoke` 闁俺绻?  - 瀹歌尙鈥樼拋?`娴笺倕顔婇濂伴妴涔?{{itemName}`閵嗕梗閸婃帊绗呮禍? 'death'` 缁涘娼栧Ο鈥崇础瀹歌弓绮犻弬鍥︽娑擃厾些闂?
+## 2026-03-21 / 濞撳懐鎮婇弮褍鐤勯悳棰佺瑢娑撳秴褰叉潏鍙ュ敩閻?- 閻樿埖鈧緤绱板韫矤 `src/lib/server/gameActions.js` 閸掔娀娅庣涵顔款吇娑撳秴鍟€娴ｈ法鏁ら惃鍕＋鐎圭偟骞囨稉搴濈瑝閸欘垵鎻崚鍡樻暜閵?- 閺堫剝鐤嗗〒鍛倞閿?  - 閸掔娀娅庨弮褏娈?`searchAreaImpl / attackNpcImpl / fleeNpcImpl / attackPlayerImpl / useItemImpl`
+  - 閸掔娀娅庢禍鏂鹃嚋閸斻劋缍?wrapper 闁?`return` 娑斿鎮楅惃鍕殻濞堝吀绗夐崣顖濇彧閺冄団偓鏄忕帆
+  - 鏉╃偛鐢崚鐘绘珟閸欘亙璐熼弮褔鈧槒绶張宥呭閻?`applyTurnEffects()` 娑?`ensureCorpsesForNewDeaths()`
+- 缂佹挻鐏夐敍?  - `gameActions.js` 閻滄澘婀崣顏冪箽閻ｆ瑥缍嬮崜宥勭皑娴犲墎绮ㄧ粻妤€娅掗幍鈧棁鈧惃鍕瘜闁炬崘鐭剧€圭偟骞?  - 閺堫剝鐤嗛崗鍗炲櫍閸掔姷瀹?700+ 鐞涘本妫禒锝囩垳
+  - 閺堝秴濮熺粩顖氬З娴ｆ粌鍙嗛崣锝嗘纯濞撳懏娅氶敍灞芥倵缂侇厾鎴风紒顓熷瘻濡€虫健閹峰棗鍨庢导姘纯鐎硅妲?- 妤犲矁鐦夐敍?  - `node --check src/lib/server/gameActions.js` 闁俺绻?  - `npm run smoke` 闁俺绻?
+## 2026-03-21 / 閸忋劌鐪?debug 瀹糕剝顥?- 閼煎啫娲块敍姘嚠瑜版挸澧犲銉ょ稊閸栧搫浠涙稉鈧▎鈩冩殻娴?debug閿涘矂鍣搁悙瑙勵梾閺?`src/lib`閵嗕梗src/app/api`閵嗕够moke閵嗕椒浜掗崣濠冪€杞扮贩鐠ф牜骞嗘晶鍐︹偓?- 瀹歌弓鎱ㄦ径宥忕窗
+  - `src/lib/server/gameActions.js` 鐞涖儱娲?`applyTurnEffects()` 娑?`ensureCorpsesForNewDeaths()` 閸忕厧顔?helper閵?  - 閻╊喚娈戞稉宥嗘Ц閸ョ偤鈧偓娴滃娆㈢紒鎾剁暬閸ｎ煉绱濋懓灞炬Ц缂佹瑤绮涢悾娆忔躬閺傚洣娆㈤柌宀€娈戦弮褍鐤勯悳鐗堢暙濞堜絻藟閹躲倖鐖敍宀勪缉閸忓秷绻栨禍娑欐＋鐠侯垰绶為崷銊潶鐠囶垵鐨熼悽銊︽閻╁瓨甯撮崶鐘辫礋 helper 缂傚搫銇戦懓灞惧Г闁挎瑣鈧?- 瑜版挸澧犳禒锝囩垳濡偓閺屻儳绮ㄩ弸婊愮窗
+  - `node --check` 瀹告煡鈧俺绻?`src/lib/**/*.js`閵嗕梗src/app/api/**/*.js`閵嗕梗scripts/*.mjs`
+  - `npm run smoke` 闁俺绻?  - 閻滀即妯佸▓鍨梾閺堝褰傞悳鐗堟煀閻ㄥ嫯顕㈠▔鏇犻獓闁挎瑨顕ら幋?smoke 閸ョ偛缍?- 瑜版挸澧犻悳顖氼暔闂傤噣顣介敍?  - `npm run build` 婢惰精瑙﹂敍灞藉斧閸ョ姵妲搁張顒€婀村▽鈩冩箒閸欘垱澧界悰宀€娈?`next`
+  - `npm run lint` 婢惰精瑙﹂敍灞藉斧閸ョ姴鎮撴稉?  - `npm ls next` 娑?`npm ls playwright` 闁姤妲哥粚鐚寸礉鐠囧瓨妲戣ぐ鎾冲瀹搞儰缍旈崠鐑樻弓鐎瑰顥婄€电懓绨叉笟婵婄
+- 缂佹捁顔戦敍?  - 閻滄澘婀稉濠氼棑闂勨晙绗夐崷銊ゅ敩閻浇顕㈠▔鏇礉閼板苯婀張顒€婀存笟婵婄閻滎垰顣ㄧ紓鍝勩亼
+  - `gameActions.js` 娓氭繃妫崑蹇撱亣閿涘苯鎮楃紒顓濈矝瀵ら缚顔呯紒褏鐢婚崚鐘绘珟閺冄勭暙濞堥潧鑻熼幐澶嬆侀崸妤佸閸?
+## 2026-03-20 / 娴滃娆㈢紒鎾剁暬閸ｃ劋绗岄崷鏉挎禈闁板秶鐤嗛弫瀵告倞
+- 閻樿埖鈧緤绱板鍙夋煀婢?`src/lib/eventResolver.js`閿涘奔缍旀稉鍝勭秼閸撳秵婀囬崝锛勵伂閸斻劋缍旂仦鍌滄畱鏉炲鍣烘禍瀣╂缂佹挾鐣婚崳銊ｂ偓?- 瀹稿弶甯撮崗銉ュЗ娴ｆ粣绱?  - `search`
   - `attackNpc`
   - `flee`
   - `attackPlayer`
   - `useItem`
-- 缁熶竴缁撶畻鍐呭锛?  - 鍥炲悎寮€濮?Buff 缁撶畻
-  - 鏂版浜＄帺瀹剁殑灏镐綋鐢熸垚
-  - 鐜╁鐘舵€佸啓鍥?  - 鍏变韩鏃ュ織绱Н
-- 鍦板浘閰嶇疆锛?  - `src/app/admin/_tabs/MapsTab.jsx` 宸茬Щ闄?`danger_level` 缂栬緫椤广€?  - 褰撳墠 `src/` 鍐呭凡鏃?`danger_level` 寮曠敤锛屽彲瑙嗕负搴熷純鍐椾綑閰嶇疆銆?  - 鍋囪鏈疆鍏堝仛浠ｇ爜灞傜Щ闄わ紝鏁版嵁搴撻噷鐨?`map_config.danger_level` 鍒楁殏鏈墽琛屽垹搴撱€?- 楠岃瘉锛?  - `node --check src/lib/server/gameActions.js` 閫氳繃
-  - `node --check src/lib/eventResolver.js` 閫氳繃
-  - `npm run smoke` 閫氳繃
-  - `npm ls playwright` 鏄剧ず鏈湴鏈畨瑁?- 寰呯户缁細
-  - `gameActions.js` 閲屼粛淇濈暀鏃у疄鐜版畫娈碉紝鍚庣画鍙户缁寜鍔ㄤ綔妯″潡鎷嗗垎
-  - 灏镐綋/浜嬩欢缁撶畻杩樼己涓撻」 smoke
-  - 褰撳墠鐜浠嶆湭瀹屾垚 `build` / `lint` / Playwright 娴忚鍣ㄥ洖褰?
-## 2026-03-20 / 灏镐綋鎴樺埄鍝佺郴缁熸洿鏂?
-- 鐘舵€侊細宸插疄鐜扮涓€鐗堝案浣撴悳鍒摼璺紝鏂瑰悜鏀逛负鈥滃案浣撲繚鐣欏墿浣欑墿璧勨€濓紝涓嶅仛闅忔満瑁呭鎺夎惤銆?- 鏈嶅姟绔細
-  - `src/lib/server/gameActions.js` 鏂板灏镐綋鍙戠幇銆佸嵆鏃舵垬鍒╁搧 prompt銆乣lootCorpse`銆乣dismissLootPrompt`銆?  - `search / attackNpc / flee / attackPlayer / useItem` 鐜板湪閮戒細鍦ㄦ浜℃椂鍚屾灏镐綋鐘舵€併€?  - 鐜╁灏镐綋缁х画浠?`equipment_instances` 涓鸿澶囦簨瀹炴簮锛涙嬀鍙栬澶囨椂浼氬仛 owner 杞Щ鎴栧疄渚嬬敓鎴愶紝骞跺湪 `persistRoom()` 澶辫触鏃跺洖婊氥€?- 鍓嶇锛?  - 鏂板 `src/app/game/[id]/LootModal.jsx`銆?  - `src/app/game/[id]/GameClientPage.jsx` 宸叉帴閫氭嬀鍙栧脊绐椼€佸叧闂姩浣滃拰褰撳墠鍦板浘灏镐綋鎻愮ず銆?- 瑙勫垯锛?  - NPC 鎴栫帺瀹舵浜″悗锛屽嚮鏉€鑰呭彲绔嬪嵆浠庡案浣撲腑甯﹁蛋 1 浠惰澶囨垨閬撳叿銆?  - 灏镐綋鍓╀綑鍐呭浼氱户缁暀鍦ㄥ湴鍥句笂锛屽悗缁帺瀹堕€氳繃鎼滅储杩樿兘缁х画鎷裤€?- 楠岃瘉锛?  - `npm run smoke`锛氶€氳繃銆?  - `node --check src/lib/server/gameActions.js`锛氶€氳繃銆?  - `node --check src/lib/roomState.js`锛氶€氳繃銆?  - `npm run lint`锛氬綋鍓嶇幆澧冨け璐ワ紝鍥犱负娌℃湁鍙墽琛?`next`銆?- 寰呯户缁細
-  - `scripts/smoke-check.mjs` 杩樻病琛ュ埌灏镐綋鎼滃埉涓撻」鏂█銆?  - 鏈湴浠嶆湭瀹屾垚 `next lint` / `next build` / 娴忚鍣ㄨ仈鏈哄洖褰掋€?
+- 缂佺喍绔寸紒鎾剁暬閸愬懎顔愰敍?  - 閸ョ偛鎮庡鈧慨?Buff 缂佹挾鐣?  - 閺傜増顒存禍锛勫负鐎瑰墎娈戠亸闀愮秼閻㈢喐鍨?  - 閻溾晛顔嶉悩鑸碘偓浣稿晸閸?  - 閸忓彉闊╅弮銉ョ箶缁鳖垳袧
+- 閸︽澘娴橀柊宥囩枂閿?  - `src/app/admin/_tabs/MapsTab.jsx` 瀹歌尙些闂?`danger_level` 缂傛牞绶い骞库偓?  - 瑜版挸澧?`src/` 閸愬懎鍑￠弮?`danger_level` 瀵洜鏁ら敍灞藉讲鐟欏棔璐熸惔鐔风磾閸愭ぞ缍戦柊宥囩枂閵?  - 閸嬪洩顔曢張顒冪枂閸忓牆浠涙禒锝囩垳鐏炲倻些闂勩倧绱濋弫鐗堝祦鎼存捇鍣烽惃?`map_config.danger_level` 閸掓娈忛張顏呭⒔鐞涘苯鍨规惔鎾扁偓?- 妤犲矁鐦夐敍?  - `node --check src/lib/server/gameActions.js` 闁俺绻?  - `node --check src/lib/eventResolver.js` 闁俺绻?  - `npm run smoke` 闁俺绻?  - `npm ls playwright` 閺勫墽銇氶張顒€婀撮張顏勭暔鐟?- 瀵板懐鎴风紒顓ㄧ窗
+  - `gameActions.js` 闁插奔绮涙穱婵堟殌閺冄冪杽閻滅増鐣▓纰夌礉閸氬海鐢婚崣顖滄埛缂侇厽瀵滈崝銊ょ稊濡€虫健閹峰棗鍨?  - 鐏忛晲缍?娴滃娆㈢紒鎾剁暬鏉╂宸辨稉鎾汇€?smoke
+  - 瑜版挸澧犻悳顖氼暔娴犲秵婀€瑰本鍨?`build` / `lint` / Playwright 濞村繗顫嶉崳銊ユ礀瑜?
+## 2026-03-20 / 鐏忛晲缍嬮幋妯哄焺閸濅胶閮寸紒鐔告纯閺?
+- 閻樿埖鈧緤绱板鎻掔杽閻滄壆顑囨稉鈧悧鍫濇娴ｆ挻鎮抽崚顕€鎽肩捄顖ょ礉閺傜懓鎮滈弨閫涜礋閳ユ粌妗堟担鎾茬箽閻ｆ瑥澧挎担娆戝⒖鐠у嫧鈧繐绱濇稉宥呬粵闂呭繑婧€鐟佸懎顦幒澶庢儰閵?- 閺堝秴濮熺粩顖ょ窗
+  - `src/lib/server/gameActions.js` 閺傛澘顤冪亸闀愮秼閸欐垹骞囬妴浣稿祮閺冭埖鍨崚鈺佹惂 prompt閵嗕梗lootCorpse`閵嗕梗dismissLootPrompt`閵?  - `search / attackNpc / flee / attackPlayer / useItem` 閻滄澘婀柈鎴掔窗閸︺劍顒存禍鈩冩閸氬本顒炵亸闀愮秼閻樿埖鈧降鈧?  - 閻溾晛顔嶇亸闀愮秼缂佈呯敾娴?`equipment_instances` 娑撻缚顥婃径鍥︾皑鐎圭偞绨敍娑欏瑎閸欐牞顥婃径鍥ㄦ娴兼艾浠?owner 鏉烆剛些閹存牕鐤勬笟瀣晸閹存劧绱濋獮璺烘躬 `persistRoom()` 婢惰精瑙﹂弮璺烘礀濠婃哎鈧?- 閸撳秶顏敍?  - 閺傛澘顤?`src/app/game/[id]/LootModal.jsx`閵?  - `src/app/game/[id]/GameClientPage.jsx` 瀹稿弶甯撮柅姘瑎閸欐牕鑴婄粣妞尖偓浣稿彠闂傤厼濮╂担婊冩嫲瑜版挸澧犻崷鏉挎禈鐏忛晲缍嬮幓鎰仛閵?- 鐟欏嫬鍨敍?  - NPC 閹存牜甯虹€硅埖顒存禍鈥虫倵閿涘苯鍤弶鈧懓鍛讲缁斿宓嗘禒搴℃娴ｆ挷鑵戠敮锕佽泲 1 娴犳儼顥婃径鍥ㄥ灗闁挸鍙块妴?  - 鐏忛晲缍嬮崜鈺€缍戦崘鍛啇娴兼氨鎴风紒顓犳殌閸︺劌婀撮崶鍙ョ瑐閿涘苯鎮楃紒顓犲负鐎瑰爼鈧俺绻冮幖婊呭偍鏉╂鍏樼紒褏鐢婚幏瑁も偓?- 妤犲矁鐦夐敍?  - `npm run smoke`閿涙岸鈧俺绻冮妴?  - `node --check src/lib/server/gameActions.js`閿涙岸鈧俺绻冮妴?  - `node --check src/lib/roomState.js`閿涙岸鈧俺绻冮妴?  - `npm run lint`閿涙艾缍嬮崜宥囧箚婢у啫銇戠拹銉礉閸ョ姳璐熷▽鈩冩箒閸欘垱澧界悰?`next`閵?- 瀵板懐鎴风紒顓ㄧ窗
+  - `scripts/smoke-check.mjs` 鏉╂ɑ鐥呯悰銉ュ煂鐏忛晲缍嬮幖婊冨焿娑撴捇銆嶉弬顓♀枅閵?  - 閺堫剙婀存禒宥嗘弓鐎瑰本鍨?`next lint` / `next build` / 濞村繗顫嶉崳銊ㄤ粓閺堝搫娲栬ぐ鎺嬧偓?
 
-鏇存柊鏃堕棿锛?026-03-19锛圓sia/Tokyo锛?鏁寸悊鏂瑰紡锛氬熀浜庡綋鍓嶄粨搴撴簮鐮佷笌鏈疆骞跺彂淇ˉ缁撴灉鏁寸悊锛涘凡瀹屾垚鏈湴 smoke 涓庤娉曠骇鏍￠獙锛屾湭瀹屾垚瀹屾暣鏋勫缓涓庢祻瑙堝櫒鑱旀満鍥炲綊銆?
-## 褰撳墠鐘舵€?
-椤圭洰鐜板湪宸茬粡鏄€滀富閾捐矾鍩烘湰闂幆鐨?v1 闆忓舰 + rooms 涔愯閿佷竴鏈熸敹灏剧増鈥濄€?
-鐩告瘮 2026-03-18 鐨勭増鏈紝鏈疆閲嶇偣琛ョ殑鏄苟鍙戝啓瀹夊叏锛?- `rooms` 琛ㄥ凡缁忚姹傚瓨鍦?`version integer not null default 0`
-- 娓告垙鍔ㄤ綔涓庤澶囧姩浣滅殑 `rooms` 鏇存柊宸插熀浜?`id + version` 鍋氫箰瑙傞攣鏇存柊
-- 鏈嶅姟绔増鏈啿绐佷細杩斿洖 `409`
-- 瀹㈡埛绔亣鍒?`409` 浼氳嚜鍔ㄧ煭閲嶈瘯
-
-## 鏈疆鏂板 / 淇
-
-- 骞跺彂瀹夊叏鏀跺熬锛?  - `src/lib/server/gameActions.js`
-    - `persistRoom()` 浣跨敤 `eq('version', currentVersion)` + `version + 1`
-    - 淇濈暀 `VersionConflictError` 鍜?`withRetry()`
-    - NPC/PvP 鎴樻枟鐨勮€愪箙鎵ｅ噺宸茬Щ鍔ㄥ埌 `persistRoom()` 鎴愬姛涔嬪悗鎵ц锛岄伩鍏嶇増鏈啿绐佹椂閲嶅鎵ｈ€愪箙
+閺囧瓨鏌婇弮鍫曟？閿?026-03-19閿涘湏sia/Tokyo閿?閺佸鎮婇弬鐟扮础閿涙艾鐔€娴滃骸缍嬮崜宥勭波鎼存挻绨惍浣风瑢閺堫剝鐤嗛獮璺哄絺娣囶喛藟缂佹挻鐏夐弫瀵告倞閿涙稑鍑＄€瑰本鍨氶張顒€婀?smoke 娑撳氦顕㈠▔鏇犻獓閺嶏繝鐛欓敍灞炬弓鐎瑰本鍨氱€瑰本鏆ｉ弸鍕紦娑撳孩绁荤憴鍫濇珤閼辨梹婧€閸ョ偛缍婇妴?
+## 瑜版挸澧犻悩鑸碘偓?
+妞ゅ湱娲伴悳鏉挎躬瀹歌尙绮￠弰顖椻偓婊€瀵岄柧鎹愮熅閸╃儤婀伴梻顓犲箚閻?v1 闂嗗繐鑸?+ rooms 娑旀劘顫囬柨浣风閺堢喐鏁圭亸鍓у閳ユ縿鈧?
+閻╁憡鐦?2026-03-18 閻ㄥ嫮澧楅張顒婄礉閺堫剝鐤嗛柌宥囧仯鐞涖儳娈戦弰顖氳嫙閸欐垵鍟撶€瑰鍙忛敍?- `rooms` 鐞涖劌鍑＄紒蹇氼洣濮瑰倸鐡ㄩ崷?`version integer not null default 0`
+- 濞撳憡鍨欓崝銊ょ稊娑撳氦顥婃径鍥уЗ娴ｆ粎娈?`rooms` 閺囧瓨鏌婂鎻掔唨娴?`id + version` 閸嬫矮绠扮憴鍌炴敚閺囧瓨鏌?- 閺堝秴濮熺粩顖滃閺堫剙鍟跨粣浣风窗鏉╂柨娲?`409`
+- 鐎广垺鍩涚粩顖炰海閸?`409` 娴兼俺鍤滈崝銊х叚闁插秷鐦?
+## 閺堫剝鐤嗛弬鏉款杻 / 娣囶喗顒?
+- 楠炶泛褰傜€瑰鍙忛弨璺虹啲閿?  - `src/lib/server/gameActions.js`
+    - `persistRoom()` 娴ｈ法鏁?`eq('version', currentVersion)` + `version + 1`
+    - 娣囨繄鏆€ `VersionConflictError` 閸?`withRetry()`
+    - NPC/PvP 閹存ɑ鏋熼惃鍕偓鎰畽閹碉絽鍣哄鑼╅崝銊ュ煂 `persistRoom()` 閹存劕濮涙稊瀣倵閹笛嗩攽閿涘矂浼╅崗宥囧閺堫剙鍟跨粣浣规闁插秴顦查幍锝堚偓鎰畽
   - `src/lib/equipmentEngine.js`
-    - `executeCraft()` 鐜板湪浼氳褰曞悎鎴愬壇浣滅敤 journal
-    - 濡傛灉 `rooms` 鎸佷箙鍖栧け璐ユ垨鍙戠敓鐗堟湰鍐茬獊锛屼細鍥炴粴锛?      - 鏂版彃鍏ョ殑瑁呭瀹炰緥
-      - 琚秷鑰楃殑鍓嶇疆瑁呭瀹炰緥
-      - 澶辫触闄嶉樁鏃惰鎵ｆ帀鐨勫墠缃€愪箙
-    - 鏂板 `rollbackCraftSideEffects()`
-- 绠＄悊鍚庡彴涓嶅啀缁曡繃涔愯閿侊細
-  - `src/app/admin/_tabs/RoomsTab.jsx` 宸蹭粠鍓嶇鐩磋繛 Supabase 鏀逛负璋冪敤 `/api/admin/rooms`
-  - `src/app/api/admin/rooms/route.js` 鏂板 `PATCH`锛?    - 绠＄悊鍛樺彲寮哄埗缁撴潫鎴块棿
-    - 寮哄埗缁撴潫浼氬啓鍏变韩鏃ュ織
-    - 寮哄埗缁撴潫涔熶細甯?`version` 妫€鏌?- 鍗忎綔璁板綍锛?  - 鏂板 `progress.md`锛岃褰曟湰杞棶棰樸€佷慨琛ョ偣鍜岄獙璇佺粨鏋?
-## 宸插畬鎴?
-- 澶у巺鍒涘缓鎴块棿銆佸姞鍏ユ埧闂淬€佽繘鍏ユ父鎴忋€佸叡浜棩蹇椼€佸熀纭€鎴樻枟銆丳vP銆侀亾鍏蜂娇鐢ㄣ€佽澶囧悎鎴愩€佺┛鎴?鍗镐笅銆佺鐞嗗憳鍚庡彴绛変富娴佺▼缁х画鍙敤銆?- 鍏抽敭鍐欐搷浣滀粛缁熶竴璧?Next API锛?  - `POST /api/game/rooms`
+    - `executeCraft()` 閻滄澘婀导姘愁唶瑜版洖鎮庨幋鎰娴ｆ粎鏁?journal
+    - 婵″倹鐏?`rooms` 閹镐椒绠欓崠鏍с亼鐠愩儲鍨ㄩ崣鎴犳晸閻楀牊婀伴崘鑼崐閿涘奔绱伴崶鐐寸泊閿?      - 閺傜増褰冮崗銉ф畱鐟佸懎顦€圭偘绶?      - 鐞氼偅绉烽懓妤冩畱閸撳秶鐤嗙憗鍛槵鐎圭偘绶?      - 婢惰精瑙﹂梽宥夋▉閺冩儼顫﹂幍锝嗗竴閻ㄥ嫬澧犵純顔库偓鎰畽
+    - 閺傛澘顤?`rollbackCraftSideEffects()`
+- 缁狅紕鎮婇崥搴″酱娑撳秴鍟€缂佹洝绻冩稊鎰潎闁夸緤绱?  - `src/app/admin/_tabs/RoomsTab.jsx` 瀹歌弓绮犻崜宥囶伂閻╃绻?Supabase 閺€閫涜礋鐠嬪啰鏁?`/api/admin/rooms`
+  - `src/app/api/admin/rooms/route.js` 閺傛澘顤?`PATCH`閿?    - 缁狅紕鎮婇崨妯哄讲瀵搫鍩楃紒鎾存将閹村潡妫?    - 瀵搫鍩楃紒鎾存将娴兼艾鍟撻崗鍙橀煩閺冦儱绻?    - 瀵搫鍩楃紒鎾存将娑旂喍绱扮敮?`version` 濡偓閺?- 閸楀繋缍旂拋鏉跨秿閿?  - 閺傛澘顤?`progress.md`閿涘矁顔囪ぐ鏇熸拱鏉烆噣妫舵０妯糕偓浣锋叏鐞涖儳鍋ｉ崪宀勭崣鐠囦胶绮ㄩ弸?
+## 瀹告彃鐣幋?
+- 婢堆冨泛閸掓稑缂撻幋鍧楁？閵嗕礁濮為崗銉﹀煣闂傛番鈧浇绻橀崗銉︾埗閹村繈鈧礁鍙℃禍顐ｆ）韫囨ぜ鈧礁鐔€绾偓閹存ɑ鏋熼妴涓硋P閵嗕線浜鹃崗铚傚▏閻劊鈧浇顥婃径鍥ф値閹存劑鈧胶鈹涢幋?閸楅晲绗呴妴浣侯吀閻炲棗鎲抽崥搴″酱缁涘瀵屽ù浣衡柤缂佈呯敾閸欘垳鏁ら妴?- 閸忔娊鏁崘娆愭惙娴ｆ粈绮涚紒鐔剁鐠?Next API閿?  - `POST /api/game/rooms`
   - `POST /api/game/actions`
   - `POST /api/game/equipment`
-- `rooms.gamevars.log` 浠嶆槸鍏变韩鏃ュ織鍗曚竴鏉ユ簮銆?- `validnum / alivenum / deathnum / winner / gamestate` 浠嶇敱鏈嶅姟绔粺涓€缁存姢銆?- 鏍圭洰褰曟棫鐗堥噸澶嶆枃浠朵粛宸插垹闄わ紝鐜扮敤浠ｇ爜浠?`src/` 涓哄噯銆?
-## 浠嶉渶浼樺寲
+- `rooms.gamevars.log` 娴犲秵妲搁崗鍙橀煩閺冦儱绻旈崡鏇氱閺夈儲绨妴?- `validnum / alivenum / deathnum / winner / gamestate` 娴犲秶鏁遍張宥呭缁旑垳绮烘稉鈧紒瀛樺Б閵?- 閺嶅湱娲拌ぐ鏇熸＋閻楀牓鍣告径宥嗘瀮娴犳湹绮涘鎻掑灩闂勩倧绱濋悳鎵暏娴狅絿鐖滄禒?`src/` 娑撳搫鍣妴?
+## 娴犲秹娓舵导妯哄
 
-- 褰撳墠涔愯閿佸彧淇濇姢 `rooms` 杩欎竴灞傦紝灏氭湭涓?Supabase RPC / Postgres 浜嬪姟绾у師瀛愭柟妗堛€?- `gameActions.js` 浠嶇劧鍋忓ぇ锛屽悗缁彲浠ョ户缁寜鎴块棿銆佹垬鏂椼€侀亾鍏枫€佽澶囨媶鍒嗐€?- 瑁呭绌挎埓/鍗镐笅鐩墠铏界劧宸蹭笉鍐嶇粫杩囨埧闂寸増鏈啓鍏ワ紝浣?`equipment_instances` 鑷韩浠嶄笉鏄簨鍔″紡鏇存柊銆?- 杩樻病鏈夌湡姝ｇ殑绔埌绔祻瑙堝櫒鍥炲綊锛涙湰鍦板綋鍓嶇己灏?Playwright 鍖呫€?- 浠嶉渶瑕佷竴娆″畬鏁寸殑 `npm run build` / 鑱旀満瀹炴祴鏉ョ‘璁ゆ湰杞病鏈夐殣钘忓洖褰掋€?
-## 鏈疄鐜?
-- 闅忔満瑁呭鎺夎惤
-- 鎺掕姒?/ 鎴樼哗娌夋穩 / 灞€鍚庡鍔?- 娣卞害绉诲姩绔€傞厤
-- 鍩轰簬 RPC/浜嬪姟鐨勫交搴曞苟鍙戜繚鎶?- 鏂嚎閲嶈繛鏈哄埗
-- 瀹屾暣绔埌绔嚜鍔ㄥ寲娴嬭瘯
+- 瑜版挸澧犳稊鎰潎闁夸礁褰ф穱婵囧Б `rooms` 鏉╂瑤绔寸仦鍌︾礉鐏忔碍婀稉?Supabase RPC / Postgres 娴滃濮熺痪褍甯€涙劖鏌熷鍫涒偓?- `gameActions.js` 娴犲秶鍔ч崑蹇撱亣閿涘苯鎮楃紒顓炲讲娴犮儳鎴风紒顓熷瘻閹村潡妫块妴浣瑰灛閺傛ぜ鈧線浜鹃崗鏋偓浣筋棅婢跺洦濯堕崚鍡愨偓?- 鐟佸懎顦粚鎸庡煋/閸楅晲绗呴惄顔煎閾忕晫鍔у韫瑝閸愬秶绮潻鍥ㄥ煣闂傚澧楅張顒€鍟撻崗銉礉娴?`equipment_instances` 閼奉亣闊╂禒宥勭瑝閺勵垯绨ㄩ崝鈥崇础閺囧瓨鏌婇妴?- 鏉╂ɑ鐥呴張澶屾埂濮濓絿娈戠粩顖氬煂缁旑垱绁荤憴鍫濇珤閸ョ偛缍婇敍娑欐拱閸︽澘缍嬮崜宥囧繁鐏?Playwright 閸栧懌鈧?- 娴犲秹娓剁憰浣风濞嗏€崇暚閺佸娈?`npm run build` / 閼辨梹婧€鐎圭偞绁撮弶銉р€樼拋銈嗘拱鏉烆喗鐥呴張澶愭閽樺繐娲栬ぐ鎺嬧偓?
+## 閺堫亜鐤勯悳?
+- 闂呭繑婧€鐟佸懎顦幒澶庢儰
+- 閹烘帟顢戝?/ 閹存鍝楀▽澶嬬┅ / 鐏炩偓閸氬骸顨涢崝?- 濞ｅ崬瀹崇粔璇插З缁旑垶鈧倿鍘?- 閸╄桨绨?RPC/娴滃濮熼惃鍕氦鎼存洖鑻熼崣鎴滅箽閹?- 閺傤厾鍤庨柌宥堢箾閺堝搫鍩?- 鐎瑰本鏆ｇ粩顖氬煂缁旑垵鍤滈崝銊ュ濞村鐦?
+## 妤犲矁鐦夌紒鎾寸亯
 
-## 楠岃瘉缁撴灉
+- `npm run smoke`閿涙岸鈧俺绻?- `node --check src/lib/server/gameActions.js`閿涙岸鈧俺绻?- `node --check src/lib/equipmentEngine.js`閿涙岸鈧俺绻?- `node --check src/app/api/admin/rooms/route.js`閿涙岸鈧俺绻?- Playwright閿涙碍婀伴崷鐗堟弓鐎瑰顥婇敍灞炬￥濞夋洘澧界悰灞剧セ鐟欏牆娅掗懛顏勫З閸ョ偛缍?
+## 瑜版挸澧犻崗鎶芥暛閸忋儱褰?
+- `src/lib/server/gameActions.js`閿涙碍鐖堕幋蹇撳З娴ｆ嚎鈧胶澧楅張顒€鍟跨粣浣碘偓浣瑰煣闂傚瓨瀵旀稊鍛
+- `src/lib/equipmentEngine.js`閿涙艾鎮庨幋鎰⒔鐞涘被鈧礁鎮庨幋鎰礀濠婃哎鈧浇鈧劒绠欓柅鏄忕帆
+- `src/app/api/game/actions/route.js`閿涙艾濮╂担?API
+- `src/app/api/game/equipment/route.js`閿涙俺顥婃径?API
+- `src/app/api/admin/rooms/route.js`閿涙氨顓搁悶鍡楁喅閸掔娀娅?/ 瀵搫鍩楃紒鎾存将閹村潡妫?- `src/app/admin/_tabs/RoomsTab.jsx`閿涙艾鎮楅崣鐗堝煣闂傚顓搁悶?UI
 
-- `npm run smoke`锛氶€氳繃
-- `node --check src/lib/server/gameActions.js`锛氶€氳繃
-- `node --check src/lib/equipmentEngine.js`锛氶€氳繃
-- `node --check src/app/api/admin/rooms/route.js`锛氶€氳繃
-- Playwright锛氭湰鍦版湭瀹夎锛屾棤娉曟墽琛屾祻瑙堝櫒鑷姩鍥炲綊
 
-## 褰撳墠鍏抽敭鍏ュ彛
-
-- `src/lib/server/gameActions.js`锛氭父鎴忓姩浣溿€佺増鏈啿绐併€佹埧闂存寔涔呭寲
-- `src/lib/equipmentEngine.js`锛氬悎鎴愭墽琛屻€佸悎鎴愬洖婊氥€佽€愪箙閫昏緫
-- `src/app/api/game/actions/route.js`锛氬姩浣?API
-- `src/app/api/game/equipment/route.js`锛氳澶?API
-- `src/app/api/admin/rooms/route.js`锛氱鐞嗗憳鍒犻櫎 / 寮哄埗缁撴潫鎴块棿
-- `src/app/admin/_tabs/RoomsTab.jsx`锛氬悗鍙版埧闂寸鐞?UI
 

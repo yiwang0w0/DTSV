@@ -1048,7 +1048,7 @@ export async function executeGameAction(client, user, payload) {
   }
 
   if (payload.action === 'useItem') {
-    return useItem(client, room, gamevars, user, payload.itemName)
+    return performItemUse(client, room, gamevars, user, payload.itemName)
   }
 
   if (payload.action === 'lootCorpse') {
@@ -1098,7 +1098,7 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
   return resolvePlayerAttackAction(client, room, gamevars, user, targetUid)
 }
 
-async function useItem(client, room, gamevars, user, itemName) {
+async function performItemUse(client, room, gamevars, user, itemName) {
   return resolveUseItemAction(client, room, gamevars, user, itemName)
 }
 

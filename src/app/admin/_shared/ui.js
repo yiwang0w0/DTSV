@@ -59,7 +59,7 @@ export function StatCard({ label, value, icon, color, sub }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-          <div style={{ fontSize: 30, fontWeight: 700, color, fontFamily: "'JetBrains Mono'" }}>{value}</div>
+          <div style={{ fontSize: 30, fontWeight: 700, color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{value}</div>
           {sub && <div style={{ fontSize: 11, color: '#8b949e', marginTop: 6 }}>{sub}</div>}
         </div>
         {icon && <span style={{ fontSize: 28, opacity: 0.3 }}>{icon}</span>}
@@ -79,7 +79,7 @@ export function FormulaPreview({ formula, testVars }) {
       <span style={{ color: '#8b949e' }}>预览（atk=15, def=8, heal=30）：</span>
       {isError
         ? <span style={{ color: '#f85149', marginLeft: 8 }}>⚠ 公式有误</span>
-        : <span style={{ color: '#3fb950', fontFamily: "'JetBrains Mono'", marginLeft: 8, fontWeight: 700 }}>= {result}</span>}
+        : <span style={{ color: '#3fb950', fontFamily: 'var(--font-jetbrains-mono), monospace', marginLeft: 8, fontWeight: 700 }}>= {result}</span>}
     </div>
   )
 }

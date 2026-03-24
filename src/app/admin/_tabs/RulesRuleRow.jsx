@@ -25,13 +25,13 @@ export default function RuleRow({ rule, onSave, toast }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: 13 }}>{rule.label}</span>
-            <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 10, color: '#484f58', background: '#0e1117', padding: '1px 7px', borderRadius: 4 }}>{rule.key}</span>
+            <span style={{ fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: 10, color: '#484f58', background: '#0e1117', padding: '1px 7px', borderRadius: 4 }}>{rule.key}</span>
           </div>
           {rule.description && <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 8, lineHeight: 1.6 }}>{rule.description}</div>}
           {editing ? (
             <div>
               {isFormula ? (
-                <><textarea value={val} onChange={e => setVal(e.target.value)} rows={2} style={{ ...INPUT, fontFamily: "'JetBrains Mono'", fontSize: 12, resize: 'vertical', lineHeight: 1.6 }} /><FormulaPreview formula={val} /></>
+                <><textarea value={val} onChange={e => setVal(e.target.value)} rows={2} style={{ ...INPUT, fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: 12, resize: 'vertical', lineHeight: 1.6 }} /><FormulaPreview formula={val} /></>
               ) : (
                 <input type="number" value={val} onChange={e => setVal(e.target.value)} min={rule.min_val ?? undefined} max={rule.max_val ?? undefined} step={Number(val) < 2 ? 0.01 : 1} style={{ ...INPUT, maxWidth: 200 }} />
               )}
@@ -41,7 +41,7 @@ export default function RuleRow({ rule, onSave, toast }) {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'inline-block', fontFamily: isFormula ? "'JetBrains Mono'" : 'inherit', fontSize: isFormula ? 12 : 14, fontWeight: isFormula ? 400 : 700, color: isFormula ? '#bc8cff' : '#58a6ff', background: isFormula ? 'rgba(188,140,255,0.08)' : 'rgba(88,166,255,0.08)', border: `1px solid ${isFormula ? 'rgba(188,140,255,0.2)' : 'rgba(88,166,255,0.15)'}`, padding: isFormula ? '4px 10px' : '3px 12px', borderRadius: 6 }}>{rule.value}</div>
+            <div style={{ display: 'inline-block', fontFamily: isFormula ? 'var(--font-jetbrains-mono), monospace' : 'inherit', fontSize: isFormula ? 12 : 14, fontWeight: isFormula ? 400 : 700, color: isFormula ? '#bc8cff' : '#58a6ff', background: isFormula ? 'rgba(188,140,255,0.08)' : 'rgba(88,166,255,0.08)', border: `1px solid ${isFormula ? 'rgba(188,140,255,0.2)' : 'rgba(88,166,255,0.15)'}`, padding: isFormula ? '4px 10px' : '3px 12px', borderRadius: 6 }}>{rule.value}</div>
           )}
         </div>
         {!editing && (

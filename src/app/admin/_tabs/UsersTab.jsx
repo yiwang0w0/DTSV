@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { KNOWN_PERMISSION_GROUPS } from '@/lib/auth'
 import { BTN, INPUT, LABEL, Modal, Spinner } from '../_shared/ui'
@@ -57,11 +57,7 @@ export default function UsersTab({ toast }) {
   const [customGroups, setCustomGroups] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    loadUsers()
-  }, [])
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
       const payload = await requestAdminUsers('GET')
@@ -72,7 +68,11 @@ export default function UsersTab({ toast }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadUsers()
+  }, [loadUsers])
 
   function openEdit(user) {
     const presetKeys = new Set(groupOptions.map(option => option.key))
@@ -151,15 +151,15 @@ export default function UsersTab({ toast }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginBottom: 18 }}>
         <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16 }}>
           <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>用户总数</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#58a6ff', fontFamily: "'JetBrains Mono'" }}>{users.length}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#58a6ff', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{users.length}</div>
         </div>
         <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16 }}>
           <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>管理员</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#f85149', fontFamily: "'JetBrains Mono'" }}>{adminCount}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#f85149', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{adminCount}</div>
         </div>
         <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16 }}>
           <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>房间中用户</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#3fb950', fontFamily: "'JetBrains Mono'" }}>{activeRoomCount}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#3fb950', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{activeRoomCount}</div>
         </div>
       </div>
 
@@ -215,7 +215,7 @@ export default function UsersTab({ toast }) {
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 6 }}>{user.email || '-'}</div>
-                <div style={{ fontSize: 11, color: '#6e7681', marginBottom: 10, fontFamily: "'JetBrains Mono'" }}>{user.id}</div>
+                <div style={{ fontSize: 11, color: '#6e7681', marginBottom: 10, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{user.id}</div>
 
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                   {(user.groups || []).map(group => {
@@ -267,7 +267,7 @@ export default function UsersTab({ toast }) {
           <div>
             <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: '#161b22', border: '1px solid #30363d' }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{editingUser.email || '-'}</div>
-              <div style={{ fontSize: 11, color: '#8b949e', fontFamily: "'JetBrains Mono'" }}>{editingUser.id}</div>
+              <div style={{ fontSize: 11, color: '#8b949e', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{editingUser.id}</div>
             </div>
 
             <div style={{ marginBottom: 16 }}>

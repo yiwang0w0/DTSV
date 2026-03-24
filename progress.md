@@ -102,3 +102,25 @@ Original prompt: é‚£å¸®æˆ‘è¡¥é½ï¼Œè®°å¾—æœ€åæ›´æ–°Readme_GPT
 - éªŒè¯ï¼š
   - å·²æ£€æŸ¥æºç ï¼Œç›®æ ‡æ–‡æ¡ˆç°åœ¨ä½¿ç”¨ `&quot;`ã€‚
   - æœ¬åœ°æ²¡æœ‰ `next`ï¼Œå› æ­¤æœªå¤è·‘å®Œæ•´ `npm run build`ã€‚
+
+2026-03-24
+- Ä¿±ê£ºĞŞ¸´ Vercel 
+ext build ÀïµÄ Hook ¹æÔò´íÎó£¬²¢Ë³ÊÖÇåÀíÒÑ±©Â¶µÄ effect/font lint ¾¯¸æ¡£
+- ÒÑÍê³É£º
+  - src/lib/server/gameActions.js ½« useItem ¸ÄÃûÎª performItemUse£¬±ÜÃâ eact-hooks/rules-of-hooks ÎóÅĞ¡£
+  - src/app/admin/_tabs/UsersTab.jsx ÓÃ useCallback °ü×° loadUsers£¬²¹Æë effect ÒÀÀµ¡£
+  - src/app/admin/page.js ²¹ outer ÒÀÀµ£¬²¢½« loadAll ÊÕ¿ÚÎª useCallback¡£
+  - src/app/layout.js Óë src/app/globals.css ÇĞ»»µ½ 
+ext/font/google£¬²¢°Ñ¶à´¦ ontFamily ¸ÄÎª CSS ±äÁ¿¡£
+- ÑéÖ¤£º
+  - 
+ode --check src/lib/server/gameActions.js Í¨¹ı¡£
+  - 
+ode --check src/app/layout.js Í¨¹ı¡£
+  - 
+ode --check src/app/admin/page.js Í¨¹ı¡£
+  - 
+pm.cmd run smoke Í¨¹ı¡£
+- ±¸×¢£º±¾µØÈÔÎŞ 
+ext ¿ÉÖ´ĞĞÎÄ¼ş£¬Î´Ö´ĞĞÍêÕû 
+pm run build¡£

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
@@ -40,11 +40,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (user !== undefined && (!user || !isAdmin(user))) router.replace('/')
-  }, [user])
+  }, [router, user])
 
-  useEffect(() => { loadAll() }, [])
-
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     const [{ data: d1 }, { data: d2 }, { data: d3 }, { data: d4 }, { data: d5 }] = await Promise.all([
       supabase.from('item_pool').select('*').order('kind'),
@@ -58,7 +56,9 @@ export default function AdminPage() {
     setItems(d1 || []); setNpcs(d2 || []); setMaps(d3 || [])
     setRooms(d4 || []); setBuffPool(d5 || [])
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => { loadAll() }, [loadAll])
 
   async function refresh(which) {
     if (which === 'items') {

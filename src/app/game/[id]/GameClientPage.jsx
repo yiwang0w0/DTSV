@@ -254,7 +254,7 @@ export default function GameClientPage() {
   if (!room) return null
 
   return (
-    <div style={{ height: '100vh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: '"Noto Sans SC", system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
       <ToastContainer />
       <CraftModal
         open={craftOpen}

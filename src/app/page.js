@@ -30,7 +30,7 @@ export default function Home() {
         background: 'radial-gradient(ellipse at center, rgba(88,166,255,0.08) 0%, transparent 70%)',
         borderRadius: 16, marginBottom: 32,
       }}>
-        <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 32px', fontFamily: "'JetBrains Mono', monospace" }}>
+        <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 32px', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
           ⚔️ DTS 大逃杀
         </h1>
         {user ? (
@@ -71,7 +71,7 @@ export default function Home() {
             padding: 24, textAlign: 'center',
           }}>
             <div style={{ fontSize: 28 }}>{s.emoji}</div>
-            <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'JetBrains Mono'", color: s.color, margin: '8px 0 4px' }}>{s.value}</div>
+            <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace', color: s.color, margin: '8px 0 4px' }}>{s.value}</div>
             <div style={{ fontSize: 13, color: '#8b949e' }}>{s.label}</div>
           </div>
         ))}

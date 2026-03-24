@@ -224,7 +224,7 @@ export default function RoomsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                         房间 #{room.gamenum || room.id}
                       </span>
                       {isInRoom && (
@@ -266,7 +266,7 @@ export default function RoomsPage() {
                     { label: '阵亡', value: room.deathnum || 0, color: '#f85149' },
                   ].map(stat => (
                     <div key={stat.label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono'", color: stat.color }}>{stat.value}</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace', color: stat.color }}>{stat.value}</div>
                       <div style={{ fontSize: 11, color: '#8b949e' }}>{stat.label}</div>
                     </div>
                   ))}
