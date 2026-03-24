@@ -124,3 +124,17 @@ pm.cmd run smoke 通过。
 - 备注：本地仍无 
 ext 可执行文件，未执行完整 
 pm run build。
+
+2026-03-24
+- 目标：修复 Vercel `next build` 里的 Hook 规则错误，并补齐当前已暴露的 effect/font lint 警告。
+- 已完成：
+  - `src/lib/server/gameActions.js` 将 `useItem` 改名为 `performItemUse`，避免 `react-hooks/rules-of-hooks` 误判。
+  - `src/app/admin/_tabs/UsersTab.jsx` 用 `useCallback` 包装 `loadUsers`，补齐 effect 依赖。
+  - `src/app/admin/page.js` 补齐 `router` 依赖，并将 `loadAll` 收口为 `useCallback`。
+  - `src/app/layout.js` 与 `src/app/globals.css` 切换到 `next/font/google`，并把多处 `fontFamily` 改为 CSS 变量。
+- 验证：
+  - `node --check src/lib/server/gameActions.js` 通过。
+  - `node --check src/app/layout.js` 通过。
+  - `node --check src/app/admin/page.js` 通过。
+  - `npm.cmd run smoke` 通过。
+- 备注：本地仍无 `next` 可执行文件，未执行完整 `npm run build`。

@@ -14,31 +14,7 @@
   - `node --check src/app/admin/page.js`
   - `npm.cmd run smoke`
   - 以上通过；本地仍未安装 `next`，未执行完整 `npm run build`。
-## 2026-03-24 / Vercel 构建 lint 与字体接线修复
-- 已修复：
-  - src/lib/server/gameActions.js：将动作分发里的 useItem() 重命名为 performItemUse()，避免被 ESLint 误判为 React Hook。
-  - src/app/admin/_tabs/UsersTab.jsx：loadUsers 改为 useCallback，补齐 useEffect 依赖。
-  - src/app/admin/page.js：补齐 outer 依赖，并将 loadAll 改为 useCallback + effect 依赖。
-  - src/app/layout.js / src/app/globals.css：改用 
-ext/font/google 加载 DM Sans / JetBrains Mono / Noto Sans SC，去掉 <head> 里的 Google Fonts 链接。
-  - 多处 UI 的 ontFamily 改为 ar(--font-jetbrains-mono) / ar(--font-noto-sans-sc)，保持字体显示一致。
-- 目标：
-  - 解决 Vercel 
-ext build 中的 eact-hooks/rules-of-hooks 阻塞错误。
-  - 一并清理已暴露的 eact-hooks/exhaustive-deps 与 @next/next/no-page-custom-font 警告。
-- 本地验证：
-  - 
-ode --check src/lib/server/gameActions.js
-  - 
-ode --check src/app/layout.js
-  - 
-ode --check src/app/admin/page.js
-  - 
-pm.cmd run smoke
-  - 以上通过；本地仍未安装 
-ext，未执行完整 
-pm run build。
-# Readme_GPT
+
 ## 2026-03-24 / ?? Vercel ???? JSX ?????
 - ?????? `src/app/admin/_tabs/EquipmentSeriesSection.jsx` ??? Vercel ????? `react/no-unescaped-entities` ???
 - ?????
@@ -142,6 +118,7 @@ pm run build。
 - `src/app/api/game/actions/route.js`閿涙艾濮╂担?API
 - `src/app/api/game/equipment/route.js`閿涙俺顥婃径?API
 - `src/app/api/admin/rooms/route.js`閿涙氨顓搁悶鍡楁喅閸掔娀娅?/ 瀵搫鍩楃紒鎾存将閹村潡妫?- `src/app/admin/_tabs/RoomsTab.jsx`閿涙艾鎮楅崣鐗堝煣闂傚顓搁悶?UI
+
 
 
 
