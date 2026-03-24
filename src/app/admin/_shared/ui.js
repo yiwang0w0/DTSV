@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { evalFormula } from '@/lib/gameEngine'
 
 export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
@@ -117,11 +117,11 @@ export function Drawer({ open, onClose, title, children, width = 680 }) {
 
 export function useToast() {
   const [toasts, setToasts] = useState([])
-  function show(msg, type = 'success') {
+  const show = useCallback((msg, type = 'success') => {
     const id = Date.now()
     setToasts(p => [...p, { id, msg, type }])
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000)
-  }
+  }, [])
   function Container() {
     return (
       <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
