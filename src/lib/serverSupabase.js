@@ -3,6 +3,9 @@ import { isAdmin } from './auth'
 
 function requireEnv(name) {
   const value = process.env[name]
+  // 临时调试日志 - 排查后删除
+  console.log(`[ENV DEBUG] ${name}: exists=${!!value}, type=${typeof value}, length=${value?.length ?? 'N/A'}`)
+  console.log(`[ENV DEBUG] SUPABASE-related keys:`, Object.keys(process.env).filter(k => k.includes('SUPABASE')))
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`)
   }
