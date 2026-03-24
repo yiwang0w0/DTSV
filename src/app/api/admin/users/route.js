@@ -117,12 +117,13 @@ export async function PATCH(request) {
 
   try {
     const inputGroups = validateGroups(payload.groups)
-    const users = await listAllUsers(auth.supabase)
-    const targetUser = users.find(user => user.id === userId)
+    const { data: targetData, error: getUserError } = await auth.supabase.auth.admin.getUserById(userId)
 
-    if (!targetUser) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (getUserError || !targetData?.user) {
+      return NextResponse.json({ error: getUserError?.message || '用户不存在' }, { status: 404 })
     }
+
+    const targetUser = targetData.user
 
     const nextGroups = normalizeGroups(inputGroups, { email: targetUser.email })
     if (auth.user.id === userId && isAdmin(auth.user) && !nextGroups.includes('admin')) {

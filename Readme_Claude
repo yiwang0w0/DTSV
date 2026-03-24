@@ -1,9 +1,23 @@
 # Readme_Claude
 
-更新时间：2026-03-22（Asia/Tokyo）
+更新时间：2026-03-24（Asia/Tokyo）
 整理方式：基于全量源码交叉验证，覆盖最新修复。
 
-## 最近变更（2026-03-22）
+## 最近变更（2026-03-24）
+
+### Bug 修复与健壮性优化
+
+- **用户管理 API 请求失败修复**: `src/app/api/admin/users/route.js` PATCH handler 原先调用 `listAllUsers()` 遍历所有用户分页仅为查找单个用户，极易超时导致"请求失败"。改为 `auth.admin.getUserById(userId)` 直接获取，从 O(N) 降到 O(1)。
+- **房间大厅健壮性修复**: `src/app/rooms/page.js`
+  - `loadRooms()` 添加 try-catch 错误处理 + toast 提示，避免静默失败
+  - `select('*')` 改为指定字段，避免拉取不必要数据
+  - 添加 `.limit(50)` 防止数据量过大
+  - 用 `loadingRef` 防止 realtime + polling 同时触发多次并发请求
+  - `hasOpenRoom` 改为 `useMemo` 避免每次渲染重算
+  - `ensureNextRound` 移除 `hasOpenRoom` 依赖避免循环重建
+- **管理后台 loadAll 错误处理**: `src/app/admin/page.js` 的 `Promise.all` 加 try-catch，任一查询失败不再导致全部数据丢失且无报错；改为 toast 提示首个错误
+
+### 之前变更摘要（2026-03-22）
 
 ### Debug 巡检与常量统一
 - **mojibake 修复**: `src/lib/server/gameActions.js` 中 ~25 处编码损坏的中文字符串（error message + 日志）已全部还原为正确中文。原因是 GPT 写入 `resolve*` 系列函数时使用了错误编码（UTF-8→GBK 双重编码）。

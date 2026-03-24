@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -22,22 +22,36 @@ export default function RoomsPage() {
   const [joining, setJoining] = useState(null)
   const [creating, setCreating] = useState(false)
   const [preparingNextRound, setPreparingNextRound] = useState(false)
+  const loadingRef = useRef(false)
 
   const loadRooms = useCallback(async () => {
-    const { data } = await supabase
-      .from('rooms')
-      .select('*')
-      .in('gamestate', [0, 1, 2])
-      .order('created_at', { ascending: false })
+    if (loadingRef.current) return
+    loadingRef.current = true
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('id,gamenum,gametype,gamestate,gamevars,validnum,alivenum,deathnum,winner,created_at')
+        .in('gamestate', [0, 1, 2])
+        .order('created_at', { ascending: false })
+        .limit(50)
 
-    setRooms(data || [])
-    setLoading(false)
-  }, [])
+      if (error) throw new Error(error.message || '加载房间失败')
+      setRooms(data || [])
+    } catch (error) {
+      toast(error.message || '加载房间失败', 'error')
+    } finally {
+      loadingRef.current = false
+      setLoading(false)
+    }
+  }, [toast])
 
-  const hasOpenRoom = rooms.some(room => room.gamestate === 0 || room.gamestate === 1)
+  const hasOpenRoom = useMemo(
+    () => rooms.some(room => room.gamestate === 0 || room.gamestate === 1),
+    [rooms],
+  )
 
   const ensureNextRound = useCallback(async ({ silent = true } = {}) => {
-    if (!user || ensureNextRoundLock.current || hasOpenRoom) return
+    if (!user || ensureNextRoundLock.current) return
 
     ensureNextRoundLock.current = true
     setPreparingNextRound(true)
@@ -62,7 +76,7 @@ export default function RoomsPage() {
       ensureNextRoundLock.current = false
       setPreparingNextRound(false)
     }
-  }, [hasOpenRoom, loadRooms, toast, user])
+  }, [loadRooms, toast, user])
 
   useEffect(() => {
     loadRooms()

@@ -44,19 +44,26 @@ export default function AdminPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    const [{ data: d1 }, { data: d2 }, { data: d3 }, { data: d4 }, { data: d5 }] = await Promise.all([
-      supabase.from('item_pool').select('*').order('kind'),
-      supabase.from('npc_pool').select('*').order('level'),
-      supabase.from('map_config').select('*').order('map_id'),
-      supabase.from('rooms')
-        .select('id,gamenum,gametype,gamestate,validnum,alivenum,deathnum,winner,created_at,started_at')
-        .order('created_at', { ascending: false }).limit(200),
-      supabase.from('buff_pool').select('id,name,icon,is_debuff').order('id'),
-    ])
-    setItems(d1 || []); setNpcs(d2 || []); setMaps(d3 || [])
-    setRooms(d4 || []); setBuffPool(d5 || [])
-    setLoading(false)
-  }, [])
+    try {
+      const [r1, r2, r3, r4, r5] = await Promise.all([
+        supabase.from('item_pool').select('*').order('kind'),
+        supabase.from('npc_pool').select('*').order('level'),
+        supabase.from('map_config').select('*').order('map_id'),
+        supabase.from('rooms')
+          .select('id,gamenum,gametype,gamestate,validnum,alivenum,deathnum,winner,created_at,started_at')
+          .order('created_at', { ascending: false }).limit(200),
+        supabase.from('buff_pool').select('id,name,icon,is_debuff').order('id'),
+      ])
+      setItems(r1.data || []); setNpcs(r2.data || []); setMaps(r3.data || [])
+      setRooms(r4.data || []); setBuffPool(r5.data || [])
+      const firstError = [r1, r2, r3, r4, r5].find(r => r.error)
+      if (firstError) toast(firstError.error.message || '部分数据加载失败', 'error')
+    } catch (error) {
+      toast(error.message || '数据加载失败', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
 
   useEffect(() => { loadAll() }, [loadAll])
 
