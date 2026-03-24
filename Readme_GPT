@@ -154,3 +154,24 @@
   - 使用 headless Chrome 复测首页与 `/rooms`：
     - `exceptionCount: 0`
     - 页面已改为展示“缺少 Supabase 环境变量”的提示，不再出现通用客户端崩溃页。
+
+## 2026-03-25 / `/api/game/actions` 热路径减查询优化
+- 更新时间：2026-03-25 01:45:56（Asia/Tokyo）
+- 背景：
+  - Vercel 请求日志显示 `/api/game/actions` 平均耗时明显偏高，尤其是搜索动作。
+  - 热点主要集中在重复读取地图配置、搜索时按尸体逐个查装备、NPC 掉落逐条查 tier，以及攻击后耐久逐件串行更新。
+- 已优化：
+  - `src/lib/server/gameActions.js`
+    - 将原来的 `fetchMapBundle()` 拆成 `fetchSearchMapBundle()` 与 `fetchMapWeather()`，搜索只取需要的地图/掉落数据，攻击/逃跑/PvP 只取天气，不再为单次伤害计算额外拉整包数据。
+    - `resolveSearchAction()` 中将地图资源读取与尸体战利品收集并行执行，减少单次搜索等待。
+    - 新增 `fetchCorpseEquipmentMap()`，搜索与舔包时对同地图玩家尸体的装备实例改为批量读取，去掉按尸体逐个查询的 N+1。
+    - NPC 掉落生成改为一次性批量查询 `equipment_tiers`，不再按 `drop_items` 顺序逐条查定义。
+  - `src/lib/server/equipmentDurability.js`
+    - 新增并发版耐久扣减 helper，攻击类 action 在战斗结算后不再逐件串行 update 装备耐久。
+- 本地验证：
+  - `node --check src/lib/server/gameActions.js`
+  - `node --check src/lib/server/equipmentDurability.js`
+  - `npm.cmd run smoke`
+  - `npm.cmd run lint`
+  - `npm.cmd run build`
+  - 以上均已通过。

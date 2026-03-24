@@ -22,11 +22,11 @@ import {
 } from '@/lib/eventResolver'
 import {
   calcEquippedStats,
-  consumeDurability,
   executeCraft,
   rollbackCraftSideEffects,
   triggerPassives,
 } from '@/lib/equipmentEngine'
+import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -66,7 +66,7 @@ export async function withRetry(fn, retries = MAX_RETRIES) {
 
 async function safeConsumeDurability(ownerId, roomId, amount, client) {
   try {
-    await consumeDurability(ownerId, roomId, amount, client)
+    await consumeDurabilityParallel(ownerId, roomId, amount, client)
   } catch (error) {
     console.error('consumeDurability failed', error)
   }
@@ -94,19 +94,22 @@ async function fetchRoom(client, roomId) {
   return data
 }
 
-async function fetchMapBundle(client, mapId) {
-  const [{ data: mapConfig }, { data: items }, { data: npcs }, { data: allItems }] = await Promise.all([
-    client.from('map_config').select('*').eq('map_id', mapId).single(),
+async function fetchMapWeather(client, mapId) {
+  const { data } = await client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle()
+  return data?.weather || 'clear'
+}
+
+async function fetchSearchMapBundle(client, mapId) {
+  const [{ data: mapConfig }, { data: items }, { data: npcs }] = await Promise.all([
+    client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle(),
     client.from('item_pool').select('*').contains('maps', [mapId]),
     client.from('npc_pool').select('*').contains('maps', [mapId]),
-    client.from('item_pool').select('*'),
   ])
 
   return {
-    mapConfig: mapConfig || null,
+    weather: mapConfig?.weather || 'clear',
     itemPool: items || [],
     npcPool: npcs || [],
-    allItems: allItems || [],
   }
 }
 
@@ -251,13 +254,7 @@ function ensurePlayerCorpse(gamevars, player) {
   }
 }
 
-async function resolveNpcDropEntry(client, name) {
-  const { data: tier } = await client
-    .from('equipment_tiers')
-    .select('id, name, rarity, series:equipment_series(slot,name), durability_max')
-    .eq('name', name)
-    .maybeSingle()
-
+function resolveNpcDropEntry(name, tier) {
   if (tier) {
     return normalizeCorpseEntry({
       id: `npc-equip-${tier.id}-${Math.random().toString(36).slice(2, 8)}`,
@@ -279,12 +276,26 @@ async function resolveNpcDropEntry(client, name) {
   })
 }
 
+async function fetchNpcDropTierMap(client, names) {
+  const uniqueNames = [...new Set((names || []).filter(Boolean))]
+  if (!uniqueNames.length) return {}
+
+  const { data } = await client
+    .from('equipment_tiers')
+    .select('id, name, rarity, series:equipment_series(slot,name), durability_max')
+    .in('name', uniqueNames)
+
+  return (data || []).reduce((acc, tier) => {
+    acc[tier.name] = tier
+    return acc
+  }, {})
+}
+
 async function createNpcCorpse(client, gamevars, npc, mapId) {
-  const entries = []
-  for (const name of npc.drop_items || []) {
-    const entry = await resolveNpcDropEntry(client, name)
-    if (entry) entries.push(entry)
-  }
+  const tierMap = await fetchNpcDropTierMap(client, npc.drop_items || [])
+  const entries = (npc.drop_items || [])
+    .map(name => resolveNpcDropEntry(name, tierMap[name]))
+    .filter(Boolean)
 
   const corpse = createCorpse({
     type: 'npc',
@@ -299,19 +310,34 @@ async function createNpcCorpse(client, gamevars, npc, mapId) {
   }
 }
 
-async function fetchOwnerEquipmentInstances(client, roomId, ownerId) {
+async function fetchOwnerEquipmentInstances(client, roomId, ownerIds) {
+  if (!ownerIds.length) return []
+
   const { data } = await client
     .from('equipment_instances')
     .select('*, tier:equipment_tiers(*, passive:passive_skills(*), series:equipment_series(slot,name))')
     .eq('room_id', roomId)
-    .eq('owner_id', ownerId)
+    .in('owner_id', ownerIds)
+    .order('owner_id', { ascending: true })
     .order('is_equipped', { ascending: false })
     .order('acquired_at', { ascending: true })
 
   return data || []
 }
 
-async function buildCorpseLootOptions(client, roomId, gamevars, corpse) {
+async function fetchCorpseEquipmentMap(client, roomId, corpses) {
+  const ownerIds = [...new Set(
+    (corpses || [])
+      .filter(corpse => corpse?.type === 'player' && corpse.ownerPlayerId)
+      .map(corpse => corpse.ownerPlayerId),
+  )]
+
+  if (!ownerIds.length) return {}
+
+  return groupEquipsByOwner(await fetchOwnerEquipmentInstances(client, roomId, ownerIds))
+}
+
+function buildCorpseLootOptions(gamevars, corpse, ownerEquipmentMap = {}) {
   if (!corpse) return []
 
   if (corpse.type === 'npc') {
@@ -328,7 +354,7 @@ async function buildCorpseLootOptions(client, roomId, gamevars, corpse) {
     itemName,
   }))
 
-  const equipmentOptions = (await fetchOwnerEquipmentInstances(client, roomId, corpse.ownerPlayerId))
+  const equipmentOptions = (ownerEquipmentMap[corpse.ownerPlayerId] || [])
     .map(instance => normalizeCorpseEntry({
       id: `equip:${instance.id}`,
       type: 'equipment_instance',
@@ -343,8 +369,8 @@ async function buildCorpseLootOptions(client, roomId, gamevars, corpse) {
   return [...equipmentOptions, ...inventoryOptions]
 }
 
-async function buildLootPrompt(client, roomId, gamevars, corpse, source) {
-  const options = await buildCorpseLootOptions(client, roomId, gamevars, corpse)
+function buildLootPrompt(gamevars, corpse, source, ownerEquipmentMap = {}) {
+  const options = buildCorpseLootOptions(gamevars, corpse, ownerEquipmentMap)
   if (!options.length) return null
 
   return {
@@ -355,12 +381,12 @@ async function buildLootPrompt(client, roomId, gamevars, corpse, source) {
   }
 }
 
-async function cleanupCorpseIfEmpty(client, roomId, gamevars, corpseId) {
+function cleanupCorpseIfEmpty(gamevars, corpseId, ownerEquipmentMap = {}) {
   const normalized = normalizeGamevars(gamevars)
   const corpse = (normalized.corpses || []).find(item => item.id === corpseId)
   if (!corpse) return normalized
 
-  const options = await buildCorpseLootOptions(client, roomId, normalized, corpse)
+  const options = buildCorpseLootOptions(normalized, corpse, ownerEquipmentMap)
   if (options.length > 0) return normalized
 
   return removeCorpse(normalized, corpseId)
@@ -479,9 +505,11 @@ async function rollbackLootSideEffect(client, sideEffect) {
 async function collectLootableCorpses(client, roomId, gamevars, mapId) {
   let working = normalizeGamevars(gamevars)
   const lootable = []
+  const corpses = getCurrentMapCorpses(working, mapId)
+  const corpseEquipmentMap = await fetchCorpseEquipmentMap(client, roomId, corpses)
 
-  for (const corpse of getCurrentMapCorpses(working, mapId)) {
-    const prompt = await buildLootPrompt(client, roomId, working, corpse, 'search')
+  for (const corpse of corpses) {
+    const prompt = buildLootPrompt(working, corpse, 'search', corpseEquipmentMap)
     if (prompt) {
       lootable.push({ corpse, prompt })
       continue
@@ -513,15 +541,12 @@ async function resolveSearchAction(client, room, gamevars, user) {
     return persistResolution(client, room, resolution)
   }
 
-  const bundle = await fetchMapBundle(client, nextPlayer.map ?? 0)
-  const weather = bundle.mapConfig?.weather || 'clear'
-  const { itemChance, npcChance } = getSearchChances(rules, weather)
-  const { gamevars: workingWithCorpses, lootable } = await collectLootableCorpses(
-    client,
-    room.id,
-    resolution.gamevars,
-    nextPlayer.map ?? 0,
-  )
+  const mapId = nextPlayer.map ?? 0
+  const [bundle, { gamevars: workingWithCorpses, lootable }] = await Promise.all([
+    fetchSearchMapBundle(client, mapId),
+    collectLootableCorpses(client, room.id, resolution.gamevars, mapId),
+  ])
+  const { itemChance, npcChance } = getSearchChances(rules, bundle.weather)
   resolution.gamevars = workingWithCorpses
 
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
@@ -582,10 +607,11 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
 
-  const [rules, buffPool, equippedInstances] = await Promise.all([
+  const [rules, buffPool, equippedInstances, weather] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
     fetchEquippedInstances(client, room.id, [user.id]),
+    fetchMapWeather(client, player.map ?? 0),
   ])
 
   const equipMap = groupEquipsByOwner(equippedInstances)
@@ -593,7 +619,6 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   let me = buildCombatPlayer(player, myEquips)
   const battleLog = [...(battle.log || [])]
   const weapon = myEquips.find(instance => instance.tier?.series?.slot === 'weapon')
-  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
 
   const damageOut = calcDamage(
@@ -634,11 +659,11 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     resolution.gamevars = corpseResult.gamevars
     let lootPrompt = null
     if (corpseResult.corpse) {
-      lootPrompt = await buildLootPrompt(client, room.id, resolution.gamevars, corpseResult.corpse, 'kill')
+      lootPrompt = buildLootPrompt(resolution.gamevars, corpseResult.corpse, 'kill')
       if (lootPrompt) {
         resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, lootPrompt)
       } else {
-        resolution.gamevars = await cleanupCorpseIfEmpty(client, room.id, resolution.gamevars, corpseResult.corpse.id)
+        resolution.gamevars = cleanupCorpseIfEmpty(resolution.gamevars, corpseResult.corpse.id)
       }
     }
 
@@ -683,9 +708,10 @@ async function resolveNpcFleeAction(client, room, gamevars, user) {
   const battle = player?.battle
   if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
 
-  const [rules, equippedInstances] = await Promise.all([
+  const [rules, equippedInstances, weather] = await Promise.all([
     loadGameRules(client),
     fetchEquippedInstances(client, room.id, [user.id]),
+    fetchMapWeather(client, player.map ?? 0),
   ])
 
   const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
@@ -699,7 +725,6 @@ async function resolveNpcFleeAction(client, room, gamevars, user) {
     return persistResolution(client, room, resolution)
   }
 
-  const weather = (await fetchMapBundle(client, player.map ?? 0)).mapConfig?.weather || 'clear'
   const damage = calcDamage({ ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
   const nextHp = Math.max(0, (me.hp || 0) - damage)
   setResolutionPlayer(resolution, user.id, {
@@ -748,7 +773,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
   let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
   const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
-  const weather = (await fetchMapBundle(client, attackerAfterTurn.map ?? 0)).mapConfig?.weather || 'clear'
+  const weather = await fetchMapWeather(client, attackerAfterTurn.map ?? 0)
 
   const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '', weather)
   const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
@@ -797,12 +822,13 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
     )
 
     if (corpse) {
-      const prompt = await buildLootPrompt(client, room.id, resolution.gamevars, corpse, 'kill')
+      const corpseEquipmentMap = await fetchCorpseEquipmentMap(client, room.id, [corpse])
+      const prompt = buildLootPrompt(resolution.gamevars, corpse, 'kill', corpseEquipmentMap)
       if (prompt) {
         resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, prompt)
         appendResolutionLog(resolution, `${attacker.name} 可以从 ${corpse.name} 里带走一件战利品`, 'system')
       } else {
-        resolution.gamevars = await cleanupCorpseIfEmpty(client, room.id, resolution.gamevars, corpse.id)
+        resolution.gamevars = cleanupCorpseIfEmpty(resolution.gamevars, corpse.id, corpseEquipmentMap)
       }
     }
   }
@@ -889,7 +915,8 @@ async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
   if (!corpse) throw new Error('这具尸体已经不存在了')
   if ((player.map ?? 0) !== (corpse.mapId ?? 0)) throw new Error('尸体不在当前地图')
 
-  const options = await buildCorpseLootOptions(client, room.id, working, corpse)
+  const corpseEquipmentMap = await fetchCorpseEquipmentMap(client, room.id, [corpse])
+  const options = buildCorpseLootOptions(working, corpse, corpseEquipmentMap)
   const selected = options.find(option => option.id === entryId)
   if (!selected) throw new Error('这件战利品已经被别人拿走了')
 
@@ -926,7 +953,10 @@ async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
       }
     }
 
-    working = await cleanupCorpseIfEmpty(client, room.id, working, corpse.id)
+    const updatedCorpseEquipmentMap = corpse.type === 'player'
+      ? await fetchCorpseEquipmentMap(client, room.id, [corpse])
+      : corpseEquipmentMap
+    working = cleanupCorpseIfEmpty(working, corpse.id, updatedCorpseEquipmentMap)
 
     const logs = [
       createLogEntry(`${player.name} 从 ${corpse.name} 里带走了 ${selected.name}`, selected.type === 'item' ? 'heal' : 'system'),
