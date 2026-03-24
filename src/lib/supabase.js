@@ -4,8 +4,12 @@ let client = null
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+export function hasSupabaseConfig() {
+  return Boolean(supabaseUrl && supabaseAnonKey)
+}
+
 function requireClientConfig() {
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!hasSupabaseConfig()) {
     throw new Error('Missing Supabase environment variables')
   }
 }

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { DM_Sans, JetBrains_Mono, Noto_Sans_SC } from 'next/font/google'
 import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { hasSupabaseConfig, supabase } from '@/lib/supabase'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 
 const dmSans = DM_Sans({
@@ -122,8 +122,14 @@ function Nav({ user, onLogout }) {
 export default function RootLayout({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const configured = hasSupabaseConfig()
 
   useEffect(() => {
+    if (!configured) {
+      setLoading(false)
+      return undefined
+    }
+
     supabase.auth.getUser().then(async ({ data }) => {
       const currentUser = data.user
       await ensureAdminMetadata(currentUser)
@@ -140,7 +146,7 @@ export default function RootLayout({ children }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [configured])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -153,7 +159,27 @@ export default function RootLayout({ children }) {
         <AuthContext.Provider value={{ user, loading }}>
           <Nav user={user} onLogout={handleLogout} />
           <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-            {children}
+            {!configured ? (
+              <div className="animate-in" style={{
+                marginTop: 40,
+                padding: '24px',
+                borderRadius: 16,
+                background: '#161b22',
+                border: '1px solid #30363d',
+                color: '#e6edf3',
+              }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>缺少 Supabase 环境变量</h2>
+                <p style={{ margin: '12px 0 0', color: '#8b949e', lineHeight: 1.7 }}>
+                  当前运行环境没有检测到 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY`，
+                  所以客户端无法初始化 Supabase，页面也无法正常登录或读取数据。
+                </p>
+                <p style={{ margin: '12px 0 0', color: '#8b949e', lineHeight: 1.7 }}>
+                  请参考项目根目录的 `.env.example` 创建 `.env.local`，填入对应的 Supabase 配置后再重新启动应用。
+                </p>
+              </div>
+            ) : (
+              children
+            )}
           </main>
         </AuthContext.Provider>
       </body>

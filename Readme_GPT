@@ -138,3 +138,19 @@
 - 备注：
   - 当前仓库仍无 `package-lock.json`，`npm audit` 无法输出精确漏洞清单。
   - `npm install` 期间 npm 提示依赖树存在 6 个漏洞，并点名 `next@14.2.21` 有安全修复版本，后续建议单独安排依赖升级。
+
+## 2026-03-25 / 缺少 Supabase 配置时的客户端崩溃兜底
+- 更新时间：2026-03-25 00:44:00（Asia/Tokyo）
+- 根因：
+  - 当前本地运行环境没有 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`。
+  - 由于根布局和多个客户端页面都会在挂载后访问 `supabase`，缺失配置时浏览器会直接抛出异常，页面只剩下 `Application error: a client-side exception has occurred`。
+- 已修复：
+  - `src/lib/supabase.js`：新增 `hasSupabaseConfig()`，用于在客户端访问前判断公开 Supabase 配置是否存在。
+  - `src/app/layout.js`：当缺少 Supabase 配置时，不再继续挂载依赖 Supabase 的页面树，改为显示明确的配置提示，指导用户根据 `.env.example` 创建 `.env.local`。
+- 本地验证：
+  - `npm.cmd run lint`
+  - `npm.cmd run build`
+  - `npm.cmd run start`
+  - 使用 headless Chrome 复测首页与 `/rooms`：
+    - `exceptionCount: 0`
+    - 页面已改为展示“缺少 Supabase 环境变量”的提示，不再出现通用客户端崩溃页。
