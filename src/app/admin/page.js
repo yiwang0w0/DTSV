@@ -11,8 +11,9 @@ import NpcsTab      from './_tabs/NpcsTab'
 import MapsTab      from './_tabs/MapsTab'
 import RoomsTab     from './_tabs/RoomsTab'
 import RulesTab     from './_tabs/RulesTab'
-import EquipmentTab from './_tabs/EquipmentTab'
-import UsersTab     from './_tabs/UsersTab'
+import EquipmentTab  from './_tabs/EquipmentTab'
+import UsersTab      from './_tabs/UsersTab'
+import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
@@ -23,6 +24,7 @@ const TABS = [
   { key: 'users',     label: '👥 用户权限' },
   { key: 'rules',     label: '⚙️ 战斗规则' },
   { key: 'equipment', label: '🗡️ 装备引擎' },
+  { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
 export default function AdminPage() {
@@ -112,6 +114,7 @@ export default function AdminPage() {
       {tab === 'users'     && <UsersTab     toast={toast} />}
       {tab === 'rules'     && <RulesTab     toast={toast} />}
       {tab === 'equipment' && <EquipmentTab toast={toast} />}
+      {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )
 }
