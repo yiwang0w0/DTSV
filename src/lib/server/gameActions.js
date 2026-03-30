@@ -169,11 +169,38 @@ async function persistResolution(client, room, resolution, options = {}) {
   return persistRoom(client, room, settled.gamevars, settled.logs, options)
 }
 
+// 搜索专用：异步持久化版本，立即返回计算结果
+async function persistResolutionAsync(client, room, resolution) {
+  const settled = finalizeResolution(resolution)
+  return persistRoom(client, room, settled.gamevars, settled.logs, { async: true })
+}
+
 async function persistRoom(client, room, gamevars, logs = [], options = {}) {
   const withLogs = logs.length ? appendGameLog(gamevars, logs) : normalizeGamevars(gamevars)
   const { gamevars: nextGamevars, roomPatch } = applyRoomLifecycle(room, withLogs, options)
 
   const currentVersion = room.version ?? 0
+
+  // ── 异步模式：先构造预期结果立刻返回，DB 写入放后台 ──
+  if (options.async) {
+    const optimistic = {
+      ...room,
+      ...roomPatch,
+      gamevars: nextGamevars,
+      version: currentVersion + 1,
+    }
+    // 后台写入，失败仅 log（客户端 realtime 订阅会最终一致）
+    client
+      .from('rooms')
+      .update({ ...roomPatch, gamevars: nextGamevars, version: currentVersion + 1 })
+      .eq('id', room.id)
+      .eq('version', currentVersion)
+      .then(({ error }) => {
+        if (error) console.error('[async persist] 写入失败:', error.message)
+      })
+    return optimistic
+  }
+
   const { data, error } = await client
     .from('rooms')
     .update({ ...roomPatch, gamevars: nextGamevars, version: currentVersion + 1 })
@@ -554,7 +581,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const nextPlayer = getResolutionPlayer(resolution, user.id)
   if (!nextPlayer?.alive) {
     appendResolutionLog(resolution, `${player.name} 被持续效果击倒了`, 'death')
-    return persistResolution(client, room, resolution)
+    return persistResolutionAsync(client, room, resolution)
   }
 
   const lootable = corpseResult.lootable
@@ -579,14 +606,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
       },
     })
     appendResolutionLog(resolution, `${player.name} 遭遇了 ${npc.name}`, 'damage')
-    return persistResolution(client, room, resolution)
+    return persistResolutionAsync(client, room, resolution)
   }
 
   if (roll < npcChance + corpseChance && lootable.length > 0) {
     const found = lootable[Math.floor(Math.random() * lootable.length)]
     resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, found.prompt)
     appendResolutionLog(resolution, `${player.name} 发现了 ${found.corpse.name}`, 'system')
-    return persistResolution(client, room, resolution)
+    return persistResolutionAsync(client, room, resolution)
   }
 
   if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
@@ -606,11 +633,11 @@ async function resolveSearchAction(client, room, gamevars, user) {
       inventory: [...(nextPlayer.inventory || []), found.name],
     })
     appendResolutionLog(resolution, `${player.name} 找到了 ${found.name}`, 'heal')
-    return persistResolution(client, room, resolution)
+    return persistResolutionAsync(client, room, resolution)
   }
 
   appendResolutionLog(resolution, `${player.name} 搜索了一圈，但没有发现有用的东西`, 'system')
-  return persistResolution(client, room, resolution)
+  return persistResolutionAsync(client, room, resolution)
 }
 
 async function resolveNpcAttackAction(client, room, gamevars, user) {
