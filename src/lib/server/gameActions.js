@@ -526,12 +526,17 @@ async function resolveSearchAction(client, room, gamevars, user) {
   if (!player?.alive) throw new Error('阵亡玩家无法搜索')
   if (player.battle) throw new Error('战斗中无法搜索')
 
-  const [rules, buffPool] = await Promise.all([
+  // ── 并行：规则/Buff缓存 + 地图数据 + 尸体数据 一次性全拉 ──
+  const mapId = player.map ?? 0
+  const [rules, buffPool, bundle, corpseResult] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
+    fetchSearchMapBundle(client, mapId),
+    collectLootableCorpses(client, room.id, gamevars, mapId),
   ])
 
-  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  // ── 回合结算（纯内存计算，无 IO） ──
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars: corpseResult.gamevars })
   await runTurnStartSettlement(resolution, buffPool)
   await settleCorpseGeneration(resolution)
 
@@ -541,11 +546,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
     return persistResolution(client, room, resolution)
   }
 
-  const mapId = nextPlayer.map ?? 0
-  const [bundle, { gamevars: workingWithCorpses, lootable }] = await Promise.all([
-    fetchSearchMapBundle(client, mapId),
-    collectLootableCorpses(client, room.id, resolution.gamevars, mapId),
-  ])
+  const lootable = corpseResult.lootable
   const { itemChance, npcChance } = getSearchChances(rules, bundle.weather)
   resolution.gamevars = workingWithCorpses
 
