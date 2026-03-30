@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react'
 import { evalFormula } from '@/lib/gameEngine'
 
-export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
+export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES, WEATHER_OPTIONS } from '@/lib/constants'
 
 export const BTN = (bg, color, extra = {}) => ({
   padding: '8px 16px', borderRadius: 7, border: 'none', background: bg,
@@ -24,7 +24,7 @@ export const ROOM_STATE = {
   1: { label: '进行中', color: '#3fb950' },
   2: { label: '已结束', color: '#484f58' },
 }
-export const WEATHER_OPTIONS = ['clear', 'rain', 'fog', 'storm', 'night', 'snow']
+// WEATHER_OPTIONS 已从 constants.js 统一导出
 
 export function Spinner() {
   return (

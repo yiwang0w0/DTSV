@@ -3,13 +3,53 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, MAP_LIST } from '../_shared/ui'
 
+/* ── 子类型中文映射 ── */
 const ITEM_SUB_KINDS = {
-  weapon: ['slashing', 'piercing', 'blunt', 'ranged', 'magic'],
-  armor: ['light', 'medium', 'heavy'],
-  consumable: ['heal', 'buff', 'damage', 'utility'],
-  material: ['ore', 'plant', 'drop', 'misc'],
-  special: ['key', 'quest', 'misc'],
+  weapon: [
+    { value: 'slashing', label: '斩击' },
+    { value: 'piercing', label: '穿刺' },
+    { value: 'blunt',    label: '钝器' },
+    { value: 'ranged',   label: '远程' },
+    { value: 'magic',    label: '魔法' },
+  ],
+  armor: [
+    { value: 'light',  label: '轻甲' },
+    { value: 'medium', label: '中甲' },
+    { value: 'heavy',  label: '重甲' },
+  ],
+  consumable: [
+    { value: 'heal',    label: '治疗' },
+    { value: 'buff',    label: '增益' },
+    { value: 'damage',  label: '伤害' },
+    { value: 'utility', label: '功能' },
+  ],
+  material: [
+    { value: 'ore',   label: '矿石' },
+    { value: 'plant', label: '植物' },
+    { value: 'drop',  label: '掉落物' },
+    { value: 'misc',  label: '杂项' },
+  ],
+  special: [
+    { value: 'key',   label: '钥匙' },
+    { value: 'quest', label: '任务' },
+    { value: 'misc',  label: '杂项' },
+  ],
 }
+
+/* ── 获取子类型中文 label ── */
+function subKindLabel(kind, subKind) {
+  const list = ITEM_SUB_KINDS[kind] || []
+  const found = list.find(s => s.value === subKind)
+  return found ? found.label : subKind || '—'
+}
+
+/* ── 分组标题样式 ── */
+const SECTION_TITLE = {
+  fontSize: 12, fontWeight: 700, color: '#58a6ff', marginBottom: 10, marginTop: 18,
+  paddingBottom: 6, borderBottom: '1px solid #21262d', letterSpacing: '0.3px',
+}
+/* ── 字段说明样式 ── */
+const HINT = { fontSize: 11, color: '#484f58', marginTop: 3 }
 
 export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   const [filter, setFilter]     = useState('all')
@@ -28,7 +68,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
     setModal(true)
   }
   function openEdit(item) {
-    setEditItem({ ...item, maps: item.maps || [], on_use_buff_ids: item.on_use_buff_ids || [], heal_formula: item.heal_formula || '', atk_formula: item.atk_formula || '', def_formula: item.def_formula || '' })
+    setEditItem({ ...item, maps: item.maps || [], on_use_buff_ids: item.on_use_buff_ids || [], heal_formula: item.heal_formula || '', atk_formula: item.atk_formula || '', def_formula: item.def_formula || '', effect: item.effect ?? 0 })
     setModal(true)
   }
   async function save() {
@@ -70,6 +110,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
         <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 新增道具</button>
       </div>
 
+      {/* ── 道具卡片列表 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
         {filtered.map(item => {
           const meta = ITEM_KIND_META[item.kind] || ITEM_KIND_META.special
@@ -81,12 +122,14 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>
                     {meta.icon} {item.name}
                     <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 7px', borderRadius: 8, background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>{meta.label}</span>
+                    {item.sub_kind && <span style={{ marginLeft: 4, fontSize: 10, color: '#8b949e' }}>{subKindLabel(item.kind, item.sub_kind)}</span>}
                   </div>
                   {item.description && <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 4 }}>{item.description}</div>}
                   <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
                     {item.atk > 0 && <span style={{ color: '#f85149' }}>ATK +{item.atk}</span>}
                     {item.def > 0 && <span style={{ color: '#58a6ff' }}>DEF +{item.def}</span>}
                     {item.heal > 0 && <span style={{ color: '#3fb950' }}>HEAL +{item.heal}</span>}
+                    {item.effect > 0 && <span style={{ color: '#d29922' }}>效果值 {item.effect}</span>}
                     <span style={{ color: '#8b949e' }}>权重 {item.amount ?? 1}</span>
                   </div>
                 </div>
@@ -109,33 +152,95 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
       </div>
       {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>{search ? `未找到"${search}"` : '暂无道具'}</div>}
 
+      {/* ── 编辑弹窗 ── */}
       <Modal open={modal} onClose={() => { setModal(false); setEditItem(null) }} title={editItem?.id ? `编辑道具：${editItem?.name}` : '添加道具'}>
         {editItem && (
           <div>
+            {/* ─── 基础信息 ─── */}
+            <div style={SECTION_TITLE}>📋 基础信息</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ gridColumn: '1/-1' }}><label style={LABEL}>名称</label><input style={INPUT} value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} /></div>
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={LABEL}>名称</label>
+                <input style={INPUT} value={editItem.name} onChange={e => setEditItem({ ...editItem, name: e.target.value })} />
+                <div style={HINT}>道具的显示名称，玩家可见</div>
+              </div>
               <div>
                 <label style={LABEL}>类型</label>
-                <select style={INPUT} value={editItem.kind} onChange={e => setEditItem({ ...editItem, kind: e.target.value, sub_kind: ITEM_SUB_KINDS[e.target.value]?.[0] || '' })}>
-                  {Object.entries(ITEM_KIND_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                <select style={INPUT} value={editItem.kind} onChange={e => setEditItem({ ...editItem, kind: e.target.value, sub_kind: ITEM_SUB_KINDS[e.target.value]?.[0]?.value || '' })}>
+                  {Object.entries(ITEM_KIND_META).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
                 </select>
+                <div style={HINT}>决定道具的基本分类和图标</div>
               </div>
               <div>
                 <label style={LABEL}>子类型</label>
                 <select style={INPUT} value={editItem.sub_kind || ''} onChange={e => setEditItem({ ...editItem, sub_kind: e.target.value })}>
-                  {(ITEM_SUB_KINDS[editItem.kind] || []).map(k => <option key={k} value={k}>{k}</option>)}
+                  {(ITEM_SUB_KINDS[editItem.kind] || []).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
+                <div style={HINT}>更细粒度的分类，影响战斗计算</div>
               </div>
-              <div><label style={LABEL}>ATK</label><input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>DEF</label><input type="number" style={INPUT} value={editItem.def} onChange={e => setEditItem({ ...editItem, def: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>HEAL</label><input type="number" style={INPUT} value={editItem.heal} onChange={e => setEditItem({ ...editItem, heal: Number(e.target.value) })} /></div>
-              <div><label style={LABEL}>出现权重</label><input type="number" style={INPUT} value={editItem.amount} onChange={e => setEditItem({ ...editItem, amount: Number(e.target.value) })} /></div>
-              <div style={{ gridColumn: '1/-1' }}><label style={LABEL}>描述</label><input style={INPUT} value={editItem.description || ''} onChange={e => setEditItem({ ...editItem, description: e.target.value })} /></div>
+              <div>
+                <label style={LABEL}>出现权重</label>
+                <input type="number" style={INPUT} value={editItem.amount} onChange={e => setEditItem({ ...editItem, amount: Number(e.target.value) })} />
+                <div style={HINT}>搜索时出现的相对概率，数值越大越常见</div>
+              </div>
+              <div>
+                <label style={LABEL}>效果值 (Effect)</label>
+                <input type="number" style={INPUT} value={editItem.effect} onChange={e => setEditItem({ ...editItem, effect: Number(e.target.value) })} />
+                <div style={HINT}>道具使用时的通用效果数值</div>
+              </div>
+              <div style={{ gridColumn: '1/-1' }}>
+                <label style={LABEL}>描述</label>
+                <input style={INPUT} value={editItem.description || ''} onChange={e => setEditItem({ ...editItem, description: e.target.value })} />
+                <div style={HINT}>对玩家展示的道具说明文本</div>
+              </div>
             </div>
-            {buffPool.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <label style={LABEL}>使用时触发 Buff</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+
+            {/* ─── 战斗属性 ─── */}
+            <div style={SECTION_TITLE}>⚔️ 战斗属性</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={LABEL}>ATK 攻击</label>
+                <input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} />
+                <div style={HINT}>装备/使用时增加的攻击力</div>
+              </div>
+              <div>
+                <label style={LABEL}>DEF 防御</label>
+                <input type="number" style={INPUT} value={editItem.def} onChange={e => setEditItem({ ...editItem, def: Number(e.target.value) })} />
+                <div style={HINT}>装备/使用时增加的防御力</div>
+              </div>
+              <div>
+                <label style={LABEL}>HEAL 治疗</label>
+                <input type="number" style={INPUT} value={editItem.heal} onChange={e => setEditItem({ ...editItem, heal: Number(e.target.value) })} />
+                <div style={HINT}>使用时恢复的生命值</div>
+              </div>
+            </div>
+
+            {/* ─── 技能公式 ─── */}
+            <div style={SECTION_TITLE}>🧮 技能公式</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+              <div>
+                <label style={LABEL}>治疗公式 (heal_formula)</label>
+                <input style={{ ...INPUT, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} value={editItem.heal_formula} onChange={e => setEditItem({ ...editItem, heal_formula: e.target.value })} placeholder="例: base_heal * (1 + int * 0.02)" />
+                <div style={HINT}>留空则使用固定 HEAL 数值，支持 evalFormula 变量</div>
+              </div>
+              <div>
+                <label style={LABEL}>攻击公式 (atk_formula)</label>
+                <input style={{ ...INPUT, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} value={editItem.atk_formula} onChange={e => setEditItem({ ...editItem, atk_formula: e.target.value })} placeholder="例: base_atk * (1 + level * 0.05)" />
+                <div style={HINT}>留空则使用固定 ATK 数值</div>
+              </div>
+              <div>
+                <label style={LABEL}>防御公式 (def_formula)</label>
+                <input style={{ ...INPUT, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} value={editItem.def_formula} onChange={e => setEditItem({ ...editItem, def_formula: e.target.value })} placeholder="例: base_def * 1.5" />
+                <div style={HINT}>留空则使用固定 DEF 数值</div>
+              </div>
+            </div>
+
+            {/* ─── Buff 触发 ─── */}
+            <div style={SECTION_TITLE}>✨ 使用时触发 Buff</div>
+            {buffPool.length > 0 ? (
+              <div>
+                <div style={HINT}>点击下方标签来选择/取消道具使用时触发的 Buff 效果，绿色为增益、红色为减益</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                   {buffPool.map(b => {
                     const sel = (editItem.on_use_buff_ids || []).includes(b.id)
                     return (
@@ -147,10 +252,14 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                   })}
                 </div>
               </div>
+            ) : (
+              <div style={{ ...HINT, padding: '12px 0' }}>暂无可用的 Buff，请先在「战斗规则」标签页中添加 Buff 池</div>
             )}
+
+            {/* ─── 地图分配 ─── */}
             <div style={{ marginTop: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ ...LABEL, margin: 0 }}>分配地图 ({editItem.maps.length} 已选)</label>
+                <label style={{ ...LABEL, margin: 0 }}>分配地图 ({editItem.maps.length} / {MAP_LIST.length} 已选)</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => setEditItem({ ...editItem, maps: MAP_LIST.map(m => m.id) })} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
                   <button onClick={() => setEditItem({ ...editItem, maps: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
@@ -163,6 +272,8 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                 ))}
               </div>
             </div>
+
+            {/* ─── 操作按钮 ─── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
               <button onClick={() => { setModal(false); setEditItem(null) }} style={{ ...BTN('transparent', '#8b949e'), border: '1px solid #30363d' }}>取消</button>
               <button onClick={save} style={BTN('#58a6ff', '#fff')}>{editItem.id ? '保存修改' : '添加道具'}</button>

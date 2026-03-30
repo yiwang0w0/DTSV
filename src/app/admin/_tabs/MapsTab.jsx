@@ -103,7 +103,7 @@ export default function MapsTab({ maps, setMaps, items = [], onRefreshItems, toa
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{ fontSize: 10, color: itemCount > 0 ? '#d29922' : '#484f58' }}>📦 {itemCount}</span>
-                    <span style={{ fontSize: 11, color: '#8b949e' }}>{map.weather || 'clear'}</span>
+                    <span style={{ fontSize: 11, color: '#8b949e' }}>{(WEATHER_OPTIONS.find(w => w.value === map.weather) || WEATHER_OPTIONS[0]).label}</span>
                   </div>
                 </div>
               </div>
@@ -130,7 +130,7 @@ export default function MapsTab({ maps, setMaps, items = [], onRefreshItems, toa
             <div>
               <label style={LABEL}>天气</label>
               <select style={INPUT} value={sel.weather || 'clear'} onChange={e => update(sel.map_id, { weather: e.target.value })}>
-                {WEATHER_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
+                {WEATHER_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label} — {w.desc}</option>)}
               </select>
             </div>
             <div>
