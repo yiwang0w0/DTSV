@@ -548,7 +548,6 @@ async function resolveSearchAction(client, room, gamevars, user) {
 
   const lootable = corpseResult.lootable
   const { itemChance, npcChance } = getSearchChances(rules, bundle.weather)
-  resolution.gamevars = workingWithCorpses
 
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
   const looseItemChance = Math.max(0, itemChance - corpseChance)
