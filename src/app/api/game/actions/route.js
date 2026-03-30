@@ -1,16 +1,32 @@
 import { NextResponse } from 'next/server'
 import { executeGameAction, withRetry, VersionConflictError } from '@/lib/server/gameActions'
-import { requireRequestUser } from '@/lib/serverSupabase'
+import { createServerSupabase, getRequestUser } from '@/lib/serverSupabase'
 
 export async function POST(request) {
-  const auth = await requireRequestUser(request)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.response.error }, { status: auth.response.status })
+  const payload = await request.json()
+  const roomId = Number(payload.roomId)
+  if (!roomId) {
+    return NextResponse.json({ error: '缺少房间 ID' }, { status: 400 })
+  }
+
+  // ── 并行：认证 + 房间数据同时拉取，省一个往返 ──
+  const supabase = createServerSupabase()
+  const [auth, { data: roomData, error: roomError }] = await Promise.all([
+    getRequestUser(request, supabase),
+    supabase.from('rooms').select('*').eq('id', roomId).single(),
+  ])
+
+  if (!auth.user) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+  if (roomError || !roomData) {
+    return NextResponse.json({ error: '房间不存在' }, { status: 404 })
   }
 
   try {
-    const payload = await request.json()
-    const room = await withRetry(() => executeGameAction(auth.supabase, auth.user, payload))
+    const room = await withRetry(() =>
+      executeGameAction(supabase, auth.user, payload, { prefetchedRoom: roomData }),
+    )
     return NextResponse.json({ room })
   } catch (error) {
     if (error instanceof VersionConflictError) {

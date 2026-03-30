@@ -99,18 +99,27 @@ async function fetchMapWeather(client, mapId) {
   return data?.weather || 'clear'
 }
 
+// ── 地图搜索数据缓存（道具池/NPC池在游戏过程中不变） ──
+const _mapBundleCache = new Map()
+const MAP_BUNDLE_TTL = 5 * 60 * 1000 // 5 分钟
+
 async function fetchSearchMapBundle(client, mapId) {
+  const cached = _mapBundleCache.get(mapId)
+  if (cached && Date.now() - cached.ts < MAP_BUNDLE_TTL) return cached.data
+
   const [{ data: mapConfig }, { data: items }, { data: npcs }] = await Promise.all([
     client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle(),
     client.from('item_pool').select('*').contains('maps', [mapId]),
     client.from('npc_pool').select('*').contains('maps', [mapId]),
   ])
 
-  return {
+  const bundle = {
     weather: mapConfig?.weather || 'clear',
     itemPool: items || [],
     npcPool: npcs || [],
   }
+  _mapBundleCache.set(mapId, { data: bundle, ts: Date.now() })
+  return bundle
 }
 
 async function fetchEquippedInstances(client, roomId, ownerIds) {
@@ -506,6 +515,8 @@ async function collectLootableCorpses(client, roomId, gamevars, mapId) {
   let working = normalizeGamevars(gamevars)
   const lootable = []
   const corpses = getCurrentMapCorpses(working, mapId)
+  // 地图上没尸体时跳过 DB 查询
+  if (!corpses.length) return { gamevars: working, lootable }
   const corpseEquipmentMap = await fetchCorpseEquipmentMap(client, roomId, corpses)
 
   for (const corpse of corpses) {
@@ -1036,13 +1047,14 @@ export async function joinRoom(client, user, roomId) {
   return nextRoom
 }
 
-export async function executeGameAction(client, user, payload) {
+export async function executeGameAction(client, user, payload, options = {}) {
   const roomId = Number(payload.roomId)
   if (!roomId) {
     throw new Error('缺少房间 ID')
   }
 
-  const room = await fetchRoom(client, roomId)
+  // 支持外部预取的房间数据，跳过重复查询
+  const room = options.prefetchedRoom || await fetchRoom(client, roomId)
   const gamevars = normalizeGamevars(room.gamevars)
   const me = getPlayer(gamevars, user.id)
   if (!['join', 'lootCorpse', 'dismissLootPrompt'].includes(payload.action) && me?.lootPrompt) {
