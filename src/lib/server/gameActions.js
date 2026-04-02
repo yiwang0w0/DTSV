@@ -99,27 +99,46 @@ async function fetchMapWeather(client, mapId) {
   return data?.weather || 'clear'
 }
 
-// ── 地图搜索数据缓存（道具池/NPC池在游戏过程中不变） ──
-const _mapBundleCache = new Map()
-const MAP_BUNDLE_TTL = 5 * 60 * 1000 // 5 分钟
+// ── 全局道具/NPC 池缓存（只缓存全量数据，按地图过滤在内存中做） ──
+let _allItemsCache = null
+let _allNpcsCache = null
+const _weatherCache = new Map()
+const POOL_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
+let _poolCacheTs = 0
 
 async function fetchSearchMapBundle(client, mapId) {
-  const cached = _mapBundleCache.get(mapId)
-  if (cached && Date.now() - cached.ts < MAP_BUNDLE_TTL) return cached.data
+  const now = Date.now()
+  const stale = now - _poolCacheTs > POOL_CACHE_TTL
 
-  const [{ data: mapConfig }, { data: items }, { data: npcs }] = await Promise.all([
-    client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle(),
-    client.from('item_pool').select('*').contains('maps', [mapId]),
-    client.from('npc_pool').select('*').contains('maps', [mapId]),
-  ])
-
-  const bundle = {
-    weather: mapConfig?.weather || 'clear',
-    itemPool: items || [],
-    npcPool: npcs || [],
+  if (stale || !_allItemsCache || !_allNpcsCache) {
+    const [itemRes, npcRes] = await Promise.all([
+      client.from('item_pool').select('*'),
+      client.from('npc_pool').select('*'),
+    ])
+    if (itemRes.error) console.error('[fetchSearchMapBundle] item_pool 查询失败:', itemRes.error.message)
+    if (npcRes.error) console.error('[fetchSearchMapBundle] npc_pool 查询失败:', npcRes.error.message)
+    _allItemsCache = itemRes.data || []
+    _allNpcsCache = npcRes.data || []
+    _poolCacheTs = now
   }
-  _mapBundleCache.set(mapId, { data: bundle, ts: Date.now() })
-  return bundle
+
+  // 天气单独查（可能不同地图不同天气）
+  let weather = 'clear'
+  const cachedW = _weatherCache.get(mapId)
+  if (cachedW && now - cachedW.ts < POOL_CACHE_TTL) {
+    weather = cachedW.val
+  } else {
+    const { data: mapConfig } = await client
+      .from('map_config').select('weather').eq('map_id', mapId).maybeSingle()
+    weather = mapConfig?.weather || 'clear'
+    _weatherCache.set(mapId, { val: weather, ts: now })
+  }
+
+  // 在内存中按地图过滤（避免 Supabase .contains() 可能的兼容问题）
+  const itemPool = _allItemsCache.filter(i => Array.isArray(i.maps) && i.maps.includes(mapId))
+  const npcPool = _allNpcsCache.filter(n => Array.isArray(n.maps) && n.maps.includes(mapId))
+
+  return { weather, itemPool, npcPool }
 }
 
 async function fetchEquippedInstances(client, roomId, ownerIds) {
@@ -708,6 +727,12 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     appendResolutionLog(resolution, `${player.name} 击败了 ${battle.npc.name}`, 'kill')
     if (lootPrompt) {
       appendResolutionLog(resolution, `${player.name} 可以从 ${corpseResult.corpse.name} 里带走一件战利品`, 'system')
+    }
+
+    // 标记 BOSS 击败（用于 PVE / 单人模式结束判定）
+    if (battle.npc.level === 'boss') {
+      resolution.gamevars = { ...resolution.gamevars, bossDefeated: true }
+      appendResolutionLog(resolution, `🏆 BOSS ${battle.npc.name} 已被击败！`, 'kill')
     }
 
     const nextRoom = await persistResolution(client, room, resolution)

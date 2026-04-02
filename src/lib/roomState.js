@@ -173,6 +173,7 @@ export function computeRoomStats(gamevars) {
 export function applyRoomLifecycle(room, gamevars, options = {}) {
   const normalized = normalizeGamevars(gamevars)
   const { validnum, alivenum, deathnum, alivePlayers } = computeRoomStats(normalized)
+  const gametype = room?.gametype ?? 0
 
   let gamestate = room?.gamestate ?? 0
   let winner = room?.winner ?? null
@@ -183,9 +184,24 @@ export function applyRoomLifecycle(room, gamevars, options = {}) {
     startedAt = startedAt || new Date().toISOString()
   }
 
+  // ── 多人模式结束：最后一人存活 ──
   if (gamestate === 1 && validnum > 1 && alivenum <= 1) {
     gamestate = 2
     winner = alivePlayers[0]?.name || winner || null
+  }
+
+  // ── 单人 / PVE 模式结束条件 ──
+  if (gamestate === 1 && validnum === 1) {
+    // 玩家死亡 → 游戏失败
+    if (alivenum === 0) {
+      gamestate = 2
+      winner = null // 无胜者
+    }
+    // 击败了 BOSS → 游戏胜利
+    if (normalized.bossDefeated) {
+      gamestate = 2
+      winner = alivePlayers[0]?.name || null
+    }
   }
 
   return {
