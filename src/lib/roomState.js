@@ -79,6 +79,20 @@ export function normalizeGamevars(gamevars = {}) {
       ? gamevars.log.map(normalizeLogEntry).filter(Boolean)
       : [],
     turn: gamevars.turn || 0,
+    // ── 远星函馆：污染 + 结局判定字段 ──
+    envPollution:            gamevars.envPollution            ?? 0,
+    failedRetreats:          gamevars.failedRetreats          ?? 0,
+    totalEntityKills:        gamevars.totalEntityKills        ?? 0,
+    totalEntityInteractions: gamevars.totalEntityInteractions ?? 0,
+    totalFragmentsExtracted: gamevars.totalFragmentsExtracted ?? 0,
+    spawnedEntityCount:      gamevars.spawnedEntityCount      ?? 0,
+    flags: {
+      envPollutionMax:        false,
+      envPollutionBelow60:    true,
+      lowFragments:           true,
+      totalEntityKillRate:    0,
+      ...(gamevars.flags || {}),
+    },
   }
 }
 
@@ -125,6 +139,20 @@ export function createPlayerState(user, stats = {}) {
     passiveCooldowns: {},
     battle: null,
     lootPrompt: null,
+    // ── 远星函馆：污染 + Ω + 结局判定字段 ──
+    personalPollution:  0,
+    omegaCountdown:     null,
+    omegaVisits:        0,
+    entityInteractions: 0,
+    entityKills:        0,
+    omegaMaterials:     0,
+    extractedItems:     [],
+    loadout: {
+      probe:  null,
+      shield: null,
+      weapon: null,
+      comm:   null,
+    },
   }
 }
 

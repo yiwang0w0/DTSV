@@ -1,21 +1,21 @@
+// ─────────────────────────────────────────────────────────────────
+// 远星函馆 × DTSV 常量定义
+// 17 号异常段 7 区域 + 4 类实体 + 5 物品分类 + 4 结局
+// ─────────────────────────────────────────────────────────────────
+
 export const MAP_LIST = [
-  { id: 0, name: '无月之影' }, { id: 1, name: '端点' }, { id: 2, name: 'RF高校' },
-  { id: 3, name: '雪之镇' }, { id: 4, name: '索拉利斯' }, { id: 5, name: '指挥中心' },
-  { id: 6, name: '梦幻馆' }, { id: 7, name: '清水池' }, { id: 8, name: '白穗神社' },
-  { id: 9, name: '墓地' }, { id: 10, name: '麦斯克林' }, { id: 11, name: '对天使用作战本部' },
-  { id: 12, name: '夏之镇' }, { id: 13, name: '三体星' }, { id: 14, name: '光坂高校' },
-  { id: 15, name: '守矢神社' }, { id: 16, name: '常磐森林' }, { id: 17, name: '常磐台中学' },
-  { id: 18, name: '秋之镇' }, { id: 19, name: '精灵中心' }, { id: 20, name: '春之镇' },
-  { id: 21, name: '圣Gradius学园' }, { id: 22, name: '初始之树' }, { id: 23, name: '幻想世界' },
-  { id: 24, name: '永恒的世界' }, { id: 25, name: '妖精驿站' }, { id: 26, name: '冰封墓场' },
-  { id: 27, name: '花菱商厦' }, { id: 28, name: 'FARGO前基地' }, { id: 29, name: '风祭森林' },
-  { id: 30, name: '天使队移动格纳库' }, { id: 31, name: '和田町研究所' },
-  { id: 32, name: 'ＳＣＰ研究设施' }, { id: 33, name: '雏菊之丘' }, { id: 34, name: '英灵殿' },
+  { id: 0,  name: '外环维护廊' },
+  { id: 1,  name: '锚点走廊' },
+  { id: 2,  name: '伊甸港残墟' },
+  { id: 3,  name: '剪切界面缓冲带' },
+  { id: 4,  name: 'Ω-段核心接口' },
+  { id: 10, name: '废弃投放口' },
+  { id: 11, name: '旧伊甸港-3通道' },
 ]
 
 export const GAME_TYPES = {
-  0: '个人战',
-  2: 'PVE',
+  0:  '个人战',
+  2:  'PVE',
   11: '2v2',
   12: '3v3',
   13: '4v4',
@@ -23,25 +23,98 @@ export const GAME_TYPES = {
 }
 
 export const WEATHER_OPTIONS = [
-  { value: 'clear', label: '☀️ 晴天', desc: '无特殊效果' },
-  { value: 'rain', label: '🌧️ 雨天', desc: '射击命中-10%' },
-  { value: 'fog', label: '🌫️ 大雾', desc: '视野减半' },
+  { value: 'clear', label: '☀️ 晴天',   desc: '无特殊效果' },
+  { value: 'rain',  label: '🌧️ 雨天',   desc: '射击命中-10%' },
+  { value: 'fog',   label: '🌫️ 大雾',   desc: '视野减半' },
   { value: 'storm', label: '⛈️ 暴风雨', desc: '全属性-5%' },
-  { value: 'snow', label: '❄️ 暴雪', desc: '移动速度-20%' },
-  { value: 'night', label: '🌙 黑夜', desc: '搜索概率-15%' },
+  { value: 'snow',  label: '❄️ 暴雪',   desc: '移动速度-20%' },
+  { value: 'night', label: '🌙 黑夜',   desc: '搜索概率-15%' },
 ]
 
+// ── 物品分类（远星函馆 5 kinds） ──────────────────────────
 export const ITEM_KIND_META = {
-  weapon:     { label: '武器',   color: '#f85149', icon: '⚔️' },
-  armor:      { label: '防具',   color: '#58a6ff', icon: '🛡️' },
-  consumable: { label: '消耗品', color: '#3fb950', icon: '💊' },
-  material:   { label: '材料',   color: '#d29922', icon: '🧱' },
-  special:    { label: '特殊',   color: '#bc8cff', icon: '✨' },
+  tech_fragment: { label: '结构碎片', color: '#bc8cff', icon: '🔮' },
+  platform_part: { label: '环段部件', color: '#58a6ff', icon: '🔧' },
+  omega_matter:  { label: 'Ω物质',    color: '#f0883e', icon: '⚛️' },
+  equipment:     { label: '装备',     color: '#3fb950', icon: '🛡️' },
+  consumable:    { label: '消耗品',   color: '#d29922', icon: '💊' },
 }
 
+// ── NPC 等级（保留，用于兼容） ────────────────────────────
 export const NPC_LEVEL_META = {
-  easy: { label: '普通', color: '#3fb950' },
+  easy:   { label: '普通', color: '#3fb950' },
   medium: { label: '中等', color: '#d29922' },
-  hard: { label: '困难', color: '#f85149' },
-  boss: { label: 'BOSS', color: '#bc8cff' },
+  hard:   { label: '困难', color: '#f85149' },
+  boss:   { label: 'BOSS', color: '#bc8cff' },
+}
+
+// ── 实体类型（4 类，远星函馆） ────────────────────────────
+export const ENTITY_TYPE_META = {
+  remnant:     { label: '残响实体',   color: '#f85149', icon: '👻' },
+  infiltrator: { label: '伪装入侵者', color: '#d29922', icon: '🎭' },
+  symbiote:    { label: '共生实体',   color: '#3fb950', icon: '🌿' },
+  observer:    { label: '观察实体',   color: '#58a6ff', icon: '👁️' },
+}
+
+// ── 装备槽（4 槽，远星函馆） ──────────────────────────────
+export const LOADOUT_SLOT_META = {
+  probe:  { label: '探测设备', color: '#58a6ff', icon: '🔍',
+            desc: '搜索成功率+15%，搜索失败污染惩罚-50%' },
+  shield: { label: '防护装置', color: '#3fb950', icon: '🛡️',
+            desc: '个人污染累积速度×0.7，Ω-段窗口+1回合' },
+  weapon: { label: '武器模组', color: '#f85149', icon: '⚔️',
+            desc: '对抗实体伤害+25%，环境污染增速+1/回合' },
+  comm:   { label: '通信组件', color: '#d29922', icon: '📡',
+            desc: 'PvP误判率-50%，短暂显示其他操作员真实身份' },
+}
+
+export const LOADOUT_SLOTS = ['probe', 'shield', 'weapon', 'comm']
+export const LOADOUT_EQUIPMENT_CAP = 4
+export const LOADOUT_CONSUMABLE_CAP = 4
+
+// ── 污染系统配置（spec §12.3） ────────────────────────────
+export const POLLUTION_CONFIG = {
+  BASE_GROWTH:        5,    // 每回合环境污染基础增长
+  SEARCH_PERSONAL:    2,    // 搜索个人污染增加
+  COMBAT_PERSONAL:    4,    // 战斗个人污染增加
+  INTERACT_PERSONAL: -3,    // 与非敌对实体交互个人污染减少
+  PVP_PERSONAL:       5,    // PvP 个人污染增加
+  RETREAT_DECAY:     -2,    // 低污染区(≤20%)自然衰减/回合
+  EMERGENCY_COST:    15,    // 缝隙维护轨道代价
+  MELTDOWN_COST:     10,    // 穿越熔断区域代价
+  REPAIR_MIN:         5,    // 环段部件修复最小值
+  REPAIR_MAX:        15,    // 环段部件修复最大值
+  EMERGENCY_UNLOCK:  60,    // 缝隙维护轨道解锁阈值
+  OMEGA_WINDOW:       3,    // Ω-段行动回合数
+  // 有效污染权重 (spec §3.3)
+  WEIGHT_ENV:         0.6,
+  WEIGHT_PERSONAL:    0.4,
+  // 污染等级阈值 (spec §3.3)
+  TIER_MILD:          40,
+  TIER_MODERATE:      60,
+  TIER_SEVERE:        80,
+  TIER_MELTDOWN:      100,
+  // 污染对搜索/战斗的修正
+  SEARCH_PENALTY_MILD:     -0.10,
+  SEARCH_PENALTY_MODERATE: -0.20,
+  SEARCH_PENALTY_SEVERE:   -0.30,
+  COMBAT_DAMAGE_REDUCTION_SEVERE: -0.15,
+  COMBAT_NPC_SPAWN_MULT_SEVERE:    1.5,
+}
+
+// ── 污染等级（用于 UI / 文案） ────────────────────────────
+export const POLLUTION_TIER_META = {
+  none:     { label: '清洁',   color: '#3fb950', icon: '✓' },
+  mild:     { label: '轻度',   color: '#d29922', icon: '⚠' },
+  moderate: { label: '中度',   color: '#f0883e', icon: '⚠⚠' },
+  severe:   { label: '重度',   color: '#f85149', icon: '⚠⚠⚠' },
+  meltdown: { label: '熔断',   color: '#bc8cff', icon: '☢' },
+}
+
+// ── 4 结局 key（spec §12.4） ──────────────────────────────
+export const ENDING_KEYS = {
+  COLLAPSE: 'collapse',  // 崩解
+  PURGE:    'purge',     // 清算
+  MERGE:    'merge',     // 合流
+  EXPLORE:  'explore',   // 探索
 }
