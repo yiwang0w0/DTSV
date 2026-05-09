@@ -12,6 +12,7 @@ import { postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
+import ExtractionModal from './ExtractionModal'
 import {
   Btn,
   BuffTag,
@@ -54,6 +55,7 @@ export default function GameClientPage() {
   const [busy, setBusy] = useState(false)
   const [panel, setPanel] = useState('log')
   const [craftOpen, setCraftOpen] = useState(false)
+  const [extractOpen, setExtractOpen] = useState(false)
 
   const mapIdRef = useRef(0)
 
@@ -233,6 +235,14 @@ export default function GameClientPage() {
     return result
   }
 
+  async function handleExtract(extractionPointId) {
+    const next = await runGameAction('extract', { extractionPointId }, { refreshEquipment: true })
+    if (next) {
+      toast('🚪 已成功撤离，物资已入库', 'success')
+      setExtractOpen(false)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
@@ -269,6 +279,16 @@ export default function GameClientPage() {
         busy={busy}
         onClose={handleDismissLootPrompt}
         onTake={handleTakeLoot}
+      />
+      <ExtractionModal
+        open={extractOpen}
+        onClose={() => setExtractOpen(false)}
+        onExtract={handleExtract}
+        busy={busy}
+        points={mapConfig?.extraction_points || []}
+        roomStartedAt={room?.started_at}
+        inventory={meBase?.inventory || []}
+        equippedCount={equipments.length}
       />
 
       <style>{`
@@ -387,16 +407,36 @@ export default function GameClientPage() {
                 <div style={{ fontSize: 13, color: T.dim, marginBottom: 12 }}>你还没有加入这场游戏</div>
                 <Btn variant="primary" size="lg" onClick={() => runGameAction('join')} disabled={busy || room.gamestate === 2}>加入游戏</Btn>
               </div>
+            ) : meBase?.extracted ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🚪</div>
+                <div style={{ fontSize: 14, color: T.green, fontWeight: 700, marginBottom: 4 }}>
+                  已成功撤离
+                </div>
+                <div style={{ fontSize: 11, color: T.dim }}>
+                  物资已安全归档到账户库
+                </div>
+              </div>
             ) : (
               <div>
                 <Btn variant="primary" sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '10px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={busy || !me?.alive || room.gamestate === 2 || !!battle}>
                   {busy ? '搜索中...' : '搜索区域'}
                 </Btn>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                   <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2 || !!battle}>
                     装备合成
                   </Btn>
                 </div>
+                {(mapConfig?.extraction_points?.length > 0) && (
+                  <Btn
+                    variant="ghost"
+                    onClick={() => setExtractOpen(true)}
+                    sx={{ width: '100%', borderColor: `${T.green}50`, color: T.green, fontSize: 13, fontWeight: 700 }}
+                    disabled={!me?.alive || room.gamestate === 2 || !!battle}
+                  >
+                    🚪 撤离 ({mapConfig.extraction_points.length})
+                  </Btn>
+                )}
                 {!me?.alive && <div style={{ textAlign: 'center', color: T.red, fontSize: 12, marginTop: 8 }}>你已阵亡，只能查看战况与装备状态</div>}
                 {room.gamestate === 2 && <div style={{ textAlign: 'center', color: T.yellow, fontSize: 12, marginTop: 8 }}>本局已结束，所有动作已锁定</div>}
               </div>

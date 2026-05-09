@@ -160,12 +160,15 @@ export function clearPlayerLootPrompt(gamevars, playerId) {
 export function computeRoomStats(gamevars) {
   const normalized = normalizeGamevars(gamevars)
   const players = Object.values(normalized.players)
-  const alivePlayers = players.filter(player => player?.alive)
+  // 撤离的玩家不再算作"在 raid 中的活着的人"，但仍计入总参与人数
+  const stillInRaid = players.filter(player => !player?.extracted)
+  const alivePlayers = stillInRaid.filter(player => player?.alive)
 
   return {
     validnum: players.length,
     alivenum: alivePlayers.length,
-    deathnum: Math.max(0, players.length - alivePlayers.length),
+    deathnum: Math.max(0, stillInRaid.length - alivePlayers.length),
+    extractedCount: players.length - stillInRaid.length,
     alivePlayers,
   }
 }

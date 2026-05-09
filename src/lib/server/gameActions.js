@@ -27,7 +27,7 @@ import {
   triggerPassives,
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
-import { consumeForLoadout } from '@/lib/server/stash'
+import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -98,6 +98,11 @@ async function fetchRoom(client, roomId) {
 async function fetchMapWeather(client, mapId) {
   const { data } = await client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle()
   return data?.weather || 'clear'
+}
+
+async function fetchMapExtractionPoints(client, mapId) {
+  const { data } = await client.from('map_config').select('extraction_points').eq('map_id', mapId).maybeSingle()
+  return Array.isArray(data?.extraction_points) ? data.extraction_points : []
 }
 
 // ── 全局道具/NPC 池缓存（只缓存全量数据，按地图过滤在内存中做） ──
@@ -1158,6 +1163,10 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return attackPlayer(client, room, gamevars, user, payload.targetUid)
   }
 
+  if (payload.action === 'extract') {
+    return extractPlayer(client, room, gamevars, user, payload)
+  }
+
   if (payload.action === 'useItem') {
     return performItemUse(client, room, gamevars, user, payload.itemName)
   }
@@ -1207,6 +1216,91 @@ async function fleeNpc(client, room, gamevars, user) {
 
 async function attackPlayer(client, room, gamevars, user, targetUid) {
   return resolvePlayerAttackAction(client, room, gamevars, user, targetUid)
+}
+
+// ── 撤离：把背包道具与装备转入账户库，标记玩家 extracted ──
+async function extractPlayer(client, room, gamevars, user, payload) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player) throw new Error('你还未加入该房间')
+  if (!player.alive) throw new Error('阵亡玩家无法撤离')
+  if (player.extracted) throw new Error('已经撤离')
+  if (player.battle) throw new Error('战斗中无法撤离')
+
+  const playerMapId = player.map ?? 0
+  const points = await fetchMapExtractionPoints(client, playerMapId)
+  if (!points || points.length === 0) {
+    throw new Error('当前地图没有撤离点')
+  }
+
+  const extractionPointId = payload?.extractionPointId
+  if (!extractionPointId) throw new Error('缺少撤离点 ID')
+  const point = points.find(p => p.id === extractionPointId)
+  if (!point) throw new Error('撤离点不存在')
+
+  // ── 时间窗校验 ──
+  const startedAtRaw = room.started_at || room.created_at
+  if (!startedAtRaw) throw new Error('房间尚未开始')
+  const startedAt = new Date(startedAtRaw).getTime()
+  if (Number.isNaN(startedAt)) throw new Error('房间起始时间无效')
+
+  const elapsed = (Date.now() - startedAt) / 1000  // seconds
+  const openAt = Number(point.openAt) || 0
+  const closeAt = point.closeAt === null || point.closeAt === undefined || point.closeAt === ''
+    ? Infinity
+    : Number(point.closeAt)
+  if (elapsed < openAt) {
+    throw new Error(`撤离点未开放（还需 ${Math.ceil(openAt - elapsed)} 秒）`)
+  }
+  if (elapsed > closeAt) {
+    throw new Error('撤离点已关闭')
+  }
+
+  // ── 物品要求 ──
+  let inventoryAfter = [...(player.inventory || [])]
+  if (point.requiredItem) {
+    const idx = inventoryAfter.indexOf(point.requiredItem)
+    if (idx === -1) throw new Error(`需要持有：${point.requiredItem}`)
+    if (point.consumeItem) inventoryAfter.splice(idx, 1)
+  }
+
+  // ── 转移背包道具到账户库 ──
+  const itemCounts = inventoryAfter.reduce((acc, name) => {
+    acc.set(name, (acc.get(name) || 0) + 1)
+    return acc
+  }, new Map())
+  const stashAdditions = Array.from(itemCounts, ([name, quantity]) => ({ name, quantity }))
+  if (stashAdditions.length > 0) {
+    // 撤离时允许超容量（玩家死战归来，不应被库满拒收）
+    await addItemsToStash(client, user.id, stashAdditions, { allowOverflow: true })
+  }
+
+  // ── 装备实例：room_id := NULL 等价于"放回库" ──
+  await client.from('equipment_instances')
+    .update({ room_id: null, is_equipped: false, equipped_slot: null })
+    .eq('owner_id', user.id)
+    .eq('room_id', room.id)
+
+  // ── 更新玩家状态 ──
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    inventory: [],
+    extracted: true,
+    extractedAt: new Date().toISOString(),
+    extractionPoint: point.id,
+    alive: true,    // 撤离不算死亡
+    lootPrompt: null,
+  })
+
+  const note = stashAdditions.length > 0
+    ? `${player.name} 从【${point.name}】成功撤离（带回 ${stashAdditions.reduce((s, it) => s + it.quantity, 0)} 件物资）`
+    : `${player.name} 从【${point.name}】成功撤离`
+  appendResolutionLog(resolution, note, 'system')
+
+  // 玩家不再属于该房间
+  await client.from('profiles').update({ roomid: null }).eq('id', user.id)
+
+  return persistResolution(client, room, resolution)
 }
 
 async function performItemUse(client, room, gamevars, user, itemName) {

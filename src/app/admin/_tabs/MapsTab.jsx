@@ -29,7 +29,7 @@ export default function MapsTab({
 }) {
   const [search, setSearch]           = useState('')
   const [selectedMap, setSelectedMap] = useState(null)
-  const [assignTab, setAssignTab]     = useState('items') // 'items' | 'npcs'
+  const [assignTab, setAssignTab]     = useState('items') // 'items' | 'npcs' | 'extracts'
 
   // 道具相关
   const [itemSearch, setItemSearch]   = useState('')
@@ -103,6 +103,45 @@ export default function MapsTab({
     setMaps(prev => prev.map(m => m.map_id === mapId ? { ...m, ...updates } : m))
     supabase.from('map_config').update(updates).eq('map_id', mapId)
     if (msg) toast(msg)
+  }
+
+  // ── 撤离点编辑（基于 map_config.extraction_points jsonb 数组） ──
+  function persistExtractionPoints(nextPoints) {
+    if (!sel) return
+    setMaps(prev => prev.map(m => m.map_id === sel.map_id ? { ...m, extraction_points: nextPoints } : m))
+    clearTimeout(mapTimers.current[`ext_${sel.map_id}`])
+    mapTimers.current[`ext_${sel.map_id}`] = setTimeout(() => {
+      supabase.from('map_config').update({ extraction_points: nextPoints }).eq('map_id', sel.map_id)
+    }, 600)
+  }
+
+  function addExtractionPoint() {
+    if (!sel) return
+    const existing = sel.extraction_points || []
+    const newId = `extract_${Date.now().toString(36)}`
+    const newPoint = {
+      id: newId,
+      name: `撤离点 ${existing.length + 1}`,
+      description: '',
+      openAt: 0,
+      closeAt: null,
+      requiredItem: null,
+      consumeItem: false,
+    }
+    persistExtractionPoints([...existing, newPoint])
+  }
+
+  function updateExtractionPoint(idx, updates) {
+    if (!sel) return
+    const existing = sel.extraction_points || []
+    const next = existing.map((pt, i) => i === idx ? { ...pt, ...updates } : pt)
+    persistExtractionPoints(next)
+  }
+
+  function deleteExtractionPoint(idx) {
+    if (!sel) return
+    const existing = sel.extraction_points || []
+    persistExtractionPoints(existing.filter((_, i) => i !== idx))
   }
 
   // ── 道具加入/移除 ─────────────────────────────
@@ -339,8 +378,9 @@ export default function MapsTab({
             {/* 资源 Tab 切换 */}
             <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}` }}>
               {[
-                { key: 'items', label: `📦 道具池 (${mapItems.length})`, color: C.yellow },
-                { key: 'npcs',  label: `👹 NPC 池 (${mapNpcs.length})`,  color: C.purple },
+                { key: 'items',    label: `📦 道具池 (${mapItems.length})`, color: C.yellow },
+                { key: 'npcs',     label: `👹 NPC 池 (${mapNpcs.length})`,  color: C.purple },
+                { key: 'extracts', label: `🚪 撤离点 (${(sel.extraction_points || []).length})`, color: C.green },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -509,9 +549,169 @@ export default function MapsTab({
                 </div>
               </>
             )}
+
+            {/* === 撤离点编辑视图 === */}
+            {assignTab === 'extracts' && (
+              <ExtractionPointsEditor
+                points={sel.extraction_points || []}
+                items={items}
+                onAdd={addExtractionPoint}
+                onUpdate={updateExtractionPoint}
+                onDelete={deleteExtractionPoint}
+              />
+            )}
           </div>
         </CardDndProvider>
       )}
+    </div>
+  )
+}
+
+// ── 撤离点编辑器 ─────────────────────────────────
+function ExtractionPointsEditor({ points, items, onAdd, onUpdate, onDelete }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{
+        background: C.cardBg, borderRadius: 12, border: `1px solid ${C.border}`,
+        padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>🚪 撤离点配置</div>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 4 }}>
+            玩家在该地图遇到这些撤离点时，可在条件满足时选择撤离
+          </div>
+        </div>
+        <button
+          onClick={onAdd}
+          style={{
+            padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', background: `${C.green}18`, border: `1px solid ${C.green}40`, color: C.green,
+          }}
+        >+ 新建撤离点</button>
+      </div>
+
+      {points.length === 0 ? (
+        <div style={{
+          background: '#0e1117', borderRadius: 12, border: `1px dashed ${C.border}`,
+          padding: 40, textAlign: 'center', color: C.dim2,
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🚪</div>
+          <p style={{ margin: 0, fontSize: 13 }}>该地图暂无撤离点</p>
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: C.dim2 }}>没有撤离点 = 玩家无法从此地图撤离</p>
+        </div>
+      ) : points.map((point, idx) => (
+        <ExtractionPointRow
+          key={point.id || idx}
+          idx={idx}
+          point={point}
+          items={items}
+          onChange={updates => onUpdate(idx, updates)}
+          onDelete={() => onDelete(idx)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ExtractionPointRow({ idx, point, items, onChange, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const consumableItems = items.filter(i => i.kind === 'consumable' || i.kind === 'special')
+
+  return (
+    <div style={{
+      background: C.cardBg, borderRadius: 12, border: `1px solid ${C.border}`,
+      borderLeft: `3px solid ${C.green}`, padding: '14px 18px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontSize: 11, color: C.dim2, fontFamily: 'monospace' }}>#{idx + 1}</span>
+        <input
+          value={point.name || ''}
+          onChange={e => onChange({ name: e.target.value })}
+          placeholder="撤离点名称"
+          style={{
+            ...INPUT, flex: 1, fontSize: 14, fontWeight: 700,
+          }}
+        />
+        <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace' }}>{point.id}</span>
+        {confirmDelete ? (
+          <>
+            <button
+              onClick={onDelete}
+              style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: C.red, color: '#fff', border: 'none', fontWeight: 700 }}
+            >确认删除</button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: 'transparent', color: C.dim, border: `1px solid ${C.border}` }}
+            >取消</button>
+          </>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            style={{ padding: '6px 10px', borderRadius: 6, fontSize: 14, cursor: 'pointer', background: 'transparent', color: C.dim2, border: `1px solid ${C.border}` }}
+          >🗑️</button>
+        )}
+      </div>
+
+      <div>
+        <label style={LABEL}>描述</label>
+        <input
+          value={point.description || ''}
+          onChange={e => onChange({ description: e.target.value })}
+          placeholder="（可选）撤离点的剧情/背景描述"
+          style={INPUT}
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+        <div>
+          <label style={LABEL}>开放时间（秒，从 raid 开始计算）</label>
+          <input
+            type="number" min={0}
+            value={point.openAt ?? 0}
+            onChange={e => onChange({ openAt: parseInt(e.target.value, 10) || 0 })}
+            style={INPUT}
+          />
+          <div style={{ fontSize: 10, color: C.dim2, marginTop: 4 }}>0 = 立即开放</div>
+        </div>
+        <div>
+          <label style={LABEL}>关闭时间（秒，可空 = 永不关闭）</label>
+          <input
+            type="number" min={0}
+            value={point.closeAt ?? ''}
+            placeholder="留空 = 永不关闭"
+            onChange={e => {
+              const v = e.target.value.trim()
+              onChange({ closeAt: v === '' ? null : parseInt(v, 10) || 0 })
+            }}
+            style={INPUT}
+          />
+        </div>
+        <div>
+          <label style={LABEL}>需要持有的物品</label>
+          <select
+            value={point.requiredItem || ''}
+            onChange={e => onChange({ requiredItem: e.target.value || null })}
+            style={INPUT}
+          >
+            <option value="">（无要求）</option>
+            {consumableItems.map(it => (
+              <option key={it.id} value={it.name}>{it.name}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: point.requiredItem ? C.text : C.dim2 }}>
+            <input
+              type="checkbox"
+              checked={!!point.consumeItem}
+              disabled={!point.requiredItem}
+              onChange={e => onChange({ consumeItem: e.target.checked })}
+              style={{ width: 16, height: 16, cursor: point.requiredItem ? 'pointer' : 'not-allowed' }}
+            />
+            撤离时消耗该物品
+          </label>
+        </div>
+      </div>
     </div>
   )
 }
