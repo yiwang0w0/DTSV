@@ -49,6 +49,7 @@ import {
   tickEnvPollution,
   tickOmegaCountdown,
   recomputeFlags,
+  getLoadoutEffects,
 } from '@/lib/pollution'
 import { POLLUTION_CONFIG, LOADOUT_SLOTS } from '@/lib/constants'
 import {
@@ -699,7 +700,8 @@ async function resolveSearchAction(client, room, gamevars, user) {
     resolution.gamevars.envPollution || 0,
     polluted.personalPollution || 0,
   )
-  const itemChance = applyPollutionSearchModifier(rawItemChance, eff.effective)
+  const loadoutFx = getLoadoutEffects(polluted)
+  const itemChance = applyPollutionSearchModifier(rawItemChance, eff.effective, { hasProbe: loadoutFx.probe })
   const npcChance  = rawNpcChance  // NPC 出现率不被污染下降影响
 
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
@@ -816,12 +818,13 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
   appendResolutionLogs(resolution, passiveLogs, 'buff')
 
-  // ── 远星函馆：战斗个人污染 + 重度污染伤害修正 ──
+  // ── 远星函馆：战斗个人污染 + 重度污染伤害修正 + weapon 装载 +25% ──
   const eff = calcEffectivePollution(
     resolution.gamevars.envPollution || 0,
     player.personalPollution || 0,
   )
-  const damageOutAdj = applyPollutionCombatModifier(damageOut, eff.effective)
+  const fx = getLoadoutEffects(player)
+  const damageOutAdj = applyPollutionCombatModifier(damageOut, eff.effective, { hasWeapon: fx.weapon })
   const polluted = applyCombatPollution(player, battle.npc)
 
   const npcHp = Math.max(0, battle.npcHp - damageOutAdj)
@@ -1244,6 +1247,7 @@ export async function joinRoom(client, user, roomId, loadout = null) {
 
   // ── 装载（搜打撤）：从账户库扣除选中的道具与装备 ──
   let initialInventory = []
+  let initialLoadout = { probe: null, shield: null, weapon: null, comm: null }
   if (loadout) {
     const items = Array.isArray(loadout.items) ? loadout.items : []
     const equipmentInstanceIds = Array.isArray(loadout.equipmentInstanceIds) ? loadout.equipmentInstanceIds : []
@@ -1251,12 +1255,35 @@ export async function joinRoom(client, user, roomId, loadout = null) {
       const result = await consumeForLoadout(client, user.id, roomId, { items, equipmentInstanceIds })
       initialInventory = result.inventory
     }
+    // 远星 Phase 8.11：把 4 槽装备 instanceId 写入 player.loadout
+    // 优先用 LoadoutModal 直接传的 loadout 字段；缺省时按 instanceId 查 slot
+    if (loadout.loadout && typeof loadout.loadout === 'object') {
+      initialLoadout = {
+        probe:  loadout.loadout.probe  ?? null,
+        shield: loadout.loadout.shield ?? null,
+        weapon: loadout.loadout.weapon ?? null,
+        comm:   loadout.loadout.comm   ?? null,
+      }
+    } else if (equipmentInstanceIds.length > 0) {
+      // 兜底：按 slot 反查
+      const { data: instances } = await client
+        .from('equipment_instances')
+        .select('id, tier:equipment_tiers(series:equipment_series(slot))')
+        .in('id', equipmentInstanceIds)
+      for (const inst of (instances || [])) {
+        const slot = inst.tier?.series?.slot
+        if (slot && initialLoadout[slot] === null) {
+          initialLoadout[slot] = inst.id
+        }
+      }
+    }
   }
 
   const player = createPlayerState(user, getInitPlayerStats(rules))
   if (initialInventory.length > 0) {
     player.inventory = initialInventory
   }
+  player.loadout = initialLoadout
   const nextGamevars = {
     ...gamevars,
     players: {
@@ -1370,9 +1397,12 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
 
   // ── 进入 Ω-段(map_id=4) 启动倒计时 + 累计访问次数 ──
+  // shield 装载额外 +1 回合（spec §6.3）
   let nextPlayer = { ...player, map: mapId }
   if (mapId === 4) {
-    nextPlayer.omegaCountdown = POLLUTION_CONFIG.OMEGA_WINDOW
+    const fx = getLoadoutEffects(player)
+    const window = POLLUTION_CONFIG.OMEGA_WINDOW + (fx.shield ? 1 : 0)
+    nextPlayer.omegaCountdown = window
     nextPlayer.omegaVisits = (player.omegaVisits || 0) + 1
   } else {
     // 离开 Ω-段时清空倒计时

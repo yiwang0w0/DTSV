@@ -55,27 +55,58 @@ export function calcEffectivePollution(envP = 0, personalP = 0, weights = POLLUT
 }
 
 // ══════════════════════════════════════════════════════
+//  Loadout 4 槽效果识别（spec §6.3）
+// ══════════════════════════════════════════════════════
+
+/**
+ * 读取玩家 loadout 4 槽是否装载，返回布尔标记
+ * 说明：spec §6.3 装备效果按槽位为单位（不区分 tier1 / tier2 倍率），
+ *      因此此处仅判 truthy。后续如要按 tier 差异化效果再扩展。
+ */
+export function getLoadoutEffects(player) {
+  const lo = player?.loadout || {}
+  return {
+    probe:  !!lo.probe,
+    shield: !!lo.shield,
+    weapon: !!lo.weapon,
+    comm:   !!lo.comm,
+  }
+}
+
+/** Shield 装载 → 个人污染累积 ×0.7 */
+function shieldPersonalFactor(player) {
+  return getLoadoutEffects(player).shield ? 0.7 : 1.0
+}
+
+// ══════════════════════════════════════════════════════
 //  动作触发：个人污染修正（spec §3.2）
 // ══════════════════════════════════════════════════════
 
 export function applySearchPollution(player) {
-  return bumpPersonal(player, POLLUTION_CONFIG.SEARCH_PERSONAL)
+  const factor = shieldPersonalFactor(player)
+  return bumpPersonal(player, Math.round(POLLUTION_CONFIG.SEARCH_PERSONAL * factor))
 }
 export function applyCombatPollution(player, npc) {
+  const factor = shieldPersonalFactor(player)
   const fromNpc = Number(npc?.pollution_on_kill) || 0
-  return bumpPersonal(player, POLLUTION_CONFIG.COMBAT_PERSONAL + (fromNpc > 4 ? fromNpc - 4 : 0))
+  const base = POLLUTION_CONFIG.COMBAT_PERSONAL + (fromNpc > 4 ? fromNpc - 4 : 0)
+  return bumpPersonal(player, Math.round(base * factor))
 }
 export function applyInteractPollution(player) {
+  // 交互降污染保持原值，shield 不放大负向效果
   return bumpPersonal(player, POLLUTION_CONFIG.INTERACT_PERSONAL)
 }
 export function applyPvpPollution(player) {
-  return bumpPersonal(player, POLLUTION_CONFIG.PVP_PERSONAL)
+  const factor = shieldPersonalFactor(player)
+  return bumpPersonal(player, Math.round(POLLUTION_CONFIG.PVP_PERSONAL * factor))
 }
 export function applyEmergencyRetreatPollution(player) {
-  return bumpPersonal(player, POLLUTION_CONFIG.EMERGENCY_COST)
+  const factor = shieldPersonalFactor(player)
+  return bumpPersonal(player, Math.round(POLLUTION_CONFIG.EMERGENCY_COST * factor))
 }
 export function applyMeltdownTraversePollution(player) {
-  return bumpPersonal(player, POLLUTION_CONFIG.MELTDOWN_COST)
+  const factor = shieldPersonalFactor(player)
+  return bumpPersonal(player, Math.round(POLLUTION_CONFIG.MELTDOWN_COST * factor))
 }
 
 /** 在低污染区(envPollution≤20%) + 个人污染 > 0 时自然衰减/回合 */
@@ -106,16 +137,19 @@ export function applyPartRepair(gv) {
  * @returns {object} 新 gamevars
  */
 export function tickEnvPollution(gv, mapAccelById) {
-  // 收集所有玩家所在地图的最大 accel
+  // 收集所有玩家所在地图的最大 accel；同时统计武器持有者人数
   const players = Object.values(gv?.players || {})
   let maxAccel = 0
+  let weaponHolders = 0
   for (const p of players) {
     if (!p?.alive || p?.extracted) continue
     const mapId = p.map ?? 0
     const accel = mapAccelLookup(mapAccelById, mapId)
     if (accel > maxAccel) maxAccel = accel
+    if (p.loadout?.weapon) weaponHolders++
   }
-  const inc = POLLUTION_CONFIG.BASE_GROWTH + maxAccel
+  // 武器装载者每人额外 +1 环境污染/回合（spec §6.3 weapon 副作用）
+  const inc = POLLUTION_CONFIG.BASE_GROWTH + maxAccel + weaponHolders
   return {
     ...gv,
     envPollution: clamp((gv.envPollution || 0) + inc, 0, 100),
@@ -153,23 +187,38 @@ export function tickOmegaCountdown(player, gv) {
 //  搜索 / 战斗修正（spec §3.3）
 // ══════════════════════════════════════════════════════
 
-/** 修正搜索成功率：返回新概率（保留 0-1 范围） */
-export function applyPollutionSearchModifier(baseChance, effective) {
+/**
+ * 修正搜索成功率：返回新概率（保留 0-1 范围）
+ * @param {number} baseChance
+ * @param {number} effective
+ * @param {object} [opts] — { hasProbe?: boolean }，probe 装载额外 +15%
+ */
+export function applyPollutionSearchModifier(baseChance, effective, opts = {}) {
   const tier = tierFromValue(effective)
   let mod = 0
   if (tier === 'mild')     mod = POLLUTION_CONFIG.SEARCH_PENALTY_MILD
   if (tier === 'moderate') mod = POLLUTION_CONFIG.SEARCH_PENALTY_MODERATE
   if (tier === 'severe')   mod = POLLUTION_CONFIG.SEARCH_PENALTY_SEVERE
+  if (opts.hasProbe) mod += 0.15  // probe 装载：搜索成功率 +15%
   return clamp(baseChance + mod, 0, 1)
 }
 
-/** 重度污染降低战斗伤害 */
-export function applyPollutionCombatModifier(damage, effective) {
+/**
+ * 重度污染降低战斗伤害；weapon 装载提升对实体伤害 25%
+ * @param {number} damage
+ * @param {number} effective
+ * @param {object} [opts] — { hasWeapon?: boolean }
+ */
+export function applyPollutionCombatModifier(damage, effective, opts = {}) {
+  let d = damage
   const tier = tierFromValue(effective)
   if (tier === 'severe') {
-    return Math.max(1, Math.floor(damage * (1 + POLLUTION_CONFIG.COMBAT_DAMAGE_REDUCTION_SEVERE)))
+    d = Math.floor(d * (1 + POLLUTION_CONFIG.COMBAT_DAMAGE_REDUCTION_SEVERE))
   }
-  return damage
+  if (opts.hasWeapon) {
+    d = Math.floor(d * 1.25)  // weapon 装载：对实体伤害 +25%
+  }
+  return Math.max(1, d)
 }
 
 /** 重度污染时 NPC 出现频率倍率 */
