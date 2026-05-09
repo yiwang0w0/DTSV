@@ -1,7 +1,120 @@
 # Readme_Claude
 
-更新时间：2026-05-09（Asia/Tokyo）
-整理方式：基于全量源码交叉验证 + 8 个 Phase 改造提交记录。
+更新时间：2026-05-09（Asia/Tokyo） · Phase 8 远星函馆 Rev05 落地
+整理方式：基于全量源码交叉验证 + Phase 0-8 改造提交记录。
+
+## 最近变更（2026-05-09 / Phase 8）— 远星函馆 × DTSV Rev05
+
+> **世界观叠加**：在 Phase 0-7 搜打撤引擎之上，注入「远星函馆 × 17号异常段」内容层 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽 + 4 结局判定。
+
+### Phase 8 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 8.1 | 9 个 farstar SQL（map/equipment/entities/items/events/contracts/endings/branches/all-in-one） | `4847a5d` |
+| 8.2 | constants.js MAP_LIST 35→7 + 5 ITEM_KIND + ENTITY_TYPE_META + POLLUTION_CONFIG + ENDING_KEYS；roomState 字段扩展 | `6cd9e5c` |
+| 8.3 | src/lib/pollution.js 污染引擎（calcEffective/applyXxx/tickEnv/tickOmega/recomputeFlags） | `898ce16` |
+| 8.4 | gameActions：pollution + adjacency + omegaCountdown + extract 重写 + trade/emergencyRetreat/equipLoadout 三个新动作 | `7a96e03` |
+| 8.5 | branches.js anyPlayerHas {key,minValue} 扩展 | `5e96118` |
+| 8.6 | events.js spawn_npc 异步 + 按 entity_type 加权抽取 | `5bbf434` |
+| 8.7 | 游戏 UI：双污染条 + Ω 倒计时 + 邻接地图过滤 + 结构退避 + 缝隙维护轨道按钮 | `34bea0c` |
+| 8.8 | LoadoutModal 双 4 槽位（4 装备 + 4 消耗品 = 8 件总载荷） | `c8ed26d` |
+| 8.9 | admin tabs 适配（MapsTab 新 6 字段 + NpcsTab 远星属性 + ItemsTab 5 kinds） | `87b07ff` |
+| 8.10 | 本节 Readme + 单次 push | (本提交) |
+
+### 8.0 关键设计决策（与用户确认）
+
+1. **数据库清理**：执行 farstar 迁移时 `DELETE FROM rooms; DELETE FROM map_config;` 完全替换为 7 张远星地图。`player_stash` / `equipment_instances` 保留。
+2. **装载上限**：4 装备 + 4 消耗品 = 8 件总载荷（spec §6.3 解读三选项的中间方案）。
+3. **装备走 instance 系**：远星 4 装备槽（probe/shield/weapon/comm）作为 `equipment_series.slot` 值，由 ADDITIVE 迁移加入 series + tiers，**不放在 item_pool**。
+4. **撤离 schema 重写**：丢弃 `extraction_points` jsonb，改用 `is_exit` BOOLEAN + `exit_cost` JSONB。
+5. **commit / push 节奏**：10 个 sub-phase 各自独立 commit 在本地累积；Phase 8.10 完成后一次性 push。
+
+### 8.1 数据库 schema（9 个迁移文件）
+
+`scripts/migration-farstar-*.sql` —— 在 Supabase SQL Editor 顺序执行，
+推荐使用合并版 `migration-farstar-all-in-one.sql`。
+
+新表 / 改表：
+- `map_config`：drop `extraction_points`；add `pollution_base/accel`, `adjacent_maps`, `is_exit`, `exit_cost`, `omega_window`；DELETE + INSERT 7 行
+- `npc_pool`：add `entity_type`, `hostile`, `tradeable`, `trade_wants/offers`, `pollution_on_kill`, `spawn_weight`, `min_pollution`；DELETE + INSERT 10 个 NPC
+- `item_pool`：DELETE + INSERT 13 件（4 碎片 + 3 部件 + 2 Ω物质 + 4 消耗品）
+- `equipment_series` / `equipment_tiers`：ADDITIVE 加入 4 series + 8 tiers
+- `event_pool`：DELETE + INSERT 11 个事件（spec §10.1）
+- `contracts`：DELETE + INSERT 6 个合同（spec §11.1）
+- `endings`：DELETE + INSERT 4 个结局（spec §7.2）
+- `branch_nodes`：DELETE + INSERT 4 个判定节点（spec §7.3）
+- `rooms`：DELETE（旧地图对局清零）
+
+### 8.2 constants.js + roomState.js
+
+constants.js 新增：
+- `MAP_LIST` 35→7（外环维护廊/锚点走廊/伊甸港残墟/剪切界面缓冲带/Ω-段核心接口/废弃投放口/旧伊甸港-3通道）
+- `ITEM_KIND_META` 5 新 kind（tech_fragment/platform_part/omega_matter/equipment/consumable）
+- `ENTITY_TYPE_META` 4 类实体（spec §5.1）
+- `LOADOUT_SLOT_META` + `LOADOUT_SLOTS` + `LOADOUT_*_CAP` 装备槽配置
+- `POLLUTION_CONFIG` 17 个污染常量（spec §12.3）
+- `POLLUTION_TIER_META` 5 等级 UI 元数据
+- `ENDING_KEYS` 4 结局 key（spec §12.4）
+
+roomState.js 扩展：
+- `normalizeGamevars` 新增字段：`envPollution`, `failedRetreats`, `totalEntityKills/Interactions/FragmentsExtracted`, `spawnedEntityCount`, `flags`
+- `createPlayerState` 新增字段：`personalPollution`, `omegaCountdown`, `omegaVisits/Materials`, `entityInteractions/Kills`, `extractedItems`, `loadout` (4 槽)
+
+### 8.3 污染引擎 (`src/lib/pollution.js`)
+
+8 类纯函数 API：
+- `calcEffectivePollution(envP, personalP, weights?)` → `{ effective, tier }` (5 tier: none/mild/moderate/severe/meltdown)
+- `apply{Search|Combat|Interact|Pvp|EmergencyRetreat|MeltdownTraverse|PartRepair}Pollution()`
+- `applyRetreatDecay(player, envPollution)` 低污染区(≤20%)自然衰减
+- `tickEnvPollution(gv, mapAccelById)` 每 persist 一次按 5 + max(accel) 增长
+- `tickOmegaCountdown(player, gv)` Ω 窗口归零强制传送至 map=3 + 个人污染 +20%
+- `applyPollution{Search|Combat}Modifier()` 按 tier 修正搜索成功率/战斗伤害
+- `recomputeFlags(gv)` 重算 envPollutionMax/Below60/lowFragments/totalEntityKillRate
+
+### 8.4 gameActions 整合（最大改动）
+
+- 替换 `fetchMapExtractionPoints` 为 `fetchMapConfig` + `fetchMapAccelTable`
+- 新建 `persistResolutionWithPollution(client, room, resolution, userId)`：
+  tickEnv → tickOmega → recomputeFlags → branches → endings → persist
+- `movePlayer`：邻接校验、Ω 倒计时启动 / 离开清零、低污染衰减
+- `searchArea`：搜索成功率经污染修正、`spawnedEntityCount++`
+- `attackNpc`：战斗伤害经污染修正、击杀计数双层（玩家 + 房间）
+- 新动作：
+  - `extract` 重写：读 is_exit + exit_cost；快照 extractedItems；累计 totalFragmentsExtracted；player.omegaMaterials
+  - `emergencyRetreat`：env≥60% 解锁，传送 map=0 + 个人 +15%
+  - `trade`：tradeable NPC + maps 校验，交换 wants/offers，entityInteractions++
+  - `equipLoadout`：raid 内更换 4 槽（slot 校验）
+
+### 8.5-8.6 引擎扩展
+
+- `branches.js` `anyPlayerHas` 增加 `{key, minValue}` 重载，用于 spec §7.3 探索结局
+- `events.js` `applyOneEffect` async 化，`spawn_npc` 通过 `loadAllNpcs` + `pickNpcByEntityType` 按权重抽取，`min_pollution` 过滤
+
+### 8.7-8.8 客户端 UI
+
+- 顶部条：双污染 pill（环境/个人） + EffectivePollutionTag + Ω 倒计时
+- 中央动作：🚪 结构退避（仅 is_exit=true 显示，含 exit_cost 提示）+ ⚠ 缝隙维护轨道（env≥60%）
+- 区域侧栏：35 张全列 → 按 adjacent_maps 过滤可达性
+- 结局横幅：endingResult 触发时顶部渐变展示
+- ExtractionModal：去时间窗 → 单出口信息卡（消耗预览 + 物资带回）
+- LoadoutModal：双 4 槽位（probe/shield/weapon/comm + 4 消耗品槽）
+
+### 8.9 admin tabs
+
+- MapsTab：移除 ExtractionPointsEditor（148 行）；配置表单加 6 个远星字段
+- NpcsTab：编辑器加 "🌌 远星属性" 分组（entity_type / hostile / tradeable / trade_wants/offers JSON / pollution_on_kill / spawn_weight / min_pollution）；卡片显示实体类型徽章
+- ItemsTab：ITEM_SUB_KINDS 重写匹配远星 5 kind
+
+### 部署步骤（按顺序）
+
+1. **Supabase SQL Editor** 粘贴执行 `scripts/migration-farstar-all-in-one.sql`
+2. 验证查询返回：`map_config=7, equipment_series_farstar=4, equipment_tiers_farstar=8, npc_pool=10, item_pool=13, event_pool=11, contracts=6, endings=4, branch_nodes=4`
+3. 刷新 admin 后台 → 检查"地图 / NPC / 道具 / 事件 / 合同 / 分支 / 结局"七 tab 都能正常加载/编辑
+4. /rooms 创建房间 → 装载（应看到 4 槽 + 4 消耗品）→ 进 raid → 应看到双污染条 + 邻接区域过滤 + Ω 倒计时（仅 4 区）
+5. 触发 4 结局之一进行端到端验证（推荐"安全撤离"合同 → 任一出口 extract → 结局横幅）
+
+---
 
 ## 最近变更（2026-05-09）— 搜打撤大改造（Phase 0-7）
 
