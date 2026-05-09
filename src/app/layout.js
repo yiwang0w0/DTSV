@@ -40,6 +40,7 @@ function Nav({ user, onLogout }) {
   const links = [
     { href: '/', label: '首页' },
     { href: '/rooms', label: '房间大厅' },
+    ...(user ? [{ href: '/stash', label: '账户库' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
   ]
 

@@ -33,3 +33,16 @@ export async function postGameApi(path, body) {
     return payload
   }
 }
+
+export async function getGameApi(path) {
+  const token = await getAccessToken()
+  const response = await fetch(path, {
+    method: 'GET',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(payload.error || '请求失败')
+  }
+  return payload
+}

@@ -27,6 +27,7 @@ import {
   triggerPassives,
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
+import { consumeForLoadout } from '@/lib/server/stash'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -1070,7 +1071,7 @@ export async function createRoom(client, user, payload = {}) {
   return data
 }
 
-export async function joinRoom(client, user, roomId) {
+export async function joinRoom(client, user, roomId, loadout = null) {
   const room = await fetchRoom(client, roomId)
   if (room.gamestate === 2) {
     throw new Error('已结束房间不可加入')
@@ -1082,7 +1083,22 @@ export async function joinRoom(client, user, roomId) {
   }
 
   const rules = await loadGameRules(client)
+
+  // ── 装载（搜打撤）：从账户库扣除选中的道具与装备 ──
+  let initialInventory = []
+  if (loadout) {
+    const items = Array.isArray(loadout.items) ? loadout.items : []
+    const equipmentInstanceIds = Array.isArray(loadout.equipmentInstanceIds) ? loadout.equipmentInstanceIds : []
+    if (items.length > 0 || equipmentInstanceIds.length > 0) {
+      const result = await consumeForLoadout(client, user.id, roomId, { items, equipmentInstanceIds })
+      initialInventory = result.inventory
+    }
+  }
+
   const player = createPlayerState(user, getInitPlayerStats(rules))
+  if (initialInventory.length > 0) {
+    player.inventory = initialInventory
+  }
   const nextGamevars = {
     ...gamevars,
     players: {
@@ -1091,8 +1107,9 @@ export async function joinRoom(client, user, roomId) {
     },
   }
 
+  const loadoutNote = initialInventory.length > 0 ? `（装载 ${initialInventory.length} 件物资）` : ''
   const nextRoom = await persistRoom(client, room, nextGamevars, [
-    createLogEntry(`${player.name} 加入了游戏`, 'system'),
+    createLogEntry(`${player.name} 加入了游戏${loadoutNote}`, 'system'),
   ], { startGame: true })
 
   await client.from('profiles').update({ roomid: roomId }).eq('id', user.id)
@@ -1118,7 +1135,7 @@ export async function executeGameAction(client, user, payload, options = {}) {
   }
 
   if (payload.action === 'join') {
-    return joinRoom(client, user, roomId)
+    return joinRoom(client, user, roomId, payload.loadout || null)
   }
 
   if (payload.action === 'move') {

@@ -8,6 +8,7 @@ import { isAdmin } from '@/lib/auth'
 import { useAuth } from '../layout'
 import { Spinner, useToast } from '../admin/_shared/ui'
 import { postGameApi } from '@/lib/gameApi'
+import LoadoutModal from '@/components/LoadoutModal'
 
 const ROOM_CHECK_INTERVAL_MS = 60_000
 
@@ -22,6 +23,7 @@ export default function RoomsPage() {
   const [joining, setJoining] = useState(null)
   const [creating, setCreating] = useState(false)
   const [preparingNextRound, setPreparingNextRound] = useState(false)
+  const [loadoutFor, setLoadoutFor] = useState(null) // { roomId, gamenum }
   const loadingRef = useRef(false)
 
   const loadRooms = useCallback(async () => {
@@ -101,14 +103,21 @@ export default function RoomsPage() {
     ensureNextRound({ silent: true })
   }, [ensureNextRound, hasOpenRoom, loading, user])
 
-  async function joinRoom(roomId) {
+  function openLoadout(room) {
     if (!user) return
+    setLoadoutFor({ roomId: room.id, gamenum: room.gamenum || room.id })
+  }
+
+  async function confirmJoinWithLoadout(loadout) {
+    if (!loadoutFor) return
+    const roomId = loadoutFor.roomId
     setJoining(roomId)
     try {
-      await postGameApi('/api/game/actions', { roomId, action: 'join' })
+      await postGameApi('/api/game/actions', { roomId, action: 'join', loadout })
       router.push(`/game/${roomId}`)
     } catch (error) {
       toast(error.message, 'error')
+      throw error // 让 modal 知道失败，不关闭
     } finally {
       setJoining(null)
     }
@@ -163,6 +172,12 @@ export default function RoomsPage() {
   return (
     <div className="animate-in">
       <ToastContainer />
+      <LoadoutModal
+        open={!!loadoutFor}
+        roomTitle={loadoutFor ? `房间 #${loadoutFor.gamenum}` : ''}
+        onClose={() => setLoadoutFor(null)}
+        onConfirm={confirmJoinWithLoadout}
+      />
 
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
@@ -318,11 +333,11 @@ export default function RoomsPage() {
                     </button>
                   ) : isWaiting ? (
                     <button
-                      onClick={() => joinRoom(room.id)}
+                      onClick={() => openLoadout(room)}
                       disabled={isJoining}
                       style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 700, cursor: isJoining ? 'wait' : 'pointer', flex: 1, opacity: isJoining ? 0.6 : 1 }}
                     >
-                      {isJoining ? '加入中...' : '加入房间'}
+                      {isJoining ? '加入中...' : '🎒 装载并加入'}
                     </button>
                   ) : isActive ? (
                     <button
