@@ -1,22 +1,28 @@
 'use client'
 
 /**
- * LoadoutModal — 进 raid 前的装载界面
+ * LoadoutModal — 远星函馆双 4 槽位装载界面
  *
- * 加载玩家账户库 (/api/stash) 与道具元数据 (item_pool)，
- * 让用户选择带入 raid 的物资与装备。
+ * 4 装备槽（probe / shield / weapon / comm，每槽 1 件）
+ * + 4 消耗品槽（每槽 1 件，从库存按 kind=consumable 选）
  *
  * Props:
- *   open        — 是否打开
- *   onClose()   — 关闭回调
- *   onConfirm({ items, equipmentInstanceIds }) — 确认装载，父组件负责调用 join
- *   roomTitle   — 标题里显示的房间名（可选）
+ *   open
+ *   onClose()
+ *   onConfirm({ loadout, consumables }) — loadout 为 4 槽 instanceId map，
+ *                                         consumables 为长度 ≤4 的字符串数组
+ *   roomTitle
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi } from '@/lib/gameApi'
-import { ITEM_KIND_META } from '@/lib/constants'
+import {
+  ITEM_KIND_META,
+  LOADOUT_SLOT_META,
+  LOADOUT_SLOTS,
+  LOADOUT_CONSUMABLE_CAP,
+} from '@/lib/constants'
 
 const C = {
   bg0:    '#0e1117',
@@ -49,8 +55,10 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState('')
   const [confirming, setConfirming]     = useState(false)
-  const [selectedItems, setSelectedItems]               = useState({}) // { name: quantity }
-  const [selectedEquipments, setSelectedEquipments]     = useState({}) // { instanceId: true }
+  // 4 装备槽：{ probe: instanceId|null, shield: ..., weapon: ..., comm: ... }
+  const [loadout, setLoadout]           = useState({ probe: null, shield: null, weapon: null, comm: null })
+  // 4 消耗品槽：[name|null, name|null, name|null, name|null]
+  const [consumables, setConsumables]   = useState([null, null, null, null])
 
   // ── 拉取库存 + 道具元数据 ────────────────────
   useEffect(() => {
@@ -58,8 +66,8 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
     let canceled = false
     setLoading(true)
     setError('')
-    setSelectedItems({})
-    setSelectedEquipments({})
+    setLoadout({ probe: null, shield: null, weapon: null, comm: null })
+    setConsumables([null, null, null, null])
 
     Promise.all([
       getGameApi('/api/stash'),
@@ -80,59 +88,79 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
     return () => { canceled = true }
   }, [open])
 
-  // ── 选择计数 ───────────────────────────────
-  const totalItemsBrought = useMemo(
-    () => Object.values(selectedItems).reduce((s, n) => s + (n || 0), 0),
-    [selectedItems],
-  )
-  const equipmentBroughtCount = Object.values(selectedEquipments).filter(Boolean).length
+  // 装备实例按 slot 分组
+  const equipmentBySlot = useMemo(() => {
+    const map = { probe: [], shield: [], weapon: [], comm: [] }
+    for (const inst of (stash?.equipments || [])) {
+      const slot = inst.tier?.series?.slot
+      if (slot && map[slot]) map[slot].push(inst)
+    }
+    return map
+  }, [stash])
 
-  function toggleItem(name, max) {
-    setSelectedItems(prev => {
-      const cur = prev[name] || 0
-      // 单击：0 → max；再点：减 1（点击循环）
-      if (cur === 0) return { ...prev, [name]: max }
-      if (cur === 1) { const next = { ...prev }; delete next[name]; return next }
-      return { ...prev, [name]: cur - 1 }
-    })
-  }
-  function setItemQuantity(name, qty, max) {
-    const safe = Math.max(0, Math.min(max, qty | 0))
-    setSelectedItems(prev => {
-      if (safe === 0) { const next = { ...prev }; delete next[name]; return next }
-      return { ...prev, [name]: safe }
-    })
-  }
-  function toggleEquipment(instanceId) {
-    setSelectedEquipments(prev => {
-      const next = { ...prev }
-      if (next[instanceId]) delete next[instanceId]
-      else next[instanceId] = true
-      return next
-    })
-  }
-  function selectAllItems() {
-    if (!stash) return
-    const map = {}
-    for (const it of stash.items) map[it.name] = it.quantity
-    setSelectedItems(map)
-  }
-  function clearSelection() {
-    setSelectedItems({})
-    setSelectedEquipments({})
+  // 库存按 kind=consumable 过滤
+  const consumableItems = useMemo(() => {
+    if (!stash) return []
+    return stash.items.filter(it => itemDefs[it.name]?.kind === 'consumable')
+  }, [stash, itemDefs])
+
+  // 消耗品名 → 库存上限
+  const consumableMaxByName = useMemo(() => {
+    const m = {}
+    for (const it of consumableItems) m[it.name] = it.quantity
+    return m
+  }, [consumableItems])
+
+  // 同名消耗品在 4 槽中已选数量
+  const selectedConsumableUsage = useMemo(() => {
+    const usage = {}
+    for (const name of consumables) {
+      if (!name) continue
+      usage[name] = (usage[name] || 0) + 1
+    }
+    return usage
+  }, [consumables])
+
+  const equipmentCount = LOADOUT_SLOTS.filter(s => loadout[s]).length
+  const consumableCount = consumables.filter(Boolean).length
+  const totalLoad = equipmentCount + consumableCount
+  const TOTAL_CAP = LOADOUT_SLOTS.length + LOADOUT_CONSUMABLE_CAP
+
+  const setEquipSlot = useCallback((slot, instanceId) => {
+    setLoadout(prev => ({ ...prev, [slot]: instanceId }))
+  }, [])
+
+  const setConsumableSlot = useCallback((idx, name) => {
+    setConsumables(prev => prev.map((v, i) => i === idx ? name : v))
+  }, [])
+
+  function clearAll() {
+    setLoadout({ probe: null, shield: null, weapon: null, comm: null })
+    setConsumables([null, null, null, null])
   }
 
   async function handleConfirm() {
     if (!stash) return
     setConfirming(true)
     try {
-      const items = Object.entries(selectedItems)
-        .filter(([_, q]) => q > 0)
+      // 校验消耗品总数不超库存
+      for (const [name, used] of Object.entries(selectedConsumableUsage)) {
+        const max = consumableMaxByName[name] || 0
+        if (used > max) {
+          throw new Error(`${name} 库存不足（需要 ${used}，剩余 ${max}）`)
+        }
+      }
+      const items = Object.entries(selectedConsumableUsage)
         .map(([name, quantity]) => ({ name, quantity }))
-      const equipmentInstanceIds = Object.entries(selectedEquipments)
-        .filter(([_, on]) => on)
-        .map(([id]) => Number(id))
-      await onConfirm({ items, equipmentInstanceIds })
+      await onConfirm({
+        loadout,
+        consumables: consumables.filter(Boolean),
+        items,                                          // 兼容旧 shape，等同 consumables 聚合
+        equipmentInstanceIds: LOADOUT_SLOTS
+          .map(s => loadout[s])
+          .filter(Boolean)
+          .map(Number),
+      })
       onClose?.()
     } catch (err) {
       setError(err.message || '装载失败')
@@ -159,18 +187,20 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
         display: 'flex', flexDirection: 'column',
         boxShadow: `0 0 60px rgba(0,0,0,0.6), 0 0 2px ${C.accent}30`,
       }}>
-        {/* Header */}
-        <div style={{ padding: '16px 22px', borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ padding: '16px 22px', borderBottom: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: C.text }}>🎒 装载 <span style={{ color: C.dim, fontWeight: 400, fontSize: 14 }}>{roomTitle ? ` · ${roomTitle}` : ''}</span></h3>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: C.text }}>
+              🎒 装载
+              <span style={{ color: C.dim, fontWeight: 400, fontSize: 14 }}>{roomTitle ? ` · ${roomTitle}` : ''}</span>
+            </h3>
             <div style={{ marginTop: 4, fontSize: 11, color: C.dim }}>
-              选择带入 raid 的物资。<span style={{ color: C.red, fontWeight: 700 }}>死亡 = 全部失去</span>，撤离 = 安全归库。
+              4 装备槽 + 4 消耗品槽，最多带入 {TOTAL_CAP} 件。
+              <span style={{ color: C.red, fontWeight: 700 }}> 死亡 = 全部失去</span>，撤离 = 安全归库。
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontSize: 22 }}>✕</button>
         </div>
 
-        {/* Body */}
         <div style={{ padding: 22, overflowY: 'auto', flex: 1 }}>
           {loading && <div style={{ textAlign: 'center', color: C.dim, padding: 40 }}>加载库存中…</div>}
           {error && (
@@ -187,144 +217,63 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
                 padding: '12px 16px', borderRadius: 10,
                 background: `${C.accent}10`, border: `1px solid ${C.accent}25`, marginBottom: 16,
               }}>
-                <Stat label="已选道具" value={totalItemsBrought} color={C.yellow} />
-                <Stat label="已选装备" value={equipmentBroughtCount} color={C.purple} />
-                <Stat label="库容" value={`${stash.used} / ${stash.capacity}`} color={C.dim} />
+                <Stat label="装备" value={`${equipmentCount} / 4`} color={C.purple} />
+                <Stat label="消耗品" value={`${consumableCount} / 4`} color={C.yellow} />
+                <Stat label="总载荷" value={`${totalLoad} / ${TOTAL_CAP}`} color={C.accent} />
+                <Stat label="账户库容" value={`${stash.used} / ${stash.capacity}`} color={C.dim} />
                 <div style={{ flex: 1 }} />
                 <button
-                  onClick={selectAllItems}
-                  style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, border: `1px solid ${C.accent}30`, color: C.accent }}
-                >全选道具</button>
-                <button
-                  onClick={clearSelection}
+                  onClick={clearAll}
                   style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.dim2}15`, border: `1px solid ${C.dim2}40`, color: C.dim }}
                 >清空</button>
               </div>
 
-              {/* 装备区 */}
-              {stash.equipments.length > 0 && (
-                <Section title="🛡️ 装备" count={stash.equipments.length}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                    {stash.equipments.map(inst => {
-                      const tier = inst.tier
-                      const rarity = RARITY_META[tier?.rarity] || RARITY_META.common
-                      const selected = !!selectedEquipments[inst.id]
-                      return (
-                        <div
-                          key={inst.id}
-                          onClick={() => toggleEquipment(inst.id)}
-                          style={{
-                            padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
-                            background: selected ? `${rarity.color}15` : C.bg2,
-                            border: `1px solid ${selected ? rarity.color : C.border}`,
-                            borderLeft: `3px solid ${rarity.color}`,
-                            transition: 'all .15s',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11 }}>{selected ? '✅' : '⬜'}</span>
-                            <span style={{ fontWeight: 700, color: rarity.color, flex: 1, fontSize: 13 }}>{tier?.name || '未知装备'}</span>
-                            <span style={{ fontSize: 10, color: C.dim }}>{tier?.series?.slot || inst.equipped_slot || ''}</span>
-                          </div>
-                          <div style={{ marginTop: 4, fontSize: 11, color: C.dim, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            {tier?.base_atk > 0 && <span style={{ color: C.red }}>ATK +{tier.base_atk + (inst.bonus_atk || 0)}</span>}
-                            {tier?.base_def > 0 && <span style={{ color: C.accent }}>DEF +{tier.base_def + (inst.bonus_def || 0)}</span>}
-                            {tier?.durability_max > 0 && (
-                              <span style={{ color: inst.durability_current / tier.durability_max < 0.25 ? C.red : C.dim }}>
-                                耐久 {inst.durability_current}/{tier.durability_max}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Section>
-              )}
+              {/* 装备槽 2×2 */}
+              <Section title="🛡️ 装备 4 槽">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {LOADOUT_SLOTS.map(slot => (
+                    <EquipmentSlotCard
+                      key={slot}
+                      slot={slot}
+                      instances={equipmentBySlot[slot] || []}
+                      selectedId={loadout[slot]}
+                      onChange={(id) => setEquipSlot(slot, id)}
+                    />
+                  ))}
+                </div>
+              </Section>
 
-              {/* 道具区 */}
-              {stash.items.length > 0 ? (
-                <Section title="📦 道具" count={stash.items.length}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                    {stash.items.map(it => {
-                      const def = itemDefs[it.name] || {}
-                      const meta = ITEM_KIND_META[def.kind] || ITEM_KIND_META.special
-                      const qty = selectedItems[it.name] || 0
-                      const max = it.quantity
-                      return (
-                        <div
-                          key={it.name}
-                          style={{
-                            padding: '10px 12px', borderRadius: 10,
-                            background: qty > 0 ? `${meta.color}10` : C.bg2,
-                            border: `1px solid ${qty > 0 ? `${meta.color}50` : C.border}`,
-                            borderLeft: `3px solid ${meta.color}`,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 14 }}>{meta.icon}</span>
-                            <span style={{ fontWeight: 600, color: C.text, flex: 1, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</span>
-                            <span style={{ fontSize: 10, color: C.dim, fontFamily: 'monospace' }}>×{max}</span>
-                          </div>
-                          <div style={{ marginTop: 4, fontSize: 11, color: C.dim, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            {def.atk > 0 && <span style={{ color: C.red }}>ATK +{def.atk}</span>}
-                            {def.def > 0 && <span style={{ color: C.accent }}>DEF +{def.def}</span>}
-                            {def.heal > 0 && <span style={{ color: C.green }}>HEAL +{def.heal}</span>}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                            <button
-                              onClick={() => setItemQuantity(it.name, qty - 1, max)}
-                              disabled={qty <= 0}
-                              style={btnSquare(qty <= 0)}
-                            >−</button>
-                            <input
-                              type="number"
-                              min={0} max={max}
-                              value={qty}
-                              onChange={e => setItemQuantity(it.name, parseInt(e.target.value, 10) || 0, max)}
-                              style={{
-                                width: 56, padding: '4px 6px', borderRadius: 5,
-                                border: `1px solid ${C.border}`, background: C.bg0,
-                                color: qty > 0 ? meta.color : C.dim, fontSize: 13,
-                                fontWeight: 700, outline: 'none', textAlign: 'center',
-                              }}
-                            />
-                            <button
-                              onClick={() => setItemQuantity(it.name, qty + 1, max)}
-                              disabled={qty >= max}
-                              style={btnSquare(qty >= max)}
-                            >+</button>
-                            <div style={{ flex: 1 }} />
-                            <button
-                              onClick={() => toggleItem(it.name, max)}
-                              style={{
-                                padding: '3px 10px', borderRadius: 6, fontSize: 11,
-                                cursor: 'pointer', background: `${meta.color}15`,
-                                color: meta.color, border: `1px solid ${meta.color}30`,
-                              }}
-                            >{qty === max ? '清零' : qty > 0 ? '减一' : '全选'}</button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Section>
-              ) : (
-                stash.equipments.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: 60, color: C.dim2 }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>🎒</div>
-                    <p style={{ margin: 0 }}>账户库为空，可空手进 raid，搜到的物资撤离后入库。</p>
-                  </div>
-                )
+              {/* 消耗品槽 1×4 */}
+              <Section title="💊 消耗品 4 槽">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  {consumables.map((name, idx) => (
+                    <ConsumableSlotCard
+                      key={idx}
+                      idx={idx}
+                      currentName={name}
+                      options={consumableItems}
+                      itemDefs={itemDefs}
+                      usage={selectedConsumableUsage}
+                      onChange={(n) => setConsumableSlot(idx, n)}
+                    />
+                  ))}
+                </div>
+              </Section>
+
+              {(stash.equipments.length === 0 && consumableItems.length === 0) && (
+                <div style={{ textAlign: 'center', padding: 30, color: C.dim2 }}>
+                  <div style={{ fontSize: 36, marginBottom: 12 }}>🎒</div>
+                  <p style={{ margin: 0, fontSize: 12 }}>账户库为空，可空手进 raid，搜到的物资撤离后入库。</p>
+                </div>
               )}
             </>
           )}
         </div>
 
-        {/* Footer */}
-        <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ fontSize: 12, color: C.dim }}>
-            将带入：{totalItemsBrought} 件道具 + {equipmentBroughtCount} 件装备
+            将带入：<strong style={{ color: C.purple }}>{equipmentCount}</strong> 件装备 +
+            <strong style={{ color: C.yellow }}> {consumableCount}</strong> 件消耗品
           </div>
           <div style={{ flex: 1 }} />
           <button
@@ -349,14 +298,110 @@ export default function LoadoutModal({ open, onClose, onConfirm, roomTitle }) {
   )
 }
 
-// ── 子组件 ─────────────────────────────────────
-function Section({ title, count, children }) {
+// ── 装备槽卡片 ─────────────────────────────────
+function EquipmentSlotCard({ slot, instances, selectedId, onChange }) {
+  const meta = LOADOUT_SLOT_META[slot]
+  const filled = !!selectedId
+  const sel = instances.find(i => i.id === selectedId) || null
+  const tier = sel?.tier
+  const rarity = RARITY_META[tier?.rarity] || RARITY_META.common
+
+  return (
+    <div style={{
+      padding: '12px 14px', borderRadius: 10,
+      background: filled ? `${meta.color}10` : C.bg2,
+      border: `1px solid ${filled ? `${meta.color}50` : C.border}`,
+      borderLeft: `3px solid ${meta.color}`,
+      minHeight: 110,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <span style={{ fontSize: 16 }}>{meta.icon}</span>
+        <span style={{ fontWeight: 700, color: meta.color, fontSize: 13 }}>{meta.label}</span>
+        <span style={{ fontSize: 10, color: C.dim2 }}>{slot}</span>
+      </div>
+      <div style={{ fontSize: 10, color: C.dim, marginBottom: 8 }}>{meta.desc}</div>
+
+      {instances.length === 0 ? (
+        <div style={{ fontSize: 11, color: C.dim2, fontStyle: 'italic' }}>
+          库中无可用 {meta.label}
+        </div>
+      ) : (
+        <select
+          value={selectedId || ''}
+          onChange={e => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          style={{
+            width: '100%', padding: '6px 8px', borderRadius: 6,
+            border: `1px solid ${C.border}`, background: C.bg0,
+            color: filled ? rarity.color : C.dim, fontSize: 12, fontWeight: 700, outline: 'none',
+          }}
+        >
+          <option value="">— 不装载 —</option>
+          {instances.map(inst => (
+            <option key={inst.id} value={inst.id}>
+              {inst.tier?.name || `实例 ${inst.id}`}
+              {inst.tier?.base_atk > 0 ? ` · ATK+${inst.tier.base_atk + (inst.bonus_atk || 0)}` : ''}
+              {inst.tier?.base_def > 0 ? ` · DEF+${inst.tier.base_def + (inst.bonus_def || 0)}` : ''}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  )
+}
+
+// ── 消耗品槽卡片 ────────────────────────────────
+function ConsumableSlotCard({ idx, currentName, options, itemDefs, usage, onChange }) {
+  const def = currentName ? (itemDefs[currentName] || {}) : null
+  const meta = def ? (ITEM_KIND_META[def.kind] || ITEM_KIND_META.consumable) : null
+  const filled = !!currentName
+
+  return (
+    <div style={{
+      padding: '10px 12px', borderRadius: 10,
+      background: filled ? `${meta.color}10` : C.bg2,
+      border: `1px solid ${filled ? `${meta.color}50` : C.border}`,
+      borderLeft: `3px solid ${filled ? meta.color : C.dim2}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: C.dim2, fontFamily: 'monospace' }}>#{idx + 1}</span>
+        {filled && <span style={{ fontSize: 14 }}>{meta.icon}</span>}
+      </div>
+      <select
+        value={currentName || ''}
+        onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
+        style={{
+          width: '100%', padding: '6px 8px', borderRadius: 6,
+          border: `1px solid ${C.border}`, background: C.bg0,
+          color: filled ? meta.color : C.dim, fontSize: 12, fontWeight: 600, outline: 'none',
+        }}
+      >
+        <option value="">— 空槽 —</option>
+        {options.map(opt => {
+          const used = usage[opt.name] || 0
+          const adjustedMax = opt.quantity - (currentName === opt.name ? used - 1 : used)
+          if (adjustedMax <= 0 && currentName !== opt.name) return null
+          return (
+            <option key={opt.name} value={opt.name}>
+              {opt.name} · 库 {opt.quantity}
+            </option>
+          )
+        })}
+      </select>
+      {filled && def?.heal > 0 && (
+        <div style={{ marginTop: 4, fontSize: 10, color: C.green }}>HEAL +{def.heal}</div>
+      )}
+    </div>
+  )
+}
+
+// ── 公共组件 ───────────────────────────────────
+function Section({ title, children }) {
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{
         fontSize: 11, color: C.dim, fontWeight: 700, marginBottom: 8,
         textTransform: 'uppercase', letterSpacing: '0.5px',
-      }}>{title} <span style={{ color: C.dim2, fontWeight: 400 }}>· {count}</span></div>
+      }}>{title}</div>
       {children}
     </div>
   )
@@ -366,18 +411,7 @@ function Stat({ label, value, color }) {
   return (
     <div>
       <div style={{ fontSize: 10, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: 'var(--font-jetbrains-mono), monospace', marginTop: 2 }}>{value}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color, fontFamily: 'var(--font-jetbrains-mono), monospace', marginTop: 2 }}>{value}</div>
     </div>
   )
-}
-
-function btnSquare(disabled) {
-  return {
-    width: 24, height: 24, borderRadius: 5,
-    border: `1px solid ${C.border}`, background: C.bg2,
-    color: disabled ? C.dim2 : C.text, cursor: disabled ? 'not-allowed' : 'pointer',
-    fontSize: 14, fontWeight: 700, lineHeight: '20px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    opacity: disabled ? 0.5 : 1,
-  }
 }
