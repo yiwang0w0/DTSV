@@ -31,6 +31,11 @@ import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { processEventTrigger } from '@/lib/server/events'
 import {
+  evaluateBranchNodes,
+  setVisitedMapFlag,
+  setKilledNpcFlag,
+} from '@/lib/server/branches'
+import {
   appendGameLog,
   applyRoomLifecycle,
   clearPlayerLootPrompt,
@@ -194,6 +199,16 @@ async function settleCorpseGeneration(resolution) {
 async function persistResolution(client, room, resolution, options = {}) {
   const settled = finalizeResolution(resolution)
   return persistRoom(client, room, settled.gamevars, settled.logs, options)
+}
+
+// 在持久化前先评估分支节点，捕获条件触发的 flag/结局变化
+async function persistResolutionWithBranches(client, room, resolution, userId, options = {}) {
+  try {
+    await evaluateBranchNodes(client, resolution, userId)
+  } catch (e) {
+    console.error('[branches] 评估失败:', e?.message)
+  }
+  return persistResolution(client, room, resolution, options)
 }
 
 // 搜索专用：异步持久化版本，立即返回计算结果
@@ -765,12 +780,23 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       appendResolutionLog(resolution, `🏆 BOSS ${battle.npc.name} 已被击败！`, 'kill')
     }
 
+    // 自动 flag：该 NPC 已被击杀
+    setKilledNpcFlag(resolution, battle.npc.name)
+
     // on_kill_npc 事件先在 resolution 上应用（这样事件影响也会被一起持久化）
     try {
       await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: battle.npc.name })
     } catch (e) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
+
+    // 分支节点评估
+    try {
+      await evaluateBranchNodes(client, resolution, user.id)
+    } catch (e) {
+      console.error('[attackNpc] branch 评估失败:', e?.message)
+    }
+
     const nextRoom = await persistResolution(client, room, resolution)
     await safeConsumeDurability(user.id, room.id, 1, client)
     try {
@@ -1237,11 +1263,21 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   setResolutionPlayer(resolution, user.id, { ...player, map: mapId })
   appendResolutionLog(resolution, `${player.name} 转移至【${mapName}】`, 'system')
 
+  // 自动 flag：玩家曾访问该地图（供分支引擎使用）
+  setVisitedMapFlag(resolution, mapId)
+
   // on_enter_map 事件钩子
   try {
     await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId })
   } catch (e) {
     console.error('[movePlayer] event trigger 失败:', e?.message)
+  }
+
+  // 分支节点评估
+  try {
+    await evaluateBranchNodes(client, resolution, user.id)
+  } catch (e) {
+    console.error('[movePlayer] branch 评估失败:', e?.message)
   }
 
   return persistResolution(client, room, resolution)
@@ -1341,6 +1377,13 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     ? `${player.name} 从【${point.name}】成功撤离（带回 ${stashAdditions.reduce((s, it) => s + it.quantity, 0)} 件物资）`
     : `${player.name} 从【${point.name}】成功撤离`
   appendResolutionLog(resolution, note, 'system')
+
+  // 分支节点评估（撤离后重新检查 — 撤离人数变化可能触发结局）
+  try {
+    await evaluateBranchNodes(client, resolution, user.id)
+  } catch (e) {
+    console.error('[extractPlayer] branch 评估失败:', e?.message)
+  }
 
   // 玩家不再属于该房间
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)

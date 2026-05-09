@@ -15,6 +15,7 @@ import EquipmentTab  from './_tabs/EquipmentTab'
 import UsersTab      from './_tabs/UsersTab'
 import ContractsTab  from './_tabs/ContractsTab'
 import EventsTab     from './_tabs/EventsTab'
+import BranchesTab   from './_tabs/BranchesTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
@@ -28,6 +29,7 @@ const TABS = [
   { key: 'equipment', label: '🗡️ 装备引擎' },
   { key: 'contracts', label: '📜 合同' },
   { key: 'events',    label: '🎲 事件' },
+  { key: 'branches',  label: '🌿 分支' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
@@ -120,6 +122,7 @@ export default function AdminPage() {
       {tab === 'equipment' && <EquipmentTab toast={toast} />}
       {tab === 'contracts' && <ContractsTab toast={toast} />}
       {tab === 'events'    && <EventsTab toast={toast} />}
+      {tab === 'branches'  && <BranchesTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )
