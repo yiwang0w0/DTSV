@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { KNOWN_PERMISSION_GROUPS } from '@/lib/auth'
 import { BTN, INPUT, LABEL, Modal, Spinner } from '../_shared/ui'
+import GrantStashModal from '@/components/GrantStashModal'
 
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession()
@@ -56,6 +57,7 @@ export default function UsersTab({ toast }) {
   const [selectedGroups, setSelectedGroups] = useState([])
   const [customGroups, setCustomGroups] = useState('')
   const [saving, setSaving] = useState(false)
+  const [grantTarget, setGrantTarget] = useState(null)
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -247,6 +249,13 @@ export default function UsersTab({ toast }) {
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <button
+                  onClick={() => setGrantTarget(user)}
+                  style={BTN('rgba(63,185,80,0.12)', '#3fb950', { border: '1px solid rgba(63,185,80,0.25)' })}
+                  title="发放道具到该用户的账户库"
+                >
+                  📦 发放道具
+                </button>
+                <button
                   onClick={() => openEdit(user)}
                   style={BTN('rgba(88,166,255,0.12)', '#58a6ff', { border: '1px solid rgba(88,166,255,0.25)' })}
                 >
@@ -323,6 +332,18 @@ export default function UsersTab({ toast }) {
           </div>
         )}
       </Modal>
+
+      <GrantStashModal
+        open={!!grantTarget}
+        targetUser={grantTarget}
+        onClose={(result) => {
+          setGrantTarget(null)
+          if (result?.granted?.length) {
+            const total = result.granted.reduce((s, it) => s + (it.quantity || 0), 0)
+            toast(`已发放 ${total} 件道具到 ${grantTarget?.username || grantTarget?.email || '用户'}`)
+          }
+        }}
+      />
     </div>
   )
 }
