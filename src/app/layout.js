@@ -41,6 +41,7 @@ function Nav({ user, onLogout }) {
     { href: '/', label: '首页' },
     { href: '/rooms', label: '房间大厅' },
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
+    ...(user ? [{ href: '/contracts', label: '合同' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
   ]
 

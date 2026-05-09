@@ -28,6 +28,7 @@ import {
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
+import { updateContractProgress } from '@/lib/server/contracts'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -658,7 +659,13 @@ async function resolveSearchAction(client, room, gamevars, user) {
       inventory: [...(nextPlayer.inventory || []), found.name],
     })
     appendResolutionLog(resolution, `${player.name} 找到了 ${found.name}`, 'heal')
-    return persistResolutionAsync(client, room, resolution)
+    const persisted = await persistResolutionAsync(client, room, resolution)
+    try {
+      await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: found.name })
+    } catch (e) {
+      console.error('[searchArea] contract progress 失败:', e?.message)
+    }
+    return persisted
   }
 
   appendResolutionLog(resolution, `${player.name} 搜索了一圈，但没有发现有用的东西`, 'system')
@@ -743,6 +750,11 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
     const nextRoom = await persistResolution(client, room, resolution)
     await safeConsumeDurability(user.id, room.id, 1, client)
+    try {
+      await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: battle.npc.name })
+    } catch (e) {
+      console.error('[attackNpc] contract progress 失败:', e?.message)
+    }
     return nextRoom
   }
 
@@ -1035,6 +1047,14 @@ async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
     }
 
     const nextRoom = await persistRoom(client, room, working, logs)
+    // 合同进度：拾取的是普通道具时推进 find_item 目标
+    if (selected.type === 'item' && selected.name) {
+      try {
+        await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: selected.name })
+      } catch (e) {
+        console.error('[lootCorpse] contract progress 失败:', e?.message)
+      }
+    }
     return nextRoom
   } catch (error) {
     await rollbackLootSideEffect(client, sideEffect)
@@ -1300,7 +1320,19 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   // 玩家不再属于该房间
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)
 
-  return persistResolution(client, room, resolution)
+  const nextRoom = await persistResolution(client, room, resolution)
+
+  // 合同进度：撤离推进 extract / extract_at
+  try {
+    await updateContractProgress(client, user.id, {
+      type: 'extracted',
+      extractionPointId: point.id,
+    })
+  } catch (e) {
+    console.error('[extractPlayer] contract progress 失败:', e?.message)
+  }
+
+  return nextRoom
 }
 
 async function performItemUse(client, room, gamevars, user, itemName) {
