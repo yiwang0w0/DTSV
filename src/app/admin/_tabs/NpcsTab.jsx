@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META, MAP_LIST } from '../_shared/ui'
+import { ENTITY_TYPE_META } from '@/lib/constants'
 
 /* ── 样式常量 ── */
 const SECTION_TITLE = {
@@ -21,8 +22,30 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
     (filter === 'all' || n.level === filter) && (!search || n.name.includes(search))
   )
 
-  function openAdd()   { setEditNpc({ name: '', hp: 50, atk: 10, def: 5, exp: 20, level: 'easy', maps: [] }); setModal(true) }
-  function openEdit(n) { setEditNpc({ ...n, maps: n.maps || [] }); setModal(true) }
+  function openAdd() {
+    setEditNpc({
+      name: '', hp: 50, atk: 10, def: 5, exp: 20, level: 'easy', maps: [],
+      entity_type: 'remnant', hostile: true, tradeable: false,
+      trade_wants: null, trade_offers: null,
+      pollution_on_kill: 4, spawn_weight: 1.0, min_pollution: 0,
+    })
+    setModal(true)
+  }
+  function openEdit(n) {
+    setEditNpc({
+      ...n,
+      maps: n.maps || [],
+      entity_type: n.entity_type || 'remnant',
+      hostile: n.hostile ?? true,
+      tradeable: n.tradeable ?? false,
+      trade_wants: n.trade_wants ?? null,
+      trade_offers: n.trade_offers ?? null,
+      pollution_on_kill: n.pollution_on_kill ?? 4,
+      spawn_weight: n.spawn_weight ?? 1.0,
+      min_pollution: n.min_pollution ?? 0,
+    })
+    setModal(true)
+  }
 
   async function save() {
     if (!editNpc.name.trim()) { toast('请填写NPC名称', 'error'); return }
@@ -74,8 +97,14 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                    🤖 {npc.name}
+                    {ENTITY_TYPE_META[npc.entity_type]?.icon || '🤖'} {npc.name}
                     <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 7px', borderRadius: 8, background: `${lv.color}15`, color: lv.color, border: `1px solid ${lv.color}30` }}>{lv.label}</span>
+                    {npc.entity_type && (() => {
+                      const em = ENTITY_TYPE_META[npc.entity_type]
+                      return em ? <span style={{ marginLeft: 4, fontSize: 10, padding: '1px 7px', borderRadius: 8, background: `${em.color}15`, color: em.color, border: `1px solid ${em.color}30` }}>{em.label}</span> : null
+                    })()}
+                    {!npc.hostile && <span style={{ marginLeft: 4, fontSize: 10, padding: '1px 7px', borderRadius: 8, background: 'rgba(63,185,80,0.15)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)' }}>非敌对</span>}
+                    {npc.tradeable && <span style={{ marginLeft: 4, fontSize: 10, padding: '1px 7px', borderRadius: 8, background: 'rgba(210,153,34,0.15)', color: '#d29922', border: '1px solid rgba(210,153,34,0.3)' }}>可交易</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
                     <span style={{ color: '#3fb950' }}>HP {npc.hp}</span>
@@ -149,7 +178,80 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
               </div>
             </div>
 
-            {/* ── 第三组：地图分配 ── */}
+             {/* ── 第三组：远星实体属性 ── */}
+            <div style={SECTION_TITLE}>🌌 远星属性</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={LABEL}>实体类型</label>
+                <select style={INPUT} value={editNpc.entity_type || 'remnant'} onChange={e => setEditNpc({ ...editNpc, entity_type: e.target.value })}>
+                  {Object.entries(ENTITY_TYPE_META).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+                </select>
+                <div style={HINT}>残响/伪装入侵者/共生/观察 4 类</div>
+              </div>
+              <div>
+                <label style={LABEL}>是否敌对</label>
+                <select style={INPUT} value={editNpc.hostile ? '1' : '0'} onChange={e => setEditNpc({ ...editNpc, hostile: e.target.value === '1' })}>
+                  <option value="1">是（主动攻击）</option>
+                  <option value="0">否（不主动攻击）</option>
+                </select>
+              </div>
+              <div>
+                <label style={LABEL}>是否可交易</label>
+                <select style={INPUT} value={editNpc.tradeable ? '1' : '0'} onChange={e => setEditNpc({ ...editNpc, tradeable: e.target.value === '1' })}>
+                  <option value="0">否</option>
+                  <option value="1">是（可与玩家交换物品）</option>
+                </select>
+              </div>
+              <div>
+                <label style={LABEL}>击杀污染加成</label>
+                <input type="number" min={0} style={INPUT} value={editNpc.pollution_on_kill ?? 4} onChange={e => setEditNpc({ ...editNpc, pollution_on_kill: Math.max(0, Number(e.target.value) || 0) })} />
+                <div style={HINT}>玩家击杀后个人污染额外增加</div>
+              </div>
+              <div>
+                <label style={LABEL}>刷新权重</label>
+                <input type="number" step="0.1" min={0} style={INPUT} value={editNpc.spawn_weight ?? 1.0} onChange={e => setEditNpc({ ...editNpc, spawn_weight: Math.max(0, Number(e.target.value) || 0) })} />
+                <div style={HINT}>事件 spawn_npc 加权抽取的权重</div>
+              </div>
+              <div>
+                <label style={LABEL}>最低环境污染要求</label>
+                <input type="number" min={0} max={100} style={INPUT} value={editNpc.min_pollution ?? 0} onChange={e => setEditNpc({ ...editNpc, min_pollution: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} />
+                <div style={HINT}>环境污染未达此值时不会被抽中</div>
+              </div>
+              {editNpc.tradeable && (
+                <>
+                  <div style={{ gridColumn: '1/-1' }}>
+                    <label style={LABEL}>交易需求 trade_wants（JSON：{`{"item":"环段部件","qty":1}`}）</label>
+                    <input style={INPUT}
+                      value={editNpc.trade_wants ? JSON.stringify(editNpc.trade_wants) : ''}
+                      onChange={e => {
+                        const v = e.target.value.trim()
+                        if (!v) { setEditNpc({ ...editNpc, trade_wants: null }); return }
+                        try {
+                          const parsed = JSON.parse(v)
+                          if (parsed && parsed.item && parsed.qty) setEditNpc({ ...editNpc, trade_wants: parsed })
+                        } catch { /* 等待合法 JSON */ }
+                      }}
+                      placeholder='{"item":"环段部件","qty":1}' />
+                  </div>
+                  <div style={{ gridColumn: '1/-1' }}>
+                    <label style={LABEL}>交易提供 trade_offers（JSON）</label>
+                    <input style={INPUT}
+                      value={editNpc.trade_offers ? JSON.stringify(editNpc.trade_offers) : ''}
+                      onChange={e => {
+                        const v = e.target.value.trim()
+                        if (!v) { setEditNpc({ ...editNpc, trade_offers: null }); return }
+                        try {
+                          const parsed = JSON.parse(v)
+                          if (parsed && parsed.item && parsed.qty) setEditNpc({ ...editNpc, trade_offers: parsed })
+                        } catch { /* */ }
+                      }}
+                      placeholder='{"item":"Ω物质","qty":1}' />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── 第四组：地图分配 ── */}
             <div style={SECTION_TITLE}>🗺️ 地图分配</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <label style={{ ...LABEL, margin: 0 }}>出没地图（{editNpc.maps.length} / {MAP_LIST.length} 已选）</label>

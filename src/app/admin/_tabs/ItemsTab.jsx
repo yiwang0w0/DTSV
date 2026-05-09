@@ -3,36 +3,36 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, MAP_LIST } from '../_shared/ui'
 
-/* ── 子类型中文映射 ── */
+/* ── 子类型中文映射（远星函馆） ── */
 const ITEM_SUB_KINDS = {
-  weapon: [
-    { value: 'slashing', label: '斩击' },
-    { value: 'piercing', label: '穿刺' },
-    { value: 'blunt',    label: '钝器' },
-    { value: 'ranged',   label: '远程' },
-    { value: 'magic',    label: '魔法' },
+  // 远星 5 kind 都不强制 sub_kind（除非是 equipment 但装备走 equipment_tiers，不在 item_pool）
+  tech_fragment: [
+    { value: '', label: '（无）' },
+    { value: 'protocol', label: '协议' },
+    { value: 'algorithm', label: '算法' },
   ],
-  armor: [
-    { value: 'light',  label: '轻甲' },
-    { value: 'medium', label: '中甲' },
-    { value: 'heavy',  label: '重甲' },
+  platform_part: [
+    { value: '', label: '（无）' },
+    { value: 'core', label: '核心' },
+    { value: 'buffer', label: '缓冲' },
+    { value: 'interface', label: '接口' },
+  ],
+  omega_matter: [
+    { value: '', label: '（无）' },
   ],
   consumable: [
-    { value: 'heal',    label: '治疗' },
-    { value: 'buff',    label: '增益' },
-    { value: 'damage',  label: '伤害' },
-    { value: 'utility', label: '功能' },
+    { value: '', label: '（无）' },
+    { value: 'heal',         label: '治疗' },
+    { value: 'pollution',    label: '污染降低' },
+    { value: 'buff',         label: '增益' },
+    { value: 'utility',      label: '功能' },
   ],
-  material: [
-    { value: 'ore',   label: '矿石' },
-    { value: 'plant', label: '植物' },
-    { value: 'drop',  label: '掉落物' },
-    { value: 'misc',  label: '杂项' },
-  ],
-  special: [
-    { value: 'key',   label: '钥匙' },
-    { value: 'quest', label: '任务' },
-    { value: 'misc',  label: '杂项' },
+  // equipment 一般不在 item_pool；仅作向后兼容保留
+  equipment: [
+    { value: 'probe',  label: '探测设备' },
+    { value: 'shield', label: '防护装置' },
+    { value: 'weapon', label: '武器模组' },
+    { value: 'comm',   label: '通信组件' },
   ],
 }
 
@@ -64,7 +64,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   )
 
   function openAdd() {
-    setEditItem({ name: '', kind: 'weapon', sub_kind: 'slashing', atk: 0, def: 0, heal: 0, effect: 0, amount: 1, maps: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '' })
+    setEditItem({ name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1, maps: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '' })
     setModal(true)
   }
   function openEdit(item) {
