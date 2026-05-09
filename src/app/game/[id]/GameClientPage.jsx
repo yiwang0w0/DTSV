@@ -12,7 +12,6 @@ import { postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
-import BattleModal from './BattleModal'
 import {
   Btn,
   BuffTag,
@@ -227,28 +226,6 @@ export default function GameClientPage() {
     }
   }
 
-  // ── 增强版战斗动作（通过独立 API 路由） ──
-  async function runBattleAction(battlePayload) {
-    setBusy(true)
-    try {
-      const { room: nextRoom } = await postGameApi('/api/game/battle', {
-        roomId: Number(roomId),
-        ...battlePayload,
-      })
-      await hydrateRoom(nextRoom)
-      return nextRoom
-    } catch (error) {
-      // 如果新 API 不可用，回退到旧 API
-      if (error.message?.includes('404') || error.message?.includes('Not Found')) {
-        return runGameAction('battleAction', battlePayload)
-      }
-      toast(error.message, 'error')
-      return null
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function handleCraft(resultTierId) {
     const result = await runEquipmentAction('craft', { resultTierId })
     if (!result) return { success: false }
@@ -293,17 +270,6 @@ export default function GameClientPage() {
         onClose={handleDismissLootPrompt}
         onTake={handleTakeLoot}
       />
-
-      {/* 增强版战斗全屏界面 */}
-      {battle?.playerSkills && (
-        <BattleModal
-          battle={battle}
-          player={me}
-          roomId={roomId}
-          onBattleAction={runBattleAction}
-          busy={busy}
-        />
-      )}
 
       <style>{`
         *{box-sizing:border-box}
@@ -392,47 +358,29 @@ export default function GameClientPage() {
             )}
             {battle ? (
               <div>
-                {battle.playerSkills ? (
-                  /* 增强版战斗：显示简要状态，完整 UI 由 BattleModal 全屏展示 */
-                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: T.red, marginBottom: 6 }}>
-                      ⚔ 战斗中：{battle.opponent?.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.dim }}>
-                      回合 {battle.turn} · AP {battle.playerAp}/{6}
-                    </div>
-                    <div style={{ fontSize: 10, color: T.dimB, marginTop: 4 }}>
-                      战斗界面已打开
-                    </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: T.red }}>⚔️ 战斗中：{battle.npc?.name}</span>
+                  <span style={{ fontSize: 11, color: T.dim }}>第 {battle.turn} 回合</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{me?.name}</div>
+                    <HpBar hp={me?.hp || 0} max={me?.maxHp || 100} />
+                    <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {me?.atk} · DEF {me?.def}</div>
                   </div>
-                ) : (
-                  /* 旧版战斗兼容 */
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: T.red }}>⚔️ 战斗中：{battle.npc?.name}</span>
-                      <span style={{ fontSize: 11, color: T.dim }}>第 {battle.turn} 回合</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{me?.name}</div>
-                        <HpBar hp={me?.hp || 0} max={me?.maxHp || 100} />
-                        <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {me?.atk} · DEF {me?.def}</div>
-                      </div>
-                      <div style={{ fontSize: 18, color: T.dim }}>VS</div>
-                      <div>
-                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{battle.npc?.name}</div>
-                        <HpBar hp={battle.npcHp} max={battle.npcMaxHp} />
-                        <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {battle.npc?.atk} · DEF {battle.npc?.def}</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontSize: 14, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={busy || room.gamestate === 2}>
-                        {busy ? '攻击中...' : '攻击 NPC'}
-                      </Btn>
-                      <Btn variant="ghost" sx={{ flex: 1 }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
-                    </div>
-                  </>
-                )}
+                  <div style={{ fontSize: 18, color: T.dim }}>VS</div>
+                  <div>
+                    <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{battle.npc?.name}</div>
+                    <HpBar hp={battle.npcHp} max={battle.npcMaxHp} />
+                    <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {battle.npc?.atk} · DEF {battle.npc?.def}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontSize: 14, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={busy || room.gamestate === 2}>
+                    {busy ? '攻击中...' : '攻击 NPC'}
+                  </Btn>
+                  <Btn variant="ghost" sx={{ flex: 1 }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
+                </div>
               </div>
             ) : !inGame ? (
               <div style={{ textAlign: 'center' }}>
@@ -577,8 +525,7 @@ export default function GameClientPage() {
         </div>
 
         <div style={{ borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
-          {battle && !battle.playerSkills && (battle.log || []).length > 0 ? (
-            /* 旧版战斗日志（字符串数组） */
+          {battle && (battle.log || []).length > 0 ? (
             <>
               <PanelTitle>战斗记录</PanelTitle>
               <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px' }}>

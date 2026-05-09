@@ -27,7 +27,6 @@ import {
   triggerPassives,
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
-import { initBattle, executeBattleAction } from '@/lib/server/battleActions'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -615,18 +614,17 @@ async function resolveSearchAction(client, room, gamevars, user) {
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
     const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
-    // 使用增强版战斗初始化
-    const { battle: newBattle, playerHpAfterInit, logs: battleInitLogs } = initBattle(nextPlayer, npc, rules)
     setResolutionPlayer(resolution, user.id, {
       ...nextPlayer,
-      hp: playerHpAfterInit,
-      alive: playerHpAfterInit > 0,
-      battle: newBattle,
+      battle: {
+        npc,
+        npcHp: npc.hp,
+        npcMaxHp: npc.hp,
+        turn: 1,
+        log: [],
+      },
     })
     appendResolutionLog(resolution, `${player.name} 遭遇了 ${npc.name}`, 'damage')
-    for (const logText of battleInitLogs) {
-      appendResolutionLog(resolution, logText, 'system')
-    }
     return persistResolutionAsync(client, room, resolution)
   }
 
@@ -1132,24 +1130,11 @@ export async function executeGameAction(client, user, payload, options = {}) {
   }
 
   if (payload.action === 'attackNpc') {
-    // 增强版战斗：通过 /api/game/battle 路由处理
-    // 旧版兼容：如果 battle 没有 playerSkills 字段，走旧逻辑
-    if (me?.battle?.playerSkills) {
-      return resolveBattleAction(client, room, gamevars, user, { action: 'skill', skillId: payload.skillId || 'punch' })
-    }
     return attackNpc(client, room, gamevars, user)
   }
 
   if (payload.action === 'flee') {
-    if (me?.battle?.playerSkills) {
-      return resolveBattleAction(client, room, gamevars, user, { action: 'flee' })
-    }
     return fleeNpc(client, room, gamevars, user)
-  }
-
-  // 增强版战斗动作（通过旧 API 路由的兼容入口）
-  if (payload.action === 'battleAction') {
-    return resolveBattleAction(client, room, gamevars, user, payload)
   }
 
   if (payload.action === 'attackPlayer') {
@@ -1169,50 +1154,6 @@ export async function executeGameAction(client, user, payload, options = {}) {
   }
 
   throw new Error('未知动作')
-}
-
-// ── 增强版战斗动作处理（兼容入口）──
-async function resolveBattleAction(client, room, gamevars, user, battlePayload) {
-  const player = getPlayer(gamevars, user.id)
-  if (!player?.alive) throw new Error('阵亡玩家无法操作')
-  if (!player.battle) throw new Error('当前不在战斗中')
-
-  const rules = await loadGameRules(client)
-  const result = executeBattleAction(player, rules, battlePayload, gamevars)
-
-  const nextGamevars = {
-    ...gamevars,
-    players: {
-      ...gamevars.players,
-      [user.id]: result.updatedPlayer,
-    },
-    ...(result.isBossKill ? { bossDefeated: true } : {}),
-  }
-
-  const logEntries = result.logs.map(text => createLogEntry(text, 'damage'))
-
-  // 战斗胜利时生成尸体
-  if (result.victory && result.defeatedNpc) {
-    const corpseResult = await createNpcCorpse(client, nextGamevars, result.defeatedNpc, player.map ?? 0)
-    const gvWithCorpse = corpseResult.gamevars || nextGamevars
-    let lootPrompt = null
-    if (corpseResult.corpse) {
-      lootPrompt = buildLootPrompt(gvWithCorpse, corpseResult.corpse, 'kill')
-      if (lootPrompt) {
-        return persistRoom(client, room, setPlayerLootPrompt(gvWithCorpse, user.id, lootPrompt), logEntries)
-      }
-    }
-    return persistRoom(client, room, gvWithCorpse, logEntries)
-  }
-
-  // 战斗败北时生成尸体
-  if (result.battleEnded && result.victory === false) {
-    const resolution = createActionResolution({ room, actorId: user.id, gamevars: nextGamevars })
-    await settleCorpseGeneration(resolution)
-    return persistRoom(client, room, resolution.gamevars, logEntries)
-  }
-
-  return persistRoom(client, room, nextGamevars, logEntries)
 }
 
 async function movePlayer(client, room, gamevars, user, mapId) {
