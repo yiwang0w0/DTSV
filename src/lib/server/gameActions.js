@@ -35,6 +35,7 @@ import {
   setVisitedMapFlag,
   setKilledNpcFlag,
 } from '@/lib/server/branches'
+import { applyEndingIfTriggered } from '@/lib/server/endings'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -201,12 +202,17 @@ async function persistResolution(client, room, resolution, options = {}) {
   return persistRoom(client, room, settled.gamevars, settled.logs, options)
 }
 
-// 在持久化前先评估分支节点，捕获条件触发的 flag/结局变化
+// 在持久化前先评估分支节点 → 应用结局，捕获条件触发的 flag/结局变化
 async function persistResolutionWithBranches(client, room, resolution, userId, options = {}) {
   try {
     await evaluateBranchNodes(client, resolution, userId)
   } catch (e) {
     console.error('[branches] 评估失败:', e?.message)
+  }
+  try {
+    await applyEndingIfTriggered(client, resolution)
+  } catch (e) {
+    console.error('[endings] 应用失败:', e?.message)
   }
   return persistResolution(client, room, resolution, options)
 }
@@ -790,11 +796,12 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
 
-    // 分支节点评估
+    // 分支节点评估 + 结局检查
     try {
       await evaluateBranchNodes(client, resolution, user.id)
+      await applyEndingIfTriggered(client, resolution)
     } catch (e) {
-      console.error('[attackNpc] branch 评估失败:', e?.message)
+      console.error('[attackNpc] branch/ending 评估失败:', e?.message)
     }
 
     const nextRoom = await persistResolution(client, room, resolution)
@@ -1273,11 +1280,12 @@ async function movePlayer(client, room, gamevars, user, mapId) {
     console.error('[movePlayer] event trigger 失败:', e?.message)
   }
 
-  // 分支节点评估
+  // 分支节点评估 + 结局检查
   try {
     await evaluateBranchNodes(client, resolution, user.id)
+    await applyEndingIfTriggered(client, resolution)
   } catch (e) {
-    console.error('[movePlayer] branch 评估失败:', e?.message)
+    console.error('[movePlayer] branch/ending 评估失败:', e?.message)
   }
 
   return persistResolution(client, room, resolution)
@@ -1381,8 +1389,9 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   // 分支节点评估（撤离后重新检查 — 撤离人数变化可能触发结局）
   try {
     await evaluateBranchNodes(client, resolution, user.id)
+    await applyEndingIfTriggered(client, resolution)
   } catch (e) {
-    console.error('[extractPlayer] branch 评估失败:', e?.message)
+    console.error('[extractPlayer] branch/ending 评估失败:', e?.message)
   }
 
   // 玩家不再属于该房间

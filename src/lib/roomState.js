@@ -187,6 +187,12 @@ export function applyRoomLifecycle(room, gamevars, options = {}) {
     startedAt = startedAt || new Date().toISOString()
   }
 
+  // ── 触发结局优先 ──（分支引擎写入 endingResult 时直接结束）
+  if (gamestate === 1 && normalized.endingResult) {
+    gamestate = 2
+    winner = `结局：${normalized.endingResult.name}`
+  }
+
   // ── 多人模式结束：最后一人存活 ──
   if (gamestate === 1 && validnum > 1 && alivenum <= 1) {
     gamestate = 2

@@ -313,6 +313,45 @@ export default function GameClientPage() {
         </div>
       </div>
 
+      {gamevars?.endingResult && (
+        <div style={{
+          background: `linear-gradient(135deg, ${T.purple}25 0%, ${T.cyan}15 50%, ${T.purple}25 100%)`,
+          borderBottom: `2px solid ${T.purple}60`,
+          padding: '16px 24px', flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 18,
+          boxShadow: `0 4px 20px ${T.purple}30 inset`,
+        }}>
+          <div style={{ fontSize: 32 }}>🎬</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: T.purple, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 4 }}>
+              结局触发
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.text, marginBottom: 4 }}>
+              {gamevars.endingResult.name}
+            </div>
+            {gamevars.endingResult.bannerText && (
+              <div style={{ fontSize: 13, color: T.dimB, fontStyle: 'italic' }}>
+                「{gamevars.endingResult.bannerText}」
+              </div>
+            )}
+            {(gamevars.endingResult.rewardedItems || []).length > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: T.dim }}>奖励：</span>
+                {gamevars.endingResult.rewardedItems.map((it, i) => (
+                  <span key={i} style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                    background: `${T.yellow}18`, color: T.yellow, border: `1px solid ${T.yellow}40`,
+                  }}>{it.name} ×{it.quantity}</span>
+                ))}
+                <span style={{ fontSize: 10, color: T.dim2 }}>
+                  · 已发送给 {gamevars.endingResult.rewardedPlayerCount} 名存活玩家
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '300px 1fr 300px', overflow: 'hidden' }}>
         <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
           <PanelTitle>👤 {me ? me.name : '未加入'}</PanelTitle>
