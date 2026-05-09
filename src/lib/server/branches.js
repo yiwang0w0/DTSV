@@ -83,6 +83,12 @@ export function evaluateCondition(condition, gamevars) {
       return Number(flags[condition.key] || 0) >= Number(condition.value || 0)
 
     case 'anyPlayerHas':
+      // 远星函馆扩展：支持 { key, minValue } 检查玩家数值字段
+      if (condition.minValue !== undefined) {
+        const minV = Number(condition.minValue)
+        return players.some(p => Number(p?.[condition.key] || 0) >= minV)
+      }
+      // 原语义：检查任一玩家 inventory 含 itemName
       return players.some(p => Array.isArray(p?.inventory) && p.inventory.includes(condition.itemName))
 
     case 'allPlayersHave':
