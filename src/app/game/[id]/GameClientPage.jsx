@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../layout'
-import { MAP_LIST } from '@/lib/constants'
+import { MAP_LIST, ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META } from '@/lib/constants'
+import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
 import { calcEquippedStats, RARITY_META } from '@/lib/equipmentEngine'
 import { normalizeGamevars } from '@/lib/roomState'
@@ -235,11 +236,26 @@ export default function GameClientPage() {
     return result
   }
 
-  async function handleExtract(extractionPointId) {
-    const next = await runGameAction('extract', { extractionPointId }, { refreshEquipment: true })
+  async function handleExtract() {
+    const next = await runGameAction('extract', {}, { refreshEquipment: true })
     if (next) {
       toast('🚪 已成功撤离，物资已入库', 'success')
       setExtractOpen(false)
+    }
+  }
+
+  async function handleEmergencyRetreat() {
+    if (!confirm('确认启用缝隙维护轨道？\n个人污染将 +' + POLLUTION_CONFIG.EMERGENCY_COST + '%')) return
+    const next = await runGameAction('emergencyRetreat', {})
+    if (next) {
+      toast(`已传送至外环维护廊（个人污染 +${POLLUTION_CONFIG.EMERGENCY_COST}%）`, 'success')
+    }
+  }
+
+  async function handleTradeNpc(npcId) {
+    const next = await runGameAction('trade', { npcId })
+    if (next) {
+      toast('交易成功', 'success')
     }
   }
 
@@ -285,8 +301,9 @@ export default function GameClientPage() {
         onClose={() => setExtractOpen(false)}
         onExtract={handleExtract}
         busy={busy}
-        points={mapConfig?.extraction_points || []}
-        roomStartedAt={room?.started_at}
+        mapName={mapConfig?.name || `地图 ${meBase?.map ?? 0}`}
+        mapDescription={mapConfig?.description || ''}
+        exitCost={mapConfig?.exit_cost || null}
         inventory={meBase?.inventory || []}
         equippedCount={equipments.length}
       />
@@ -300,15 +317,46 @@ export default function GameClientPage() {
         select,input{outline:none;font-family:inherit}
       `}</style>
 
-      <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: T.cyan, letterSpacing: 3, textShadow: `0 0 20px ${T.cyan}80` }}>DTS 大逃杀</div>
-        <div style={{ display: 'flex', gap: 20, fontSize: 12, color: T.dim, alignItems: 'center' }}>
-          <span>{mapConfig?.name || '未知区域'}</span>
+      <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: T.cyan, letterSpacing: 2, textShadow: `0 0 20px ${T.cyan}80` }}>
+          远星函馆 · 17号异常段
+        </div>
+        <div style={{ display: 'flex', gap: 14, fontSize: 11, color: T.dim, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ color: T.text, fontWeight: 700 }}>{mapConfig?.name || '未知区域'}</span>
           <span>{weather.icon} {weather.label}{weather.mod ? <span style={{ color: T.yellow, marginLeft: 4, fontSize: 10 }}>({weather.mod})</span> : null}</span>
-          <span>{new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-          <span style={{ color: room.gamestate === 2 ? T.yellow : T.red, fontWeight: 700 }}>
-            {room.gamestate === 2 ? `胜者：${room.winner || '无人'}`
-              : `剩余 ${aliveCount} 人`}
+
+          {/* 环境污染 */}
+          <PollutionPill
+            label="环境"
+            value={gamevars?.envPollution || 0}
+            color={T.red}
+          />
+          {/* 个人污染 */}
+          <PollutionPill
+            label="个人"
+            value={meBase?.personalPollution || 0}
+            color={T.purple}
+          />
+          {/* 有效污染等级 */}
+          <EffectivePollutionTag
+            envP={gamevars?.envPollution || 0}
+            personalP={meBase?.personalPollution || 0}
+          />
+          {/* Ω 倒计时 */}
+          {meBase?.omegaCountdown !== null && meBase?.omegaCountdown !== undefined && (
+            <span style={{
+              fontSize: 11, padding: '2px 8px', borderRadius: 12,
+              background: `${T.purple}18`, color: T.purple, border: `1px solid ${T.purple}40`,
+              fontWeight: 700,
+            }}>
+              Ω {meBase.omegaCountdown}
+            </span>
+          )}
+
+          <span style={{ color: room.gamestate === 2 ? T.yellow : T.green, fontWeight: 700 }}>
+            {room.gamestate === 2
+              ? (gamevars?.endingResult ? `结局：${gamevars.endingResult.name}` : `胜者：${room.winner || '无人'}`)
+              : `存活 ${aliveCount}`}
           </span>
         </div>
       </div>
@@ -466,14 +514,29 @@ export default function GameClientPage() {
                     装备合成
                   </Btn>
                 </div>
-                {(mapConfig?.extraction_points?.length > 0) && (
+                {mapConfig?.is_exit && (
                   <Btn
                     variant="ghost"
                     onClick={() => setExtractOpen(true)}
-                    sx={{ width: '100%', borderColor: `${T.green}50`, color: T.green, fontSize: 13, fontWeight: 700 }}
+                    sx={{ width: '100%', borderColor: `${T.green}50`, color: T.green, fontSize: 13, fontWeight: 700, marginBottom: 6 }}
                     disabled={!me?.alive || room.gamestate === 2 || !!battle}
                   >
-                    🚪 撤离 ({mapConfig.extraction_points.length})
+                    🚪 结构退避
+                    {mapConfig.exit_cost?.item && (
+                      <span style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
+                        （需 {mapConfig.exit_cost.item} ×{mapConfig.exit_cost.qty || 1}）
+                      </span>
+                    )}
+                  </Btn>
+                )}
+                {(gamevars?.envPollution || 0) >= POLLUTION_CONFIG.EMERGENCY_UNLOCK && (
+                  <Btn
+                    variant="ghost"
+                    onClick={handleEmergencyRetreat}
+                    sx={{ width: '100%', borderColor: `${T.yellow}50`, color: T.yellow, fontSize: 12 }}
+                    disabled={!me?.alive || room.gamestate === 2 || !!battle}
+                  >
+                    ⚠ 缝隙维护轨道（个人污染 +{POLLUTION_CONFIG.EMERGENCY_COST}%）
                   </Btn>
                 )}
                 {!me?.alive && <div style={{ textAlign: 'center', color: T.red, fontSize: 12, marginTop: 8 }}>你已阵亡，只能查看战况与装备状态</div>}
@@ -616,11 +679,15 @@ export default function GameClientPage() {
             </>
           ) : (
             <>
-              <PanelTitle right={me?.alive ? <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>点击转移</span> : null}>地图</PanelTitle>
+              <PanelTitle right={me?.alive ? <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>仅相邻可达</span> : null}>区域</PanelTitle>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {MAP_LIST.map(map => {
                   const current = (meBase?.map ?? 0) === map.id
-                  const canMove = me?.alive && !battle && !busy && !current && room.gamestate !== 2
+                  const adjacent = Array.isArray(mapConfig?.adjacent_maps)
+                    ? mapConfig.adjacent_maps.includes(map.id)
+                    : false
+                  const canMove = me?.alive && !battle && !busy && !current && adjacent && room.gamestate !== 2
+                  const greyOut = !current && !adjacent
                   return (
                     <div
                       key={map.id}
@@ -628,16 +695,19 @@ export default function GameClientPage() {
                       style={{
                         padding: '8px 12px',
                         borderBottom: `1px solid ${T.border}`,
-                        borderLeft: `3px solid ${current ? T.cyan : 'transparent'}`,
+                        borderLeft: `3px solid ${current ? T.cyan : adjacent ? T.green : 'transparent'}`,
                         background: current ? `${T.cyan}10` : 'transparent',
                         cursor: canMove ? 'pointer' : 'default',
+                        opacity: greyOut ? 0.35 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                       }}
                     >
-                      <span style={{ fontSize: 12, color: current ? T.cyan : T.dimB, fontWeight: current ? 700 : 400 }}>{map.name}</span>
-                      {current && <span style={{ fontSize: 10, color: T.cyan, opacity: 0.7 }}>当前</span>}
+                      <span style={{ fontSize: 12, color: current ? T.cyan : adjacent ? T.text : T.dim2, fontWeight: current ? 700 : 400 }}>{map.name}</span>
+                      <span style={{ fontSize: 10, color: T.dim2 }}>
+                        {current ? '当前' : adjacent ? '可达' : '远'}
+                      </span>
                     </div>
                   )
                 })}
@@ -647,5 +717,36 @@ export default function GameClientPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ── 远星函馆 UI 子组件 ───────────────────────────────────
+
+function PollutionPill({ label, value, color }) {
+  const bg = `${color}15`
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, padding: '2px 8px', borderRadius: 12,
+      background: bg, color, border: `1px solid ${color}40`,
+    }}>
+      <span style={{ opacity: 0.7 }}>{label}</span>
+      <strong style={{ fontFamily: 'monospace' }}>{value}%</strong>
+    </span>
+  )
+}
+
+function EffectivePollutionTag({ envP, personalP }) {
+  const { effective, tier } = calcEffectivePollution(envP, personalP)
+  const meta = POLLUTION_TIER_META[tier] || POLLUTION_TIER_META.none
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, padding: '2px 8px', borderRadius: 12,
+      background: `${meta.color}18`, color: meta.color,
+      border: `1px solid ${meta.color}40`, fontWeight: 700,
+    }}>
+      {meta.icon} {meta.label} {effective}
+    </span>
   )
 }
