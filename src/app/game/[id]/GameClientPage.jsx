@@ -50,6 +50,7 @@ export default function GameClientPage() {
   const [gamevars, setGamevars] = useState(null)
   const [mapConfig, setMapConfig] = useState(null)
   const [allItems, setAllItems] = useState([])
+  const [tradeableNpcs, setTradeableNpcs] = useState([])
   const [buffPool, setBuffPool] = useState([])
   const [equipments, setEquipments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -61,13 +62,16 @@ export default function GameClientPage() {
   const mapIdRef = useRef(0)
 
   const loadMapData = useCallback(async (mapId) => {
-    const [{ data: nextMap }, { data: nextAllItems }] = await Promise.all([
+    const [{ data: nextMap }, { data: nextAllItems }, { data: nextNpcs }] = await Promise.all([
       supabase.from('map_config').select('*').eq('map_id', mapId).single(),
       supabase.from('item_pool').select('*'),
+      // 当前地图的可交易非敌对实体
+      supabase.from('npc_pool').select('id,name,entity_type,trade_wants,trade_offers,maps').eq('tradeable', true),
     ])
 
     setMapConfig(nextMap || null)
     setAllItems(nextAllItems || [])
+    setTradeableNpcs((nextNpcs || []).filter(n => Array.isArray(n.maps) && n.maps.includes(mapId)))
   }, [])
 
   const loadEquipments = useCallback(async () => {
@@ -454,6 +458,57 @@ export default function GameClientPage() {
               </div>
             )}
           </div>
+
+          {/* ── 交易面板：当前地图的非敌对可交易实体 ── */}
+          {tradeableNpcs.length > 0 && (
+            <>
+              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>非敌对实体</span>}>🌿 交易</PanelTitle>
+              <div style={{ padding: '10px 12px', maxHeight: 220, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {tradeableNpcs.map(npc => {
+                    const meta = ENTITY_TYPE_META[npc.entity_type] || ENTITY_TYPE_META.symbiote
+                    const wants = npc.trade_wants
+                    const offers = npc.trade_offers
+                    const haveCount = wants?.item
+                      ? (meBase?.inventory || []).filter(it => it === wants.item).length
+                      : 0
+                    const needQty = Number(wants?.qty) || 1
+                    const canTrade = wants?.item && offers?.item && haveCount >= needQty
+                      && me?.alive && room.gamestate !== 2 && !battle && !busy
+                    return (
+                      <div key={npc.id} style={{
+                        background: T.bg2, border: `1px solid ${meta.color}30`,
+                        borderLeft: `3px solid ${meta.color}`, borderRadius: 8, padding: '10px 12px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                          <span style={{ fontWeight: 700, color: meta.color, fontSize: 13 }}>{npc.name}</span>
+                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 6, background: `${meta.color}18`, color: meta.color, border: `1px solid ${meta.color}30` }}>{meta.label}</span>
+                        </div>
+                        {wants?.item && offers?.item && (
+                          <div style={{ fontSize: 11, color: T.dim, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ color: haveCount >= needQty ? T.green : T.red }}>需 {wants.item} ×{needQty}</span>
+                            <span style={{ color: T.dim2 }}>→</span>
+                            <span style={{ color: T.yellow }}>得 {offers.item} ×{offers.qty || 1}</span>
+                            <span style={{ color: T.dim2, fontSize: 10 }}>（你 {haveCount}/{needQty}）</span>
+                          </div>
+                        )}
+                        <Btn
+                          variant="primary"
+                          size="sm"
+                          disabled={!canTrade}
+                          onClick={() => handleTradeNpc(npc.id)}
+                          sx={{ width: '100%', background: canTrade ? `${meta.color}22` : T.bg0, color: canTrade ? meta.color : T.dim2, border: `1px solid ${canTrade ? `${meta.color}50` : T.border}` }}
+                        >
+                          {!wants?.item ? '配置无效' : haveCount < needQty ? '物品不足' : '🤝 交易'}
+                        </Btn>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
