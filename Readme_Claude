@@ -1,7 +1,284 @@
 # Readme_Claude
 
-更新时间：2026-03-30（Asia/Tokyo）
-整理方式：基于全量源码交叉验证 + 原版实操测试，覆盖最新修复。
+更新时间：2026-05-09（Asia/Tokyo）
+整理方式：基于全量源码交叉验证 + 8 个 Phase 改造提交记录。
+
+## 最近变更（2026-05-09）— 搜打撤大改造（Phase 0-7）
+
+> **方向 pivot**：DTSV 从纯大逃杀（Battle Royale）→ 搜打撤（Search-Fight-Extract）+ 叙事分支 + 多结局。
+> BR 战场仍作为 raid 核心循环，但叠加了"装载 → 进 raid → 撤离归库 → 合同奖励 → 事件 → 条件分支 → 多结局"的完整闭环。
+
+### Phase 一句话清单
+
+| Phase | 内容 | Commit |
+|-------|------|--------|
+| 0 | 移除 AP/姿态/策略战斗系统，回归基础攻击/逃跑/物品 | `17a6255` |
+| 1 | 卡片 UI + DnD-kit 拖拽基建；MapsTab 重构 | `ac0c52f` `4313b7b` |
+| 2 | 账户库（player_stash）+ 装载流程 + LoadoutModal | `d6fc1e2` `7666534` |
+| 3 | 撤离机制（时间窗 + 物品门槛） | `393e6fb` |
+| 4 | 合同/任务系统（4 种目标类型 + 奖励入库） | `4f66064` |
+| 5 | 事件系统（4 种触发器 + 8 种效果 + 权重抽取） | `36bb927` |
+| 6 | 分支节点 + 条件引擎（9 条件 × 5 聚合器） | `7eb6e78` |
+| 7 | 多结局（key + 剧情文本 + 自动发奖） | `e6b02fa` |
+
+### Phase 0：删除 AP 战斗系统（commit `17a6255`，净删 2474 行）
+
+- 删除 `src/lib/battleSkills.js`（武器六系技能）
+- 删除 `src/lib/battleAI.js`（NPC AP 决策树）
+- 删除 `src/lib/battleCalc.js`（伤害 + 姿态 + 策略 + AP 管理）
+- 删除 `src/lib/server/battleActions.js`（AP 动作处理）
+- 删除 `src/app/api/game/battle/route.js`（独立战斗 API 端点）
+- 删除 `src/app/game/[id]/BattleModal.jsx`（AP 战斗 UI）
+- 删除 `docs/grid-battle-design.md`
+- 战斗回归"攻击 / 逃跑 / 使用物品"基础模型；保留 Buff 框架与装备加成
+- `searchArea` 遭遇 NPC 时使用旧版 battle 结构 `{ npc, npcHp, npcMaxHp, turn, log }`
+
+### Phase 1：卡片 UI + 拖拽基建（commits `ac0c52f`, `4313b7b`）
+
+新增依赖：`@dnd-kit/core` / `@dnd-kit/sortable` / `@dnd-kit/utilities`。
+
+新增 `src/components/cards/` 目录：
+- `ItemCard.jsx` — 道具卡（kind 色边 + 属性 + 操作 + 权重输入）
+- `NpcCard.jsx` — NPC 卡（HP/ATK/DEF + 等级徽章 + BOSS 发光）
+- `CardDnd.jsx` — DnD 原语：`CardDndProvider` / `DraggableCard` / `DroppableArea` / `SortableCard` / `SortableContainer`
+
+MapsTab 重构：
+- 删除原弹出抽屉 (Drawer) 的逐行操作模式
+- 改为左右双栏拖拽：左 = 待选，右 = 当前池
+- 卡片可拖拽互换；点击 +/移除 也可操作（无障碍）
+- DragOverlay 跟随鼠标；高亮源/目标区
+- 顶部 Tab 切换：📦 道具池 / 👹 NPC 池
+- 地图列表项同时显示道具数（📦）+ NPC 数（👹）
+
+### Phase 2：账户库（Stash）+ 装载（commits `d6fc1e2`, `7666534`）
+
+**数据库迁移** `scripts/migration-add-player-stash.sql`：
+- 新表 `player_stash (user_id, item_name, quantity, updated_at)` UNIQUE(user_id, item_name)
+- `profiles` 增加 `stash_capacity INT NOT NULL DEFAULT 40`
+- 约定：`equipment_instances.room_id IS NULL` 表示装备在库中
+
+**服务端** `src/lib/server/stash.js`：
+- `loadStash(client, userId)` → `{ items, equipments, capacity, used, slotsLeft }`
+- `addItemsToStash` / `removeItemsFromStash` / `moveEquipmentToStash`
+- `consumeForLoadout(client, userId, roomId, { items, equipmentInstanceIds })` — 装载：扣库 + 装备实例 room_id := raidId
+
+**API** `/api/stash`：
+- GET 读取本人库存
+- POST `action='add'|'remove'|'grant'`（grant 仅管理员，可指定 targetUserId）
+
+**joinRoom 改造**：接受 `payload.loadout = { items: [{name, quantity}], equipmentInstanceIds: [...] }`。
+
+**UI**：
+- `src/components/LoadoutModal.jsx` — 进 raid 前装载选择面板：装备网格 + 道具网格（数量 +/−）、容量提示、全选/清零
+- `src/app/stash/page.js` — 独立账户库浏览页（容量进度条 + 装备 + 按 kind 分组）
+- `src/app/rooms/page.js` — 加入按钮改为"🎒 装载并加入"，弹 LoadoutModal
+- `src/components/GrantStashModal.jsx` — 管理员发放道具
+- AdminUsersTab 每行加入"📦 发放道具"按钮
+- 顶栏 nav 增加"账户库"链接
+
+### Phase 3：撤离机制（commit `393e6fb`）
+
+**数据库迁移** `scripts/migration-add-extraction-points.sql`：
+- `map_config` 增加 `extraction_points JSONB DEFAULT '[]'`
+
+**撤离点结构**：
+```js
+{
+  id: 'gate_east',
+  name: '东门',
+  description: '...',
+  openAt: 300,                 // raid 开始多少秒后开放
+  closeAt: 600 | null,         // 关闭时间，null 表示永不关闭
+  requiredItem: '门钥匙' | null,
+  consumeItem: false,
+}
+```
+
+**服务端** `extractPlayer(client, room, gamevars, user, payload)`：
+- 校验存活 / 不在战斗 / 在该地图 / 时间窗 / 物品要求
+- 背包道具 → `addItemsToStash` (allowOverflow=true，撤离不拒收)
+- 装备实例 → room_id := NULL（实例自动归库）
+- 玩家标记 `extracted=true`，inventory 清空，`profiles.roomid := null`
+- 失败惩罚（死亡）= 物品全失，走现有尸体系统被搜刮
+
+**`computeRoomStats` 改造**：把 `extracted` 玩家排除出 alivenum，多人 BR 终局判定不被污染。
+
+**`applyRoomLifecycle` 改造**（详见 Phase 7）：检测 `endingResult` 优先结束。
+
+**UI**：
+- `src/app/game/[id]/ExtractionModal.jsx` — 列出当前地图所有撤离点：
+  - 实时时间窗状态（已开放 / 还需 X 秒 / 已关闭，每秒刷新）
+  - 物品要求高亮（✓ / ✗），消耗提示
+- GameClientPage 中央动作栏新增"🚪 撤离"按钮（仅在地图有撤离点时显示）
+- 已撤离玩家显示成功状态，屏蔽其他动作
+- Admin MapsTab 加入"🚪 撤离点"Tab：增删改撤离点
+
+### Phase 4：合同 / 任务系统（commit `4f66064`）
+
+**数据库迁移** `scripts/migration-add-contracts.sql`：
+- `contracts (objectives jsonb, rewards jsonb, active)` — 模板
+- `player_contracts (user_id, contract_id, status, progress jsonb)` UNIQUE(user_id, contract_id) — 进度记录
+
+**支持的目标类型**：
+- `find_item` 搜集指定道具 N 件
+- `kill_npc` 击杀指定 NPC N 个
+- `extract` 成功撤离 N 次
+- `extract_at` 从指定撤离点撤离
+
+**服务端** `src/lib/server/contracts.js`：
+- `loadPlayerContracts` — 合并 contracts 与 player_contracts，可选 includeAvailable
+- `acceptContract` — 玩家接受（unique 防重复）
+- `updateContractProgress(client, userId, event)` — 事件驱动推进；达成时 status='completed' 并发奖励到账户库
+
+**游戏行为钩子**（gameActions.js）：
+- searchArea 找到道具 → `item_acquired`
+- lootCorpse 搜刮道具 → `item_acquired`
+- attackNpc 击杀 → `npc_killed`
+- extractPlayer 撤离 → `extracted` (含 extractionPointId)
+
+**API** `/api/contracts` — GET / POST(accept|create|update|delete)。后三个仅管理员。
+**玩家页** `/contracts` — 按状态过滤，目标进度条，奖励预览，接受按钮。
+**Admin** ContractsTab — 多目标编辑（联动字段：道具/NPC/撤离点）+ 多奖励 + 启用/停用。
+
+### Phase 5：事件系统（commit `36bb927`）
+
+**数据库迁移** `scripts/migration-add-events.sql`：
+- `event_pool (trigger jsonb, effects jsonb, weight, once, cooldown, active)`
+
+**触发器类型** (`trigger.type`)：
+- `on_search` / `on_enter_map` / `on_kill_npc` / `on_pickup`
+
+**效果类型** (`effect.type`)，8 种：
+- `log_only` 仅添加日志
+- `give_item` / `take_item` 给/扣道具
+- `damage` / `heal` 扣血/回血
+- `spawn_npc` 强制进入与某 NPC 的战斗
+- `set_flag` / `inc_flag` — **写入 gamevars.flags 供分支引擎消费**
+
+**服务端** `src/lib/server/events.js`：
+- `loadActiveEvents` — 5 分钟缓存 + `invalidateEventCache`
+- `processEventTrigger(client, resolution, userId, triggerType, context)`
+  - 过滤 trigger 匹配的事件
+  - 应用 once / cooldown 限制
+  - 权重随机抽取
+  - 顺序应用 effects 序列
+  - 历史持久化到 `gamevars.eventHistory[uid][eventId]`
+
+**接入点**：
+- searchArea 在抢占式时机触发（事件可短路常规搜索）
+- movePlayer 重构为 resolution-based 后注入
+- attackNpc 击杀分支
+
+**API** `/api/events`（仅管理员 CRUD + 缓存失效）。
+**Admin** EventsTab — 触发器联动字段 + 多效果序列编辑（上移/下移/删除）。
+
+### Phase 6：分支节点 + 条件引擎（commit `7eb6e78`）
+
+> **用户原话**：「10 个条件中达成了几个，根据数量切换分支」 — 即 `atLeast(N)` 聚合器。
+
+**数据库迁移** `scripts/migration-add-branch-nodes.sql`：
+- `branch_nodes (conditions jsonb, branches jsonb, scope, once, active)`
+
+**条件类型** (`condition.type`)，9 种：
+- `flagEquals` / `flagAtLeast`
+- `anyPlayerHas` / `allPlayersHave`
+- `anyPlayerKilled` / `mapVisited`
+- `extractedCount` / `aliveCount` / `playerCount`
+
+**聚合器** (`branch.when`)，5 种：
+- `'all'` 全部满足
+- `'any'` 任一满足
+- `{ atLeast: N }` 至少 N 个满足  ← **核心需求**
+- `{ atMost: N }` 最多 N 个满足
+- `'default'` 兜底（最后位置）
+
+**作用范围** (`scope`)：`'room'`（房间共享）/ `'player'`（玩家独立）。
+
+**服务端** `src/lib/server/branches.js`：
+- `evaluateBranchNodes(client, resolution, userId)` — 按节点顺序评估，第一个匹配的 branch 立即应用
+- `gamevars.branchHistory.{room|players}` 记录已触发节点（once 防重复）
+- 自动 flag 钩子：
+  - `setVisitedMapFlag(resolution, mapId)` — 写 `flags['visited_map_<id>']=true`
+  - `setKilledNpcFlag(resolution, npcName)` — 写 `flags['killed_<name>']=true`
+- 分支动作：`setFlags` / `triggerEnding` / `log`
+
+**接入点**：movePlayer / attackNpc / extractPlayer 都注入分支评估，封装为 `persistResolutionWithBranches` helper。
+
+**API** `/api/branches`（管理员 CRUD）。
+**Admin** BranchesTab — 条件类型联动字段（道具/NPC/地图）+ 聚合器下拉。
+
+### Phase 7：多结局（commit `e6b02fa`）
+
+**数据库迁移** `scripts/migration-add-endings.sql`：
+- `endings (key UNIQUE, name, description, banner_text, rewards jsonb, active)`
+
+**服务端** `src/lib/server/endings.js`：
+- `applyEndingIfTriggered(client, resolution)` —
+  - 读取 `gamevars.endingTriggered` (由分支引擎写入)
+  - 按 key 查找结局元数据
+  - 给所有 alive 玩家（含已撤离）发放奖励到账户库 (allowOverflow)
+  - 写入 `gamevars.endingResult = { key, name, bannerText, rewardedItems, rewardedPlayerCount, triggeredAt }`
+  - 清除 `endingTriggered` 防重复
+
+**`applyRoomLifecycle` 加入结局优先判定**：
+```js
+if (gamestate === 1 && normalized.endingResult) {
+  gamestate = 2
+  winner = `结局：${normalized.endingResult.name}`
+}
+```
+
+**API** `/api/endings`（管理员 CRUD）。
+**Admin** EndingsTab — key + 剧情文本 + 多奖励编辑。
+**Game UI**：`gamevars.endingResult` 存在时游戏顶部显示渐变结局横幅（结局名 + 剧情斜体 + 奖励列表 + 接收人数）。
+
+### 完整闭环
+
+```
+管理员配置（道具 / NPC / 地图 / 撤离点 / 合同 / 事件 / 分支 / 结局）
+    ↓
+玩家在 /stash 浏览账户库
+    ↓
+/rooms 选房间 → 🎒 装载 (LoadoutModal) → 进 raid
+    ↓
+搜索 / 战斗 / 移动 / 拾取
+    │  行为驱动
+    ├─ 合同进度推进 (find_item / kill_npc / extracted)
+    ├─ 事件触发 (on_search / on_enter_map / on_kill_npc / on_pickup)
+    │     ↓
+    ├─ flag 写入 (visited_map_X, killed_NPC, set_flag)
+    │     ↓
+    └─ 分支节点评估 (9 条件 × 5 聚合器)
+          ↓
+        triggerEnding → endingTriggered → endingResult
+                ↓
+        撤离 / 死亡 / 结局 → 房间结算
+                ↓
+        奖励发到所有存活玩家账户库
+                ↓
+        游戏页顶部展示结局横幅
+```
+
+### 6 个新 SQL 迁移（按顺序在 Supabase SQL Editor 执行）
+
+```
+1. migration-add-player-stash.sql        Phase 2
+2. migration-add-extraction-points.sql   Phase 3
+3. migration-add-contracts.sql           Phase 4
+4. migration-add-events.sql              Phase 5
+5. migration-add-branch-nodes.sql        Phase 6
+6. migration-add-endings.sql             Phase 7
+```
+
+### 删除惩罚机制（核心 pivot 决策）
+
+| 玩家结局 | 物资归宿 |
+|---------|---------|
+| ✅ 撤离成功 | 全部物资 + 装备入账户库（severe-stash style，allowOverflow） |
+| ❌ 死亡 | 全部丢失，走现有尸体系统（可被其他玩家搜刮） |
+| 🎬 结局触发 | 所有 alive 玩家（含已撤离）收到结局奖励 |
+
+---
 
 ## 最近变更（2026-03-25）
 
@@ -46,8 +323,16 @@
 
 ## 一、项目概述
 
-DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中文 UI）。
-当前状态：主流程闭环的 v1 雏形，具备完整的服务端动作层、装备合成系统、动态规则引擎和 7 标签页管理后台。
+DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI）。
+
+**当前状态（2026-05）**：搜打撤完整闭环 v1 — 装载、撤离、合同、事件、分支、多结局全部上线。BR 战场作为 raid 内核心循环保留。**13 标签页管理后台**（含合同 / 事件 / 分支 / 结局编辑器）。
+
+**核心循环**：
+1. 玩家在账户库（player_stash）准备装载
+2. 进 raid 选房间 → 装载选物品 → 进入对局
+3. raid 内：搜索 / 战斗 / 移动 / 撤离，行为驱动事件 + 合同 + 分支
+4. 撤离成功 → 物资入库 + 合同奖励；死亡 → 物资全失（走尸体系统可被搜刮）
+5. 分支节点条件聚合（atLeast(N)）触发多结局，所有存活玩家收到结局奖励
 
 ---
 
@@ -64,29 +349,42 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 ### 页面
 
-| 文件 | 行数 | 职责 |
-|------|------|------|
-| `src/app/page.js` | — | 首页 |
-| `src/app/login/page.js` | — | 登录页 |
-| `src/app/register/page.js` | — | 注册页 |
-| `src/app/rooms/page.js` | ~100 | 房间大厅：实时列表、创建/加入房间（API 驱动） |
-| `src/app/game/[id]/page.js` | 2 | 入口转发 |
-| `src/app/game/[id]/GameClientPage.jsx` | 538 | 局内主容器：实时订阅、状态管理、动作分发 |
-| `src/app/game/[id]/CraftModal.jsx` | 262 | 装备合成面板：配方预览、成功率、耐久消耗 |
-| `src/app/game/[id]/gameUi.js` | 170 | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
-| `src/app/admin/page.js` | 107 | 管理后台入口，7 标签页 + 集中数据加载 |
+| 文件 | 职责 |
+|------|------|
+| `src/app/page.js` | 首页 |
+| `src/app/login/page.js` | 登录页 |
+| `src/app/register/page.js` | 注册页 |
+| `src/app/rooms/page.js` | 房间大厅：实时列表、🎒 装载并加入（接 LoadoutModal） |
+| `src/app/stash/page.js` | **2026-05 新增** — 玩家账户库浏览页（容量条 + 装备 + 按 kind 分组） |
+| `src/app/contracts/page.js` | **2026-05 新增** — 合同列表（按状态过滤 + 进度 + 接受） |
+| `src/app/game/[id]/page.js` | 入口转发 |
+| `src/app/game/[id]/GameClientPage.jsx` | 局内主容器（含撤离按钮 + 结局横幅） |
+| `src/app/game/[id]/CraftModal.jsx` | 装备合成面板 |
+| `src/app/game/[id]/ExtractionModal.jsx` | **2026-05 新增** — 撤离选择面板（实时时间窗 + 物品要求） |
+| `src/app/game/[id]/LootModal.jsx` | 尸体拾取面板 |
+| `src/app/game/[id]/gameUi.js` | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
+| `src/components/LoadoutModal.jsx` | **2026-05 新增** — 装载选择面板 |
+| `src/components/GrantStashModal.jsx` | **2026-05 新增** — 管理员发放道具面板 |
+| `src/components/cards/*.jsx` | **2026-05 新增** — ItemCard / NpcCard / CardDnd 原语 |
+| `src/app/admin/page.js` | 管理后台入口，**13 标签页**（原 9 + 4 新） |
 
 ### 管理后台标签页 (`src/app/admin/_tabs/`)
 
-| 标签 | 文件 | 行数 | 功能 |
-|------|------|------|------|
-| 📊 概览 | OverviewTab.jsx | 61 | 统计卡片 + 分布图 |
-| ⚔️ 道具池 | ItemsTab.jsx | 340 | 道具 CRUD + 搜索/按 kind 筛选 |
-| 🤖 NPC | NpcsTab.jsx | 330 | NPC CRUD + 按等级筛选 |
-| 🗺️ 地图 | MapsTab.jsx | 640 | 地图配置编辑 (debounced 600ms) |
-| 🏠 房间 | RoomsTab.jsx | 154 | 查看/按状态筛选/强制结束/删除 |
-| ⚙️ 战斗规则 | RulesTab.jsx | 356 | 规则公式编辑 + Buff 池管理 |
-| 🗡️ 装备引擎 | EquipmentTab.jsx | 32 | 装备子板块入口 |
+| 标签 | 文件 | 功能 |
+|------|------|------|
+| 📊 概览 | OverviewTab.jsx | 统计卡片 + 分布图 |
+| ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选 |
+| 🤖 NPC | NpcsTab.jsx | NPC CRUD + 按等级筛选 |
+| 🗺️ 地图 | MapsTab.jsx | **2026-05 重构** — 卡片化拖拽 + 三 Tab（道具池 / NPC 池 / 撤离点） |
+| 🏠 房间 | RoomsTab.jsx | 查看/按状态筛选/强制结束/删除 |
+| 👥 用户权限 | UsersTab.jsx | 权限组管理 + **2026-05 新增 📦 发放道具** |
+| ⚙️ 战斗规则 | RulesTab.jsx | 规则公式编辑 + Buff 池管理 |
+| 🗡️ 装备引擎 | EquipmentTab.jsx | 装备子板块入口 |
+| 📜 合同 | **ContractsTab.jsx** | **2026-05 新增** — 合同 CRUD + 多目标多奖励编辑 |
+| 🎲 事件 | **EventsTab.jsx** | **2026-05 新增** — 触发器联动 + 多效果序列编辑 |
+| 🌿 分支 | **BranchesTab.jsx** | **2026-05 新增** — 条件聚合编辑（atLeast/atMost/all/any/default） |
+| 🎬 结局 | **EndingsTab.jsx** | **2026-05 新增** — 结局 key + 剧情文本 + 奖励 |
+| 🗄️ DB 控制台 | DbConsoleTab.jsx | 直查 SQL |
 
 装备引擎子组件：
 - `EquipmentSeriesSection.jsx` (1431 行) — 系列/阶/变体编辑 + 合成树预览
@@ -96,28 +394,55 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 ### API 路由
 
+**核心游戏 / 既有**：
 | 路由 | 方法 | 鉴权 | 功能 |
 |------|------|------|------|
-| `/api/game/actions` | POST | User | 执行游戏动作 (join/move/search/attackNpc/flee/attackPlayer/useItem) |
+| `/api/game/actions` | POST | User | 执行游戏动作 (join/move/search/attackNpc/flee/attackPlayer/useItem/lootCorpse/dismissLootPrompt/**extract**) |
 | `/api/game/equipment` | POST | User | 装备操作 (craft/equip/unequip) |
 | `/api/game/rooms` | POST | Admin | 创建房间 |
-| `/api/admin/rooms` | PATCH | Admin | 强制结束房间（带版本检查） |
-| `/api/admin/rooms` | DELETE | Admin | 删除房间 |
+| `/api/admin/rooms` | PATCH/DELETE | Admin | 强制结束 / 删除房间 |
+| `/api/admin/users` | GET/PATCH | Admin | 用户列表 / 修改权限组 |
+| `/api/admin/db` | POST | Admin | DB 控制台 SQL 直查 |
+
+**2026-05 新增（搜打撤）**：
+| 路由 | 方法 | 鉴权 | 功能 |
+|------|------|------|------|
+| `/api/stash` | GET / POST | User / Admin | 读取库存；add/remove/grant 操作（grant 仅管理员） |
+| `/api/contracts` | GET / POST | User / Admin | 列出/接受合同；create/update/delete 仅管理员 |
+| `/api/events` | GET / POST | Admin | 事件 CRUD |
+| `/api/branches` | GET / POST | Admin | 分支节点 CRUD |
+| `/api/endings` | GET / POST | Admin | 结局 CRUD |
+
+**已删除**：`/api/game/battle`（Phase 0 移除 AP 系统时一并删除，战斗回归 `/api/game/actions`）。
 
 ### 核心库 (`src/lib/`)
 
-| 文件 | 行数 | 关键导出 |
-|------|------|----------|
-| `gameEngine.js` | 314 | `evalFormula()` 沙盒公式求值, `loadGameRules()`, `loadBuffPool()`, `calcDamage()`, `calcItemEffect()`, `processBuffs()`, `getSearchChances()`, `getInitPlayerStats()` |
-| `equipmentEngine.js` | 605 | `getCraftingTree()`, `getSeriesTree()`, `checkCanCraft()`, `executeCraft()`, `calcEquippedStats()`, `triggerPassives()`, `RARITY_META`, `ELEMENT_META`, `SLOT_META` |
-| `eventResolver.js` | 119 | `createActionResolution()`, `runTurnStartSettlement()`, `settleNewDeaths()`, 日志/玩家状态写回 helper |
-| `roomState.js` | 202 | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()`, `applyRoomLifecycle()`, `createCorpse()`, `setPlayerLootPrompt()` |
-| `constants.js` | 47 | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META` (5种含material), `NPC_LEVEL_META` |
-| `gameApi.js` | 25 | `postGameApi()` — 客户端统一 fetch 入口 |
-| `serverSupabase.js` | 52 | `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()` (支持 admin 标志) |
-| `auth.js` | 26 | `isAdmin()`, `PRIMARY_ADMIN_EMAIL` |
-| `supabase.js` | 10 | Supabase 客户端 |
-| `server/gameActions.js` | ~1100 | `createRoom()`, `joinRoom()`, `executeGameAction()` + 事件结算器 (`resolveSearchAction`, `resolveNpcAttackAction`, `resolveNpcFleeAction`, `resolvePlayerAttackAction`, `resolveUseItemAction`) + 尸体战利品 (`lootCorpse`, `dismissLootPrompt`) + 乐观锁 (`VersionConflictError`, `withRetry`) |
+**既有**：
+| 文件 | 关键导出 |
+|------|----------|
+| `gameEngine.js` | `evalFormula()`, `loadGameRules()`, `loadBuffPool()`, `calcDamage()`, `calcItemEffect()`, `processBuffs()`, `getSearchChances()`, `getInitPlayerStats()` |
+| `equipmentEngine.js` | `getCraftingTree()`, `getSeriesTree()`, `checkCanCraft()`, `executeCraft()`, `calcEquippedStats()`, `triggerPassives()`, `RARITY_META`, `ELEMENT_META`, `SLOT_META` |
+| `eventResolver.js` | `createActionResolution()`, `runTurnStartSettlement()`, `settleNewDeaths()` 日志/玩家状态 helper |
+| `roomState.js` | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()` (排除 extracted), `applyRoomLifecycle()` (含结局优先判定), `createCorpse()`, `setPlayerLootPrompt()` |
+| `constants.js` | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META` (5种含material), `NPC_LEVEL_META` |
+| `gameApi.js` | `postGameApi()`, **`getGameApi()`** ← 2026-05 新增 |
+| `serverSupabase.js` | `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()` |
+| `auth.js` | `isAdmin()`, `PRIMARY_ADMIN_EMAIL` |
+| `supabase.js` | Supabase 客户端 |
+
+**2026-05 新增服务端模块** (`src/lib/server/`)：
+| 文件 | 关键导出 |
+|------|----------|
+| `stash.js` | `loadStash`, `addItemsToStash`, `removeItemsFromStash`, `moveEquipmentToStash`, `consumeForLoadout`, `STASH_DEFAULT_CAPACITY=40` |
+| `contracts.js` | `loadPlayerContracts`, `acceptContract`, `updateContractProgress` (事件驱动) |
+| `events.js` | `loadActiveEvents`, `processEventTrigger`, `invalidateEventCache` (8 effect types: log_only/give_item/take_item/damage/heal/spawn_npc/set_flag/inc_flag) |
+| `branches.js` | `loadActiveBranches`, `evaluateBranchNodes`, `evaluateCondition`, `matchesAggregator`, `setVisitedMapFlag`, `setKilledNpcFlag`, `invalidateBranchCache` |
+| `endings.js` | `loadActiveEndings`, `applyEndingIfTriggered`, `invalidateEndingsCache` |
+
+**既有 + 大幅扩展**：
+| 文件 | 关键导出 |
+|------|----------|
+| `server/gameActions.js` | `createRoom()`, `joinRoom(client, user, roomId, loadout)` ← 接受 loadout, `executeGameAction()` 含 'extract' action, `extractPlayer()` ← 新增, `persistResolutionWithBranches()` ← 新 helper, `setVisitedMapFlag` / `setKilledNpcFlag` 自动 flag 钩子 |
 
 ### 共享 UI (`src/app/admin/_shared/ui.js`)
 
@@ -127,23 +452,49 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 ## 四、数据库表 (Supabase)
 
+### 既有表（13 张，2026-03 之前）
+
 | 表名 | 用途 |
 |------|------|
-| `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner) |
-| `profiles` | 用户档案 (id FK auth.users, roomid) |
+| `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner, version) |
+| `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05 新增) |
 | `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description) |
 | `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]) |
-| `map_config` | 地图配置 (map_id, name, weather, danger_level 1-5, max_items, max_npcs, blocked) |
-| `game_rules` | 动态规则 (key, value, category: combat/items/search/player/weather/general) |
+| `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked, **extraction_points jsonb** ← 2026-05 新增) |
+| `game_rules` | 动态规则 (key, value, category) |
 | `buff_pool` | Buff 池 (name, icon, is_debuff) |
-| `equipment_series` | 装备系列 (name, slot: weapon/armor/helmet/boots/accessory, icon) |
+| `equipment_series` | 装备系列 (name, slot, icon) |
 | `equipment_tiers` | 装备阶 (series_id, tier, rarity, variant, name, base_atk, base_def, element, passive_id) |
-| `equipment_instances` | 装备实例 (owner_id, room_id, tier_id, is_equipped, durability_current/max, equipped_slot) |
+| `equipment_instances` | 装备实例 (owner_id, **room_id NULL=在账户库**, tier_id, is_equipped, durability_current/max, equipped_slot) |
 | `tier_recipes` | 合成配方 (result_tier_id, success_rate, gold_cost, fail_behavior, requires_prev_tier/series) |
 | `recipe_ingredients` | 配方材料 (quantity, is_consumed, is_catalyst, ingredient_type, item/equipment FK) |
 | `passive_skills` | 被动技能 (name, icon, trigger_chance, effect 定义) |
 
-共 **13 张表**。
+### 2026-05 新增表（6 张，搜打撤大改造）
+
+| 表名 | 用途 |
+|------|------|
+| `player_stash` | 玩家账户库 — 消耗品/材料堆叠 (user_id, item_name, quantity)，UNIQUE(user_id, item_name) |
+| `contracts` | 合同模板 — 管理员创建 (objectives jsonb, rewards jsonb, active) |
+| `player_contracts` | 玩家合同进度 (user_id, contract_id, status, progress jsonb)，UNIQUE(user_id, contract_id) |
+| `event_pool` | 事件库 (trigger jsonb, effects jsonb, weight, once, cooldown, active) |
+| `branch_nodes` | 分支节点 — 条件聚合引擎 (conditions jsonb, branches jsonb, scope, once, active) |
+| `endings` | 多结局元数据 (key UNIQUE, name, banner_text, rewards jsonb, active) |
+
+### gamevars JSONB 内的运行时字段（2026-05 新增）
+
+| 字段 | 用途 |
+|------|------|
+| `players[uid].extracted` | 玩家是否已撤离 |
+| `players[uid].extractedAt` | 撤离时间 |
+| `players[uid].extractionPoint` | 撤离时使用的撤离点 ID |
+| `flags` | 全局/房间级 flag 字典（事件 set_flag / 自动 visited_map_X / killed_NPC） |
+| `eventHistory[uid][eventId]` | 事件触发历史 `{ count, lastTurn }` |
+| `branchHistory.{room\|players}` | 分支节点已触发记录 |
+| `endingTriggered` | 待处理的结局 key（分支引擎写入，applyEndingIfTriggered 消费） |
+| `endingResult` | 已应用的结局 `{ key, name, bannerText, rewardedItems, rewardedPlayerCount }` |
+
+共 **19 张表 + 8 类 gamevars 运行时字段**。
 
 ---
 
@@ -185,6 +536,52 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 - 所有关键操作统一写入 `gamevars.log`（服务端 JSONB）
 - 通过 `appendGameLog()` / `createLogEntry()` 管理
 
+### 8. 账户库 + 装载（2026-05 新增）
+- 玩家持久化库存：`player_stash`（堆叠）+ `equipment_instances WHERE room_id IS NULL`（装备实例）
+- 容量限制：`profiles.stash_capacity`（默认 40 格 = 不同 item_name 数 + 在库装备数）
+- 装载流程：`/rooms` → LoadoutModal → joinRoom 接受 loadout payload → `consumeForLoadout` 扣库 + 装备 room_id := raidId
+- 撤离归库：物资入库（allowOverflow），装备实例 room_id := NULL
+- 死亡惩罚：物品全失，走现有尸体系统可被搜刮
+
+### 9. 撤离机制（2026-05 新增）
+- `map_config.extraction_points` jsonb 数组：每点配置 `openAt` / `closeAt` / `requiredItem` / `consumeItem`
+- `extractPlayer` 服务端校验时间窗 + 物品要求 → 标记 `extracted=true` + 物资归库
+- `computeRoomStats` 把已撤离玩家排除出 alivenum，多人 BR 终局判定不被污染
+- 客户端 ExtractionModal 实时倒计时，撤离按钮在 GameClientPage 中央
+
+### 10. 合同 / 任务系统（2026-05 新增）
+- `contracts`（模板） + `player_contracts`（进度）
+- 4 种目标：`find_item` / `kill_npc` / `extract` / `extract_at`
+- 事件驱动推进：searchArea / lootCorpse / attackNpc / extractPlayer 都有钩子调用 `updateContractProgress`
+- 完成时 status='completed' 并把 rewards 通过 `addItemsToStash` 自动发到账户库
+
+### 11. 事件系统（2026-05 新增）
+- `event_pool`（trigger + effects + weight + once + cooldown）
+- 4 种触发器：`on_search` / `on_enter_map` / `on_kill_npc` / `on_pickup`
+- 8 种效果：`log_only` / `give_item` / `take_item` / `damage` / `heal` / `spawn_npc` / `set_flag` / `inc_flag`
+- `processEventTrigger` 在 resolution 上执行：
+  - 过滤匹配 trigger
+  - once + cooldown 限制
+  - 权重抽取
+  - 顺序应用 effects
+  - 历史持久化到 `gamevars.eventHistory`
+- `set_flag` / `inc_flag` 是连接事件系统与分支引擎的关键纽带
+
+### 12. 分支节点 + 条件引擎（2026-05 新增）
+- `branch_nodes`（conditions + branches + scope + once）
+- 9 种条件类型（含 flag / 玩家持有 / 击杀 / 进过地图 / 撤离人数 / 存活人数 / 总人数）
+- 5 种聚合器：`'all'` / `'any'` / `{ atLeast: N }` / `{ atMost: N }` / `'default'`
+- scope: `'room'`（房间共享触发记录） / `'player'`（玩家级独立）
+- 自动 flag 钩子：访问地图 → `visited_map_<id>=true`；击杀 NPC → `killed_<name>=true`
+- 分支动作：`setFlags` / `triggerEnding` / `log`
+
+### 13. 多结局系统（2026-05 新增）
+- `endings`（key UNIQUE / banner_text / rewards）
+- 触发链：分支引擎 `do.triggerEnding='ending_key'` → `gamevars.endingTriggered` → `applyEndingIfTriggered` 消费 → 写 `gamevars.endingResult`
+- `applyRoomLifecycle` 检测到 `endingResult` 立即 gamestate=2 + winner='结局：<结局名>'
+- 自动给所有 alive 玩家（含已撤离）发放奖励到账户库
+- 游戏页顶部渐变结局横幅展示
+
 ---
 
 ## 六、工程配置
@@ -200,16 +597,24 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人大逃杀游戏（中�
 
 | 问题 | 说明 | 优先级 |
 |------|------|--------|
-| 并发安全 | rooms 已有乐观锁 (version 字段)，但未用 Supabase RPC / Postgres 事务级原子方案 | 中 |
-| gameActions.js 过大 | 1000+ 行单文件承载所有动作，可按模块拆分 | 中 |
-| GameClientPage.jsx 偏重 | 538 行，可拆为子面板组件 | 中 |
+| gameActions.js 越来越大 | ~1500 行（含 stash/contracts/events/branches/endings 钩子），可按动作模块拆分 | 中 |
+| GameClientPage.jsx 持续膨胀 | ~620 行（含装载、撤离、结局横幅），考虑拆子面板组件 | 中 |
 | EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 中 |
-| smoke 覆盖有限 | 仅核心状态函数 | 低 |
-| 构建验证 | 需确认 `npm run build` 通过 | 推送前必做 |
+| 事件系统 effects 完整性 | 当前 8 种 effect，可扩展至冷却/状态异常/物品掉率/天气切换等 | 中 |
+| 分支引擎条件覆盖 | 9 种条件够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
+| 合同失败/超时 | 当前只有完成态，无失败/超时态 | 低 |
+| 玩家结局展示页 | 结局触发后游戏内顶部横幅可展示，但缺独立"我的结局收藏"页 | 低 |
+| 多人分支冲突 | scope='room' 节点目前任意玩家触发即生效，多人剧情同步可优化 | 中 |
+| smoke 覆盖有限 | 仅核心状态函数；新加的 stash/contracts/events/branches/endings 模块未覆盖 | 中 |
+| 构建验证 | `npm run build` 在每次提交都已验证通过 | 维护中 |
 
 ---
 
 ## 八、原版 ACFUN 大逃杀 功能全量对比（2026-03-30 整理）
+
+> ⚠️ **2026-05 注**：DTSV 已主动 pivot 为搜打撤 + 大逃杀混合形态。此节中"❌ 未实现"的某些条目（例如 AP/姿态/策略战斗、坐标网格、原版职业系统）是**有意识的设计选择放弃**，并非待办。
+>
+> 仍然保留这一节作为"原版功能光谱"参考，便于未来如果想给 raid 内部加深度时挑选模块。判断哪些是"已 pivot 放弃"还是"待开发"，请优先看 §一 项目概述与 §五 已实现的核心系统。
 
 > 参考来源：http://dts.76573.org/help.php 帮助文档全文
 > 目标：梳理原版所有核心系统，标注 DTSV 当前实现状态，为后续开发提供路线图。
