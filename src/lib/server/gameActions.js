@@ -29,6 +29,7 @@ import {
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
+import { processEventTrigger } from '@/lib/server/events'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -619,6 +620,22 @@ async function resolveSearchAction(client, room, gamevars, user) {
 
   appendResolutionLog(resolution, `${player.name} 开始搜索区域`, 'system')
 
+  // ── 事件系统：on_search 钩子 ──
+  // 事件可在正常搜索结果前抢占（给物品 / 扣血 / 触发战斗 / 设置 flag 等）
+  try {
+    await processEventTrigger(client, resolution, user.id, 'on_search', { mapId })
+  } catch (e) {
+    console.error('[searchArea] event trigger 失败:', e?.message)
+  }
+  const afterEvent = getResolutionPlayer(resolution, user.id)
+  if (!afterEvent?.alive) {
+    return persistResolutionAsync(client, room, resolution)
+  }
+  if (afterEvent.battle) {
+    // 事件已让玩家进入战斗，跳过常规搜索
+    return persistResolutionAsync(client, room, resolution)
+  }
+
   if (roll < npcChance && bundle.npcPool.length > 0) {
     const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
     setResolutionPlayer(resolution, user.id, {
@@ -748,6 +765,12 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       appendResolutionLog(resolution, `🏆 BOSS ${battle.npc.name} 已被击败！`, 'kill')
     }
 
+    // on_kill_npc 事件先在 resolution 上应用（这样事件影响也会被一起持久化）
+    try {
+      await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: battle.npc.name })
+    } catch (e) {
+      console.error('[attackNpc] event trigger 失败:', e?.message)
+    }
     const nextRoom = await persistResolution(client, room, resolution)
     await safeConsumeDurability(user.id, room.id, 1, client)
     try {
@@ -1209,17 +1232,19 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   if (player.battle) throw new Error('战斗中无法移动')
 
   const mapName = MAP_LIST.find(map => map.id === mapId)?.name || `地图 ${mapId}`
-  const nextGamevars = {
-    ...gamevars,
-    players: {
-      ...gamevars.players,
-      [user.id]: { ...player, map: mapId },
-    },
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  setResolutionPlayer(resolution, user.id, { ...player, map: mapId })
+  appendResolutionLog(resolution, `${player.name} 转移至【${mapName}】`, 'system')
+
+  // on_enter_map 事件钩子
+  try {
+    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId })
+  } catch (e) {
+    console.error('[movePlayer] event trigger 失败:', e?.message)
   }
 
-  return persistRoom(client, room, nextGamevars, [
-    createLogEntry(`${player.name} 转移至【${mapName}】`, 'system'),
-  ])
+  return persistResolution(client, room, resolution)
 }
 
 async function searchArea(client, room, gamevars, user) {
