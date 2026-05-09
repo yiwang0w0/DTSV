@@ -37,6 +37,21 @@ import {
 } from '@/lib/server/branches'
 import { applyEndingIfTriggered } from '@/lib/server/endings'
 import {
+  applySearchPollution,
+  applyCombatPollution,
+  applyInteractPollution,
+  applyPvpPollution,
+  applyEmergencyRetreatPollution,
+  applyRetreatDecay,
+  calcEffectivePollution,
+  applyPollutionSearchModifier,
+  applyPollutionCombatModifier,
+  tickEnvPollution,
+  tickOmegaCountdown,
+  recomputeFlags,
+} from '@/lib/pollution'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS } from '@/lib/constants'
+import {
   appendGameLog,
   applyRoomLifecycle,
   clearPlayerLootPrompt,
@@ -108,9 +123,19 @@ async function fetchMapWeather(client, mapId) {
   return data?.weather || 'clear'
 }
 
-async function fetchMapExtractionPoints(client, mapId) {
-  const { data } = await client.from('map_config').select('extraction_points').eq('map_id', mapId).maybeSingle()
-  return Array.isArray(data?.extraction_points) ? data.extraction_points : []
+async function fetchMapConfig(client, mapId) {
+  const { data } = await client.from('map_config').select('*').eq('map_id', mapId).maybeSingle()
+  return data || null
+}
+
+// 缓存所有地图的 pollution_accel（用于 tick 时取所有玩家所在地图最大 accel）
+async function fetchMapAccelTable(client) {
+  const { data } = await client.from('map_config').select('map_id, pollution_accel')
+  const table = new Map()
+  for (const row of (data || [])) {
+    table.set(row.map_id, Number(row.pollution_accel) || 0)
+  }
+  return table
 }
 
 // ── 全局道具/NPC 池缓存（只缓存全量数据，按地图过滤在内存中做） ──
@@ -202,8 +227,34 @@ async function persistResolution(client, room, resolution, options = {}) {
   return persistRoom(client, room, settled.gamevars, settled.logs, options)
 }
 
-// 在持久化前先评估分支节点 → 应用结局，捕获条件触发的 flag/结局变化
-async function persistResolutionWithBranches(client, room, resolution, userId, options = {}) {
+// 远星函馆：每 persist 前的完整 tick 链路
+//   1. tickEnvPollution(gv) — 环境污染 +5 + max(map.pollution_accel)
+//   2. tickOmegaCountdown(player) — Ω 倒计时 -1，归零强制退至 map=3
+//   3. recomputeFlags(gv) — 重算 envPollutionMax/Below60/lowFragments/totalEntityKillRate
+//   4. evaluateBranchNodes — 触发分支条件
+//   5. applyEndingIfTriggered — 应用结局
+//   6. persistResolution — 写入数据库
+async function persistResolutionWithPollution(client, room, resolution, userId, options = {}) {
+  try {
+    const accelTable = await fetchMapAccelTable(client)
+    resolution.gamevars = tickEnvPollution(resolution.gamevars, accelTable)
+
+    const player = getResolutionPlayer(resolution, userId)
+    if (player?.alive && !player?.extracted) {
+      const tickResult = tickOmegaCountdown(player, resolution.gamevars)
+      if (tickResult.player !== player) {
+        setResolutionPlayer(resolution, userId, tickResult.player)
+        if (tickResult.forcedRetreat && tickResult.log) {
+          appendResolutionLog(resolution, tickResult.log, 'damage')
+        }
+      }
+    }
+
+    resolution.gamevars = recomputeFlags(resolution.gamevars)
+  } catch (e) {
+    console.error('[pollution tick] 失败:', e?.message)
+  }
+
   try {
     await evaluateBranchNodes(client, resolution, userId)
   } catch (e) {
@@ -215,6 +266,11 @@ async function persistResolutionWithBranches(client, room, resolution, userId, o
     console.error('[endings] 应用失败:', e?.message)
   }
   return persistResolution(client, room, resolution, options)
+}
+
+// 旧名：保留向后兼容（部分调用点暂未替换）
+async function persistResolutionWithBranches(client, room, resolution, userId, options = {}) {
+  return persistResolutionWithPollution(client, room, resolution, userId, options)
 }
 
 // 搜索专用：异步持久化版本，立即返回计算结果
@@ -633,7 +689,18 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   const lootable = corpseResult.lootable
-  const { itemChance, npcChance } = getSearchChances(rules, bundle.weather)
+  const { itemChance: rawItemChance, npcChance: rawNpcChance } = getSearchChances(rules, bundle.weather)
+
+  // ── 远星函馆：搜索动作触发个人污染 + 受有效污染影响 ──
+  const polluted = applySearchPollution(nextPlayer)
+  setResolutionPlayer(resolution, user.id, polluted)
+
+  const eff = calcEffectivePollution(
+    resolution.gamevars.envPollution || 0,
+    polluted.personalPollution || 0,
+  )
+  const itemChance = applyPollutionSearchModifier(rawItemChance, eff.effective)
+  const npcChance  = rawNpcChance  // NPC 出现率不被污染下降影响
 
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
   const looseItemChance = Math.max(0, itemChance - corpseChance)
@@ -642,7 +709,6 @@ async function resolveSearchAction(client, room, gamevars, user) {
   appendResolutionLog(resolution, `${player.name} 开始搜索区域`, 'system')
 
   // ── 事件系统：on_search 钩子 ──
-  // 事件可在正常搜索结果前抢占（给物品 / 扣血 / 触发战斗 / 设置 flag 等）
   try {
     await processEventTrigger(client, resolution, user.id, 'on_search', { mapId })
   } catch (e) {
@@ -650,17 +716,16 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
   const afterEvent = getResolutionPlayer(resolution, user.id)
   if (!afterEvent?.alive) {
-    return persistResolutionAsync(client, room, resolution)
+    return persistResolutionWithPollution(client, room, resolution, user.id)
   }
   if (afterEvent.battle) {
-    // 事件已让玩家进入战斗，跳过常规搜索
-    return persistResolutionAsync(client, room, resolution)
+    return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
     const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
     setResolutionPlayer(resolution, user.id, {
-      ...nextPlayer,
+      ...polluted,
       battle: {
         npc,
         npcHp: npc.hp,
@@ -669,15 +734,19 @@ async function resolveSearchAction(client, room, gamevars, user) {
         log: [],
       },
     })
+    resolution.gamevars = {
+      ...resolution.gamevars,
+      spawnedEntityCount: (resolution.gamevars.spawnedEntityCount || 0) + 1,
+    }
     appendResolutionLog(resolution, `${player.name} 遭遇了 ${npc.name}`, 'damage')
-    return persistResolutionAsync(client, room, resolution)
+    return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
   if (roll < npcChance + corpseChance && lootable.length > 0) {
     const found = lootable[Math.floor(Math.random() * lootable.length)]
     resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, found.prompt)
     appendResolutionLog(resolution, `${player.name} 发现了 ${found.corpse.name}`, 'system')
-    return persistResolutionAsync(client, room, resolution)
+    return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
   if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
@@ -693,11 +762,11 @@ async function resolveSearchAction(client, room, gamevars, user) {
     }
 
     setResolutionPlayer(resolution, user.id, {
-      ...nextPlayer,
-      inventory: [...(nextPlayer.inventory || []), found.name],
+      ...polluted,
+      inventory: [...(polluted.inventory || []), found.name],
     })
     appendResolutionLog(resolution, `${player.name} 找到了 ${found.name}`, 'heal')
-    const persisted = await persistResolutionAsync(client, room, resolution)
+    const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
     try {
       await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: found.name })
     } catch (e) {
@@ -707,7 +776,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   appendResolutionLog(resolution, `${player.name} 搜索了一圈，但没有发现有用的东西`, 'system')
-  return persistResolutionAsync(client, room, resolution)
+  return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 
 async function resolveNpcAttackAction(client, room, gamevars, user) {
@@ -746,22 +815,38 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   me = meAfterAttack
 
   appendResolutionLogs(resolution, passiveLogs, 'buff')
-  const npcHp = Math.max(0, battle.npcHp - damageOut)
-  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOut} 伤害`
+
+  // ── 远星函馆：战斗个人污染 + 重度污染伤害修正 ──
+  const eff = calcEffectivePollution(
+    resolution.gamevars.envPollution || 0,
+    player.personalPollution || 0,
+  )
+  const damageOutAdj = applyPollutionCombatModifier(damageOut, eff.effective)
+  const polluted = applyCombatPollution(player, battle.npc)
+
+  const npcHp = Math.max(0, battle.npcHp - damageOutAdj)
+  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOutAdj} 伤害`
   battleLog.push(attackLog)
   appendResolutionLog(resolution, attackLog, 'damage')
 
   if (npcHp <= 0) {
     const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
     setResolutionPlayer(resolution, user.id, {
-      ...player,
+      ...polluted,
       hp: meAfterKill.hp,
       buffs: meAfterKill.buffs || [],
       passiveCooldowns: meAfterKill.passiveCooldowns || {},
-      kills: (player.kills || 0) + 1,
+      kills: (polluted.kills || 0) + 1,
+      // ── 远星函馆击杀计数 ──
+      entityKills: (polluted.entityKills || 0) + 1,
       battle: null,
       lootPrompt: null,
     })
+    // 房间级击杀计数
+    resolution.gamevars = {
+      ...resolution.gamevars,
+      totalEntityKills: (resolution.gamevars.totalEntityKills || 0) + 1,
+    }
 
     const corpseResult = await createNpcCorpse(client, resolution.gamevars, battle.npc, player.map ?? 0)
     resolution.gamevars = corpseResult.gamevars
@@ -796,15 +881,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
 
-    // 分支节点评估 + 结局检查
-    try {
-      await evaluateBranchNodes(client, resolution, user.id)
-      await applyEndingIfTriggered(client, resolution)
-    } catch (e) {
-      console.error('[attackNpc] branch/ending 评估失败:', e?.message)
-    }
-
-    const nextRoom = await persistResolution(client, room, resolution)
+    const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
     await safeConsumeDurability(user.id, room.id, 1, client)
     try {
       await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: battle.npc.name })
@@ -821,13 +898,13 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   appendResolutionLog(resolution, counterLog, 'damage')
 
   setResolutionPlayer(resolution, user.id, {
-    ...player,
+    ...polluted,
     hp: nextHp,
     alive: nextHp > 0,
     buffs: me.buffs || [],
     passiveCooldowns: me.passiveCooldowns || {},
     battle: nextHp > 0 ? { ...battle, npcHp, turn: battle.turn + 1, log: battleLog } : null,
-    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
+    lootPrompt: nextHp > 0 ? polluted.lootPrompt || null : null,
   })
 
   if (nextHp <= 0) {
@@ -835,7 +912,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     await settleCorpseGeneration(resolution)
   }
 
-  const nextRoom = await persistResolution(client, room, resolution)
+  const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
   await safeConsumeDurability(user.id, room.id, 1, client)
   return nextRoom
 }
@@ -1243,6 +1320,18 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return extractPlayer(client, room, gamevars, user, payload)
   }
 
+  if (payload.action === 'emergencyRetreat') {
+    return emergencyRetreat(client, room, gamevars, user)
+  }
+
+  if (payload.action === 'trade') {
+    return tradeWithNpc(client, room, gamevars, user, payload)
+  }
+
+  if (payload.action === 'equipLoadout') {
+    return equipLoadoutAction(client, room, gamevars, user, payload)
+  }
+
   if (payload.action === 'useItem') {
     return performItemUse(client, room, gamevars, user, payload.itemName)
   }
@@ -1263,12 +1352,43 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法移动')
   if (player.battle) throw new Error('战斗中无法移动')
+  if (player.extracted) throw new Error('已撤离玩家无法移动')
 
-  const mapName = MAP_LIST.find(map => map.id === mapId)?.name || `地图 ${mapId}`
+  // ── 邻接校验（远星函馆 spec §2.2） ──
+  const currentMap = await fetchMapConfig(client, player.map ?? 0)
+  const targetMap  = await fetchMapConfig(client, mapId)
+  if (!targetMap) throw new Error(`目标地图 ${mapId} 不存在`)
+
+  const adjacent = Array.isArray(currentMap?.adjacent_maps) ? currentMap.adjacent_maps : []
+  // 同一地图允许（no-op）；其它必须邻接
+  if (mapId !== player.map && adjacent.length > 0 && !adjacent.includes(mapId)) {
+    throw new Error(`【${currentMap?.name || `地图 ${player.map}`}】无法直接通往【${targetMap.name}】`)
+  }
+
+  const mapName = targetMap.name || `地图 ${mapId}`
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
-  setResolutionPlayer(resolution, user.id, { ...player, map: mapId })
+
+  // ── 进入 Ω-段(map_id=4) 启动倒计时 + 累计访问次数 ──
+  let nextPlayer = { ...player, map: mapId }
+  if (mapId === 4) {
+    nextPlayer.omegaCountdown = POLLUTION_CONFIG.OMEGA_WINDOW
+    nextPlayer.omegaVisits = (player.omegaVisits || 0) + 1
+  } else {
+    // 离开 Ω-段时清空倒计时
+    if (player.omegaCountdown !== null && player.omegaCountdown !== undefined) {
+      nextPlayer.omegaCountdown = null
+    }
+  }
+
+  // ── 低污染区自然衰减 ──
+  nextPlayer = applyRetreatDecay(nextPlayer, gamevars.envPollution || 0)
+
+  setResolutionPlayer(resolution, user.id, nextPlayer)
   appendResolutionLog(resolution, `${player.name} 转移至【${mapName}】`, 'system')
+  if (mapId === 4) {
+    appendResolutionLog(resolution, `Ω-段倒计时启动：${POLLUTION_CONFIG.OMEGA_WINDOW} 回合后强制退避`, 'system')
+  }
 
   // 自动 flag：玩家曾访问该地图（供分支引擎使用）
   setVisitedMapFlag(resolution, mapId)
@@ -1280,15 +1400,7 @@ async function movePlayer(client, room, gamevars, user, mapId) {
     console.error('[movePlayer] event trigger 失败:', e?.message)
   }
 
-  // 分支节点评估 + 结局检查
-  try {
-    await evaluateBranchNodes(client, resolution, user.id)
-    await applyEndingIfTriggered(client, resolution)
-  } catch (e) {
-    console.error('[movePlayer] branch/ending 评估失败:', e?.message)
-  }
-
-  return persistResolution(client, room, resolution)
+  return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 
 async function searchArea(client, room, gamevars, user) {
@@ -1308,6 +1420,7 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
 }
 
 // ── 撤离：把背包道具与装备转入账户库，标记玩家 extracted ──
+// ── 撤离：远星函馆 is_exit + exit_cost 模型 ──
 async function extractPlayer(client, room, gamevars, user, payload) {
   const player = getPlayer(gamevars, user.id)
   if (!player) throw new Error('你还未加入该房间')
@@ -1316,52 +1429,49 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   if (player.battle) throw new Error('战斗中无法撤离')
 
   const playerMapId = player.map ?? 0
-  const points = await fetchMapExtractionPoints(client, playerMapId)
-  if (!points || points.length === 0) {
-    throw new Error('当前地图没有撤离点')
+  const mapConfig = await fetchMapConfig(client, playerMapId)
+  if (!mapConfig) throw new Error('地图配置不存在')
+  if (!mapConfig.is_exit) {
+    throw new Error(`【${mapConfig.name}】不是撤离点`)
   }
 
-  const extractionPointId = payload?.extractionPointId
-  if (!extractionPointId) throw new Error('缺少撤离点 ID')
-  const point = points.find(p => p.id === extractionPointId)
-  if (!point) throw new Error('撤离点不存在')
-
-  // ── 时间窗校验 ──
-  const startedAtRaw = room.started_at || room.created_at
-  if (!startedAtRaw) throw new Error('房间尚未开始')
-  const startedAt = new Date(startedAtRaw).getTime()
-  if (Number.isNaN(startedAt)) throw new Error('房间起始时间无效')
-
-  const elapsed = (Date.now() - startedAt) / 1000  // seconds
-  const openAt = Number(point.openAt) || 0
-  const closeAt = point.closeAt === null || point.closeAt === undefined || point.closeAt === ''
-    ? Infinity
-    : Number(point.closeAt)
-  if (elapsed < openAt) {
-    throw new Error(`撤离点未开放（还需 ${Math.ceil(openAt - elapsed)} 秒）`)
-  }
-  if (elapsed > closeAt) {
-    throw new Error('撤离点已关闭')
-  }
-
-  // ── 物品要求 ──
+  // ── exit_cost 校验与扣除 ──
   let inventoryAfter = [...(player.inventory || [])]
-  if (point.requiredItem) {
-    const idx = inventoryAfter.indexOf(point.requiredItem)
-    if (idx === -1) throw new Error(`需要持有：${point.requiredItem}`)
-    if (point.consumeItem) inventoryAfter.splice(idx, 1)
+  const cost = mapConfig.exit_cost
+  if (cost && cost.item) {
+    const need = Number(cost.qty) || 1
+    let have = 0
+    for (const it of inventoryAfter) if (it === cost.item) have++
+    if (have < need) {
+      throw new Error(`需要持有 ${cost.item} ×${need}，当前仅有 ×${have}`)
+    }
+    let removed = 0
+    inventoryAfter = inventoryAfter.filter(it => {
+      if (it === cost.item && removed < need) { removed++; return false }
+      return true
+    })
   }
 
-  // ── 转移背包道具到账户库 ──
+  // ── 转移背包道具到账户库（含 tech_fragment 计数） ──
   const itemCounts = inventoryAfter.reduce((acc, name) => {
     acc.set(name, (acc.get(name) || 0) + 1)
     return acc
   }, new Map())
   const stashAdditions = Array.from(itemCounts, ([name, quantity]) => ({ name, quantity }))
   if (stashAdditions.length > 0) {
-    // 撤离时允许超容量（玩家死战归来，不应被库满拒收）
     await addItemsToStash(client, user.id, stashAdditions, { allowOverflow: true })
   }
+
+  // ── 计算 tech_fragment 提取数量（用于结局判定） ──
+  const { data: poolItems } = await client.from('item_pool').select('name, kind').in('name', stashAdditions.map(s => s.name))
+  const fragmentNames = new Set((poolItems || []).filter(i => i.kind === 'tech_fragment').map(i => i.name))
+  const omegaNames    = new Set((poolItems || []).filter(i => i.kind === 'omega_matter').map(i => i.name))
+  const fragmentsExtracted = stashAdditions
+    .filter(s => fragmentNames.has(s.name))
+    .reduce((sum, s) => sum + s.quantity, 0)
+  const omegaExtracted = stashAdditions
+    .filter(s => omegaNames.has(s.name))
+    .reduce((sum, s) => sum + s.quantity, 0)
 
   // ── 装备实例：room_id := NULL 等价于"放回库" ──
   await client.from('equipment_instances')
@@ -1369,47 +1479,178 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     .eq('owner_id', user.id)
     .eq('room_id', room.id)
 
-  // ── 更新玩家状态 ──
+  // ── 更新玩家状态 + gamevars 累积统计 ──
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
   setResolutionPlayer(resolution, user.id, {
     ...player,
     inventory: [],
     extracted: true,
     extractedAt: new Date().toISOString(),
-    extractionPoint: point.id,
-    alive: true,    // 撤离不算死亡
+    extractionPoint: `map_${playerMapId}`,
+    alive: true,
     lootPrompt: null,
+    omegaCountdown: null,
+    omegaMaterials: (player.omegaMaterials || 0) + omegaExtracted,
+    extractedItems: [
+      ...(player.extractedItems || []),
+      ...stashAdditions.map(s => ({ name: s.name, quantity: s.quantity, atMap: playerMapId })),
+    ],
   })
-
-  const note = stashAdditions.length > 0
-    ? `${player.name} 从【${point.name}】成功撤离（带回 ${stashAdditions.reduce((s, it) => s + it.quantity, 0)} 件物资）`
-    : `${player.name} 从【${point.name}】成功撤离`
-  appendResolutionLog(resolution, note, 'system')
-
-  // 分支节点评估（撤离后重新检查 — 撤离人数变化可能触发结局）
-  try {
-    await evaluateBranchNodes(client, resolution, user.id)
-    await applyEndingIfTriggered(client, resolution)
-  } catch (e) {
-    console.error('[extractPlayer] branch/ending 评估失败:', e?.message)
+  resolution.gamevars = {
+    ...resolution.gamevars,
+    totalFragmentsExtracted: (resolution.gamevars.totalFragmentsExtracted || 0) + fragmentsExtracted,
   }
+
+  const totalCount = stashAdditions.reduce((s, it) => s + it.quantity, 0)
+  const note = totalCount > 0
+    ? `${player.name} 从【${mapConfig.name}】完成结构退避（带回 ${totalCount} 件物资）`
+    : `${player.name} 从【${mapConfig.name}】完成结构退避`
+  appendResolutionLog(resolution, note, 'system')
 
   // 玩家不再属于该房间
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)
 
-  const nextRoom = await persistResolution(client, room, resolution)
+  const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
 
   // 合同进度：撤离推进 extract / extract_at
   try {
     await updateContractProgress(client, user.id, {
       type: 'extracted',
-      extractionPointId: point.id,
+      extractionPointId: `map_${playerMapId}`,
+      mapId: playerMapId,
     })
   } catch (e) {
     console.error('[extractPlayer] contract progress 失败:', e?.message)
   }
 
   return nextRoom
+}
+
+// ── 缝隙维护轨道（紧急撤离）：envPollution≥60% 时可在任何位置使用 ──
+async function emergencyRetreat(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法使用缝隙维护轨道')
+  if (player.extracted) throw new Error('已经撤离')
+  if (player.battle) throw new Error('战斗中无法使用缝隙维护轨道')
+  if ((gamevars.envPollution || 0) < POLLUTION_CONFIG.EMERGENCY_UNLOCK) {
+    throw new Error(`缝隙维护轨道未解锁（环境污染 ${gamevars.envPollution || 0}% < ${POLLUTION_CONFIG.EMERGENCY_UNLOCK}%）`)
+  }
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  let nextPlayer = applyEmergencyRetreatPollution(player)
+  nextPlayer = { ...nextPlayer, map: 0, omegaCountdown: null }
+  setResolutionPlayer(resolution, user.id, nextPlayer)
+  appendResolutionLog(
+    resolution,
+    `${player.name} 启动缝隙维护轨道，跳转至外环维护廊（个人污染 +${POLLUTION_CONFIG.EMERGENCY_COST}%）`,
+    'system',
+  )
+  setVisitedMapFlag(resolution, 0)
+
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+// ── 与非敌对实体交易 ──
+async function tradeWithNpc(client, room, gamevars, user, payload) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法交易')
+  if (player.extracted) throw new Error('已撤离玩家无法交易')
+  if (player.battle) throw new Error('战斗中无法交易')
+
+  const npcId = Number(payload?.npcId)
+  if (!npcId) throw new Error('缺少 NPC ID')
+
+  const { data: npc } = await client.from('npc_pool').select('*').eq('id', npcId).maybeSingle()
+  if (!npc) throw new Error('NPC 不存在')
+  if (!npc.tradeable) throw new Error(`${npc.name} 不可交易`)
+  if (!Array.isArray(npc.maps) || !npc.maps.includes(player.map ?? 0)) {
+    throw new Error(`${npc.name} 不在你当前所在地图`)
+  }
+
+  const wants = npc.trade_wants
+  const offers = npc.trade_offers
+  if (!wants?.item || !offers?.item) {
+    throw new Error('该 NPC 的交易配置无效')
+  }
+  const needQty = Number(wants.qty) || 1
+  const giveQty = Number(offers.qty) || 1
+
+  let inventory = [...(player.inventory || [])]
+  let have = inventory.filter(it => it === wants.item).length
+  if (have < needQty) {
+    throw new Error(`需要 ${wants.item} ×${needQty}，当前仅有 ×${have}`)
+  }
+  // 扣除 wants
+  let removed = 0
+  inventory = inventory.filter(it => {
+    if (it === wants.item && removed < needQty) { removed++; return false }
+    return true
+  })
+  // 加入 offers
+  for (let i = 0; i < giveQty; i++) inventory.push(offers.item)
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  let nextPlayer = applyInteractPollution({
+    ...player,
+    inventory,
+    entityInteractions: (player.entityInteractions || 0) + 1,
+  })
+  setResolutionPlayer(resolution, user.id, nextPlayer)
+  resolution.gamevars = {
+    ...resolution.gamevars,
+    totalEntityInteractions: (resolution.gamevars.totalEntityInteractions || 0) + 1,
+  }
+  appendResolutionLog(
+    resolution,
+    `${player.name} 与 ${npc.name} 交易：${wants.item}×${needQty} → ${offers.item}×${giveQty}（个人污染 ${POLLUTION_CONFIG.INTERACT_PERSONAL}%）`,
+    'system',
+  )
+
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+// ── 装载装备（raid 内动作） ──
+async function equipLoadoutAction(client, room, gamevars, user, payload) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法操作装备')
+  if (player.extracted) throw new Error('已撤离玩家无法操作装备')
+
+  const slot = payload?.slot
+  const instanceId = payload?.instanceId
+  if (!LOADOUT_SLOTS.includes(slot)) throw new Error(`未知装备槽：${slot}`)
+
+  // null/undefined instanceId = 卸下
+  if (!instanceId) {
+    const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+    setResolutionPlayer(resolution, user.id, {
+      ...player,
+      loadout: { ...(player.loadout || {}), [slot]: null },
+    })
+    appendResolutionLog(resolution, `${player.name} 卸下了 ${slot} 槽装备`, 'system')
+    return persistResolution(client, room, resolution)
+  }
+
+  // 校验装备实例属于本人 + 是 raid 中（room_id == 当前 room.id 或 NULL）+ slot 匹配
+  const { data: inst } = await client
+    .from('equipment_instances')
+    .select('*, tier:equipment_tiers(*, series:equipment_series(slot,name))')
+    .eq('id', instanceId)
+    .maybeSingle()
+
+  if (!inst) throw new Error('装备实例不存在')
+  if (inst.owner_id !== user.id) throw new Error('该装备不属于你')
+  const seriesSlot = inst.tier?.series?.slot
+  if (seriesSlot !== slot) {
+    throw new Error(`该装备槽位为 ${seriesSlot}，无法装入 ${slot}`)
+  }
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    loadout: { ...(player.loadout || {}), [slot]: instanceId },
+  })
+  appendResolutionLog(resolution, `${player.name} 装上了 ${inst.tier?.name || '装备'}`, 'system')
+  return persistResolution(client, room, resolution)
 }
 
 async function performItemUse(client, room, gamevars, user, itemName) {
