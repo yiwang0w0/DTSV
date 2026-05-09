@@ -436,16 +436,24 @@ if (gamestate === 1 && normalized.endingResult) {
 
 ## 一、项目概述
 
-DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI）。
+DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05）**：搜打撤完整闭环 v1 — 装载、撤离、合同、事件、分支、多结局全部上线。BR 战场作为 raid 内核心循环保留。**13 标签页管理后台**（含合同 / 事件 / 分支 / 结局编辑器）。
+**当前状态（2026-05 / Phase 0-8 全部上线）**：
+
+- **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
+- **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
+- **13 标签页管理后台**：合同 / 事件 / 分支 / 结局编辑器全部就绪
 
 **核心循环**：
-1. 玩家在账户库（player_stash）准备装载
-2. 进 raid 选房间 → 装载选物品 → 进入对局
-3. raid 内：搜索 / 战斗 / 移动 / 撤离，行为驱动事件 + 合同 + 分支
-4. 撤离成功 → 物资入库 + 合同奖励；死亡 → 物资全失（走尸体系统可被搜刮）
-5. 分支节点条件聚合（atLeast(N)）触发多结局，所有存活玩家收到结局奖励
+
+1. 账户库（player_stash）准备 → /rooms 选房间
+2. 装载（4 装备槽 + 4 消耗品槽，最多 8 件）→ 进 raid（默认 map=0 外环维护廊）
+3. raid 内：搜索 / 战斗 / 移动（受邻接限制）/ 交易 / 撤离
+   - 每动作消耗个人污染；环境污染按区域 pollution_accel 自然增长
+   - 行为驱动事件 + 合同 + 分支评估 + 自动 flag 更新
+4. 撤离（is_exit=true 区域 → 消耗 exit_cost）或 缝隙维护轨道（envPollution≥60% 强制传送 map=0 + 个人污染 +15%）
+5. 死亡 = 物资全失走尸体系统；撤离 = 物资入库 + 合同奖励
+6. 分支引擎在每次 persist 后评估 4 结局判定节点（崩解/清算/合流/探索）；触发即结局横幅 + 奖励发到全体存活玩家账户库
 
 ---
 
@@ -473,10 +481,10 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `src/app/game/[id]/page.js` | 入口转发 |
 | `src/app/game/[id]/GameClientPage.jsx` | 局内主容器（含撤离按钮 + 结局横幅） |
 | `src/app/game/[id]/CraftModal.jsx` | 装备合成面板 |
-| `src/app/game/[id]/ExtractionModal.jsx` | **2026-05 新增** — 撤离选择面板（实时时间窗 + 物品要求） |
+| `src/app/game/[id]/ExtractionModal.jsx` | **2026-05 重写** — Phase 8 单出口信息卡（exit_cost 校验） |
 | `src/app/game/[id]/LootModal.jsx` | 尸体拾取面板 |
 | `src/app/game/[id]/gameUi.js` | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
-| `src/components/LoadoutModal.jsx` | **2026-05 新增** — 装载选择面板 |
+| `src/components/LoadoutModal.jsx` | **2026-05 重写** — Phase 8 双 4 槽位（probe/shield/weapon/comm + 4 消耗品） |
 | `src/components/GrantStashModal.jsx` | **2026-05 新增** — 管理员发放道具面板 |
 | `src/components/cards/*.jsx` | **2026-05 新增** — ItemCard / NpcCard / CardDnd 原语 |
 | `src/app/admin/page.js` | 管理后台入口，**13 标签页**（原 9 + 4 新） |
@@ -486,9 +494,9 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | 标签 | 文件 | 功能 |
 |------|------|------|
 | 📊 概览 | OverviewTab.jsx | 统计卡片 + 分布图 |
-| ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选 |
-| 🤖 NPC | NpcsTab.jsx | NPC CRUD + 按等级筛选 |
-| 🗺️ 地图 | MapsTab.jsx | **2026-05 重构** — 卡片化拖拽 + 三 Tab（道具池 / NPC 池 / 撤离点） |
+| ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选；**2026-05 Phase 8** ITEM_SUB_KINDS 重写匹配远星 5 kind |
+| 🤖 NPC | NpcsTab.jsx | NPC CRUD + 按等级筛选；**2026-05 Phase 8** 加"🌌 远星属性"分组（entity_type / hostile / tradeable / trade_wants&offers / pollution_on_kill / spawn_weight / min_pollution） |
+| 🗺️ 地图 | MapsTab.jsx | **2026-05 重构** — 卡片化拖拽 + 双 Tab（道具池 / NPC 池）；表单加 6 个远星字段（pollution_base/accel, adjacent_maps, is_exit, exit_cost, omega_window） |
 | 🏠 房间 | RoomsTab.jsx | 查看/按状态筛选/强制结束/删除 |
 | 👥 用户权限 | UsersTab.jsx | 权限组管理 + **2026-05 新增 📦 发放道具** |
 | ⚙️ 战斗规则 | RulesTab.jsx | 规则公式编辑 + Buff 池管理 |
@@ -537,8 +545,9 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `equipmentEngine.js` | `getCraftingTree()`, `getSeriesTree()`, `checkCanCraft()`, `executeCraft()`, `calcEquippedStats()`, `triggerPassives()`, `RARITY_META`, `ELEMENT_META`, `SLOT_META` |
 | `eventResolver.js` | `createActionResolution()`, `runTurnStartSettlement()`, `settleNewDeaths()` 日志/玩家状态 helper |
 | `roomState.js` | `normalizeGamevars()`, `createLogEntry()`, `appendGameLog()`, `createPlayerState()`, `computeRoomStats()` (排除 extracted), `applyRoomLifecycle()` (含结局优先判定), `createCorpse()`, `setPlayerLootPrompt()` |
-| `constants.js` | `MAP_LIST` (35张), `GAME_TYPES`, `WEATHER_OPTIONS`, `ITEM_KIND_META` (5种含material), `NPC_LEVEL_META` |
+| `constants.js` | **2026-05 Phase 8 重写** — `MAP_LIST` 35→7（远星 17 号异常段）, `ITEM_KIND_META` (5 远星 kind), `ENTITY_TYPE_META` (4 类实体), `LOADOUT_SLOT_META` + `LOADOUT_SLOTS`, `POLLUTION_CONFIG` (17 个污染常量), `POLLUTION_TIER_META`, `ENDING_KEYS`, `GAME_TYPES`, `WEATHER_OPTIONS`, `NPC_LEVEL_META` |
 | `gameApi.js` | `postGameApi()`, **`getGameApi()`** ← 2026-05 新增 |
+| **`pollution.js`** | **2026-05 Phase 8 新增** — 污染引擎纯函数：`calcEffectivePollution`, `applySearchPollution` / `applyCombatPollution` / `applyInteractPollution` / `applyPvpPollution` / `applyEmergencyRetreatPollution` / `applyMeltdownTraversePollution` / `applyRetreatDecay` / `applyPartRepair`, `tickEnvPollution`, `tickOmegaCountdown`, `applyPollutionSearchModifier`, `applyPollutionCombatModifier`, `getPollutionSpawnMultiplier`, `recomputeFlags`, `POLLUTION_WEIGHTS` |
 | `serverSupabase.js` | `createServerSupabase()`, `getRequestUser()`, `requireRequestUser()` |
 | `auth.js` | `isAdmin()`, `PRIMARY_ADMIN_EMAIL` |
 | `supabase.js` | Supabase 客户端 |
@@ -548,14 +557,14 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 |------|----------|
 | `stash.js` | `loadStash`, `addItemsToStash`, `removeItemsFromStash`, `moveEquipmentToStash`, `consumeForLoadout`, `STASH_DEFAULT_CAPACITY=40` |
 | `contracts.js` | `loadPlayerContracts`, `acceptContract`, `updateContractProgress` (事件驱动) |
-| `events.js` | `loadActiveEvents`, `processEventTrigger`, `invalidateEventCache` (8 effect types: log_only/give_item/take_item/damage/heal/spawn_npc/set_flag/inc_flag) |
-| `branches.js` | `loadActiveBranches`, `evaluateBranchNodes`, `evaluateCondition`, `matchesAggregator`, `setVisitedMapFlag`, `setKilledNpcFlag`, `invalidateBranchCache` |
+| `events.js` | **Phase 8 async 化** — `loadActiveEvents`, `loadAllNpcs`, `pickNpcByEntityType`, `processEventTrigger`, `invalidateEventCache`, `invalidateNpcPoolCache`. spawn_npc 现按 entity_type + spawn_weight + min_pollution 加权抽取 |
+| `branches.js` | `loadActiveBranches`, `evaluateBranchNodes`, `evaluateCondition` (Phase 8 加 `anyPlayerHas {key,minValue}` 重载), `matchesAggregator`, `setVisitedMapFlag`, `setKilledNpcFlag`, `invalidateBranchCache` |
 | `endings.js` | `loadActiveEndings`, `applyEndingIfTriggered`, `invalidateEndingsCache` |
 
-**既有 + 大幅扩展**：
+**既有 + Phase 8 大幅扩展**：
 | 文件 | 关键导出 |
 |------|----------|
-| `server/gameActions.js` | `createRoom()`, `joinRoom(client, user, roomId, loadout)` ← 接受 loadout, `executeGameAction()` 含 'extract' action, `extractPlayer()` ← 新增, `persistResolutionWithBranches()` ← 新 helper, `setVisitedMapFlag` / `setKilledNpcFlag` 自动 flag 钩子 |
+| `server/gameActions.js` | `createRoom`, `joinRoom(client, user, roomId, loadout)`, `executeGameAction()`. **Phase 8 新动作**：`extract` 重写（is_exit + exit_cost）、`emergencyRetreat`（缝隙维护轨道）、`trade`（与 tradeable NPC 交易）、`equipLoadout`（raid 内换槽）。**Phase 8 新 helper**：`fetchMapConfig`, `fetchMapAccelTable`, `persistResolutionWithPollution`（tick 链路：tickEnv→tickOmega→recomputeFlags→branches→endings→persist）。**自动 flag**：`setVisitedMapFlag` / `setKilledNpcFlag` |
 
 ### 共享 UI (`src/app/admin/_shared/ui.js`)
 
@@ -570,10 +579,10 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | 表名 | 用途 |
 |------|------|
 | `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner, version) |
-| `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05 新增) |
-| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description) |
-| `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]) |
-| `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked, **extraction_points jsonb** ← 2026-05 新增) |
+| `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05) |
+| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). 2026-05 Phase 8 重灌为远星 4 kind（tech_fragment/platform_part/omega_matter/consumable） |
+| `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]). **2026-05 Phase 8 新增列**：`entity_type`, `hostile`, `tradeable`, `trade_wants` jsonb, `trade_offers` jsonb, `pollution_on_kill`, `spawn_weight`, `min_pollution` |
+| `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked). **2026-05 Phase 8 新增列**：`pollution_base`, `pollution_accel`, `adjacent_maps` jsonb, `is_exit` bool, `exit_cost` jsonb, `omega_window`. （Phase 3 的 `extraction_points` jsonb 已在 Phase 8 中被替换） |
 | `game_rules` | 动态规则 (key, value, category) |
 | `buff_pool` | Buff 池 (name, icon, is_debuff) |
 | `equipment_series` | 装备系列 (name, slot, icon) |
@@ -596,18 +605,34 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 
 ### gamevars JSONB 内的运行时字段（2026-05 新增）
 
+**Phase 0-7 字段**：
 | 字段 | 用途 |
 |------|------|
-| `players[uid].extracted` | 玩家是否已撤离 |
-| `players[uid].extractedAt` | 撤离时间 |
-| `players[uid].extractionPoint` | 撤离时使用的撤离点 ID |
-| `flags` | 全局/房间级 flag 字典（事件 set_flag / 自动 visited_map_X / killed_NPC） |
+| `players[uid].extracted` / `extractedAt` / `extractionPoint` | 撤离状态 |
+| `flags` | 全局/房间级 flag 字典 |
 | `eventHistory[uid][eventId]` | 事件触发历史 `{ count, lastTurn }` |
 | `branchHistory.{room\|players}` | 分支节点已触发记录 |
-| `endingTriggered` | 待处理的结局 key（分支引擎写入，applyEndingIfTriggered 消费） |
-| `endingResult` | 已应用的结局 `{ key, name, bannerText, rewardedItems, rewardedPlayerCount }` |
+| `endingTriggered` | 待处理结局 key（分支引擎写入） |
+| `endingResult` | 已应用结局 `{ key, name, bannerText, rewardedItems, rewardedPlayerCount }` |
 
-共 **19 张表 + 8 类 gamevars 运行时字段**。
+**Phase 8 远星新增字段**：
+| 字段 | 用途 |
+|------|------|
+| `envPollution` | 环境污染 0-100，房间共享 |
+| `failedRetreats` | 未及时退避次数（崩解结局判定） |
+| `totalEntityKills` | 全房间击杀实体总数 |
+| `totalEntityInteractions` | 全房间非敌对实体交互总数 |
+| `totalFragmentsExtracted` | 全房间已提取结构碎片总数 |
+| `spawnedEntityCount` | 本局已刷新实体总数（击杀率分母） |
+| `flags.envPollutionMax` / `envPollutionBelow60` / `lowFragments` / `totalEntityKillRate` | 由 `recomputeFlags` 每 tick 重算的结局判定 flag |
+| `players[uid].personalPollution` | 个人污染 0-100 |
+| `players[uid].omegaCountdown` | Ω-段倒计时（null=未在 4 区） |
+| `players[uid].omegaVisits` / `omegaMaterials` | 探索结局判定 |
+| `players[uid].entityInteractions` / `entityKills` | 玩家级行为统计 |
+| `players[uid].extractedItems` | 撤离时快照的物品列表 |
+| `players[uid].loadout` | `{probe, shield, weapon, comm}` 4 装备槽 instanceId |
+
+共 **19 张表 + 13 类 gamevars 运行时字段**（Phase 0-7 + Phase 8）。
 
 ---
 
@@ -695,6 +720,42 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - 自动给所有 alive 玩家（含已撤离）发放奖励到账户库
 - 游戏页顶部渐变结局横幅展示
 
+### 14. 远星双层污染系统（2026-05 Phase 8 新增）
+- 双层模型：环境污染 (gamevars.envPollution) + 个人污染 (player.personalPollution)
+- 有效污染 = `envPollution × WEIGHT_ENV(0.6) + personalPollution × WEIGHT_PERSONAL(0.4)`
+- 5 等级：none / mild(40) / moderate(60) / severe(80) / meltdown(100)
+- 等级修正：mild -10% 搜索 / moderate -20% / severe -30% + 战斗伤害 -15% + NPC 出现率 ×1.5
+- 动作触发个人污染（`pollution.js#apply*Pollution`）：
+  - search +2 / combat +4（按 NPC.pollution_on_kill 加成） / interact -3 / pvp +5 /
+    emergencyRetreat +15 / meltdownTraverse +10
+- 自然衰减：低污染区(envPollution≤20%)每回合个人污染 -2
+- 修复：使用环段部件 `applyPartRepair` 减环境污染 [5,15] 随机
+- 每 persist 链路：`tickEnvPollution → tickOmegaCountdown → recomputeFlags → branches → endings → persist`
+
+### 15. 邻接图 + Ω-段倒计时（2026-05 Phase 8 新增）
+- `map_config.adjacent_maps` jsonb 数组定义可达性，移动严格受邻接限制
+- 7 张地图主路径：0 → 1 → 2 → 3 → 4 + 分叉 1↔10 / 2↔11
+- Ω-段（map=4）进入后启动 `omegaCountdown=3`，每回合 -1
+- 倒计时归零：强制传送回 map=3 + 个人污染 +20%（探索结局判定的关键阈值）
+- 缝隙维护轨道（紧急撤离）：envPollution≥60% 解锁，从任何位置传送至 map=0 + 个人污染 +15%
+
+### 16. 实体类型与交易系统（2026-05 Phase 8 新增）
+- 4 类实体：remnant（残响，敌对）/ infiltrator（伪装入侵者，敌对）/ symbiote（共生，非敌对可交易）/ observer（观察，非敌对可交易）
+- `npc_pool` 7 个新列承载实体属性（entity_type / hostile / tradeable / trade_wants / trade_offers / pollution_on_kill / spawn_weight / min_pollution）
+- 事件 `spawn_npc` 由硬编码 NPC 改为按 `entity_type` 从 `npc_pool` 加权抽取（spawn_weight + min_pollution 过滤）
+- 交易动作 `trade`：校验 npc.tradeable + 同地图 → 交换 trade_wants/offers + applyInteractPollution + 双层 entityInteractions 计数
+
+### 17. 双 4 槽位装载（2026-05 Phase 8 新增）
+- `LOADOUT_SLOTS = ['probe', 'shield', 'weapon', 'comm']`：4 装备槽，按 `equipment_series.slot` 过滤
+- 4 消耗品槽：从库存按 `kind=consumable` 选取，最多 4 件
+- **总载荷上限 = 4 装备 + 4 消耗品 = 8 件**
+- 4 装备槽效果（spec §6.3，由 pollution 引擎 + gameActions 在动作时按 slot 应用）：
+  - probe — 搜索成功率+15%、搜索失败污染惩罚-50%
+  - shield — 个人污染累积速度×0.7、Ω-段窗口+1回合
+  - weapon — 对实体伤害+25%、环境污染增速+1/回合
+  - comm — PvP误判率-50%、显示其他操作员真实身份
+- 装备走 `equipment_instances` 系（不在 item_pool）；4 个 farstar series + 8 个 tier 由 ADDITIVE 迁移引入
+
 ---
 
 ## 六、工程配置
@@ -710,16 +771,19 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 
 | 问题 | 说明 | 优先级 |
 |------|------|--------|
-| gameActions.js 越来越大 | ~1500 行（含 stash/contracts/events/branches/endings 钩子），可按动作模块拆分 | 中 |
-| GameClientPage.jsx 持续膨胀 | ~620 行（含装载、撤离、结局横幅），考虑拆子面板组件 | 中 |
-| EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 中 |
+| gameActions.js 越来越大 | ~1900 行（Phase 8 加 4 个新动作 + 污染钩子），可按动作模块拆分 | 中 |
+| GameClientPage.jsx 持续膨胀 | ~700 行（含污染条 + Ω 倒计时 + 邻接图 + 结局横幅），考虑拆子面板组件 | 中 |
+| 装载效果未真正生效 | LoadoutModal 写入 player.loadout 但 pollution.js / gameActions 还没读它来应用 4 装备槽的属性加成（spec §6.3 的 +15%/×0.7/+25%/-50% 这些数值）。需要在 searchArea/attackPlayer 等动作中读 player.loadout[slot] 并查 equipment_tiers 应用 buff | **高** (Phase 8 尾巴) |
+| raid 内交易 UI | trade action 服务端就绪 + handleTradeNpc 已挂上，但 GameClientPage 还缺一个面板列出当前 map 的 tradeable NPC 让玩家点击发起 | **高** (Phase 8 尾巴) |
+| 装备槽 raid 内更换 | equipLoadout action 服务端就绪，但 UI 还没接（玩家进 raid 后无法换 4 槽） | 中 |
+| EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 低 |
 | 事件系统 effects 完整性 | 当前 8 种 effect，可扩展至冷却/状态异常/物品掉率/天气切换等 | 中 |
-| 分支引擎条件覆盖 | 9 种条件够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
+| 分支引擎条件覆盖 | 9 种条件 + `anyPlayerHas {key,minValue}` 重载够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
 | 合同失败/超时 | 当前只有完成态，无失败/超时态 | 低 |
-| 玩家结局展示页 | 结局触发后游戏内顶部横幅可展示，但缺独立"我的结局收藏"页 | 低 |
+| 玩家结局展示页 | 游戏内顶部横幅展示，但缺独立"我的结局收藏"页 | 低 |
 | 多人分支冲突 | scope='room' 节点目前任意玩家触发即生效，多人剧情同步可优化 | 中 |
-| smoke 覆盖有限 | 仅核心状态函数；新加的 stash/contracts/events/branches/endings 模块未覆盖 | 中 |
-| 构建验证 | `npm run build` 在每次提交都已验证通过 | 维护中 |
+| smoke 覆盖有限 | 仅核心状态函数；新加的 stash/contracts/events/branches/endings/pollution 模块未覆盖 | 中 |
+| 构建验证 | `npm run lint && npm run build` 每次提交都验证通过 | 维护中 |
 
 ---
 
