@@ -33,6 +33,42 @@ export function invalidateEventCache() {
   _cacheTs = 0
 }
 
+// ── NPC 池缓存（按 entity_type 分组），用于 spawn_npc by entity_type ──
+let _npcPoolCache = null
+let _npcCacheTs = 0
+
+async function loadAllNpcs(client) {
+  const now = Date.now()
+  if (_npcPoolCache && now - _npcCacheTs < CACHE_TTL) return _npcPoolCache
+  const { data } = await client.from('npc_pool').select('*')
+  _npcPoolCache = data || []
+  _npcCacheTs = now
+  return _npcPoolCache
+}
+
+export function invalidateNpcPoolCache() {
+  _npcPoolCache = null
+  _npcCacheTs = 0
+}
+
+/** 按 entity_type 抽取 NPC（按 spawn_weight 加权 + min_pollution 过滤） */
+async function pickNpcByEntityType(client, entityType, envPollution = 0) {
+  const all = await loadAllNpcs(client)
+  const candidates = all.filter(n =>
+    n.entity_type === entityType
+    && (envPollution >= (Number(n.min_pollution) || 0))
+  )
+  if (candidates.length === 0) return null
+
+  const totalWeight = candidates.reduce((s, n) => s + (Number(n.spawn_weight) || 1), 0)
+  let r = Math.random() * totalWeight
+  for (const n of candidates) {
+    r -= (Number(n.spawn_weight) || 1)
+    if (r <= 0) return n
+  }
+  return candidates[candidates.length - 1]
+}
+
 export async function processEventTrigger(client, resolution, userId, triggerType, context = {}) {
   const events = await loadActiveEvents(client)
   if (events.length === 0) return null
@@ -61,20 +97,19 @@ export async function processEventTrigger(client, resolution, userId, triggerTyp
   // 记录历史
   recordEventInResolution(resolution, userId, picked.id, currentTurn)
 
-  // 应用效果
-  applyEventEffects(picked, resolution, userId, context)
+  // 应用效果（async：spawn_npc 需查 npc_pool）
+  await applyEventEffects(client, picked, resolution, userId, context)
 
   return picked
 }
 
 // ── 触发匹配 ──────────────────────────────
-function matchesTrigger(event, triggerType, context, gamevars, userId) {
+function matchesTrigger(event, triggerType, context) {
   const t = event.trigger || {}
   if (t.type !== triggerType) return false
 
   switch (triggerType) {
     case 'on_search':
-      // 可指定 map（-1 表示任意地图）
       if (t.mapId !== undefined && t.mapId !== null && t.mapId !== -1 && t.mapId !== context.mapId) return false
       return true
 
@@ -125,8 +160,8 @@ function recordEventInResolution(resolution, userId, eventId, currentTurn) {
   }
 }
 
-// ── 效果应用（直接修改 resolution）──────────
-function applyEventEffects(event, resolution, userId, context) {
+// ── 效果应用（async，因为 spawn_npc 需查 DB）──────────
+async function applyEventEffects(client, event, resolution, userId, context) {
   const gv = resolution.gamevars
   const player = gv.players?.[userId]
   if (!player) return
@@ -144,7 +179,7 @@ function applyEventEffects(event, resolution, userId, context) {
   }
 
   for (const effect of (event.effects || [])) {
-    const result = applyOneEffect(effect, nextPlayer, nextGv, context, userId)
+    const result = await applyOneEffect(client, effect, nextPlayer, nextGv, context, userId)
     if (result.player) nextPlayer = result.player
     if (result.gamevars) nextGv = result.gamevars
     if (result.log) logs.push({ text: result.log, type: result.logType || 'system' })
@@ -175,7 +210,7 @@ function applyEventEffects(event, resolution, userId, context) {
   }
 }
 
-function applyOneEffect(effect, player, gv, context, userId) {
+async function applyOneEffect(client, effect, player, gv, context, userId) {
   const type = effect?.type
   switch (type) {
     case 'log_only':
@@ -254,14 +289,28 @@ function applyOneEffect(effect, player, gv, context, userId) {
 
     case 'spawn_npc':
     case 'trigger_battle': {
-      // 简化：把 npc 数据写入 player.battle，强制进入战斗
-      const npc = effect.npc || {}
+      // 优先按 entity_type 从 npc_pool 加权抽取
+      let npc = null
+      if (effect.entity_type && client) {
+        npc = await pickNpcByEntityType(client, effect.entity_type, gv.envPollution || 0)
+      }
+      // 兜底：使用事件中硬编码的 npc 对象（向后兼容）
+      if (!npc && effect.npc) {
+        npc = effect.npc
+      }
+      if (!npc) {
+        return { log: `[事件] 尝试生成 ${effect.entity_type || 'NPC'} 但池中无可用候选`, logType: 'system' }
+      }
+
       const battleNpc = {
-        name: npc.name || '神秘敌人',
-        hp:   npc.hp   || 30,
-        atk:  npc.atk  || 10,
-        def:  npc.def  || 5,
-        level: npc.level || 'easy',
+        id:          npc.id || null,
+        name:        npc.name || '神秘敌人',
+        hp:          npc.hp   || 30,
+        atk:         npc.atk  || 10,
+        def:         npc.def  || 5,
+        level:       npc.level || 'easy',
+        entity_type: npc.entity_type || effect.entity_type || null,
+        pollution_on_kill: Number(npc.pollution_on_kill) || 4,
       }
       return {
         player: {
@@ -273,6 +322,10 @@ function applyOneEffect(effect, player, gv, context, userId) {
             turn: 1,
             log: [],
           },
+        },
+        gamevars: {
+          ...gv,
+          spawnedEntityCount: (gv.spawnedEntityCount || 0) + 1,
         },
         log: `${player.name} 遭遇了 ${battleNpc.name}！`,
         logType: 'damage',
