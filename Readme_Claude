@@ -20,7 +20,9 @@
 | 8.7 | 游戏 UI：双污染条 + Ω 倒计时 + 邻接地图过滤 + 结构退避 + 缝隙维护轨道按钮 | `34bea0c` |
 | 8.8 | LoadoutModal 双 4 槽位（4 装备 + 4 消耗品 = 8 件总载荷） | `c8ed26d` |
 | 8.9 | admin tabs 适配（MapsTab 新 6 字段 + NpcsTab 远星属性 + ItemsTab 5 kinds） | `87b07ff` |
-| 8.10 | 本节 Readme + 单次 push | (本提交) |
+| 8.10 | 本节 Readme + 单次 push | `59358c5` |
+| 8.11 | 4 装备槽效果实际生效（probe/shield/weapon 全部接线，comm 留 UI） | `78568d0` |
+| 8.12 | raid 内交易 UI 面板（左侧栏 🌿 交易，按当前 map 显示可交易 NPC） | `796a9eb` |
 
 ### 8.0 关键设计决策（与用户确认）
 
@@ -749,12 +751,23 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - `LOADOUT_SLOTS = ['probe', 'shield', 'weapon', 'comm']`：4 装备槽，按 `equipment_series.slot` 过滤
 - 4 消耗品槽：从库存按 `kind=consumable` 选取，最多 4 件
 - **总载荷上限 = 4 装备 + 4 消耗品 = 8 件**
-- 4 装备槽效果（spec §6.3，由 pollution 引擎 + gameActions 在动作时按 slot 应用）：
-  - probe — 搜索成功率+15%、搜索失败污染惩罚-50%
-  - shield — 个人污染累积速度×0.7、Ω-段窗口+1回合
-  - weapon — 对实体伤害+25%、环境污染增速+1/回合
-  - comm — PvP误判率-50%、显示其他操作员真实身份
+- joinRoom 接收装载 payload，写入 `player.loadout = {probe, shield, weapon, comm}`
+- 4 装备槽效果（**Phase 8.11 已全部接线**）：
+  - probe ✅ — `applyPollutionSearchModifier(_, _, {hasProbe:true})` 搜索成功率 +15%
+  - shield ✅ — `shieldPersonalFactor()` 让个人污染累积 ×0.7；进 map=4 时 omegaCountdown +1
+  - weapon ✅ — `applyPollutionCombatModifier(_, _, {hasWeapon:true})` 对实体伤害 +25%；`tickEnvPollution` 计入 weaponHolders 数 +1/回合
+  - comm △ — PvP 误判率 / 身份显示是 UI 范畴，动作层无变化；后续 PvP UI 设计时注入
+- `getLoadoutEffects(player)` 返回 4 个布尔标记，供 gameActions 调用所有动作处使用
 - 装备走 `equipment_instances` 系（不在 item_pool）；4 个 farstar series + 8 个 tier 由 ADDITIVE 迁移引入
+
+### 18. raid 内交易 UI（2026-05 Phase 8.12 新增）
+- GameClientPage 左侧栏 PvP 面板下方新增 "🌿 交易" 面板
+- `loadMapData` 同时查 `npc_pool.tradeable=true`，按当前 mapId 过滤
+- 每个可交易 NPC 卡显示：entity_type 徽章 + 名称 + want/offer 物品 + 玩家持有数 N/M
+- 按钮校验：物品足够 + 玩家存活 + 不在战斗 + 房间未结束
+- 触发 `trade` action（已在 Phase 8.4 接入）→ 服务端校验 + 交换 + applyInteractPollution + entityInteractions/totalEntityInteractions++ → 推动"合流结局"判定（全员 entityInteractions ≥4 + envPollution ≤60）
+
+---
 
 ---
 
@@ -771,11 +784,10 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 
 | 问题 | 说明 | 优先级 |
 |------|------|--------|
-| gameActions.js 越来越大 | ~1900 行（Phase 8 加 4 个新动作 + 污染钩子），可按动作模块拆分 | 中 |
-| GameClientPage.jsx 持续膨胀 | ~700 行（含污染条 + Ω 倒计时 + 邻接图 + 结局横幅），考虑拆子面板组件 | 中 |
-| 装载效果未真正生效 | LoadoutModal 写入 player.loadout 但 pollution.js / gameActions 还没读它来应用 4 装备槽的属性加成（spec §6.3 的 +15%/×0.7/+25%/-50% 这些数值）。需要在 searchArea/attackPlayer 等动作中读 player.loadout[slot] 并查 equipment_tiers 应用 buff | **高** (Phase 8 尾巴) |
-| raid 内交易 UI | trade action 服务端就绪 + handleTradeNpc 已挂上，但 GameClientPage 还缺一个面板列出当前 map 的 tradeable NPC 让玩家点击发起 | **高** (Phase 8 尾巴) |
+| gameActions.js 越来越大 | ~1950 行（Phase 8 加 4 个新动作 + 污染钩子 + loadout 接线），可按动作模块拆分 | 中 |
+| GameClientPage.jsx 持续膨胀 | ~770 行（含污染条 + Ω 倒计时 + 邻接图 + 结局横幅 + 交易面板），考虑拆子面板组件 | 中 |
 | 装备槽 raid 内更换 | equipLoadout action 服务端就绪，但 UI 还没接（玩家进 raid 后无法换 4 槽） | 中 |
+| comm 槽 PvP 误判机制 | 服务端识别已就绪（getLoadoutEffects.comm），但 PvP UI 缺"误判率 -50%"和"显示真实身份"的具体表现（需先设计 PvP 误判机制） | 低 |
 | EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 低 |
 | 事件系统 effects 完整性 | 当前 8 种 effect，可扩展至冷却/状态异常/物品掉率/天气切换等 | 中 |
 | 分支引擎条件覆盖 | 9 种条件 + `anyPlayerHas {key,minValue}` 重载够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
