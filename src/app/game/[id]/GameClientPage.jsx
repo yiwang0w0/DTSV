@@ -169,7 +169,12 @@ export default function GameClientPage() {
     }
     return counts
   }, [me?.inventory])
-  const battle = meBase?.battle || null
+  // Phase 16: encounter（待袭击 NPC 实例）取代旧 battle 持续状态
+  const encounterInstance = useMemo(() => {
+    const instId = meBase?.encounter?.instanceId
+    if (!instId) return null
+    return (gamevars?.npcInstances || []).find(i => i.id === instId) || null
+  }, [meBase?.encounter?.instanceId, gamevars?.npcInstances])
   const inGame = !!meBase
   const weather = WEATHER[mapConfig?.weather || 'clear'] || WEATHER.clear
   const aliveCount = room?.alivenum ?? allPlayers.filter(player => player.alive).length
@@ -181,6 +186,20 @@ export default function GameClientPage() {
     () => allPlayers.filter(player => (player.id || player.uid) !== user?.id && player.alive && (player.map ?? 0) === (meBase?.map ?? 0)),
     [allPlayers, meBase?.map, user?.id],
   )
+
+  // Phase 16: PvP 被攻击 toast — 检测 lastPvpHit.seq 变化
+  const lastPvpSeqRef = useRef(0)
+  const pvpHit = meBase?.lastPvpHit
+  useEffect(() => {
+    if (!pvpHit?.seq) return
+    if (pvpHit.seq <= lastPvpSeqRef.current) return
+    lastPvpSeqRef.current = pvpHit.seq
+    if (pvpHit.countered && pvpHit.counterDmg > 0) {
+      toast(`⚠ 被 ${pvpHit.fromName} 攻击造成 ${pvpHit.damage} 伤害；你的反击造成 ${pvpHit.counterDmg} 伤害`, 'error')
+    } else {
+      toast(`⚠ 被 ${pvpHit.fromName} 攻击，造成 ${pvpHit.damage} 伤害`, 'error')
+    }
+  }, [pvpHit, toast])
 
   async function handleTakeLoot(option) {
     const nextRoom = await runGameAction('lootCorpse', {
@@ -410,8 +429,8 @@ export default function GameClientPage() {
         </div>
       )}
 
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: battle ? '1fr 300px' : '300px 1fr 300px', overflow: 'hidden', transition: 'grid-template-columns .3s ease' }}>
-        {!battle && <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '300px 1fr 300px', overflow: 'hidden' }}>
+        <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
           <PanelTitle>👤 {me ? me.name : '未加入'}</PanelTitle>
           <div style={{ padding: '10px 12px', flex: 1, overflowY: 'auto' }}>
             {me ? (
@@ -455,7 +474,7 @@ export default function GameClientPage() {
                           HP {target.hp}/{target.maxHp || 100} · 击杀 {target.kills || 0}
                         </div>
                       </div>
-                      <Btn variant="danger" size="sm" disabled={busy || !me?.alive || room.gamestate === 2 || !!battle} onClick={() => runGameAction('attackPlayer', { targetUid: target.id || target.uid })}>
+                      <Btn variant="danger" size="sm" disabled={busy || !me?.alive || room.gamestate === 2} onClick={() => runGameAction('attackPlayer', { targetUid: target.id || target.uid })}>
                         攻击
                       </Btn>
                     </div>
@@ -480,7 +499,7 @@ export default function GameClientPage() {
                       : 0
                     const needQty = Number(wants?.qty) || 1
                     const canTrade = wants?.item && offers?.item && haveCount >= needQty
-                      && me?.alive && room.gamestate !== 2 && !battle && !busy
+                      && me?.alive && room.gamestate !== 2 && !busy
                     return (
                       <div key={npc.id} style={{
                         background: T.bg2, border: `1px solid ${meta.color}30`,
@@ -515,7 +534,7 @@ export default function GameClientPage() {
               </div>
             </>
           )}
-        </div>}
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
@@ -524,64 +543,7 @@ export default function GameClientPage() {
                 当前地图有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
               </div>
             )}
-            {battle ? (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <span style={{ fontWeight: 700, fontSize: 16, color: T.red, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    ⚔️ 战斗中：{battle.npc?.name}
-                  </span>
-                  <span style={{ fontSize: 12, color: T.dim, background: T.bg0, padding: '3px 10px', borderRadius: 8, border: `1px solid ${T.border}` }}>
-                    第 {battle.turn} 回合
-                  </span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 16, alignItems: 'center', marginBottom: 16 }}>
-                  {/* 玩家侧 */}
-                  <div style={{ background: T.bg0, borderRadius: 10, padding: '14px 16px', border: `1px solid ${T.cyan}25` }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan, marginBottom: 8 }}>{me?.name}</div>
-                    <HpBar hp={me?.hp || 0} max={me?.maxHp || 100} h={10} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
-                      <span style={{ color: hpColor(me?.hp, me?.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me?.hp || 0}</span>
-                      <span style={{ color: T.dim }}>{me?.maxHp || 100}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
-                      <span style={{ color: T.orange, fontWeight: 600 }}>ATK {me?.atk}</span>
-                      <span style={{ color: T.cyan, fontWeight: 600 }}>DEF {me?.def}</span>
-                    </div>
-                    {(me?.buffs || []).length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-                        {me.buffs.map((buff, i) => (
-                          <BuffTag key={`${buff.buffId}-${i}`} buffDef={buffPool.find(b => b.id === buff.buffId)} remaining={buff.remainingTurns} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ fontSize: 22, color: T.dim, fontWeight: 900, textShadow: `0 0 10px ${T.red}40` }}>VS</div>
-
-                  {/* 实体侧 */}
-                  <div style={{ background: T.bg0, borderRadius: 10, padding: '14px 16px', border: `1px solid ${T.red}25` }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 8 }}>{battle.npc?.name}</div>
-                    <HpBar hp={battle.npcHp} max={battle.npcMaxHp} h={10} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
-                      <span style={{ color: hpColor(battle.npcHp, battle.npcMaxHp), fontFamily: 'monospace', fontWeight: 700 }}>{battle.npcHp}</span>
-                      <span style={{ color: T.dim }}>{battle.npcMaxHp}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
-                      <span style={{ color: T.orange, fontWeight: 600 }}>ATK {battle.npc?.atk}</span>
-                      <span style={{ color: T.cyan, fontWeight: 600 }}>DEF {battle.npc?.def}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Btn variant="danger" loading={busy} loadingText="攻击中..." sx={{ flex: 2, padding: '12px 0', fontSize: 15, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={room.gamestate === 2}>
-                    攻击
-                  </Btn>
-                  <Btn variant="ghost" sx={{ flex: 1, padding: '12px 0' }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
-                </div>
-              </div>
-            ) : !inGame ? (
+            {!inGame ? (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: T.dim, marginBottom: 12 }}>你还没有加入这场游戏</div>
                 <Btn variant="primary" size="lg" onClick={() => runGameAction('join')} disabled={busy || room.gamestate === 2}>加入游戏</Btn>
@@ -598,11 +560,50 @@ export default function GameClientPage() {
               </div>
             ) : (
               <div>
-                <Btn variant="primary" loading={busy} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2 || !!battle}>
+                {/* Phase 16: encounter 卡 — 待袭击 NPC 实例 */}
+                {encounterInstance && (
+                  <div style={{
+                    background: T.bg0, borderRadius: 10,
+                    border: `1px solid ${T.red}40`, borderLeft: `3px solid ${T.red}`,
+                    padding: '14px 16px', marginBottom: 12,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>遭遇敌对实体</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.red }}>{encounterInstance.npc?.name || '未知实体'}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
+                        实例 #{encounterInstance.id?.slice(-6) || '????'}
+                      </div>
+                    </div>
+                    <HpBar hp={encounterInstance.hp} max={encounterInstance.maxHp} h={8} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                      <span style={{ color: hpColor(encounterInstance.hp, encounterInstance.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>
+                        HP {encounterInstance.hp}/{encounterInstance.maxHp}
+                      </span>
+                      <span style={{ color: T.dim }}>
+                        ATK {encounterInstance.npc?.atk ?? '?'} · DEF {encounterInstance.npc?.def ?? '?'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <Btn variant="danger" loading={busy} loadingText="袭击中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={!me?.alive || room.gamestate === 2}>
+                        ⚔️ 袭击（一次性）
+                      </Btn>
+                      <Btn variant="ghost" sx={{ flex: 1, padding: '10px 0' }} onClick={() => runGameAction('releaseEncounter')} disabled={busy || !me?.alive || room.gamestate === 2}>
+                        放过
+                      </Btn>
+                    </div>
+                    <div style={{ fontSize: 10, color: T.dim2, marginTop: 8, textAlign: 'center' }}>
+                      袭击后实体会离开（无论是否击杀），其他动作 = 隐式放过
+                    </div>
+                  </div>
+                )}
+
+                <Btn variant="primary" loading={busy && !encounterInstance} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2}>
                   搜索区域
                 </Btn>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                  <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2 || !!battle}>
+                  <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2}>
                     装备合成
                   </Btn>
                 </div>
@@ -611,7 +612,7 @@ export default function GameClientPage() {
                     variant="ghost"
                     onClick={() => setExtractOpen(true)}
                     sx={{ width: '100%', borderColor: `${T.green}50`, color: T.green, fontSize: 13, fontWeight: 700, marginBottom: 6 }}
-                    disabled={!me?.alive || room.gamestate === 2 || !!battle}
+                    disabled={!me?.alive || room.gamestate === 2}
                   >
                     🚪 结构退避
                     {mapConfig.exit_cost?.item && (
@@ -626,7 +627,7 @@ export default function GameClientPage() {
                     variant="ghost"
                     onClick={handleEmergencyRetreat}
                     sx={{ width: '100%', borderColor: `${T.yellow}50`, color: T.yellow, fontSize: 12 }}
-                    disabled={!me?.alive || room.gamestate === 2 || !!battle}
+                    disabled={!me?.alive || room.gamestate === 2}
                   >
                     ⚠ 缝隙维护轨道（个人污染 +{POLLUTION_CONFIG.EMERGENCY_COST}%）
                   </Btn>
@@ -688,7 +689,7 @@ export default function GameClientPage() {
                         {itemDef?.description && <div style={{ fontSize: 11, color: T.dimB, marginTop: 2 }}>{itemDef.description}</div>}
                       </div>
                       {me?.alive && room.gamestate !== 2 && (
-                        <Btn size="sm" onClick={() => runGameAction('useItem', { itemName: name })} disabled={busy || !!battle}>
+                        <Btn size="sm" onClick={() => runGameAction('useItem', { itemName: name })} disabled={busy}>
                           使用
                         </Btn>
                       )}
@@ -759,26 +760,14 @@ export default function GameClientPage() {
         </div>
 
         <div style={{ borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
-          {battle && (battle.log || []).length > 0 ? (
-            <>
-              <PanelTitle>战斗记录</PanelTitle>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px' }}>
-                {(battle.log || []).map((line, index) => {
-                  const text = typeof line === 'string' ? line : line.text
-                  return <div key={`${text}-${index}`} style={{ fontSize: 11, color: T.dimB, padding: '3px 0', borderBottom: `1px solid ${T.border}` }}>{text}</div>
-                })}
-              </div>
-            </>
-          ) : (
-            <>
-              <PanelTitle right={me?.alive ? <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>仅相邻可达</span> : null}>区域</PanelTitle>
+          <PanelTitle right={me?.alive ? <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>仅相邻可达</span> : null}>区域</PanelTitle>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {MAP_LIST.map(map => {
                   const current = (meBase?.map ?? 0) === map.id
                   const adjacent = Array.isArray(mapConfig?.adjacent_maps)
                     ? mapConfig.adjacent_maps.includes(map.id)
                     : false
-                  const canMove = me?.alive && !battle && !busy && !current && adjacent && room.gamestate !== 2
+                  const canMove = me?.alive && !busy && !current && adjacent && room.gamestate !== 2
                   const greyOut = !current && !adjacent
                   return (
                     <div
@@ -804,8 +793,6 @@ export default function GameClientPage() {
                   )
                 })}
               </div>
-            </>
-          )}
         </div>
       </div>
     </div>
