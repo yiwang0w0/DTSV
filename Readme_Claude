@@ -1,9 +1,48 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 15 战斗 UI 改造 + bug fix + 首页品牌清理
-整理方式：基于全量源码交叉验证 + Phase 0-15 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 15.1 周目死路修复 + ITEM_KIND_META 残余遗漏
+整理方式：基于全量源码交叉验证 + Phase 0-15.1 改造提交记录。
 
-## 最近变更（2026-05-10 / Phase 15）— 战斗 UI 改造 + bug fix + 首页品牌清理
+## 最近变更（2026-05-10 / Phase 15.1）— 周目流程死路修复 + 残余 bug 收尾
+
+> 用户反馈：达成结局后无法开启新对局。彻查发现 Phase 13 重做 rooms 页时
+> 砍掉了客户端 ensureNextRound 调用，但首页"立即出勤"snapshot=null 时
+> 跳 /rooms，而 /rooms 也没创建入口 → 玩家结局后 / 删房后陷入死路。
+>
+> 同时清理两处遗漏的 `ITEM_KIND_META.special` crash 路径（98cb2bd 漏修）。
+
+### 15.1 修补清单
+
+| # | 严重度 | 问题 | 修复 | Commit |
+|---|--------|------|------|--------|
+| 1 | 🔴 critical | 首页"立即出勤"按钮 snapshot=null 时跳 /rooms，但 /rooms 没创建入口 → 死路 | HeroSection 加 useRouter + handleStartRaid()：snapshot 存在则跳进，否则调 `/api/game/rooms { ensureNextRound: true }` 拿新对局 ID 跳转。按钮文案随状态变化（立即出勤 / 启动下一周目 / 准备就绪中…），错误时红色 inline 提示 | `8898944` |
+| 2 | 🟡 medium | rooms 页 active 为空时也是死路（与上一项同根因） | active.length === 0 时显示绿色描边 CTA 卡：「暂无进行中的周目」+ 右侧「🚀 启动下一周目」按钮，调用同一 ensureNextRound API 跳进新对局。与首页双保险 | `e5606e0` |
+| 3 | 🟡 medium | `ITEM_KIND_META.special` 还有 2 处遗漏（98cb2bd 没修齐） | GrantStashModal:157（admin 发放道具）+ ItemCard:56（地图卡片）改为内联 fallback `{ label: '其他', color: C.dim, icon: '📦' }`。`grep "ITEM_KIND_META.special" src/ = 0 matches` | `e3a42f5` |
+
+### 服务端 ensureNextRound 通路（15.1 前已就绪，本次只接客户端）
+
+`POST /api/game/rooms { ensureNextRound: true }`：
+- `requireRequestUser(request, { admin: !ensureNextRound })` 当 `ensureNextRound=true` 时不要求 admin，普通用户可调
+- `findOpenRoom(client)` 查 gamestate∈[0,1] 最新 1 个，存在则直接返回（去重防并发开两房）
+- 否则 `createRoom(client, user, payload)` 创建新对局
+
+→ 客户端两处入口共享这个端点，并发安全。
+
+### 仍未做的优化（待用户拍板）
+
+- **LoadoutModal 死代码 + 装载流程断裂**：Phase 13 重做时砍 LoadoutModal 调用，GameClientPage 的"加入游戏"按钮直接 join 不传 loadout → 玩家进 raid 0 装备 0 消耗品。LoadoutModal.jsx (~417 行) 是孤儿代码（已被 tree-shake，bundle 无影响）。
+  - 选项 A：装载该回归 — GameClientPage join 时弹 LoadoutModal
+  - 选项 B：装载已废弃 — 删 LoadoutModal + 相关 server 代码
+  - 选项 C：进 raid 后 equipLoadout 在局内装备（也需 UI）
+
+### 14.2 命名说明
+
+最初这次修补打算叫 14.2，但实际它修的是 Phase 13 重做引入的死路 + 跟进 Phase 15（98cb2bd）漏修的 fallback。
+跟 Phase 14（残片系统）只是时间相邻，无逻辑关联，所以重命名为 15.1，更贴近实际职责。
+
+---
+
+## 历史变更（2026-05-10 / Phase 15）— 战斗 UI 改造 + bug fix + 首页品牌清理
 
 ### Phase 15 变更清单
 
