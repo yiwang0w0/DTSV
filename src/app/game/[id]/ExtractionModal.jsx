@@ -19,7 +19,11 @@
  *   equippedCount — 当前装备实例数
  */
 
+import dynamic from 'next/dynamic'
 import { T } from './gameUi'
+
+// 远星函馆 FX：撤离面板顶部 Ω 接口效果（仅打开时按需加载）
+const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
 
 export default function ExtractionModal({
   open, onClose, onExtract, busy,
@@ -54,10 +58,26 @@ export default function ExtractionModal({
         width: '92%', maxWidth: 520,
         display: 'flex', flexDirection: 'column',
         boxShadow: `0 0 60px rgba(0,0,0,0.6), 0 0 2px ${T.green}30`,
+        overflow: 'hidden',
       }}>
-        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.green }}>🚪 结构退避</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.dim, cursor: 'pointer', fontSize: 22 }}>✕</button>
+        {/* 顶部 Ω 接口干涉环装饰条（120px 高），结构退避的"焦点感" */}
+        <div style={{
+          position: 'relative', height: 120, isolation: 'isolate',
+          borderBottom: `1px solid ${T.border}`, overflow: 'hidden',
+        }}>
+          <Shader name="omega_iface" pollution={0.4} intensity={0.7} />
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse 70% 80% at 50% 50%, transparent 30%, rgba(14,17,23,0.6) 100%)',
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 20px',
+          }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.green, textShadow: `0 0 12px ${T.green}40` }}>🚪 结构退避</h3>
+            <button onClick={onClose} style={{ background: 'rgba(14,17,23,0.5)', border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 10px', color: T.dim, cursor: 'pointer', fontSize: 16 }}>✕</button>
+          </div>
         </div>
 
         <div style={{ padding: 20 }}>
