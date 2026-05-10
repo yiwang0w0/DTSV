@@ -72,7 +72,7 @@ export default function StashPage() {
     const groups = {}
     for (const it of stash.items) {
       const def = itemDefs[it.name] || {}
-      const kind = def.kind || 'special'
+      const kind = def.kind || 'consumable'
       if (!groups[kind]) groups[kind] = []
       groups[kind].push({ ...it, def })
     }
@@ -193,7 +193,7 @@ export default function StashPage() {
         </div>
       ) : (
         Object.entries(itemsByKind).map(([kind, list]) => {
-          const meta = ITEM_KIND_META[kind] || ITEM_KIND_META.special
+          const meta = ITEM_KIND_META[kind] || { label: '其他', color: C.dim, icon: '📦' }
           return (
             <Section key={kind} title={`${meta.icon} ${meta.label}`} count={list.length}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>

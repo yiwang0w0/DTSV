@@ -113,7 +113,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
       {/* ── 道具卡片列表 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
         {filtered.map(item => {
-          const meta = ITEM_KIND_META[item.kind] || ITEM_KIND_META.special
+          const meta = ITEM_KIND_META[item.kind] || { label: '其他', color: '#8b949e', icon: '📦' }
           const isConf = confirmDel === item.id
           return (
             <div key={item.id} style={{ background: '#1c2129', borderRadius: 12, padding: 16, border: `1px solid ${isConf ? '#f85149' : '#30363d'}` }}>
