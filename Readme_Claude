@@ -1,7 +1,68 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 13 周目系统 UI 改造
-整理方式：基于全量源码交叉验证 + Phase 0-13 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 14 Decode Archive 跨周目知识残片系统
+整理方式：基于全量源码交叉验证 + Phase 0-14 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 14）— Decode Archive 跨周目知识残片系统
+
+> 核心设计参考 Outer Wilds 知识循环 + Heaven's Vault 考古解读。
+> 玩家每次搜索有概率发现数据残片，残片跨周目永久保存，自动递增解码度（0→3）。
+> 知识即进度，而非装备即进度。
+
+### Phase 14 变更清单
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `scripts/decode-archive-schema.sql` | 新建 | fragment_pool + player_fragments 表定义、索引、RLS、game_rules 插入 |
+| `src/lib/gameEngine.js` | `getSearchChances` 新增 `fragmentChance` 返回值 | 基础 12%，迷雾 ×1.3，风暴 ×0.95 |
+| `src/lib/server/gameActions.js` | 搜索 roll 新增残片发现分支 | 优先级：实体 > 残骸 > 散落物品 > 残片 > 无 |
+| `src/lib/server/fragments.js` | 新建 | `discoverFragment()` 核心逻辑：候选池过滤 → 权重选取 → DB 写入 |
+| `src/app/archive/page.js` | 新建 | /archive 档案库页面：分类过滤、解码进度条、4级内容分层展示 |
+| `src/app/admin/_tabs/FragmentsTab.jsx` | 新建 | 管理后台残片 CRUD：四级文本编辑器、分类/稀有度/发现方式配置 |
+| `src/app/admin/page.js` | 新增 FragmentsTab 注册 | Tab 列表加入「📡 残片」 |
+| `src/app/admin/_tabs/DbConsoleTab.jsx` | 新增 2 条快捷 SQL | 残片池查询 + 玩家残片查询 |
+| `src/app/layout.js` | 导航栏新增「档案库」 | 登录用户可见 |
+
+### 数据模型
+
+**fragment_pool**（管理员配置的残片模板池）
+- `raw_text` / `partial_1` / `partial_2` / `full_text`：4级解码内容
+- `category`：general / omega / eden / bubble / structure
+- `rarity`：common / uncommon / rare / legendary
+- `discover_mode`：search（搜索随机）/ fixed（固定交互）/ both
+- `maps[]`：可出现的地图 ID 列表（空=所有）
+- `min_pollution`：最低污染度要求
+- `requires_fragment_id`：前置残片链
+- `weight`：搜索池权重
+
+**player_fragments**（玩家跨周目持久化发现记录）
+- `decode_level`：0→3 自动递增
+- `discover_cycle`：发现时的周目编号
+- UNIQUE(user_id, fragment_id)
+
+### 搜索 Roll 概率链（gameActions.js）
+
+```
+roll = Math.random()
+├── [0, npcChance)                              → 遭遇实体
+├── [npcChance, npcChance+corpseChance)         → 发现残骸
+├── [..., +looseItemChance)                     → 捡到散落物品
+├── [..., +fragmentChance)                      → 发现/解码数据残片
+└── 其余                                        → 搜索无果
+```
+
+### discoverFragment 逻辑流
+
+1. 查询玩家已发现残片 → 构建 ownedMap
+2. 查询候选池（enabled + min_pollution + discover_mode in search/both）
+3. 过滤地图限制 + 前置残片要求
+4. 70%概率优先新残片 / 30%推进已知残片解码
+5. 按 weight 加权随机选取
+6. 写入 player_fragments（新发现 upsert / 已知 update decode_level+1）
+
+commit `e4667f9`
+
+---
 
 ## 最近变更（2026-05-10 / Phase 13）— 周目系统 UI 改造
 
