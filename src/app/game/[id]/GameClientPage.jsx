@@ -14,6 +14,7 @@ import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
+import LoadoutModal from '@/components/LoadoutModal'
 import {
   Btn,
   BuffTag,
@@ -58,6 +59,7 @@ export default function GameClientPage() {
   const [panel, setPanel] = useState('log')
   const [craftOpen, setCraftOpen] = useState(false)
   const [extractOpen, setExtractOpen] = useState(false)
+  const [joinLoadoutOpen, setJoinLoadoutOpen] = useState(false)
 
   const mapIdRef = useRef(0)
 
@@ -216,6 +218,15 @@ export default function GameClientPage() {
     await runGameAction('dismissLootPrompt')
   }
 
+  // Phase 16.1: 加入对局走 LoadoutModal — 玩家先选 4 装备 + 4 消耗品再 join
+  async function handleJoinWithLoadout(payload) {
+    // payload = { loadout, consumables, items, equipmentInstanceIds } 由 LoadoutModal 给
+    const next = await runGameAction('join', { loadout: payload }, { refreshEquipment: true })
+    if (next) {
+      toast('🎒 装载完成，已进入异常段', 'success')
+    }
+  }
+
   async function runGameAction(action, payload = {}, options = {}) {
     setBusy(true)
     try {
@@ -329,6 +340,12 @@ export default function GameClientPage() {
         exitCost={mapConfig?.exit_cost || null}
         inventory={meBase?.inventory || []}
         equippedCount={equipments.length}
+      />
+      <LoadoutModal
+        open={joinLoadoutOpen}
+        roomTitle={room ? `对局 #${room.gamenum || room.id}` : ''}
+        onClose={() => setJoinLoadoutOpen(false)}
+        onConfirm={handleJoinWithLoadout}
       />
 
       <style>{`
@@ -546,7 +563,7 @@ export default function GameClientPage() {
             {!inGame ? (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 13, color: T.dim, marginBottom: 12 }}>你还没有加入这场游戏</div>
-                <Btn variant="primary" size="lg" onClick={() => runGameAction('join')} disabled={busy || room.gamestate === 2}>加入游戏</Btn>
+                <Btn variant="primary" size="lg" onClick={() => setJoinLoadoutOpen(true)} disabled={busy || room.gamestate === 2}>🎒 装载并加入</Btn>
               </div>
             ) : meBase?.extracted ? (
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
