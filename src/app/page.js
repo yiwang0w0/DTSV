@@ -31,8 +31,11 @@ export default function Home() {
         borderRadius: 16, marginBottom: 32,
       }}>
         <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 32px', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-          ⚔️ DTS 大逃杀
+          🌌 远星函馆
         </h1>
+        <p style={{ fontSize: 14, color: '#8b949e', margin: '-20px 0 24px', maxWidth: 480 }}>
+          17号异常段 · 引导者协议已启动
+        </p>
         {user ? (
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
             <Link href="/rooms" style={{
@@ -62,9 +65,9 @@ export default function Home() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {[
-          { label: '活跃房间', value: stats.rooms, emoji: '🏠', color: '#58a6ff' },
-          { label: '道具种类', value: stats.items, emoji: '⚔️', color: '#d29922' },
-          { label: 'NPC种类', value: stats.npcs, emoji: '🤖', color: '#f85149' },
+          { label: '活跃对局', value: stats.rooms, emoji: '🌀', color: '#58a6ff' },
+          { label: '物品种类', value: stats.items, emoji: '🔮', color: '#d29922' },
+          { label: '实体种类', value: stats.npcs, emoji: '👻', color: '#f85149' },
         ].map(s => (
           <div key={s.label} style={{
             background: '#1c2129', borderRadius: 12, border: '1px solid #30363d',

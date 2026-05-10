@@ -27,6 +27,8 @@
 -- ╚════════════════════════════════════════════════════════════════╝
 ALTER TABLE map_config DROP COLUMN IF EXISTS extraction_points;
 ALTER TABLE map_config
+  ADD COLUMN IF NOT EXISTS description      TEXT,
+  ADD COLUMN IF NOT EXISTS max_players      INTEGER NOT NULL DEFAULT 10,
   ADD COLUMN IF NOT EXISTS pollution_base   INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS pollution_accel  INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS adjacent_maps    JSONB   NOT NULL DEFAULT '[]'::jsonb,
@@ -79,16 +81,16 @@ BEGIN
   SELECT id INTO weapon_id FROM equipment_series WHERE slot = 'weapon' AND name = '武器模组' LIMIT 1;
   SELECT id INTO comm_id   FROM equipment_series WHERE slot = 'comm'   AND name = '通信组件' LIMIT 1;
 
-  INSERT INTO equipment_tiers (series_id, tier, rarity, variant, name, base_atk, base_def, element, durability_max)
+  INSERT INTO equipment_tiers (series_id, tier, rarity, variant, name, base_atk, base_def, durability_max)
   VALUES
-    (probe_id,  1, 'common', NULL, '扫描探测器',   0,  0, NULL, 100),
-    (probe_id,  2, 'rare',   NULL, '深探测器',     0,  0, NULL, 150),
-    (shield_id, 1, 'common', NULL, '防护罩-轻型',  0,  5, NULL, 100),
-    (shield_id, 2, 'rare',   NULL, '防护罩-重型',  0, 10, NULL, 150),
-    (weapon_id, 1, 'common', NULL, '武器模组-斩',  8,  0, NULL,  80),
-    (weapon_id, 2, 'rare',   NULL, '武器模组-爆', 12,  0, NULL, 120),
-    (comm_id,   1, 'common', NULL, '通信组件-基础', 0,  0, NULL, 100),
-    (comm_id,   2, 'rare',   NULL, '通信组件-高级', 0,  0, NULL, 150)
+    (probe_id,  1, 'common', NULL, '扫描探测器',   0,  0, 100),
+    (probe_id,  2, 'rare',   NULL, '深探测器',     0,  0, 150),
+    (shield_id, 1, 'common', NULL, '防护罩-轻型',  0,  5, 100),
+    (shield_id, 2, 'rare',   NULL, '防护罩-重型',  0, 10, 150),
+    (weapon_id, 1, 'common', NULL, '武器模组-斩',  8,  0,  80),
+    (weapon_id, 2, 'rare',   NULL, '武器模组-爆', 12,  0, 120),
+    (comm_id,   1, 'common', NULL, '通信组件-基础', 0,  0, 100),
+    (comm_id,   2, 'rare',   NULL, '通信组件-高级', 0,  0, 150)
   ON CONFLICT DO NOTHING;
 END $$;
 
