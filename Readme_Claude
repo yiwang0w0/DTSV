@@ -1,7 +1,30 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 11.5 设定锁定（搜索两类化 + comm 槽 lore 重写）
-整理方式：基于全量源码交叉验证 + Phase 0-11 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 12 管理后台 NPC→实体术语全面清理
+整理方式：基于全量源码交叉验证 + Phase 0-12 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 12）— 管理后台 NPC→实体术语全面清理
+
+> 网站实机验证时发现管理后台各 Tab 仍有大量中文"NPC"残留。
+> 本次全面清理 9 个文件共 30+ 处面向用户的文本。
+
+### Phase 12 变更清单
+
+| 文件 | 改动数 | 内容 |
+|------|--------|------|
+| `NpcsTab.jsx` | 12 处 | 搜索框/新增按钮/toast/modal标题/提示文字 NPC→实体 |
+| `MapsTab.jsx` | 7 处 | 实体池面板：待选/池中/拖拽提示/tab标签 NPC→实体 |
+| `EventsTab.jsx` | 3 处 | 触发/效果标签：击杀NPC→击杀实体、触发NPC战斗→触发实体战斗、任意NPC→任意实体 |
+| `ContractsTab.jsx` | 1 处 | 击杀 NPC→击杀实体 |
+| `BranchesTab.jsx` | 1 处 | 选择 NPC→选择实体 |
+| `DbConsoleTab.jsx` | 1 处 | NPC 池→实体池 |
+| `gameActions.js` | 4 处 | 错误消息：NPC战斗/ID/不存在/交易配置→实体 |
+| `events.js` | 1 处 | 日志：生成NPC→生成实体 |
+| `contracts.js` | 1 处 | 注释：击杀NPC→击杀实体 |
+
+commit `5302e95`
+
+---
 
 ## 最近变更（2026-05-10 / Phase 11.5）— 设定锁定：搜索结果两类化 + comm 槽 lore
 
