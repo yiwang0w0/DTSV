@@ -216,7 +216,7 @@ function compile(gl, type, src) {
 }
 
 export default function Shader({
-  name = 'deep_path',
+  name = 'pollution_field',
   pollution = 0,
   intensity = 1,
   paused = false,
@@ -245,7 +245,7 @@ export default function Shader({
     }
 
     const vs = compile(gl, gl.VERTEX_SHADER, VERT)
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG[name] || FRAG.deep_path)
+    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG[name] || FRAG.pollution_field)
     if (!vs || !fs) return
 
     const prog = gl.createProgram()

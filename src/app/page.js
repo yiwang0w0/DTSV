@@ -107,8 +107,9 @@ export default function Home() {
 }
 
 // ── Hero ──────────────────────────────────────────
-// 设计稿来源：claude.ai/design 远星函馆 FX 演示。Hero 用「深界路径」shader（GPU 极低）+
+// 设计稿来源：claude.ai/design 远星函馆 FX 演示。Hero 用「污染场」shader（fbm 域扭曲，柔和云团）+
 // 「decode」文字粒子（纯 DOM，0 Canvas）。pollution 用当前 active 对局的 envPollution 联动。
+// 注：原型 deep_path（隧道）首页太晕，按用户反馈改用 pollution_field 与设计稿一致。
 function HeroSection({ user, envPollution = 0 }) {
   return (
     <div style={{
@@ -118,8 +119,8 @@ function HeroSection({ user, envPollution = 0 }) {
       border: `1px solid ${C.border}`,
       background: C.bg0, // shader 加载/兜底前的底色
     }}>
-      {/* WebGL 着色器层（深界路径 - GPU 几乎零开销） */}
-      <Shader name="deep_path" pollution={envPollution / 100} intensity={1} />
+      {/* WebGL 着色器层（污染场 - fbm 域扭曲；intensity 0.85 让前景文字更清晰） */}
+      <Shader name="pollution_field" pollution={envPollution / 100} intensity={0.85} />
 
       {/* 暗角遮罩，让中央文字更清晰 */}
       <div style={{
