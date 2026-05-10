@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 首页 / 远星函馆 × DTSV
+ * 首页 / 远星函馆
  *
  * 结构：
  *   1. Hero 区 — 世界观介绍 + 主 CTA「立即出勤」
@@ -136,7 +136,7 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
         {/* 标题文字粒子（decode：字符在符号池中乱滚后定格） */}
         <div style={{ marginBottom: 8 }}>
           <ParticleText
-            text="远星函馆 × DTSV"
+            text="远星函馆"
             mode="decode"
             pollution={envPollution / 100}
             color={C.purple}
@@ -329,7 +329,7 @@ function Footer() {
       textAlign: 'center', fontSize: 11, color: C.dim2,
       fontFamily: 'monospace', letterSpacing: 1,
     }}>
-      DTSV × 远星函馆 · Phase 9 · 深界路径已开放
+      远星函馆 · Phase 15 · 深界路径已开放
     </div>
   )
 }

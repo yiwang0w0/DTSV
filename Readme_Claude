@@ -1,9 +1,23 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 14.1 残片系统 bug fix（FragmentsTab + RLS）
-整理方式：基于全量源码交叉验证 + Phase 0-14.1 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 15 战斗 UI 改造 + bug fix + 首页品牌清理
+整理方式：基于全量源码交叉验证 + Phase 0-15 改造提交记录。
 
-## 最近变更（2026-05-10 / Phase 14.1）— Phase 14 落地后 bug fix
+## 最近变更（2026-05-10 / Phase 15）— 战斗 UI 改造 + bug fix + 首页品牌清理
+
+### Phase 15 变更清单
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `src/app/game/[id]/GameClientPage.jsx` | 战斗模式布局 + CSS 动画 | 战斗时隐藏左面板、中间面板扩展显示战斗详情（双方血量/属性/buff）、`@keyframes btnLoadSlide` 按钮加载动画 |
+| `src/app/game/[id]/gameUi.js` | Btn 组件增强 | 新增 `loading` / `loadingText` props，底部进度条动画反馈 |
+| `src/app/stash/page.js` | 修复 ITEM_KIND_META 崩溃 | 未知 kind fallback 从 `ITEM_KIND_META.special`（undefined）改为内联默认值 `{ label:'其他', color, icon:'📦' }` |
+| `src/app/admin/_tabs/ItemsTab.jsx` | 同上修复 | ItemsTab 同样的 ITEM_KIND_META 安全 fallback |
+| `src/app/page.js` | 移除 DTSV 品牌 | Hero ParticleText + Footer 中的 "DTSV" 全部移除，Footer 版本号更新至 Phase 15 |
+
+---
+
+## 历史变更（2026-05-10 / Phase 14.1）— Phase 14 落地后 bug fix
 
 > Phase 14 主体（schema + 服务端逻辑 + archive 页 + admin tab + 导航 + DB 控制台快捷查询）已上线，
 > 但 FragmentsTab 落地时叠加了 3 个 critical bug 让 admin 残片管理面板完全不可用。
