@@ -1,7 +1,46 @@
 # Readme_Claude
 
-更新时间：2026-05-09（Asia/Tokyo） · Phase 8 远星函馆 Rev05 落地
+更新时间：2026-05-10（Asia/Tokyo） · Phase 8 远星函馆 Rev05 + 迁移执行 + 术语清理
 整理方式：基于全量源码交叉验证 + Phase 0-8 改造提交记录。
+
+## 最近变更（2026-05-10）— 迁移 SQL 生产执行 + UI 术语对齐
+
+> **Phase 8 后收尾**：在 Supabase 生产环境执行 `migration-farstar-all-in-one.sql`，完成远星函馆数据写入；开始全面术语清理（大逃杀/DTS → 远星函馆，房间 → 对局，NPC → 实体，武器/防具 → 远星装备分类，禁区 → 撤离点）。
+
+### 已完成
+
+| 内容 | Commit |
+|------|--------|
+| 迁移 SQL 生产执行（修正 map_config 缺 description/max_players 列、equipment_tiers element NOT NULL 约束） | `2c1ce5b` |
+| 首页 page.js：标题 `⚔️ DTS 大逃杀` → `🌌 远星函馆` + 副标题 `17号异常段 · 引导者协议已启动` + 统计卡片术语更新 | `2c1ce5b` |
+| OverviewTab：道具分布 `武器/防具/消耗品` → `碎片/部件/消耗品`，`禁区` → `撤离点`，emoji 对齐 | `2c1ce5b` |
+
+### 数据验证（生产环境确认）
+
+- map_config = 7 行（7 区域 + 邻接关系）
+- npc_pool = 10 行（4 类实体）
+- item_pool = 13 行（4 碎片 + 3 部件 + 2 Ω物质 + 4 消耗品）
+- event_pool = 11 行
+- contracts = 6 行
+- endings = 4 行（崩解/清算/合流/探索）
+- branch_nodes = 4 行
+- equipment_series = 5 行，equipment_tiers = 8 行
+
+### 待完成术语清理
+
+| 文件 | 旧术语 | 新术语 |
+|------|--------|--------|
+| layout.js | logo "DTS"、导航 "房间大厅" | "远星函馆"、"对局大厅" |
+| OverviewTab.jsx | "NPC总数"、"进行中房间" | "实体总数"、"进行中对局" |
+| MapsTab.jsx | 3处 "禁区" | "撤离点" |
+| ItemsTab.jsx | "武器模组" | 远星分类标签 |
+| gameUi.js | 装备槽 "武器" | 远星槽位名称 |
+| GameClientPage.jsx | "攻击 NPC" | "攻击实体" |
+| rooms/page.js | 大量 "房间" | "对局" |
+| API routes | 错误消息中的 "房间" | "对局" |
+| admin/page.js | tab "🏠 房间" | "🌀 对局" |
+
+---
 
 ## 最近变更（2026-05-09 / Phase 8）— 远星函馆 × DTSV Rev05
 
