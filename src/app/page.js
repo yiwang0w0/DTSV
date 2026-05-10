@@ -14,6 +14,7 @@
 
 import { useAuth } from './layout'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -22,6 +23,10 @@ import {
   LOADOUT_SLOTS,
   POLLUTION_TIER_META,
 } from '@/lib/constants'
+
+// FX 组件动态导入：避免 SSR 试图初始化 WebGL / Canvas
+const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
+const ParticleText = dynamic(() => import('@/components/fx/ParticleText'), { ssr: false })
 
 const C = {
   bg0:    '#0e1117',
@@ -51,6 +56,7 @@ export default function Home() {
   const { user, loading } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const [meStats, setMeStats] = useState(null)
+  const envPollution = snapshot?.gamevars?.envPollution || 0
 
   useEffect(() => {
     async function loadSnapshot() {
@@ -90,7 +96,7 @@ export default function Home() {
 
   return (
     <div className="animate-in" style={{ paddingBottom: 40 }}>
-      <HeroSection user={user} />
+      <HeroSection user={user} envPollution={envPollution} />
       <RaidSnapshotCard snapshot={snapshot} />
       {user && meStats && <PersonalStatsCard meStats={meStats} />}
       <EntitiesPreview />
@@ -101,38 +107,44 @@ export default function Home() {
 }
 
 // ── Hero ──────────────────────────────────────────
-function HeroSection({ user }) {
+// 设计稿来源：claude.ai/design 远星函馆 FX 演示。Hero 用「深界路径」shader（GPU 极低）+
+// 「decode」文字粒子（纯 DOM，0 Canvas）。pollution 用当前 active 对局的 envPollution 联动。
+function HeroSection({ user, envPollution = 0 }) {
   return (
     <div style={{
-      position: 'relative', overflow: 'hidden',
+      position: 'relative', overflow: 'hidden', isolation: 'isolate',
       padding: '80px 28px 70px',
-      borderRadius: 20, marginBottom: 28,
-      background: `
-        radial-gradient(ellipse 80% 60% at 30% 20%, ${C.purple}22 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 80%, ${C.accent}1A 0%, transparent 60%),
-        linear-gradient(135deg, ${C.bg2} 0%, ${C.bg0} 100%)
-      `,
+      borderRadius: 20, marginBottom: 28, minHeight: 460,
       border: `1px solid ${C.border}`,
+      background: C.bg0, // shader 加载/兜底前的底色
     }}>
-      {/* 装饰：网格 */}
+      {/* WebGL 着色器层（深界路径 - GPU 几乎零开销） */}
+      <Shader name="deep_path" pollution={envPollution / 100} intensity={1} />
+
+      {/* 暗角遮罩，让中央文字更清晰 */}
       <div style={{
-        position: 'absolute', inset: 0, opacity: 0.05, pointerEvents: 'none',
-        backgroundImage: `linear-gradient(${C.dim} 1px, transparent 1px), linear-gradient(90deg, ${C.dim} 1px, transparent 1px)`,
-        backgroundSize: '40px 40px',
+        position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, rgba(14,17,23,0.55) 100%)',
       }} />
 
-      <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, color: C.purple, letterSpacing: 4, marginBottom: 12, fontWeight: 600 }}>
+      <div style={{ position: 'relative', zIndex: 2, maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 11, color: C.purple, letterSpacing: 4, marginBottom: 14, fontWeight: 600 }}>
           第六纪元 · 深界时代
         </div>
-        <h1 style={{
-          fontSize: 48, fontWeight: 800, margin: '0 0 8px',
-          fontFamily: 'var(--font-noto-sans-sc), sans-serif',
-          color: C.text, letterSpacing: 2,
-          textShadow: `0 0 40px ${C.purple}40`,
-        }}>
-          远星函馆 × DTSV
-        </h1>
+
+        {/* 标题文字粒子（decode：字符在符号池中乱滚后定格） */}
+        <div style={{ marginBottom: 8 }}>
+          <ParticleText
+            text="远星函馆 × DTSV"
+            mode="decode"
+            pollution={envPollution / 100}
+            color={C.purple}
+            accent={C.accent}
+            size={48}
+            weight={800}
+            letterSpacing={2}
+          />
+        </div>
         <div style={{ fontSize: 14, color: C.dim, marginBottom: 28, fontFamily: 'monospace' }}>
           17 号异常段 · PI 引导者协议 · v1.0
         </div>
