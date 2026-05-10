@@ -319,11 +319,12 @@ export default function GameClientPage() {
         ::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px}
         .hov:hover:not(:disabled){filter:brightness(1.15)}
         select,input{outline:none;font-family:inherit}
-        @keyframes btnLoadSlide{
-          0%{transform:translateX(-100%)}
-          100%{transform:translateX(350%)}
+        @keyframes btnLoadingFill{
+          0%   { transform: scaleX(0);    opacity: .9 }
+          70%  { transform: scaleX(0.9);  opacity: .8 }
+          100% { transform: scaleX(1);    opacity: .55 }
         }
-        .btn-loading-bar{animation:btnLoadSlide 1.2s ease-in-out infinite}
+        .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
       `}</style>
 
       <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

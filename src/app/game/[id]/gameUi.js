@@ -164,18 +164,21 @@ export function Btn({ children, variant = 'default', size = 'md', onClick, disab
         ...sx,
       }}
     >
+      {/* 一次性进度填充：从左推到右覆盖整个按钮，模拟动作进度 */}
       {loading && (
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
-          background: `${barColor}20`, overflow: 'hidden',
-        }}>
-          <div className="btn-loading-bar" style={{
-            height: '100%', width: '40%', borderRadius: 2,
-            background: `linear-gradient(90deg, transparent, ${barColor}90, transparent)`,
-          }} />
-        </div>
+        <div
+          className="btn-loading-fill"
+          style={{
+            position: 'absolute', inset: 0,
+            background: `linear-gradient(90deg, ${barColor}55 0%, ${barColor}30 100%)`,
+            transformOrigin: 'left center',
+            pointerEvents: 'none',
+          }}
+        />
       )}
-      {loading ? (loadingText || children) : children}
+      <span style={{ position: 'relative', zIndex: 1 }}>
+        {loading ? (loadingText || children) : children}
+      </span>
     </button>
   )
 }
