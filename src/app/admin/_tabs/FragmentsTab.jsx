@@ -154,7 +154,7 @@ export default function FragmentsTab({ toast }) {
             ))}
           </select>
         </div>
-        <button onClick={openAdd} style={BTN.primary}>+ 添加残片</button>
+        <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 添加残片</button>
       </div>
 
       {/* 统计 */}
@@ -223,13 +223,22 @@ export default function FragmentsTab({ toast }) {
                 </div>
 
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => toggleEnabled(frag)} style={{ ...BTN.secondary, fontSize: 11, padding: '4px 10px' }}>
+                  <button
+                    onClick={() => toggleEnabled(frag)}
+                    style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '4px 10px', border: '1px solid #30363d' })}
+                  >
                     {frag.enabled ? '禁用' : '启用'}
                   </button>
-                  <button onClick={() => openEdit(frag)} style={{ ...BTN.secondary, fontSize: 11, padding: '4px 10px' }}>
+                  <button
+                    onClick={() => openEdit(frag)}
+                    style={BTN('transparent', '#58a6ff', { fontSize: 11, padding: '4px 10px', border: '1px solid rgba(88,166,255,0.3)' })}
+                  >
                     编辑
                   </button>
-                  <button onClick={() => setConfirmDel(frag)} style={{ ...BTN.danger, fontSize: 11, padding: '4px 10px' }}>
+                  <button
+                    onClick={() => setConfirmDel(frag)}
+                    style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '4px 10px', border: '1px solid rgba(248,81,73,0.3)' })}
+                  >
                     删除
                   </button>
                 </div>
@@ -241,20 +250,30 @@ export default function FragmentsTab({ toast }) {
 
       {/* 删除确认 */}
       {confirmDel && (
-        <Modal title="确认删除" onClose={() => setConfirmDel(null)}>
+        <Modal open={true} title="确认删除" onClose={() => setConfirmDel(null)}>
           <p style={{ color: '#e6edf3', marginBottom: 16 }}>
             确定删除残片「{confirmDel.name}」？玩家已发现的记录也会被级联删除。
           </p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setConfirmDel(null)} style={BTN.secondary}>取消</button>
-            <button onClick={() => remove(confirmDel.id)} style={BTN.danger}>删除</button>
+            <button
+              onClick={() => setConfirmDel(null)}
+              style={BTN('transparent', '#8b949e', { border: '1px solid #30363d' })}
+            >
+              取消
+            </button>
+            <button
+              onClick={() => remove(confirmDel.id)}
+              style={BTN('rgba(248,81,73,0.15)', '#f85149', { border: '1px solid rgba(248,81,73,0.3)' })}
+            >
+              删除
+            </button>
           </div>
         </Modal>
       )}
 
       {/* 编辑 / 新增 Modal */}
       {modal && editFrag && (
-        <Modal title={editFrag.id ? `编辑残片: ${editFrag.name}` : '添加残片'} onClose={() => setModal(false)} width={640}>
+        <Modal open={true} title={editFrag.id ? `编辑残片: ${editFrag.name}` : '添加残片'} onClose={() => setModal(false)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {/* 名称 */}
             <div style={{ gridColumn: '1 / -1' }}>
@@ -375,8 +394,15 @@ export default function FragmentsTab({ toast }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-            <button onClick={() => setModal(false)} style={BTN.secondary}>取消</button>
-            <button onClick={save} style={BTN.primary}>{editFrag.id ? '保存修改' : '添加残片'}</button>
+            <button
+              onClick={() => setModal(false)}
+              style={BTN('transparent', '#8b949e', { border: '1px solid #30363d' })}
+            >
+              取消
+            </button>
+            <button onClick={save} style={BTN('#58a6ff', '#fff')}>
+              {editFrag.id ? '保存修改' : '添加残片'}
+            </button>
           </div>
         </Modal>
       )}
