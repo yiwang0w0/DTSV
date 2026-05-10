@@ -28,6 +28,8 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
       entity_type: 'remnant', hostile: true, tradeable: false,
       trade_wants: null, trade_offers: null,
       pollution_on_kill: 4, spawn_weight: 1.0, min_pollution: 0,
+      // Phase 16: 单次袭击战斗参数
+      accuracy: 0.85, counter_rate: 0.30,
     })
     setModal(true)
   }
@@ -43,6 +45,8 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
       pollution_on_kill: n.pollution_on_kill ?? 4,
       spawn_weight: n.spawn_weight ?? 1.0,
       min_pollution: n.min_pollution ?? 0,
+      accuracy: n.accuracy ?? 0.85,
+      counter_rate: n.counter_rate ?? 0.30,
     })
     setModal(true)
   }
@@ -216,6 +220,16 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
                 <label style={LABEL}>最低环境污染要求</label>
                 <input type="number" min={0} max={100} style={INPUT} value={editNpc.min_pollution ?? 0} onChange={e => setEditNpc({ ...editNpc, min_pollution: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} />
                 <div style={HINT}>环境污染未达此值时不会被抽中</div>
+              </div>
+              <div>
+                <label style={LABEL}>反击命中率（accuracy）</label>
+                <input type="number" step="0.05" min={0} max={1} style={INPUT} value={editNpc.accuracy ?? 0.85} onChange={e => setEditNpc({ ...editNpc, accuracy: Math.max(0, Math.min(1, Number(e.target.value) || 0)) })} />
+                <div style={HINT}>Phase 16：NPC 反击时的命中概率（0-1）</div>
+              </div>
+              <div>
+                <label style={LABEL}>反击触发率（counter_rate）</label>
+                <input type="number" step="0.05" min={0} max={1} style={INPUT} value={editNpc.counter_rate ?? 0.3} onChange={e => setEditNpc({ ...editNpc, counter_rate: Math.max(0, Math.min(1, Number(e.target.value) || 0)) })} />
+                <div style={HINT}>Phase 16：玩家袭击后该 NPC 触发反击的概率（0-1，独立于玩家是否命中）</div>
               </div>
               {editNpc.tradeable && (
                 <>
