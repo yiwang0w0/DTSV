@@ -65,7 +65,7 @@ export const LOADOUT_SLOT_META = {
   weapon: { label: '武器模块', color: '#f85149', icon: '⚔️',
             desc: '对抗实体伤害+25%，环境污染增速+1/回合' },
   comm:   { label: '通信组件', color: '#d29922', icon: '📡',
-            desc: 'PvP误判率-50%，短暂显示其他操作员真实身份' },
+            desc: '扫描敌方装备与 HP，战斗中显示对方实时状态' },
 }
 
 export const LOADOUT_SLOTS = ['probe', 'shield', 'weapon', 'comm']

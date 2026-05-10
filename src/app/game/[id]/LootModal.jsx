@@ -5,7 +5,7 @@ import { Btn, Modal, T } from './gameUi'
 
 const SOURCE_TEXT = {
   kill: '击杀后战利品',
-  search: '搜索发现尸体',
+  search: '搜索发现敌人残骸',
 }
 
 function getOptionMeta(option) {

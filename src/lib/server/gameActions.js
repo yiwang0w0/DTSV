@@ -747,7 +747,8 @@ async function resolveSearchAction(client, room, gamevars, user) {
   if (roll < npcChance + corpseChance && lootable.length > 0) {
     const found = lootable[Math.floor(Math.random() * lootable.length)]
     resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, found.prompt)
-    appendResolutionLog(resolution, `${player.name} 发现了 ${found.corpse.name}`, 'system')
+    const enemyName = found.corpse.name.replace(/ 的尸体$/, '')
+    appendResolutionLog(resolution, `${player.name} 发现了一具敌人残骸（${enemyName}）`, 'system')
     return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
