@@ -1,44 +1,47 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 8 远星函馆 Rev05 + 迁移执行 + 术语清理
-整理方式：基于全量源码交叉验证 + Phase 0-8 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 9 术语 + 首页/大厅重做收尾
+整理方式：基于全量源码交叉验证 + Phase 0-9 改造提交记录。
 
-## 最近变更（2026-05-10）— 迁移 SQL 生产执行 + UI 术语对齐
+## 最近变更（2026-05-10 / Phase 9）— 术语清理 + 首页/大厅重做
 
-> **Phase 8 后收尾**：在 Supabase 生产环境执行 `migration-farstar-all-in-one.sql`，完成远星函馆数据写入；开始全面术语清理（大逃杀/DTS → 远星函馆，房间 → 对局，NPC → 实体，武器/防具 → 远星装备分类，禁区 → 撤离点）。
+> 把残留的"大逃杀 / 房间"术语对齐到远星函馆世界观；
+> 大厅页改为"单一全服当前对局"模型；首页升级为 lore 沉浸式落地页。
 
-### 已完成
+### Phase 9 一句话清单
 
-| 内容 | Commit |
-|------|--------|
-| 迁移 SQL 生产执行（修正 map_config 缺 description/max_players 列、equipment_tiers element NOT NULL 约束） | `2c1ce5b` |
-| 首页 page.js：标题 `⚔️ DTS 大逃杀` → `🌌 远星函馆` + 副标题 `17号异常段 · 引导者协议已启动` + 统计卡片术语更新 | `2c1ce5b` |
-| OverviewTab：道具分布 `武器/防具/消耗品` → `碎片/部件/消耗品`，`禁区` → `撤离点`，emoji 对齐 | `2c1ce5b` |
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 9.1 | 8 处大逃杀术语清理（layout/Overview/Maps/Items/gameUi/GameClientPage/api routes/constants） | `9885fb3` |
+| 9.2 | rooms 页改造为单一全服对局（删卡片网格 + 当前对局信息卡 + 立即出勤大按钮 + 污染条 + PI 列表） | `96ba9d7` |
+| 9.3 | 首页重做（lore Hero + 现役对局快照 + 4 实体预览 + 4 装备槽预览 + 个人档案速览） | `574861e` |
+| 9.4 | 本节 Readme + 单次 push | (本提交) |
 
-### 数据验证（生产环境确认）
+### 关键术语对齐
 
-- map_config = 7 行（7 区域 + 邻接关系）
-- npc_pool = 10 行（4 类实体）
-- item_pool = 13 行（4 碎片 + 3 部件 + 2 Ω物质 + 4 消耗品）
-- event_pool = 11 行
-- contracts = 6 行
-- endings = 4 行（崩解/清算/合流/探索）
-- branch_nodes = 4 行
-- equipment_series = 5 行，equipment_tiers = 8 行
+| 旧 | 新 |
+|----|----|
+| `DTS`（logo） | `远星函馆` |
+| `房间大厅` / `房间` | `出勤入口` / `对局` |
+| `NPC` / `NPC总数` | `实体` / `实体总数` |
+| `禁区` | `封闭段` |
+| `武器`（装备槽） / `武器模组` | `武器模块`（统一） |
+| `攻击 NPC` | `攻击实体` |
+| `创建房间` / `结束房间` | `创建对局` / `结束对局` |
 
-### 待完成术语清理
+### 对局模型变更（Phase 9.2）
 
-| 文件 | 旧术语 | 新术语 |
-|------|--------|--------|
-| layout.js | logo "DTS"、导航 "房间大厅" | "远星函馆"、"对局大厅" |
-| OverviewTab.jsx | "NPC总数"、"进行中房间" | "实体总数"、"进行中对局" |
-| MapsTab.jsx | 3处 "禁区" | "撤离点" |
-| ItemsTab.jsx | "武器模组" | 远星分类标签 |
-| gameUi.js | 装备槽 "武器" | 远星槽位名称 |
-| GameClientPage.jsx | "攻击 NPC" | "攻击实体" |
-| rooms/page.js | 大量 "房间" | "对局" |
-| API routes | 错误消息中的 "房间" | "对局" |
-| admin/page.js | tab "🏠 房间" | "🌀 对局" |
+- **过去**：玩家在 /rooms 看卡片网格，从多个 active/waiting 房间里选一个
+- **现在**：永远只有 1 个 active/waiting 对局；所有 PI 引导者加入它
+- 上一段对局结束 → 系统自动 `ensureNextRound` 开新一段
+- /rooms 单卡片 UI：状态 + 数据栏 + 污染条 + PI 列表 + "🚀 立即出勤" 主 CTA
+- 管理员仍可通过 admin/_tabs/RoomsTab 手动创建（非常规通路）
+
+### 首页重做（Phase 9.3）
+
+- 81 行 → 373 行，沉浸式 lore 落地页
+- 6 块结构：Hero / 现役对局快照（点击跳 /rooms）/ 个人档案 / 4 实体预览 / 4 装备槽预览 / Footer
+- 复用 `ENTITY_TYPE_META` / `LOADOUT_SLOT_META` / `POLLUTION_TIER_META`（Phase 8.2 引入），不引新依赖
 
 ---
 
@@ -481,10 +484,12 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-8 全部上线）**：
+**当前状态（2026-05 / Phase 0-9 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
+- **术语 + 首页/大厅收尾**（Phase 9）：术语对齐远星函馆；大厅改为单一全服对局；首页升级为 lore 落地页
+- **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有 PI 引导者加入它，结束后自动开新一段
 - **13 标签页管理后台**：合同 / 事件 / 分支 / 结局编辑器全部就绪
 
 **核心循环**：
@@ -515,10 +520,10 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 
 | 文件 | 职责 |
 |------|------|
-| `src/app/page.js` | 首页 |
+| `src/app/page.js` | **2026-05 Phase 9.3 重写** — 远星函馆 lore 落地页（Hero / 现役对局快照 / 个人档案 / 4 实体 / 4 装备槽预览） |
 | `src/app/login/page.js` | 登录页 |
 | `src/app/register/page.js` | 注册页 |
-| `src/app/rooms/page.js` | 房间大厅：实时列表、🎒 装载并加入（接 LoadoutModal） |
+| `src/app/rooms/page.js` | **2026-05 Phase 9.2 重写** — 出勤入口（单一当前对局信息卡 + 数据栏 + 污染条 + PI 列表 + 立即出勤大按钮） |
 | `src/app/stash/page.js` | **2026-05 新增** — 玩家账户库浏览页（容量条 + 装备 + 按 kind 分组） |
 | `src/app/contracts/page.js` | **2026-05 新增** — 合同列表（按状态过滤 + 进度 + 接受） |
 | `src/app/game/[id]/page.js` | 入口转发 |
