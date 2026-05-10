@@ -50,7 +50,7 @@ export async function POST(request) {
     if (action === 'remove') {
       await removeItemsFromStash(supabase, auth.user.id, payload.items || [])
       if (payload.instanceIds?.length) {
-        // 把实例移回库（仅在玩家未在房间时使用此接口）
+        // 把实例移回库（仅在玩家未在对局时使用此接口）
         await moveEquipmentToStash(supabase, auth.user.id, payload.instanceIds)
       }
       const stash = await loadStash(supabase, auth.user.id)

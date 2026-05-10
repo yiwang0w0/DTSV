@@ -1,54 +1,16 @@
-'use client'
-
-/**
- * /rooms — 出勤入口（远星函馆 × DTSV）
- *
- * 单一全服对局模型：
- *   - 永远只有 1 个 active / waiting 对局，所有 PI 引导者加入它
- *   - 上一局结束后系统自动 ensureNextRound 开新一局
- *   - UI = 1 张当前对局信息卡 + 立即出勤大按钮
- *
- * 状态机：
- *   user 未加入 + currentRaid 等待中 → 「🚀 立即出勤」 弹 LoadoutModal
- *   user 已加入                    → 「↩ 返回对局」 直接跳 /game/[id]
- *   currentRaid 不存在             → 自动 ensureNextRound + 显示准备中
- *   currentRaid 已结束             → 显示归档 + 自动开新一局
- */
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { isAdmin } from '@/lib/auth'
 import { useAuth } from '../layout'
 import { Spinner, useToast } from '../admin/_shared/ui'
 import { postGameApi } from '@/lib/gameApi'
 import LoadoutModal from '@/components/LoadoutModal'
-import { POLLUTION_TIER_META, MAP_LIST } from '@/lib/constants'
 
 const ROOM_CHECK_INTERVAL_MS = 60_000
-
-const C = {
-  bg0:    '#0e1117',
-  bg1:    '#1c2129',
-  bg2:    '#161b22',
-  border: '#30363d',
-  text:   '#e6edf3',
-  dim:    '#8b949e',
-  dim2:   '#484f58',
-  accent: '#58a6ff',
-  green:  '#3fb950',
-  red:    '#f85149',
-  yellow: '#d29922',
-  purple: '#bc8cff',
-}
-
-function pollutionTier(env) {
-  if (env >= 100) return 'meltdown'
-  if (env >= 80)  return 'severe'
-  if (env >= 60)  return 'moderate'
-  if (env >= 40)  return 'mild'
-  return 'none'
-}
 
 export default function RoomsPage() {
   const { user } = useAuth()
@@ -56,30 +18,27 @@ export default function RoomsPage() {
   const { show: toast, Container: ToastContainer } = useToast()
   const ensureNextRoundLock = useRef(false)
 
-  const [currentRaid, setCurrentRaid] = useState(null)
+  const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
-  const [joining, setJoining] = useState(false)
+  const [joining, setJoining] = useState(null)
+  const [creating, setCreating] = useState(false)
   const [preparingNextRound, setPreparingNextRound] = useState(false)
-  const [loadoutOpen, setLoadoutOpen] = useState(false)
+  const [loadoutFor, setLoadoutFor] = useState(null) // { roomId, gamenum }
   const loadingRef = useRef(false)
 
-  const loadCurrentRaid = useCallback(async () => {
+  const loadRooms = useCallback(async () => {
     if (loadingRef.current) return
     loadingRef.current = true
     try {
-      // 取最新的 active/waiting 对局；只有 1 个
       const { data, error } = await supabase
         .from('rooms')
-        .select('id,gamenum,gametype,gamestate,gamevars,validnum,alivenum,deathnum,winner,started_at,created_at')
-        .in('gamestate', [0, 1])
+        .select('id,gamenum,gametype,gamestate,gamevars,validnum,alivenum,deathnum,winner,created_at')
+        .in('gamestate', [0, 1, 2])
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .limit(50)
 
-      if (error && error.code !== 'PGRST116') {
-        throw new Error(error.message || '加载对局失败')
-      }
-      setCurrentRaid(data || null)
+      if (error) throw new Error(error.message || '加载对局失败')
+      setRooms(data || [])
     } catch (error) {
       toast(error.message || '加载对局失败', 'error')
     } finally {
@@ -88,84 +47,121 @@ export default function RoomsPage() {
     }
   }, [toast])
 
+  const hasOpenRoom = useMemo(
+    () => rooms.some(room => room.gamestate === 0 || room.gamestate === 1),
+    [rooms],
+  )
+
   const ensureNextRound = useCallback(async ({ silent = true } = {}) => {
     if (!user || ensureNextRoundLock.current) return
+
     ensureNextRoundLock.current = true
     setPreparingNextRound(true)
+
     try {
       const { room, created } = await postGameApi('/api/game/rooms', {
         gametype: 0,
         ensureNextRound: true,
       })
+
       if (created) {
-        await loadCurrentRaid()
+        await loadRooms()
         if (!silent) {
-          toast(`下一段对局 #${room.gamenum || room.id} 已就绪`)
+          toast(`对局 #${room.gamenum || room.id} 已准备好，下一轮可以开始了`)
         }
       }
     } catch (error) {
-      if (!silent) toast(error.message, 'error')
+      if (!silent) {
+        toast(error.message, 'error')
+      }
     } finally {
       ensureNextRoundLock.current = false
       setPreparingNextRound(false)
     }
-  }, [loadCurrentRaid, toast, user])
+  }, [loadRooms, toast, user])
 
   useEffect(() => {
-    loadCurrentRaid()
+    loadRooms()
+
     const channel = supabase
       .channel('rooms-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => loadCurrentRaid())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => loadRooms())
       .subscribe()
-    const intervalId = setInterval(() => loadCurrentRaid(), ROOM_CHECK_INTERVAL_MS)
+
+    const intervalId = setInterval(() => {
+      loadRooms()
+    }, ROOM_CHECK_INTERVAL_MS)
+
     return () => {
       clearInterval(intervalId)
       supabase.removeChannel(channel)
     }
-  }, [loadCurrentRaid])
+  }, [loadRooms])
 
-  // 没有 active 对局时自动开新一局
   useEffect(() => {
-    if (!user || loading || currentRaid) return
+    if (!user || loading || hasOpenRoom) return
     ensureNextRound({ silent: true })
-  }, [ensureNextRound, currentRaid, loading, user])
+  }, [ensureNextRound, hasOpenRoom, loading, user])
 
-  const players = useMemo(
-    () => Object.values(currentRaid?.gamevars?.players || {}),
-    [currentRaid?.gamevars?.players],
-  )
-  const meInRaid = !!currentRaid?.gamevars?.players?.[user?.id]
-  const envPollution = currentRaid?.gamevars?.envPollution || 0
-  const turn = currentRaid?.gamevars?.turn || 0
-  const extractedCount = players.filter(p => p?.extracted).length
-  const aliveCount = currentRaid?.alivenum ?? players.filter(p => p?.alive).length
-  const deathCount = currentRaid?.deathnum ?? players.filter(p => !p?.alive).length
-
-  function openLoadout() {
-    if (!user || !currentRaid) return
-    setLoadoutOpen(true)
+  function openLoadout(room) {
+    if (!user) return
+    setLoadoutFor({ roomId: room.id, gamenum: room.gamenum || room.id })
   }
 
   async function confirmJoinWithLoadout(loadout) {
-    if (!currentRaid) return
-    const roomId = currentRaid.id
-    setJoining(true)
+    if (!loadoutFor) return
+    const roomId = loadoutFor.roomId
+    setJoining(roomId)
     try {
       await postGameApi('/api/game/actions', { roomId, action: 'join', loadout })
       router.push(`/game/${roomId}`)
     } catch (error) {
       toast(error.message, 'error')
-      throw error // 让 modal 不关闭
+      throw error // 让 modal 知道失败，不关闭
     } finally {
-      setJoining(false)
+      setJoining(null)
     }
+  }
+
+  async function createRoom() {
+    setCreating(true)
+    try {
+      const { room } = await postGameApi('/api/game/rooms', { gametype: 0 })
+      toast(`对局 #${room.gamenum || room.id} 已创建`)
+      await loadRooms()
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function deleteRoom(roomId) {
+    if (!isAdmin(user)) return
+    if (!confirm('确定要删除这个对局吗？')) return
+
+    const session = await supabase.auth.getSession()
+    const response = await fetch(`/api/admin/rooms?id=${roomId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${session.data?.session?.access_token}`,
+      },
+    })
+
+    if (!response.ok) {
+      toast('删除对局失败', 'error')
+      return
+    }
+
+    toast('对局已删除')
+    loadRooms()
   }
 
   if (!user) {
     return (
       <div className="animate-in" style={{ textAlign: 'center', padding: 60 }}>
-        <p style={{ color: C.dim, fontSize: 16 }}>
-          请先 <Link href="/login" style={{ color: C.accent }}>登录</Link> 后进入出勤入口
+        <p style={{ color: '#8b949e', fontSize: 16 }}>
+          请先 <Link href="/login" style={{ color: '#58a6ff' }}>登录</Link> 后进入游戏大厅
         </p>
       </div>
     )
@@ -177,210 +173,193 @@ export default function RoomsPage() {
     <div className="animate-in">
       <ToastContainer />
       <LoadoutModal
-        open={loadoutOpen}
-        roomTitle={currentRaid ? `对局 #${currentRaid.gamenum || currentRaid.id}` : ''}
-        onClose={() => setLoadoutOpen(false)}
+        open={!!loadoutFor}
+        roomTitle={loadoutFor ? `对局 #${loadoutFor.gamenum}` : ''}
+        onClose={() => setLoadoutFor(null)}
         onConfirm={confirmJoinWithLoadout}
       />
 
-      {/* ── 顶部说明 ───────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>🌌 出勤入口</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: C.dim }}>
-          PI 引导者，请准备装载，进入 17 号异常段当前对局。系统自动维持单一全服对局，结束后将开启下一段。
-        </p>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>对局大厅</h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>
+            系统会每分钟检查一次对局状态；如果当前没有等待中或进行中的对局，就会自动准备下一轮。管理员仍可手动创建对局。
+          </p>
+        </div>
+        {isAdmin(user) && (
+          <button
+            onClick={createRoom}
+            disabled={creating || preparingNextRound}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: '1px solid rgba(88,166,255,0.25)',
+              background: 'rgba(88,166,255,0.12)',
+              color: '#58a6ff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: creating || preparingNextRound ? 'wait' : 'pointer',
+              opacity: creating || preparingNextRound ? 0.7 : 1,
+            }}
+          >
+            {preparingNextRound ? '准备下一轮中...' : creating ? '创建中...' : '+ 创建对局'}
+          </button>
+        )}
       </div>
 
-      {/* ── 当前对局卡 ─────────────────────── */}
-      {!currentRaid ? (
-        <PendingCard preparing={preparingNextRound} />
-      ) : (
-        <CurrentRaidCard
-          raid={currentRaid}
-          players={players}
-          envPollution={envPollution}
-          turn={turn}
-          aliveCount={aliveCount}
-          deathCount={deathCount}
-          extractedCount={extractedCount}
-          meInRaid={meInRaid}
-          joining={joining}
-          onEnter={() => router.push(`/game/${currentRaid.id}`)}
-          onSortie={openLoadout}
-          userId={user.id}
-        />
+      {!hasOpenRoom && (
+        <div style={{
+          marginBottom: 16,
+          padding: '12px 14px',
+          borderRadius: 12,
+          background: 'rgba(210,153,34,0.1)',
+          border: '1px solid rgba(210,153,34,0.25)',
+          color: '#d29922',
+          fontSize: 12,
+        }}>
+          {preparingNextRound
+            ? '当前没有可加入的对局，系统正在准备下一轮游戏。'
+            : '当前没有等待中或进行中的对局，系统会自动准备下一轮游戏。'}
+        </div>
       )}
-    </div>
-  )
-}
 
-// ── 当前对局卡 ────────────────────────────────────
-function CurrentRaidCard({
-  raid, players, envPollution, turn, aliveCount, deathCount, extractedCount,
-  meInRaid, joining, onEnter, onSortie, userId,
-}) {
-  const tier = pollutionTier(envPollution)
-  const tierMeta = POLLUTION_TIER_META[tier] || POLLUTION_TIER_META.none
-  const isWaiting = raid.gamestate === 0
-  const isActive  = raid.gamestate === 1
-  const stateMeta = isActive ? { label: '进行中', color: C.green }
-                  : isWaiting ? { label: '等待 PI 引导者集结', color: C.yellow }
-                  : { label: '已归档', color: C.dim2 }
-
-  return (
-    <div style={{
-      background: C.bg1, borderRadius: 14,
-      border: `1px solid ${meInRaid ? C.accent : C.border}`,
-      borderLeft: `4px solid ${stateMeta.color}`,
-      padding: '24px 28px',
-      boxShadow: meInRaid ? `0 0 30px ${C.accent}20` : 'none',
-    }}>
-      {/* 头部 */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: 0.5 }}>17 号异常段 · 对局 #{raid.gamenum || raid.id}</span>
-            {meInRaid && (
-              <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, background: `${C.accent}22`, color: C.accent, border: `1px solid ${C.accent}40` }}>
-                你已加入
-              </span>
-            )}
-          </div>
-          <span style={{
-            display: 'inline-block', padding: '2px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-            background: `${stateMeta.color}18`, color: stateMeta.color, border: `1px solid ${stateMeta.color}40`,
-          }}>{stateMeta.label}</span>
-          {turn > 0 && (
-            <span style={{ marginLeft: 8, fontSize: 11, color: C.dim, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>· 已运行 {turn} 回合</span>
-          )}
+      {rooms.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🪹</div>
+          <p>{preparingNextRound ? '正在自动准备下一轮游戏...' : '暂无对局，系统会自动准备下一轮游戏'}</p>
         </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(280px, 1fr))', gap: 16 }}>
+          {rooms.map(room => {
+            const isActive = room.gamestate === 1
+            const isWaiting = room.gamestate === 0
+            const isEnded = room.gamestate === 2
+            const players = Object.values(room.gamevars?.players || {})
+            const isInRoom = !!room.gamevars?.players?.[user.id]
+            const isJoining = joining === room.id
 
-        {/* 主 CTA */}
-        <div>
-          {meInRaid ? (
-            <button
-              onClick={onEnter}
-              style={ctaButton(C.accent)}
-            >↩ 返回对局</button>
-          ) : (
-            <button
-              onClick={onSortie}
-              disabled={joining || raid.gamestate !== 0}
-              style={{
-                ...ctaButton(C.green),
-                opacity: joining || raid.gamestate !== 0 ? 0.55 : 1,
-                cursor: joining ? 'wait' : (raid.gamestate !== 0 ? 'not-allowed' : 'pointer'),
-              }}
-            >{joining ? '装载中…' : raid.gamestate !== 0 ? '对局已开始，等待下一段' : '🚀 立即出勤'}</button>
-          )}
-        </div>
-      </div>
-
-      {/* 数据面板 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14, marginBottom: 18 }}>
-        <Stat label="在场" value={aliveCount} color={C.text} />
-        <Stat label="已撤离" value={extractedCount} color={C.green} />
-        <Stat label="阵亡" value={deathCount} color={C.red} />
-        <Stat label="总参与" value={players.length} color={C.dim} />
-      </div>
-
-      {/* 环境污染条 */}
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11 }}>
-          <span style={{ color: C.dim }}>环境污染 · {tierMeta.label}</span>
-          <span style={{ color: tierMeta.color, fontFamily: 'var(--font-jetbrains-mono), monospace', fontWeight: 700 }}>
-            {envPollution} / 100
-          </span>
-        </div>
-        <div style={{ height: 8, borderRadius: 4, background: C.bg2, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%',
-            width: `${Math.min(100, envPollution)}%`,
-            background: tierMeta.color,
-            transition: 'width .3s',
-          }} />
-        </div>
-      </div>
-
-      {/* 玩家列表 */}
-      {players.length > 0 ? (
-        <div>
-          <div style={{ fontSize: 11, color: C.dim, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            PI 引导者状态
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {players.map(p => {
-              const isMe = (p.id || p.uid) === userId
-              const status = p.extracted ? 'extracted' : !p.alive ? 'dead' : 'alive'
-              const statusMeta = {
-                alive:     { label: '在场', color: C.green },
-                extracted: { label: '已撤离', color: C.accent },
-                dead:      { label: '阵亡', color: C.red },
-              }[status]
-              return (
-                <span
-                  key={p.id || p.uid}
-                  style={{
-                    padding: '4px 12px', borderRadius: 14, fontSize: 11,
-                    background: `${statusMeta.color}12`, color: statusMeta.color,
-                    border: `1px solid ${statusMeta.color}30`,
-                    fontWeight: isMe ? 700 : 400,
-                  }}
-                >
-                  {isMe ? '👤 ' : ''}{p.name}
-                  {p.map !== undefined && p.alive && !p.extracted && (
-                    <span style={{ marginLeft: 6, color: C.dim2, fontSize: 10 }}>
-                      @{MAP_LIST.find(m => m.id === p.map)?.name || `map ${p.map}`}
-                    </span>
+            return (
+              <div
+                key={room.id}
+                style={{
+                  background: '#1c2129',
+                  borderRadius: 12,
+                  border: `1px solid ${isInRoom ? '#58a6ff' : '#30363d'}`,
+                  padding: 20,
+                  borderLeft: `3px solid ${isEnded ? '#484f58' : isActive ? '#3fb950' : isInRoom ? '#58a6ff' : '#d29922'}`,
+                  opacity: isEnded ? 0.7 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        对局 #{room.gamenum || room.id}
+                      </span>
+                      {isInRoom && (
+                        <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, background: 'rgba(88,166,255,0.15)', color: '#58a6ff' }}>
+                          你已加入
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      <span
+                        style={{
+                          padding: '2px 10px',
+                          borderRadius: 20,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: isEnded ? 'rgba(72,79,88,0.3)' : isActive ? 'rgba(63,185,80,0.12)' : 'rgba(210,153,34,0.12)',
+                          color: isEnded ? '#8b949e' : isActive ? '#3fb950' : '#d29922',
+                        }}
+                      >
+                        {isEnded ? '已结束' : isActive ? '进行中' : '等待中'}
+                      </span>
+                    </div>
+                  </div>
+                  {isAdmin(user) && (
+                    <button
+                      onClick={() => deleteRoom(room.id)}
+                      title="删除对局"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 16, padding: 4 }}
+                    >
+                      🗑️
+                    </button>
                   )}
-                  {' · '}{statusMeta.label}
-                </span>
-              )
-            })}
-          </div>
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center', padding: '14px 0', color: C.dim2, fontSize: 12 }}>
-          尚无 PI 引导者集结，等待你成为第一人
+                </div>
+
+                <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
+                  {[
+                    { label: '玩家', value: players.length, color: '#e6edf3' },
+                    { label: '存活', value: room.alivenum || 0, color: '#3fb950' },
+                    { label: '阵亡', value: room.deathnum || 0, color: '#f85149' },
+                  ].map(stat => (
+                    <div key={stat.label} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace', color: stat.color }}>{stat.value}</div>
+                      <div style={{ fontSize: 11, color: '#8b949e' }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {players.length > 0 && (
+                  <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {players.map(player => (
+                      <span
+                        key={player.id || player.uid}
+                        style={{
+                          padding: '2px 10px',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          background: player.alive ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)',
+                          color: player.alive ? '#3fb950' : '#f85149',
+                          border: `1px solid ${player.alive ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)'}`,
+                        }}
+                      >
+                        {(player.id || player.uid) === user.id ? '👤 ' : ''}
+                        {player.name}
+                        {!player.alive && ' 💀'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {isInRoom ? (
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: '#58a6ff', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      进入游戏
+                    </button>
+                  ) : isWaiting ? (
+                    <button
+                      onClick={() => openLoadout(room)}
+                      disabled={isJoining}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(63,185,80,0.12)', color: '#3fb950', fontSize: 13, fontWeight: 700, cursor: isJoining ? 'wait' : 'pointer', flex: 1, opacity: isJoining ? 0.6 : 1 }}
+                    >
+                      {isJoining ? '加入中...' : '🎒 装载并加入'}
+                    </button>
+                  ) : isActive ? (
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(210,153,34,0.12)', color: '#d29922', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      观战 / 查看
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/game/${room.id}`)}
+                      style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: 'rgba(72,79,88,0.2)', color: '#8b949e', fontSize: 13, fontWeight: 700, cursor: 'pointer', flex: 1 }}
+                    >
+                      查看结算
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
   )
-}
-
-// ── 等待对局生成卡 ────────────────────────────────
-function PendingCard({ preparing }) {
-  return (
-    <div style={{
-      background: C.bg1, borderRadius: 14, border: `1px dashed ${C.border}`,
-      padding: '60px 28px', textAlign: 'center', color: C.dim,
-    }}>
-      <div style={{ fontSize: 48, marginBottom: 18 }}>🌌</div>
-      <div style={{ fontSize: 16, color: C.text, marginBottom: 6, fontWeight: 600 }}>
-        {preparing ? '正在准备下一段对局…' : '系统正在重新部署 17 号异常段'}
-      </div>
-      <div style={{ fontSize: 12, color: C.dim2 }}>
-        当前没有 active 对局，系统会自动开新一段，请稍候片刻
-      </div>
-    </div>
-  )
-}
-
-// ── 工具 ─────────────────────────────────────────
-function Stat({ label, value, color }) {
-  return (
-    <div style={{ background: C.bg2, borderRadius: 10, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
-      <div style={{ fontSize: 10, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color, fontFamily: 'var(--font-jetbrains-mono), monospace', marginTop: 4 }}>{value}</div>
-    </div>
-  )
-}
-
-function ctaButton(color) {
-  return {
-    padding: '12px 24px', borderRadius: 10, border: 'none',
-    background: color, color: '#fff', fontSize: 14, fontWeight: 700,
-    cursor: 'pointer', minWidth: 160,
-    boxShadow: `0 0 20px ${color}30`,
-  }
 }

@@ -60,7 +60,7 @@ export async function PATCH(request) {
   const payload = await request.json().catch(() => ({}))
   const roomId = Number(payload.id)
   if (!roomId) {
-    return NextResponse.json({ error: '缺少对局 ID' }, { status: 400 })
+    return NextResponse.json({ error: '缺少对局ID' }, { status: 400 })
   }
 
   try {
@@ -82,7 +82,7 @@ export async function DELETE(request) {
 
   const roomId = Number(new URL(request.url).searchParams.get('id'))
   if (!roomId) {
-    return NextResponse.json({ error: '缺少对局 ID' }, { status: 400 })
+    return NextResponse.json({ error: '缺少对局ID' }, { status: 400 })
   }
 
   const { error } = await auth.supabase.from('rooms').delete().eq('id', roomId)

@@ -80,7 +80,7 @@ export default function EndingsTab({ toast }) {
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>🎬 结局</h3>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: C.dim }}>
-            分支节点设置 triggerEnding 时按 key 查找此处定义的结局；房间立即结束并向存活玩家发奖。
+            分支节点设置 triggerEnding 时按 key 查找此处定义的结局；对局立即结束并向存活玩家发奖。
           </p>
         </div>
         <button onClick={startNew} style={{ ...BTN(`${C.purple}18`, C.purple), border: `1px solid ${C.purple}40` }}>+ 新建结局</button>

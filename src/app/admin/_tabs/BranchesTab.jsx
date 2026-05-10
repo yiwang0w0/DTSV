@@ -99,7 +99,7 @@ export default function BranchesTab({ toast }) {
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>🌿 分支节点（剧情条件引擎）</h3>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: C.dim }}>
-            一个节点 = 一组条件 + 一组分支动作。条件支持 flag / 玩家行为 / 房间状态等；
+            一个节点 = 一组条件 + 一组分支动作。条件支持 flag / 玩家行为 / 对局状态等；
             聚合器支持 all / any / atLeast(N) / atMost(N) / default。
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function BranchesTab({ toast }) {
                 {n.active ? '启用' : '停用'}
               </span>
               <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 10, background: `${C.accent}18`, color: C.accent, border: `1px solid ${C.accent}30` }}>
-                {n.scope === 'player' ? '玩家级' : '房间级'}
+                {n.scope === 'player' ? '玩家级' : '对局级'}
               </span>
               {n.once && <span style={{ fontSize: 10, color: C.yellow }}>仅一次</span>}
               <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace', marginLeft: 'auto' }}>#{n.id}</span>
@@ -201,7 +201,7 @@ function BranchEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
         <div>
           <label style={LABEL}>触发范围</label>
           <select style={INPUT} value={draft.scope} onChange={e => update({ scope: e.target.value })}>
-            <option value="room">房间级（共享）</option>
+            <option value="room">对局级（共享）</option>
             <option value="player">玩家级（独立）</option>
           </select>
         </div>

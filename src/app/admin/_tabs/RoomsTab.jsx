@@ -40,7 +40,7 @@ export default function RoomsTab({ rooms, onRefresh, toast }) {
   async function deleteRoom(id) {
     try {
       await requestAdminRoom('DELETE', { id })
-      toast('房间已删除')
+      toast('对局已删除')
       setConfirmDel(null)
       onRefresh('rooms')
     } catch (error) {
@@ -51,7 +51,7 @@ export default function RoomsTab({ rooms, onRefresh, toast }) {
   async function endRoom(id) {
     try {
       await requestAdminRoom('PATCH', { id })
-      toast('已强制结束房间')
+      toast('已强制结束对局')
       onRefresh('rooms')
     } catch (error) {
       toast(error.message || '操作失败', 'error')
@@ -151,7 +151,7 @@ export default function RoomsTab({ rooms, onRefresh, toast }) {
           )
         })}
 
-        {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>暂无房间记录</div>}
+        {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>暂无对局记录</div>}
       </div>
     </div>
   )

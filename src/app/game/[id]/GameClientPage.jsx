@@ -14,7 +14,6 @@ import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
-import dynamic from 'next/dynamic'
 import {
   Btn,
   BuffTag,
@@ -26,10 +25,6 @@ import {
   WEATHER,
   hpColor,
 } from './gameUi'
-
-// 远星函馆 FX：仅在结局横幅按需加载，0 SSR 开销
-const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
-const ParticleText = dynamic(() => import('@/components/fx/ParticleText'), { ssr: false })
 
 function buildPlayerView(player, equippedInstances) {
   if (!player) return null
@@ -372,35 +367,19 @@ export default function GameClientPage() {
 
       {gamevars?.endingResult && (
         <div style={{
-          position: 'relative', overflow: 'hidden', isolation: 'isolate',
+          background: `linear-gradient(135deg, ${T.purple}25 0%, ${T.cyan}15 50%, ${T.purple}25 100%)`,
           borderBottom: `2px solid ${T.purple}60`,
           padding: '16px 24px', flexShrink: 0,
           display: 'flex', alignItems: 'center', gap: 18,
+          boxShadow: `0 4px 20px ${T.purple}30 inset`,
         }}>
-          {/* FX：Ω 接口干涉环作为结局横幅背景；intensity 0.55 让前景文字清晰 */}
-          <Shader name="omega_iface" pollution={0.5} intensity={0.55} />
-          {/* 暗化 + 紫调遮罩，让 omega_iface 中央圆盘不抢视线 */}
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
-            background: `linear-gradient(135deg, ${T.purple}30 0%, ${T.cyan}18 50%, ${T.purple}30 100%), rgba(14,17,23,0.55)`,
-          }} />
-          <div style={{ position: 'relative', zIndex: 2, fontSize: 32 }}>🎬</div>
-          <div style={{ position: 'relative', zIndex: 2, flex: 1 }}>
+          <div style={{ fontSize: 32 }}>🎬</div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: T.purple, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 4 }}>
               结局触发
             </div>
-            {/* 结局名称用 scan 显形（一次性扫描显形 1.6s） */}
-            <div style={{ marginBottom: 4 }}>
-              <ParticleText
-                text={gamevars.endingResult.name}
-                mode="scan"
-                color={T.text}
-                accent={T.purple}
-                size={20}
-                weight={900}
-                letterSpacing={2}
-                trigger={gamevars.endingResult.key || 0}
-              />
+            <div style={{ fontSize: 18, fontWeight: 900, color: T.text, marginBottom: 4 }}>
+              {gamevars.endingResult.name}
             </div>
             {gamevars.endingResult.bannerText && (
               <div style={{ fontSize: 13, color: T.dimB, fontStyle: 'italic' }}>
@@ -560,7 +539,7 @@ export default function GameClientPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontSize: 14, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={busy || room.gamestate === 2}>
-                    {busy ? '攻击中...' : '攻击实体'}
+                    {busy ? '攻击中...' : '攻击'}
                   </Btn>
                   <Btn variant="ghost" sx={{ flex: 1 }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
                 </div>

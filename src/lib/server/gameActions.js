@@ -114,7 +114,7 @@ function getPlayer(gamevars, userId) {
 async function fetchRoom(client, roomId) {
   const { data, error } = await client.from('rooms').select('*').eq('id', roomId).single()
   if (error || !data) {
-    throw new Error('房间不存在')
+    throw new Error('对局不存在')
   }
   return data
 }
@@ -321,7 +321,7 @@ async function persistRoom(client, room, gamevars, logs = [], options = {}) {
     throw new VersionConflictError()
   }
   if (error) {
-    throw new Error(error.message || '房间状态更新失败')
+    throw new Error(error.message || '对局状态更新失败')
   }
 
   return data
@@ -845,7 +845,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       battle: null,
       lootPrompt: null,
     })
-    // 房间级击杀计数
+    // 对局级击杀计数
     resolution.gamevars = {
       ...resolution.gamevars,
       totalEntityKills: (resolution.gamevars.totalEntityKills || 0) + 1,
@@ -1115,7 +1115,7 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
 
 async function dismissLootPrompt(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
-  if (!player) throw new Error('你还未加入该房间')
+  if (!player) throw new Error('你还未加入该对局')
   if (!player.lootPrompt) return room
 
   const nextGamevars = clearPlayerLootPrompt(normalizeGamevars(gamevars), user.id)
@@ -1220,13 +1220,13 @@ export async function createRoom(client, user, payload = {}) {
       winner: null,
       started_at: null,
       version: 0,
-      gamevars: appendGameLog(gamevars, createLogEntry(`${getDisplayName(user)} 创建了房间`, 'system')),
+      gamevars: appendGameLog(gamevars, createLogEntry(`${getDisplayName(user)} 创建了对局`, 'system')),
     })
     .select('*')
     .single()
 
   if (error || !data) {
-    throw new Error(error?.message || '创建房间失败')
+    throw new Error(error?.message || '创建对局失败')
   }
 
   return data
@@ -1235,7 +1235,7 @@ export async function createRoom(client, user, payload = {}) {
 export async function joinRoom(client, user, roomId, loadout = null) {
   const room = await fetchRoom(client, roomId)
   if (room.gamestate === 2) {
-    throw new Error('已结束房间不可加入')
+    throw new Error('已结束对局不可加入')
   }
 
   const gamevars = normalizeGamevars(room.gamevars)
@@ -1304,10 +1304,10 @@ export async function joinRoom(client, user, roomId, loadout = null) {
 export async function executeGameAction(client, user, payload, options = {}) {
   const roomId = Number(payload.roomId)
   if (!roomId) {
-    throw new Error('缺少房间 ID')
+    throw new Error('缺少对局 ID')
   }
 
-  // 支持外部预取的房间数据，跳过重复查询
+  // 支持外部预取的对局数据，跳过重复查询
   const room = options.prefetchedRoom || await fetchRoom(client, roomId)
   const gamevars = normalizeGamevars(room.gamevars)
   const me = getPlayer(gamevars, user.id)
@@ -1316,7 +1316,7 @@ export async function executeGameAction(client, user, payload, options = {}) {
   }
 
   if (payload.action !== 'join' && !me) {
-    throw new Error('你还未加入该房间')
+    throw new Error('你还未加入该对局')
   }
 
   if (payload.action === 'join') {
@@ -1453,7 +1453,7 @@ async function attackPlayer(client, room, gamevars, user, targetUid) {
 // ── 撤离：远星函馆 is_exit + exit_cost 模型 ──
 async function extractPlayer(client, room, gamevars, user, payload) {
   const player = getPlayer(gamevars, user.id)
-  if (!player) throw new Error('你还未加入该房间')
+  if (!player) throw new Error('你还未加入该对局')
   if (!player.alive) throw new Error('阵亡玩家无法撤离')
   if (player.extracted) throw new Error('已经撤离')
   if (player.battle) throw new Error('战斗中无法撤离')
@@ -1537,7 +1537,7 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     : `${player.name} 从【${mapConfig.name}】完成结构退避`
   appendResolutionLog(resolution, note, 'system')
 
-  // 玩家不再属于该房间
+  // 玩家不再属于该对局
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)
 
   const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
@@ -1689,12 +1689,12 @@ async function performItemUse(client, room, gamevars, user, itemName) {
 
 export async function executeEquipmentAction(client, user, payload) {
   const roomId = Number(payload.roomId)
-  if (!roomId) throw new Error('缺少房间 ID')
+  if (!roomId) throw new Error('缺少对局 ID')
 
   const room = await fetchRoom(client, roomId)
   const gamevars = normalizeGamevars(room.gamevars)
   if (!getPlayer(gamevars, user.id)) {
-    throw new Error('你还未加入该房间')
+    throw new Error('你还未加入该对局')
   }
 
   if (payload.action === 'craft') {

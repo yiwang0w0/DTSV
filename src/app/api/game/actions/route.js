@@ -6,10 +6,10 @@ export async function POST(request) {
   const payload = await request.json()
   const roomId = Number(payload.roomId)
   if (!roomId) {
-    return NextResponse.json({ error: '缺少房间 ID' }, { status: 400 })
+    return NextResponse.json({ error: '缺少对局 ID' }, { status: 400 })
   }
 
-  // ── 并行：认证 + 房间数据同时拉取，省一个往返 ──
+  // ── 并行：认证 + 对局数据同时拉取，省一个往返 ──
   const supabase = createServerSupabase()
   const [auth, { data: roomData, error: roomError }] = await Promise.all([
     getRequestUser(request, supabase),
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
   if (roomError || !roomData) {
-    return NextResponse.json({ error: '房间不存在' }, { status: 404 })
+    return NextResponse.json({ error: '对局不存在' }, { status: 404 })
   }
 
   try {

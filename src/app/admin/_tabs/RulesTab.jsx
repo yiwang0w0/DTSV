@@ -75,7 +75,7 @@ export default function RulesTab({ toast }) {
             </div>
             <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: 'rgba(88,166,255,0.06)', border: '1px solid rgba(88,166,255,0.15)' }}>
               <div style={{ fontSize: 11, color: '#58a6ff', fontWeight: 600, marginBottom: 6 }}>💡 使用说明</div>
-              <div style={{ fontSize: 11, color: '#8b949e', lineHeight: 1.7 }}>规则修改后<strong style={{ color: '#d29922' }}>仅对新创建的房间生效</strong>。公式支持四则运算与 Math 函数。</div>
+              <div style={{ fontSize: 11, color: '#8b949e', lineHeight: 1.7 }}>规则修改后<strong style={{ color: '#d29922' }}>仅对新创建的对局生效</strong>。公式支持四则运算与 Math 函数。</div>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

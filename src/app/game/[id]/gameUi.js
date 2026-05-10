@@ -28,11 +28,10 @@ export const WEATHER = {
 }
 
 export const SLOTS = [
-  { key: 'weapon', label: '武器模块' },
-  { key: 'armor', label: '护甲' },
-  { key: 'helmet', label: '头盔' },
-  { key: 'boots', label: '靴子' },
-  { key: 'accessory', label: '饰品' },
+  { key: 'probe', label: '探测' },
+  { key: 'shield', label: '防护' },
+  { key: 'weapon', label: '武器' },
+  { key: 'comm', label: '通信' },
 ]
 
 export function hpColor(hp, max) {

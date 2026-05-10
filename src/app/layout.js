@@ -39,7 +39,7 @@ function Nav({ user, onLogout }) {
   const path = usePathname()
   const links = [
     { href: '/', label: '首页' },
-    { href: '/rooms', label: '出勤入口' },
+    { href: '/rooms', label: '对局大厅' },
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
     ...(user ? [{ href: '/contracts', label: '合同' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
@@ -56,7 +56,7 @@ function Nav({ user, onLogout }) {
     }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <Link href="/" style={{ fontWeight: 700, fontSize: 18, color: '#58a6ff', textDecoration: 'none' }}>
+          <Link href="/" style={{ fontWeight: 700, fontSize: 18, color: '#58a6ff', textDecoration: 'none', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
             远星函馆
           </Link>
           <nav style={{ display: 'flex', gap: 4, background: '#161b22', borderRadius: 10, padding: 4, border: '1px solid #30363d' }}>

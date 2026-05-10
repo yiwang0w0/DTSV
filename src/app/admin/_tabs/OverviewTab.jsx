@@ -15,7 +15,7 @@ export default function OverviewTab({ items, npcs, maps, rooms }) {
           sub={`BOSS ${npcs.filter(n=>n.level==='boss').length} / 困难 ${npcs.filter(n=>n.level==='hard').length} / 中等 ${npcs.filter(n=>n.level==='medium').length}`} />
         <StatCard label="活跃地图" value={maps.length} icon="🗺️" color="#3fb950"
           sub={exitMaps > 0 ? `${exitMaps} 个撤离点 / 共 ${maps.length} 区域` : `共 ${maps.length} 个区域`} />
-        <StatCard label="进行中对局" value={activeRooms} icon="🏠" color="#58a6ff"
+        <StatCard label="进行中对局" value={activeRooms} icon="🌀" color="#58a6ff"
           sub={`等待中 ${waitingRooms} / 历史记录 ${rooms.length}`} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -38,7 +38,7 @@ export default function OverviewTab({ items, npcs, maps, rooms }) {
           })}
         </div>
         <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>NPC 分布</div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>实体分布</div>
           {Object.entries(NPC_LEVEL_META).map(([k, v]) => {
             const count = npcs.filter(n => n.level === k).length
             const pct = npcs.length ? Math.round(count / npcs.length * 100) : 0

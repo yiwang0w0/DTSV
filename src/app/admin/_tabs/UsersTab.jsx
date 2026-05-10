@@ -160,7 +160,7 @@ export default function UsersTab({ toast }) {
           <div style={{ fontSize: 28, fontWeight: 700, color: '#f85149', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{adminCount}</div>
         </div>
         <div style={{ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16 }}>
-          <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>房间中用户</div>
+          <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 6 }}>对局中用户</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#3fb950', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{activeRoomCount}</div>
         </div>
       </div>
@@ -243,7 +243,7 @@ export default function UsersTab({ toast }) {
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: '#8b949e' }}>
                   <span>注册：{formatTime(user.createdAt)}</span>
                   <span>最近登录：{formatTime(user.lastSignInAt)}</span>
-                  <span>房间：{user.roomId ?? '-'}</span>
+                  <span>对局：{user.roomId ?? '-'}</span>
                 </div>
               </div>
 

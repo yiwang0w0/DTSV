@@ -6,7 +6,7 @@ const DANGEROUS_KEYWORDS = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE)\
 
 const QUICK_QUERIES = [
   { label: '所有表', sql: `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name` },
-  { label: '房间列表', sql: `SELECT id, gamenum, gamestate, validnum, alivenum, deathnum, created_at FROM rooms ORDER BY created_at DESC LIMIT 20` },
+  { label: '对局列表', sql: `SELECT id, gamenum, gamestate, validnum, alivenum, deathnum, created_at FROM rooms ORDER BY created_at DESC LIMIT 20` },
   { label: '玩家状态', sql: `SELECT p.id, p.username, p.roomid, p.hp, p.atk, p.def, p.alive FROM profiles p WHERE p.roomid IS NOT NULL` },
   { label: '道具池', sql: `SELECT * FROM item_pool ORDER BY kind, name` },
   { label: 'NPC 池', sql: `SELECT * FROM npc_pool ORDER BY level, name` },

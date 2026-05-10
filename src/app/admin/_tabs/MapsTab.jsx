@@ -255,8 +255,8 @@ export default function MapsTab({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{map.name || `地图 ${map.map_id}`}</span>
-                    {map.blocked && (
-                      <span style={{ marginLeft: 6, fontSize: 10, color: C.red, padding: '1px 6px', borderRadius: 6, background: `${C.red}20`, border: `1px solid ${C.red}40` }}>封闭段</span>
+                    {map.is_exit && (
+                      <span style={{ marginLeft: 6, fontSize: 10, color: C.green, padding: '1px 6px', borderRadius: 6, background: `${C.green}20`, border: `1px solid ${C.green}40` }}>撤离点</span>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -390,14 +390,14 @@ export default function MapsTab({
               </div>
 
               <button
-                onClick={() => updateNow(sel.map_id, { blocked: !sel.blocked }, sel.blocked ? '已解除封闭' : '已设为封闭')}
+                onClick={() => updateNow(sel.map_id, { is_exit: !sel.is_exit }, sel.is_exit ? '已取消撤离点' : '已设为撤离点')}
                 style={{
-                  ...BTN(sel.blocked ? `${C.green}20` : `${C.red}20`, sel.blocked ? C.green : C.red),
+                  ...BTN(sel.is_exit ? `${C.red}20` : `${C.green}20`, sel.is_exit ? C.red : C.green),
                   marginTop: 14, width: '100%', justifyContent: 'center',
-                  border: `1px solid ${sel.blocked ? `${C.green}40` : `${C.red}40`}`,
+                  border: `1px solid ${sel.is_exit ? `${C.red}40` : `${C.green}40`}`,
                 }}
               >
-                {sel.blocked ? '✅ 解除封闭' : '⛔ 设为封闭'}
+                {sel.is_exit ? '⛔ 取消撤离点' : '✅ 设为撤离点'}
               </button>
             </div>
 

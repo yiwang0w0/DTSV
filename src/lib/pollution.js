@@ -2,7 +2,7 @@
  * pollution.js — 远星函馆污染引擎
  *
  * 双层污染模型（spec §3）：
- *   - 环境污染 envPollution (gamevars 级，房间共享)
+ *   - 环境污染 envPollution (gamevars 级，对局共享)
  *   - 个人污染 personalPollution (player 级，玩家独立)
  *
  * 有效污染 = envPollution × WEIGHT_ENV + personalPollution × WEIGHT_PERSONAL

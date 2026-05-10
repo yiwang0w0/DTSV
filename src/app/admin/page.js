@@ -21,10 +21,10 @@ import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
-  { key: 'items',     label: '⚔️ 道具池',  dataKey: 'items' },
-  { key: 'npcs',      label: '🤖 NPC',      dataKey: 'npcs' },
+  { key: 'items',     label: '🔮 道具池',  dataKey: 'items' },
+  { key: 'npcs',      label: '👻 实体',      dataKey: 'npcs' },
   { key: 'maps',      label: '🗺️ 地图',     dataKey: 'maps' },
-  { key: 'rooms',     label: '🏠 房间',      dataKey: 'rooms' },
+  { key: 'rooms',     label: '🌀 对局',      dataKey: 'rooms' },
   { key: 'users',     label: '👥 用户权限' },
   { key: 'rules',     label: '⚙️ 战斗规则' },
   { key: 'equipment', label: '🗡️ 装备引擎' },

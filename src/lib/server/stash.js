@@ -182,7 +182,7 @@ export async function consumeForLoadout(client, userId, roomId, { items = [], eq
     }
     const inOtherRoom = instances.filter(it => it.room_id !== null)
     if (inOtherRoom.length > 0) {
-      throw new Error(`有装备已在其他房间使用：${inOtherRoom.map(it => it.id).join(', ')}`)
+      throw new Error(`有装备已在其他对局使用：${inOtherRoom.map(it => it.id).join(', ')}`)
     }
 
     await client.from('equipment_instances')

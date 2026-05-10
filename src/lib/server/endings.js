@@ -5,7 +5,7 @@
  *   1. 分支引擎设置 gamevars.endingTriggered = 'ending_key'
  *   2. applyEndingIfTriggered() 在持久化前调用
  *   3. 加载结局元数据
- *   4. 把房间状态标记为 gamestate=2 + 结局信息存到 gamevars.endingResult
+ *   4. 把对局状态标记为 gamestate=2 + 结局信息存到 gamevars.endingResult
  *   5. 给在 raid 中存活/撤离的玩家发放结局奖励到账户库
  */
 

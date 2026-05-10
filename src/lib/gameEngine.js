@@ -74,7 +74,7 @@ export async function loadBuffPool(client = supabase) {
   return _buffCache
 }
 
-// 强制刷新（房间创建时调用）
+// 强制刷新（对局创建时调用）
 export function clearRulesCache() {
   _rulesCache = null
   _buffCache = null
