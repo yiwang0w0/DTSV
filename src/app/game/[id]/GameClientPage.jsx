@@ -319,6 +319,11 @@ export default function GameClientPage() {
         ::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px}
         .hov:hover:not(:disabled){filter:brightness(1.15)}
         select,input{outline:none;font-family:inherit}
+        @keyframes btnLoadSlide{
+          0%{transform:translateX(-100%)}
+          100%{transform:translateX(350%)}
+        }
+        .btn-loading-bar{animation:btnLoadSlide 1.2s ease-in-out infinite}
       `}</style>
 
       <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -404,8 +409,8 @@ export default function GameClientPage() {
         </div>
       )}
 
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '300px 1fr 300px', overflow: 'hidden' }}>
-        <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: battle ? '1fr 300px' : '300px 1fr 300px', overflow: 'hidden', transition: 'grid-template-columns .3s ease' }}>
+        {!battle && <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
           <PanelTitle>👤 {me ? me.name : '未加入'}</PanelTitle>
           <div style={{ padding: '10px 12px', flex: 1, overflowY: 'auto' }}>
             {me ? (
@@ -509,7 +514,7 @@ export default function GameClientPage() {
               </div>
             </>
           )}
-        </div>
+        </div>}
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
@@ -520,28 +525,59 @@ export default function GameClientPage() {
             )}
             {battle ? (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: T.red }}>⚔️ 战斗中：{battle.npc?.name}</span>
-                  <span style={{ fontSize: 11, color: T.dim }}>第 {battle.turn} 回合</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <span style={{ fontWeight: 700, fontSize: 16, color: T.red, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    ⚔️ 战斗中：{battle.npc?.name}
+                  </span>
+                  <span style={{ fontSize: 12, color: T.dim, background: T.bg0, padding: '3px 10px', borderRadius: 8, border: `1px solid ${T.border}` }}>
+                    第 {battle.turn} 回合
+                  </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{me?.name}</div>
-                    <HpBar hp={me?.hp || 0} max={me?.maxHp || 100} />
-                    <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {me?.atk} · DEF {me?.def}</div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 16, alignItems: 'center', marginBottom: 16 }}>
+                  {/* 玩家侧 */}
+                  <div style={{ background: T.bg0, borderRadius: 10, padding: '14px 16px', border: `1px solid ${T.cyan}25` }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan, marginBottom: 8 }}>{me?.name}</div>
+                    <HpBar hp={me?.hp || 0} max={me?.maxHp || 100} h={10} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                      <span style={{ color: hpColor(me?.hp, me?.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me?.hp || 0}</span>
+                      <span style={{ color: T.dim }}>{me?.maxHp || 100}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
+                      <span style={{ color: T.orange, fontWeight: 600 }}>ATK {me?.atk}</span>
+                      <span style={{ color: T.cyan, fontWeight: 600 }}>DEF {me?.def}</span>
+                    </div>
+                    {(me?.buffs || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                        {me.buffs.map((buff, i) => (
+                          <BuffTag key={`${buff.buffId}-${i}`} buffDef={buffPool.find(b => b.id === buff.buffId)} remaining={buff.remainingTurns} />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 18, color: T.dim }}>VS</div>
-                  <div>
-                    <div style={{ fontSize: 11, color: T.dimB, marginBottom: 3 }}>{battle.npc?.name}</div>
-                    <HpBar hp={battle.npcHp} max={battle.npcMaxHp} />
-                    <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>ATK {battle.npc?.atk} · DEF {battle.npc?.def}</div>
+
+                  <div style={{ fontSize: 22, color: T.dim, fontWeight: 900, textShadow: `0 0 10px ${T.red}40` }}>VS</div>
+
+                  {/* 实体侧 */}
+                  <div style={{ background: T.bg0, borderRadius: 10, padding: '14px 16px', border: `1px solid ${T.red}25` }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 8 }}>{battle.npc?.name}</div>
+                    <HpBar hp={battle.npcHp} max={battle.npcMaxHp} h={10} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                      <span style={{ color: hpColor(battle.npcHp, battle.npcMaxHp), fontFamily: 'monospace', fontWeight: 700 }}>{battle.npcHp}</span>
+                      <span style={{ color: T.dim }}>{battle.npcMaxHp}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
+                      <span style={{ color: T.orange, fontWeight: 600 }}>ATK {battle.npc?.atk}</span>
+                      <span style={{ color: T.cyan, fontWeight: 600 }}>DEF {battle.npc?.def}</span>
+                    </div>
                   </div>
                 </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontSize: 14, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={busy || room.gamestate === 2}>
-                    {busy ? '攻击中...' : '攻击'}
+                  <Btn variant="danger" loading={busy} loadingText="攻击中..." sx={{ flex: 2, padding: '12px 0', fontSize: 15, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={room.gamestate === 2}>
+                    攻击
                   </Btn>
-                  <Btn variant="ghost" sx={{ flex: 1 }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
+                  <Btn variant="ghost" sx={{ flex: 1, padding: '12px 0' }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
                 </div>
               </div>
             ) : !inGame ? (
@@ -561,8 +597,8 @@ export default function GameClientPage() {
               </div>
             ) : (
               <div>
-                <Btn variant="primary" sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '10px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={busy || !me?.alive || room.gamestate === 2 || !!battle}>
-                  {busy ? '搜索中...' : '搜索区域'}
+                <Btn variant="primary" loading={busy} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2 || !!battle}>
+                  搜索区域
                 </Btn>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                   <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2 || !!battle}>

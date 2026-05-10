@@ -125,7 +125,7 @@ export function PanelTitle({ children, right }) {
   )
 }
 
-export function Btn({ children, variant = 'default', size = 'md', onClick, disabled, sx = {} }) {
+export function Btn({ children, variant = 'default', size = 'md', onClick, disabled, loading, loadingText, sx = {} }) {
   const sizes = {
     sm: { fontSize: 11, padding: '4px 10px' },
     md: { fontSize: 13, padding: '8px 16px' },
@@ -138,29 +138,44 @@ export function Btn({ children, variant = 'default', size = 'md', onClick, disab
     warn: { background: `${T.yellow}18`, color: T.yellow, border: `1px solid ${T.yellow}30` },
     ghost: { background: 'transparent', color: T.dimB, border: `1px solid ${T.border}` },
   }
+  const isDisabled = disabled || loading
+  const barColor = variant === 'primary' ? T.bg0 : variant === 'danger' ? T.red : T.cyan
   return (
     <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
+      onClick={isDisabled ? undefined : onClick}
+      disabled={isDisabled}
       className="hov"
       style={{
         border: 'none',
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
         borderRadius: 6,
         fontWeight: 600,
         fontFamily: 'inherit',
-        opacity: disabled ? 0.45 : 1,
+        opacity: isDisabled && !loading ? 0.45 : 1,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 4,
         transition: 'filter .15s, opacity .15s',
+        position: 'relative',
+        overflow: 'hidden',
         ...sizes[size],
         ...variants[variant],
         ...sx,
       }}
     >
-      {children}
+      {loading && (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+          background: `${barColor}20`, overflow: 'hidden',
+        }}>
+          <div className="btn-loading-bar" style={{
+            height: '100%', width: '40%', borderRadius: 2,
+            background: `linear-gradient(90deg, transparent, ${barColor}90, transparent)`,
+          }} />
+        </div>
+      )}
+      {loading ? (loadingText || children) : children}
     </button>
   )
 }
