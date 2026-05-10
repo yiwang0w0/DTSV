@@ -39,6 +39,16 @@
 - 偶尔出现 "锚点-β""D-8821""Echo-γ" 等编号，不解释，制造系统残存感
 - 结局 banner_text 改为沉浸式短句（如"异常段正在坠入视界线……引导灯全部熄灭。"）
 
+### Phase 11 覆盖了 Phase 9 的部分术语决策
+
+| 项 | Phase 9 决策 | Phase 11 最终 | 备注 |
+|----|-------------|--------------|------|
+| 导航/页面标题 | "出勤入口" | **"对局大厅"** | layout.js + rooms/page.js 同步 |
+| 地图状态 badge | "封闭段"（绑 `blocked`） | **"撤离点"（绑 `is_exit`）** | UI 不再显式暴露 `blocked`；语义换轨 |
+| NPC 称呼 | "实体"（仅 OverviewTab 改） | "实体"全站 | RoomsTab/UsersTab/分布图全部对齐 |
+
+> `blocked` 字段仍在 schema 中，仅作为地图卡片的红色边框样式来源，不再有可见 UI 标签。
+
 ---
 
 ## 最近变更（2026-05-10 / Phase 10）— 远星函馆 FX：WebGL 壁纸 + 文本粒子
@@ -100,8 +110,6 @@ Shader / ParticleText 各自的实际 chunk 仅在用户进入对应页面 + 触
 
 ## 最近变更（2026-05-10 / Phase 9）— 术语清理 + 首页/大厅重做
 
-## 最近变更（2026-05-10 / Phase 9）— 术语清理 + 首页/大厅重做
-
 > 把残留的"大逃杀 / 房间"术语对齐到远星函馆世界观；
 > 大厅页改为"单一全服当前对局"模型；首页升级为 lore 沉浸式落地页。
 
@@ -109,10 +117,10 @@ Shader / ParticleText 各自的实际 chunk 仅在用户进入对应页面 + 触
 
 | Sub | 内容 | Commit |
 |-----|------|--------|
-| 9.1 | 8 处大逃杀术语清理（layout/Overview/Maps/Items/gameUi/GameClientPage/api routes/constants） | `9885fb3` |
-| 9.2 | rooms 页改造为单一全服对局（删卡片网格 + 当前对局信息卡 + 立即出勤大按钮 + 污染条 + PI 列表） | `96ba9d7` |
-| 9.3 | 首页重做（lore Hero + 现役对局快照 + 4 实体预览 + 4 装备槽预览 + 个人档案速览） | `574861e` |
-| 9.4 | 本节 Readme + 单次 push | (本提交) |
+| 9.1 | 8 处大逃杀术语清理（layout/Overview/Maps/Items/gameUi/GameClientPage/api routes/constants） | `b119ff4` |
+| 9.2 | rooms 页改造为单一全服对局（删卡片网格 + 当前对局信息卡 + 立即出勤大按钮 + 污染条 + PI 列表） | `3e35c8c` |
+| 9.3 | 首页重做（lore Hero + 现役对局快照 + 4 实体预览 + 4 装备槽预览 + 个人档案速览） | `1f036f1` |
+| 9.4 | 本节 Readme + 单次 push | `966956f` |
 
 ### 关键术语对齐
 
@@ -581,12 +589,14 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-9 全部上线）**：
+**当前状态（2026-05 / Phase 0-11 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
 - **术语 + 首页/大厅收尾**（Phase 9）：术语对齐远星函馆；大厅改为单一全服对局；首页升级为 lore 落地页
-- **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有 PI 引导者加入它，结束后自动开新一段
+- **FX 视觉层**（Phase 10）：5 WebGL shader + 5 文本粒子组件，首页 Hero / 结局横幅 / 撤离面板接入；prefers-reduced-motion + document.hidden 自动暂停
+- **世界观 lore 文本落地**（Phase 11）：精简世界观参考文档 + Supabase 全量 lore 文本重写（map/item/npc/event/contract/ending/branch 按早/中/后期分层）+ 全站术语二次收束（"对局大厅" / "撤离点" badge / NPC→实体）
+- **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有引导者加入它，结束后自动开新一段
 - **13 标签页管理后台**：合同 / 事件 / 分支 / 结局编辑器全部就绪
 
 **核心循环**：
@@ -620,7 +630,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `src/app/page.js` | **2026-05 Phase 9.3 重写** — 远星函馆 lore 落地页（Hero / 现役对局快照 / 个人档案 / 4 实体 / 4 装备槽预览） |
 | `src/app/login/page.js` | 登录页 |
 | `src/app/register/page.js` | 注册页 |
-| `src/app/rooms/page.js` | **2026-05 Phase 9.2 重写** — 出勤入口（单一当前对局信息卡 + 数据栏 + 污染条 + PI 列表 + 立即出勤大按钮） |
+| `src/app/rooms/page.js` | **2026-05 Phase 9.2 重写 + Phase 11 术语收束** — 对局大厅（单一当前对局信息卡 + 数据栏 + 污染条 + 引导者列表 + 立即出勤大按钮） |
 | `src/app/stash/page.js` | **2026-05 新增** — 玩家账户库浏览页（容量条 + 装备 + 按 kind 分组） |
 | `src/app/contracts/page.js` | **2026-05 新增** — 合同列表（按状态过滤 + 进度 + 接受） |
 | `src/app/game/[id]/page.js` | 入口转发 |
@@ -725,7 +735,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 |------|------|
 | `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner, version) |
 | `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05) |
-| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). 2026-05 Phase 8 重灌为远星 4 kind（tech_fragment/platform_part/omega_matter/consumable） |
+| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). 2026-05 Phase 8 重灌为远星 5 kind（tech_fragment/platform_part/omega_matter/equipment/consumable）；Phase 11 改写所有 description 为 lore 风格短句 |
 | `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]). **2026-05 Phase 8 新增列**：`entity_type`, `hostile`, `tradeable`, `trade_wants` jsonb, `trade_offers` jsonb, `pollution_on_kill`, `spawn_weight`, `min_pollution` |
 | `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked). **2026-05 Phase 8 新增列**：`pollution_base`, `pollution_accel`, `adjacent_maps` jsonb, `is_exit` bool, `exit_cost` jsonb, `omega_window`. （Phase 3 的 `extraction_points` jsonb 已在 Phase 8 中被替换） |
 | `game_rules` | 动态规则 (key, value, category) |
@@ -1324,4 +1334,5 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - **管理员判断**用 `isAdmin()`（`src/lib/auth.js`）
 - **装备引擎**和**游戏引擎**支持客户端与服务端双端注入
 - **规则引擎**用 `evalFormula()` 求值，不要硬编码数值
-- **13 张数据库表**，新增表时注意 RLS 策略
+- **19 张数据库表**（13 既有 + Phase 2-7 新增 6 张）+ Phase 8 在 map_config/npc_pool/equipment_series 加了远星字段；新增表/列时注意 RLS 策略
+- **远星 lore 文本**（Phase 11）从 `docs/lore-minimum-viable.md` 推导；改写 item/npc/event/contract/ending 描述时，先确认所属 lore 层级（早/中/后期），再用短句
