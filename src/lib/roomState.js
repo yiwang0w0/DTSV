@@ -68,6 +68,41 @@ export function normalizeLootPrompt(prompt) {
   }
 }
 
+// ── Phase 16: NPC 实例池（跨袭击持久化的 NPC 状态） ──
+// 每条记录 = 房间内的一只独立 NPC 实例，HP 跨多次袭击持久化。
+// 死亡时整条移出。同一 NPC 池配置可衍生多个实例（不同地图 / 不同时间）。
+export function normalizeNpcInstance(inst) {
+  if (!inst) return null
+  return {
+    id:        inst.id || makeId('npc-inst'),
+    npcId:     inst.npcId ?? inst.npc?.id ?? null,
+    npc:       inst.npc || null,    // npc_pool 数据快照（避免后续 join）
+    hp:        Number.isFinite(inst.hp) ? inst.hp : (inst.npc?.hp || 1),
+    maxHp:     Number.isFinite(inst.maxHp) ? inst.maxHp : (inst.npc?.hp || 1),
+    mapId:     inst.mapId ?? 0,
+    createdAt: inst.createdAt || new Date().toISOString(),
+  }
+}
+
+export function normalizeEncounter(enc) {
+  if (!enc) return null
+  if (!enc.instanceId) return null
+  return { instanceId: String(enc.instanceId) }
+}
+
+// PvP 被攻击事件 — 给被攻击方触发 toast，每次攻击递增 seq 让客户端能区分新事件。
+export function normalizePvpHit(hit) {
+  if (!hit) return null
+  return {
+    seq:        Number(hit.seq) || 0,
+    fromName:   hit.fromName || '未知攻击者',
+    damage:     Number(hit.damage) || 0,
+    countered:  !!hit.countered,
+    counterDmg: Number(hit.counterDmg) || 0,
+    at:         hit.at || new Date().toISOString(),
+  }
+}
+
 export function normalizeGamevars(gamevars = {}) {
   return {
     ...gamevars,
@@ -93,6 +128,10 @@ export function normalizeGamevars(gamevars = {}) {
       totalEntityKillRate:    0,
       ...(gamevars.flags || {}),
     },
+    // ── Phase 16: NPC 实例池（跨袭击持久化） ──
+    npcInstances: Array.isArray(gamevars.npcInstances)
+      ? gamevars.npcInstances.map(normalizeNpcInstance).filter(Boolean)
+      : [],
   }
 }
 
@@ -137,7 +176,9 @@ export function createPlayerState(user, stats = {}) {
     kills: 0,
     buffs: stats.buffs || [],
     passiveCooldowns: {},
-    battle: null,
+    battle: null,            // 旧字段：保留向后兼容；Phase 16 不再使用
+    encounter: null,         // Phase 16: { instanceId } 引用 gamevars.npcInstances
+    lastPvpHit: null,        // Phase 16: { seq, fromName, damage, countered, counterDmg, at } 给被攻击方 toast
     lootPrompt: null,
     // ── 远星函馆：污染 + Ω + 结局判定字段 ──
     personalPollution:  0,
