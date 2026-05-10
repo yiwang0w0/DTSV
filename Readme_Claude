@@ -1,7 +1,66 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 9 术语 + 首页/大厅重做收尾
-整理方式：基于全量源码交叉验证 + Phase 0-9 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 10 远星函馆 FX 视觉层落地
+整理方式：基于全量源码交叉验证 + Phase 0-10 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 10）— 远星函馆 FX：WebGL 壁纸 + 文本粒子
+
+> 来源：用户在 claude.ai/design 设计的「宇宙尺度动画」原型，完整 4 文件源码通过
+> `https://api.anthropic.com/v1/design/h/...` 拉回（5.7MB tar.gz：index.html /
+> shaders.jsx / particles.jsx / tweaks-panel.jsx）。
+
+### Phase 10 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 10.1+10.2 | 移植 shaders.jsx + particles.jsx → `src/components/fx/Shader.jsx` + `ParticleText.jsx`（ES module、useEffect cleanup、document.hidden 自动暂停、prefers-reduced-motion 降级） | `deee28e` |
+| 10.3 | 首页 Hero 接入 `<Shader name="pollution_field">` + `<ParticleText mode="decode">`（最初配 deep_path 太晕 → 改 pollution_field 与设计稿一致） | `deee28e` `f54f797` |
+| 10.5 | 结局横幅 + 撤离面板顶部接入 `<Shader name="omega_iface">` + `<ParticleText mode="scan">` | `9989b02` |
+| 10.4 | （故意跳过）raid 全屏 shader + PvP glitch — 用户提醒「注意实际效果」，full-bg 持续动效会干扰搜索/战斗主流程 | — |
+
+### FX 组件清单
+
+**`src/components/fx/Shader.jsx`** — 5 种 WebGL 壁纸：
+
+| name | 适用 | GPU | 当前用在 |
+|------|------|-----|---------|
+| `pollution_field` | fbm 域扭曲，颜色随污染推移紫→蓝→红 | 中（5 层 fbm） | **首页 Hero**（intensity 0.85） |
+| `deep_path` | 同心隧道 + 螺旋 + 星点流速 | 极低（解析） | 备用（首页隧道太晕，已替换） |
+| `data_grid` | 透视网格 + 扫描线 + 中心呼吸 | 极低 | 备用（移动端 60fps 友好） |
+| `bubble_layer` | 9-邻域 Voronoi 漂浮 | 高 | 备用（仅推荐弹窗背景） |
+| `omega_iface` | 中心圆盘 + 多层干涉环 + tick 刻度 | 低 | **结局横幅**、**撤离面板顶部** |
+
+**`src/components/fx/ParticleText.jsx`** — 5 种文本粒子：
+
+| mode | 适用 | 实现 | 当前用在 |
+|------|------|------|---------|
+| `decode` | 字符在 ◢◣ΩΨ01 池中乱滚后逐字定格（1.5s） | 纯 DOM，0 Canvas | **首页标题** "远星函馆 × DTSV" |
+| `scan` | 扫描线 1.6s 划过显形 | clip-path | **结局横幅** 结局名称 |
+| `assemble` | Canvas 600 粒子从随机位飞回目标 | Canvas 2D | 备用 |
+| `glitch` | RGB 三层错位 + 切片 | mix-blend | 备用（PvP 警报候选） |
+| `corrupt` | 每字独立漂移 + 替换为 #@%░▓ | 纯 DOM | 备用（污染指示候选） |
+
+### 性能 & 兼容
+
+- **Next.js dynamic import** + `ssr:false` — Shader/ParticleText 仅客户端按需加载，首屏 SSR 开销 0
+- **document.hidden 自动暂停** — Shader rAF 循环检测 `document.hidden`，标签页切走时停渲染
+- **prefers-reduced-motion 自动降级** — ParticleText 检测 media query，开启时直接静态文字
+- **WebGL 不可用兜底** — Shader.jsx 检测 getContext('webgl') 失败时切 CSS 渐变，永不空白
+- **useEffect cleanup** — 释放 program / buffer / shader 防内存泄漏
+
+### Bundle 影响
+
+| 路由 | Phase 9 | Phase 10 | Δ |
+|------|---------|---------|---|
+| `/` (首页) | 3.45 kB | ~5 kB | +1.5 kB（含 dynamic import 入口） |
+| `/game/[id]` | 13.5 kB | 14.6 kB | +1.1 kB（结局 + 撤离 FX） |
+| `/rooms` | 6.75 kB | 6.75 kB | — |
+
+Shader / ParticleText 各自的实际 chunk 仅在用户进入对应页面 + 触发可见时才下载。
+
+---
+
+## 最近变更（2026-05-10 / Phase 9）— 术语清理 + 首页/大厅重做
 
 ## 最近变更（2026-05-10 / Phase 9）— 术语清理 + 首页/大厅重做
 
