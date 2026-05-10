@@ -63,6 +63,7 @@ import {
   getDisplayName,
   normalizeGamevars,
   normalizeCorpseEntry,
+  normalizeNpcInstance,
   setPlayerLootPrompt,
 } from '@/lib/roomState'
 
@@ -665,10 +666,71 @@ async function collectLootableCorpses(client, roomId, gamevars, mapId) {
   return { gamevars: working, lootable }
 }
 
+// ══════════════════════════════════════════════════════
+//  Phase 16: NPC 实例池 helper
+// ══════════════════════════════════════════════════════
+
+/** 从 gamevars 实例池取一只仍存活的 NPC 实例（按 id 查） */
+function findNpcInstance(gamevars, instanceId) {
+  if (!instanceId) return null
+  const inst = (gamevars.npcInstances || []).find(i => i.id === instanceId)
+  return inst && inst.hp > 0 ? inst : null
+}
+
+/** 抽 / 新建 NPC 实例（搜索遭遇时用）
+ *  策略：60% 概率从同地图存活实例池抽，40% 概率新建（池为空必新建）
+ */
+function pickOrSpawnNpcInstance(resolution, mapId, npcPool) {
+  const live = (resolution.gamevars.npcInstances || []).filter(i => i.mapId === mapId && i.hp > 0)
+  const reuse = live.length > 0 && Math.random() < 0.6
+  if (reuse) {
+    return { instance: live[Math.floor(Math.random() * live.length)], spawned: false }
+  }
+  if (!npcPool || npcPool.length === 0) {
+    if (live.length > 0) return { instance: live[Math.floor(Math.random() * live.length)], spawned: false }
+    return null
+  }
+  const npc = npcPool[Math.floor(Math.random() * npcPool.length)]
+  const instance = normalizeNpcInstance({
+    npcId: npc.id,
+    npc,
+    hp: Number(npc.hp) || 1,
+    maxHp: Number(npc.hp) || 1,
+    mapId,
+  })
+  resolution.gamevars = {
+    ...resolution.gamevars,
+    npcInstances: [...(resolution.gamevars.npcInstances || []), instance],
+  }
+  return { instance, spawned: true }
+}
+
+/** 清掉玩家的 encounter（其他动作开始前调用 — 视为"放过"NPC） */
+function clearEncounterIfAny(resolution, userId, opts = {}) {
+  const player = getResolutionPlayer(resolution, userId)
+  if (!player?.encounter?.instanceId) return
+  const inst = findNpcInstance(resolution.gamevars, player.encounter.instanceId)
+  const npcName = inst?.npc?.name || '某实体'
+  setResolutionPlayer(resolution, userId, { ...player, encounter: null })
+  if (!opts.silent) {
+    appendResolutionLog(resolution, `${player.name} 放过了 ${npcName}`, 'system')
+  }
+}
+
+/** "放过"动作（玩家点击"放过"按钮触发） */
+async function releaseEncounter(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.encounter?.instanceId) {
+    throw new Error('当前没有袭击目标')
+  }
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id)
+  return persistResolution(client, room, resolution)
+}
+
 async function resolveSearchAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法搜索')
-  if (player.battle) throw new Error('战斗中无法搜索')
 
   // ── 并行：规则/Buff缓存 + 地图数据 + 尸体数据 一次性全拉 ──
   const mapId = player.map ?? 0
@@ -727,23 +789,30 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
-    const npc = bundle.npcPool[Math.floor(Math.random() * bundle.npcPool.length)]
-    setResolutionPlayer(resolution, user.id, {
-      ...polluted,
-      battle: {
-        npc,
-        npcHp: npc.hp,
-        npcMaxHp: npc.hp,
-        turn: 1,
-        log: [],
-      },
-    })
-    resolution.gamevars = {
-      ...resolution.gamevars,
-      spawnedEntityCount: (resolution.gamevars.spawnedEntityCount || 0) + 1,
+    // ── Phase 16: 抽 / 新建 NPC 实例（HP 跨袭击持久化） ──
+    const picked = pickOrSpawnNpcInstance(resolution, mapId, bundle.npcPool)
+    if (picked && picked.instance) {
+      const inst = picked.instance
+      if (picked.spawned) {
+        resolution.gamevars = {
+          ...resolution.gamevars,
+          spawnedEntityCount: (resolution.gamevars.spawnedEntityCount || 0) + 1,
+        }
+      }
+      setResolutionPlayer(resolution, user.id, {
+        ...polluted,
+        encounter: { instanceId: inst.id },
+      })
+      const hpHint = (inst.hp < inst.maxHp)
+        ? `（已伤 ${inst.hp}/${inst.maxHp}）`
+        : ''
+      appendResolutionLog(
+        resolution,
+        `${player.name} 遭遇了 ${inst.npc.name}${hpHint}`,
+        'damage',
+      )
+      return persistResolutionWithPollution(client, room, resolution, user.id)
     }
-    appendResolutionLog(resolution, `${player.name} 遭遇了 ${npc.name}`, 'damage')
-    return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
   if (roll < npcChance + corpseChance && lootable.length > 0) {
@@ -802,10 +871,24 @@ async function resolveSearchAction(client, room, gamevars, user) {
   return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 
+// ══════════════════════════════════════════════════════
+//  Phase 16: 单次袭击战斗（无持续 battle 状态）
+//  流程：命中判定 → 命中扣 HP → 击杀/未击杀分支 → 反击判定（独立）→ 反击命中扣玩家血 → 清 encounter
+// ══════════════════════════════════════════════════════
 async function resolveNpcAttackAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
-  const battle = player?.battle
-  if (!battle?.npc) throw new Error('当前没有实体战斗')
+  if (!player?.alive) throw new Error('阵亡玩家无法攻击')
+  const instanceId = player?.encounter?.instanceId
+  if (!instanceId) throw new Error('当前没有袭击目标')
+
+  const instance = findNpcInstance(gamevars, instanceId)
+  if (!instance) {
+    // 实例已被消灭（其他玩家先击杀）/ 已不在池
+    const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+    setResolutionPlayer(resolution, user.id, { ...player, encounter: null })
+    appendResolutionLog(resolution, `${player.name} 的袭击目标已消失`, 'system')
+    return persistResolution(client, room, resolution)
+  }
 
   const [rules, buffPool, equippedInstances, weather] = await Promise.all([
     loadGameRules(client),
@@ -814,65 +897,79 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     fetchMapWeather(client, player.map ?? 0),
   ])
 
-  const equipMap = groupEquipsByOwner(equippedInstances)
-  const myEquips = equipMap[user.id] || []
+  const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
   let me = buildCombatPlayer(player, myEquips)
-  const battleLog = [...(battle.log || [])]
-  const weapon = myEquips.find(instance => instance.tier?.series?.slot === 'weapon')
+  const weapon = myEquips.find(eq => eq.tier?.series?.slot === 'weapon')
+
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
 
-  const damageOut = calcDamage(
-    me,
-    { ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp },
-    rules,
-    weapon?.tier?.sub_kind || '',
-    weather,
-  )
-  const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
-    'on_attack',
-    me,
-    { ...battle.npc, hp: battle.npcHp },
-    me._pass || [],
-    buffPool,
-  )
-  me = meAfterAttack
+  // ── 1. 玩家攻击的命中判定 ──
+  const playerAccuracy = getRule(rules, 'player_attack_accuracy', 0.85)
+  const playerHit = Math.random() < playerAccuracy
 
-  appendResolutionLogs(resolution, passiveLogs, 'buff')
+  // ── 2. 战斗个人污染（无论命中都扣，反映"动手"成本） ──
+  const polluted = applyCombatPollution(player, instance.npc)
 
-  // ── 远星函馆：战斗个人污染 + 重度污染伤害修正 + weapon 装载 +25% ──
-  const eff = calcEffectivePollution(
-    resolution.gamevars.envPollution || 0,
-    player.personalPollution || 0,
-  )
-  const fx = getLoadoutEffects(player)
-  const damageOutAdj = applyPollutionCombatModifier(damageOut, eff.effective, { hasWeapon: fx.weapon })
-  const polluted = applyCombatPollution(player, battle.npc)
+  let killed = false
+  let instanceHpAfter = instance.hp
 
-  const npcHp = Math.max(0, battle.npcHp - damageOutAdj)
-  const attackLog = `${player.name} 攻击 ${battle.npc.name}，造成 ${damageOutAdj} 伤害`
-  battleLog.push(attackLog)
-  appendResolutionLog(resolution, attackLog, 'damage')
+  if (playerHit) {
+    const damageRaw = calcDamage(
+      me,
+      { ...instance.npc, hp: instance.hp, maxHp: instance.maxHp },
+      rules,
+      weapon?.tier?.sub_kind || '',
+      weather,
+    )
+    const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
+      'on_attack',
+      me,
+      { ...instance.npc, hp: instance.hp },
+      me._pass || [],
+      buffPool,
+    )
+    me = meAfterAttack
+    appendResolutionLogs(resolution, passiveLogs, 'buff')
 
-  if (npcHp <= 0) {
+    const eff = calcEffectivePollution(
+      resolution.gamevars.envPollution || 0,
+      polluted.personalPollution || 0,
+    )
+    const fx = getLoadoutEffects(polluted)
+    const damageOut = applyPollutionCombatModifier(damageRaw, eff.effective, { hasWeapon: fx.weapon })
+    instanceHpAfter = Math.max(0, instance.hp - damageOut)
+    killed = instanceHpAfter <= 0
+
+    appendResolutionLog(
+      resolution,
+      `${player.name} 袭击 ${instance.npc.name}，造成 ${damageOut} 伤害（HP ${instanceHpAfter}/${instance.maxHp}）`,
+      'damage',
+    )
+  } else {
+    appendResolutionLog(resolution, `${player.name} 袭击 ${instance.npc.name} — 未命中`, 'system')
+  }
+
+  // ── 3. 实例池更新（死则移除，活则更新 HP） ──
+  let resolvedPlayer = polluted
+  if (killed) {
     const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
-    setResolutionPlayer(resolution, user.id, {
+    resolvedPlayer = {
       ...polluted,
       hp: meAfterKill.hp,
       buffs: meAfterKill.buffs || [],
       passiveCooldowns: meAfterKill.passiveCooldowns || {},
       kills: (polluted.kills || 0) + 1,
-      // ── 远星函馆击杀计数 ──
       entityKills: (polluted.entityKills || 0) + 1,
-      battle: null,
-      lootPrompt: null,
-    })
-    // 对局级击杀计数
+    }
     resolution.gamevars = {
       ...resolution.gamevars,
+      npcInstances: (resolution.gamevars.npcInstances || []).filter(i => i.id !== instance.id),
       totalEntityKills: (resolution.gamevars.totalEntityKills || 0) + 1,
     }
+    setResolutionPlayer(resolution, user.id, resolvedPlayer)
 
-    const corpseResult = await createNpcCorpse(client, resolution.gamevars, battle.npc, player.map ?? 0)
+    // 尸体 + 战利品
+    const corpseResult = await createNpcCorpse(client, resolution.gamevars, instance.npc, player.map ?? 0)
     resolution.gamevars = corpseResult.gamevars
     let lootPrompt = null
     if (corpseResult.corpse) {
@@ -883,103 +980,82 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
         resolution.gamevars = cleanupCorpseIfEmpty(resolution.gamevars, corpseResult.corpse.id)
       }
     }
-
-    appendResolutionLog(resolution, `${player.name} 击败了 ${battle.npc.name}`, 'kill')
-    if (lootPrompt) {
+    appendResolutionLog(resolution, `${player.name} 击败了 ${instance.npc.name}`, 'kill')
+    if (lootPrompt && corpseResult.corpse) {
       appendResolutionLog(resolution, `${player.name} 可以从 ${corpseResult.corpse.name} 里带走一件战利品`, 'system')
     }
 
-    // 标记 BOSS 击败（用于 PVE / 单人模式结束判定）
-    if (battle.npc.level === 'boss') {
+    if (instance.npc.level === 'boss') {
       resolution.gamevars = { ...resolution.gamevars, bossDefeated: true }
-      appendResolutionLog(resolution, `🏆 BOSS ${battle.npc.name} 已被击败！`, 'kill')
+      appendResolutionLog(resolution, `🏆 BOSS ${instance.npc.name} 已被击败！`, 'kill')
     }
+    setKilledNpcFlag(resolution, instance.npc.name)
 
-    // 自动 flag：该 NPC 已被击杀
-    setKilledNpcFlag(resolution, battle.npc.name)
-
-    // on_kill_npc 事件先在 resolution 上应用（这样事件影响也会被一起持久化）
     try {
-      await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: battle.npc.name })
+      await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: instance.npc.name })
     } catch (e) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
-
-    const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
-    await safeConsumeDurability(user.id, room.id, 1, client)
     try {
-      await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: battle.npc.name })
+      await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: instance.npc.name })
     } catch (e) {
       console.error('[attackNpc] contract progress 失败:', e?.message)
     }
-    return nextRoom
+  } else {
+    // 实例仍存活：更新池中 HP
+    resolution.gamevars = {
+      ...resolution.gamevars,
+      npcInstances: (resolution.gamevars.npcInstances || []).map(i =>
+        i.id === instance.id ? { ...i, hp: instanceHpAfter } : i,
+      ),
+    }
+    setResolutionPlayer(resolution, user.id, resolvedPlayer)
   }
 
-  const damageIn = calcDamage({ ...battle.npc, hp: npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
-  const nextHp = Math.max(0, (me.hp || 0) - damageIn)
-  const counterLog = `${battle.npc.name} 反击，造成 ${damageIn} 伤害`
-  battleLog.push(counterLog)
-  appendResolutionLog(resolution, counterLog, 'damage')
+  // ── 4. 反击判定（独立于玩家命中，不论击杀都跑一次概率） ──
+  // 但 NPC 已死则不反击
+  if (!killed) {
+    const counterTriggered = Math.random() < (Number(instance.npc.counter_rate) || 0.3)
+    if (counterTriggered) {
+      const npcAccuracy = Number(instance.npc.accuracy) || 0.85
+      const npcHit = Math.random() < npcAccuracy
+      if (npcHit) {
+        const cur = getResolutionPlayer(resolution, user.id)
+        const damageIn = calcDamage(
+          { ...instance.npc, hp: instanceHpAfter, maxHp: instance.maxHp },
+          buildCombatPlayer(cur, myEquips),
+          rules, '', weather,
+        )
+        const playerHpAfter = Math.max(0, (cur.hp || 0) - damageIn)
+        setResolutionPlayer(resolution, user.id, {
+          ...cur,
+          hp: playerHpAfter,
+          alive: playerHpAfter > 0,
+        })
+        appendResolutionLog(
+          resolution,
+          `${instance.npc.name} 反击 ${player.name}，造成 ${damageIn} 伤害（HP ${playerHpAfter}/${cur.maxHp || 100}）`,
+          'damage',
+        )
+        if (playerHpAfter <= 0) {
+          appendResolutionLog(resolution, `${player.name} 在与 ${instance.npc.name} 的交手中倒下了`, 'death')
+          await settleCorpseGeneration(resolution)
+        }
+      } else {
+        appendResolutionLog(resolution, `${instance.npc.name} 反击挥空`, 'system')
+      }
+    }
+  }
 
-  setResolutionPlayer(resolution, user.id, {
-    ...polluted,
-    hp: nextHp,
-    alive: nextHp > 0,
-    buffs: me.buffs || [],
-    passiveCooldowns: me.passiveCooldowns || {},
-    battle: nextHp > 0 ? { ...battle, npcHp, turn: battle.turn + 1, log: battleLog } : null,
-    lootPrompt: nextHp > 0 ? polluted.lootPrompt || null : null,
-  })
-
-  if (nextHp <= 0) {
-    appendResolutionLog(resolution, `${player.name} 在与 ${battle.npc.name} 的战斗中倒下了`, 'death')
-    await settleCorpseGeneration(resolution)
+  // ── 5. 清空 encounter（无论结果） ──
+  const finalPlayer = getResolutionPlayer(resolution, user.id)
+  if (finalPlayer && finalPlayer.encounter) {
+    setResolutionPlayer(resolution, user.id, { ...finalPlayer, encounter: null })
   }
 
   const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
   await safeConsumeDurability(user.id, room.id, 1, client)
   return nextRoom
-}
-
-async function resolveNpcFleeAction(client, room, gamevars, user) {
-  const player = getPlayer(gamevars, user.id)
-  const battle = player?.battle
-  if (!battle?.npc) throw new Error('当前没有实体战斗')
-
-  const [rules, equippedInstances, weather] = await Promise.all([
-    loadGameRules(client),
-    fetchEquippedInstances(client, room.id, [user.id]),
-    fetchMapWeather(client, player.map ?? 0),
-  ])
-
-  const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
-  const me = buildCombatPlayer(player, myEquips)
-  const fleeRate = getRule(rules, 'flee_success_rate', 0.6)
-  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
-
-  if (Math.random() < fleeRate) {
-    setResolutionPlayer(resolution, user.id, { ...player, battle: null })
-    appendResolutionLog(resolution, `${player.name} 成功逃离了 ${battle.npc.name}`, 'system')
-    return persistResolution(client, room, resolution)
-  }
-
-  const damage = calcDamage({ ...battle.npc, hp: battle.npcHp, maxHp: battle.npcMaxHp }, me, rules, '', weather)
-  const nextHp = Math.max(0, (me.hp || 0) - damage)
-  setResolutionPlayer(resolution, user.id, {
-    ...player,
-    hp: nextHp,
-    alive: nextHp > 0,
-    battle: nextHp > 0 ? battle : null,
-    lootPrompt: nextHp > 0 ? player.lootPrompt || null : null,
-  })
-
-  appendResolutionLog(resolution, `${player.name} 逃跑失败，被 ${battle.npc.name} 造成 ${damage} 伤害`, 'damage')
-  if (nextHp <= 0) {
-    appendResolutionLog(resolution, `${player.name} 倒在了逃跑途中`, 'death')
-    await settleCorpseGeneration(resolution)
-  }
-
-  return persistResolution(client, room, resolution)
 }
 
 async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid) {
@@ -1028,9 +1104,34 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   const targetHp = Math.max(0, (target.hp || 0) - damage)
   appendResolutionLog(resolution, `${attacker.name} 攻击 ${target.name}，造成 ${damage} 伤害`, 'damage')
 
+  // ── Phase 16: 防御方反击（独立判定，不依赖攻击是否命中；玩家攻击当前必中所以一定有反击概率） ──
+  let counterTriggered = false
+  let counterDamage = 0
+  let attackerHpAfter = me.hp
+  if (targetHp > 0) {
+    const counterRate = getRule(rules, 'player_counter_rate', 0.4)
+    counterTriggered = Math.random() < counterRate
+    if (counterTriggered) {
+      const counterAccuracy = getRule(rules, 'player_attack_accuracy', 0.85)
+      const counterHit = Math.random() < counterAccuracy
+      if (counterHit) {
+        counterDamage = calcDamage(target, me, rules, '', weather)
+        attackerHpAfter = Math.max(0, attackerHpAfter - counterDamage)
+        appendResolutionLog(
+          resolution,
+          `${target.name} 反击 ${attacker.name}，造成 ${counterDamage} 伤害`,
+          'damage',
+        )
+      } else {
+        appendResolutionLog(resolution, `${target.name} 反击挥空`, 'system')
+      }
+    }
+  }
+
   setResolutionPlayer(resolution, user.id, {
     ...attackerAfterTurn,
-    hp: me.hp,
+    hp: attackerHpAfter,
+    alive: attackerHpAfter > 0,
     buffs: me.buffs || [],
     passiveCooldowns: me.passiveCooldowns || {},
   })
@@ -1040,7 +1141,22 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
     alive: targetHp > 0,
     battle: targetHp > 0 ? defenderAfterTurn.battle || null : null,
     lootPrompt: targetHp > 0 ? defenderAfterTurn.lootPrompt || null : null,
+    // Phase 16: 写 lastPvpHit 给被攻击方触发 toast
+    lastPvpHit: targetHp > 0 ? {
+      seq: ((defenderAfterTurn.lastPvpHit?.seq) || 0) + 1,
+      fromName: attacker.name,
+      damage,
+      countered: counterTriggered && counterDamage > 0,
+      counterDmg: counterDamage,
+      at: new Date().toISOString(),
+    } : null,
   })
+
+  // 攻击者被反击杀死
+  if (attackerHpAfter <= 0) {
+    appendResolutionLog(resolution, `${attacker.name} 被 ${target.name} 的反击击倒了`, 'death')
+    await settleCorpseGeneration(resolution)
+  }
 
   if (targetHp <= 0) {
     const { attackerUpdated: meAfterKill } = triggerPassives('on_kill', me, null, me._pass || [], buffPool)
@@ -1356,8 +1472,8 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return attackNpc(client, room, gamevars, user)
   }
 
-  if (payload.action === 'flee') {
-    return fleeNpc(client, room, gamevars, user)
+  if (payload.action === 'releaseEncounter') {
+    return releaseEncounter(client, room, gamevars, user)
   }
 
   if (payload.action === 'attackPlayer') {
@@ -1399,7 +1515,6 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   if (mapId === undefined || Number.isNaN(mapId)) throw new Error('缺少地图 ID')
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法移动')
-  if (player.battle) throw new Error('战斗中无法移动')
   if (player.extracted) throw new Error('已撤离玩家无法移动')
 
   // ── 邻接校验（远星函馆 spec §2.2） ──
@@ -1416,10 +1531,12 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   const mapName = targetMap.name || `地图 ${mapId}`
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id)
 
   // ── 进入 Ω-段(map_id=4) 启动倒计时 + 累计访问次数 ──
   // shield 装载额外 +1 回合（spec §6.3）
-  let nextPlayer = { ...player, map: mapId }
+  // Phase 16: 移动会自动放过当前 encounter（已由 clearEncounterIfAny 写日志，此处显式置 null 防被 spread 覆盖）
+  let nextPlayer = { ...player, map: mapId, encounter: null }
   if (mapId === 4) {
     const fx = getLoadoutEffects(player)
     const window = POLLUTION_CONFIG.OMEGA_WINDOW + (fx.shield ? 1 : 0)
@@ -1462,10 +1579,6 @@ async function attackNpc(client, room, gamevars, user) {
   return resolveNpcAttackAction(client, room, gamevars, user)
 }
 
-async function fleeNpc(client, room, gamevars, user) {
-  return resolveNpcFleeAction(client, room, gamevars, user)
-}
-
 async function attackPlayer(client, room, gamevars, user, targetUid) {
   return resolvePlayerAttackAction(client, room, gamevars, user, targetUid)
 }
@@ -1477,7 +1590,6 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   if (!player) throw new Error('你还未加入该对局')
   if (!player.alive) throw new Error('阵亡玩家无法撤离')
   if (player.extracted) throw new Error('已经撤离')
-  if (player.battle) throw new Error('战斗中无法撤离')
 
   const playerMapId = player.map ?? 0
   const mapConfig = await fetchMapConfig(client, playerMapId)
@@ -1532,8 +1644,10 @@ async function extractPlayer(client, room, gamevars, user, payload) {
 
   // ── 更新玩家状态 + gamevars 累积统计 ──
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id, { silent: true })
   setResolutionPlayer(resolution, user.id, {
     ...player,
+    encounter: null,
     inventory: [],
     extracted: true,
     extractedAt: new Date().toISOString(),
@@ -1582,14 +1696,14 @@ async function emergencyRetreat(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法使用缝隙维护轨道')
   if (player.extracted) throw new Error('已经撤离')
-  if (player.battle) throw new Error('战斗中无法使用缝隙维护轨道')
   if ((gamevars.envPollution || 0) < POLLUTION_CONFIG.EMERGENCY_UNLOCK) {
     throw new Error(`缝隙维护轨道未解锁（环境污染 ${gamevars.envPollution || 0}% < ${POLLUTION_CONFIG.EMERGENCY_UNLOCK}%）`)
   }
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id)
   let nextPlayer = applyEmergencyRetreatPollution(player)
-  nextPlayer = { ...nextPlayer, map: 0, omegaCountdown: null }
+  nextPlayer = { ...nextPlayer, map: 0, omegaCountdown: null, encounter: null }
   setResolutionPlayer(resolution, user.id, nextPlayer)
   appendResolutionLog(
     resolution,
@@ -1606,7 +1720,6 @@ async function tradeWithNpc(client, room, gamevars, user, payload) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法交易')
   if (player.extracted) throw new Error('已撤离玩家无法交易')
-  if (player.battle) throw new Error('战斗中无法交易')
 
   const npcId = Number(payload?.npcId)
   if (!npcId) throw new Error('缺少实体 ID')
@@ -1641,8 +1754,10 @@ async function tradeWithNpc(client, room, gamevars, user, payload) {
   for (let i = 0; i < giveQty; i++) inventory.push(offers.item)
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id)
   let nextPlayer = applyInteractPollution({
     ...player,
+    encounter: null,
     inventory,
     entityInteractions: (player.entityInteractions || 0) + 1,
   })
