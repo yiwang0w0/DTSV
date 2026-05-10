@@ -14,9 +14,11 @@
 
 import { useAuth } from './layout'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import {
   ENTITY_TYPE_META,
   LOADOUT_SLOT_META,
@@ -111,6 +113,31 @@ export default function Home() {
 // 「decode」文字粒子（纯 DOM，0 Canvas）。pollution 用当前 active 对局的 envPollution 联动。
 // 注：原型 deep_path（隧道）首页太晕，按用户反馈改用 pollution_field 与设计稿一致。
 function HeroSection({ user, envPollution = 0, snapshot }) {
+  const router = useRouter()
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState(null)
+
+  async function handleStartRaid() {
+    if (snapshot?.id) {
+      router.push(`/game/${snapshot.id}`)
+      return
+    }
+    setStarting(true)
+    setStartError(null)
+    try {
+      const { room } = await postGameApi('/api/game/rooms', { ensureNextRound: true })
+      if (room?.id) {
+        router.push(`/game/${room.id}`)
+      } else {
+        setStartError('未能获取下一周目对局')
+      }
+    } catch (err) {
+      setStartError(err?.message || '启动失败，请稍后再试')
+    } finally {
+      setStarting(false)
+    }
+  }
+
   return (
     <div style={{
       position: 'relative', overflow: 'hidden', isolation: 'isolate',
@@ -163,7 +190,21 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {user ? (
-            <Link href={snapshot ? `/game/${snapshot.id}` : '/rooms'} style={ctaPrimary}>🚀 立即出勤</Link>
+            <button
+              onClick={handleStartRaid}
+              disabled={starting}
+              style={{
+                ...ctaPrimary,
+                cursor: starting ? 'wait' : 'pointer',
+                opacity: starting ? 0.6 : 1,
+              }}
+            >
+              {starting
+                ? '准备就绪中…'
+                : snapshot
+                  ? '🚀 立即出勤'
+                  : '🚀 启动下一周目'}
+            </button>
           ) : (
             <>
               <Link href="/login" style={ctaPrimary}>登录</Link>
@@ -171,6 +212,16 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
             </>
           )}
         </div>
+
+        {startError && (
+          <div style={{
+            marginTop: 16, fontSize: 12, color: C.red,
+            background: `${C.red}15`, border: `1px solid ${C.red}40`,
+            borderRadius: 8, padding: '8px 14px', display: 'inline-block',
+          }}>
+            ⚠ {startError}
+          </div>
+        )}
       </div>
     </div>
   )
