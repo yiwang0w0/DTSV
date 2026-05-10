@@ -24,6 +24,8 @@
 | 8.11 | 4 装备槽效果实际生效（probe/shield/weapon 全部接线，comm 留 UI） | `78568d0` |
 | 8.12 | raid 内交易 UI 面板（左侧栏 🌿 交易，按当前 map 显示可交易 NPC） | `796a9eb` |
 
+> **Phase 8 全部交付状态**：主体 8.1-8.10 + 两个高优先级尾巴 8.11 / 8.12 已完成。装载/搜索/战斗/移动/撤离/交易闭环工作；4 结局判定（崩解/清算/合流/探索）通过分支引擎在每次 persist 后评估。剩余优化项见 §七。
+
 ### 8.0 关键设计决策（与用户确认）
 
 1. **数据库清理**：执行 farstar 迁移时 `DELETE FROM rooms; DELETE FROM map_config;` 完全替换为 7 张远星地图。`player_stash` / `equipment_instances` 保留。
@@ -766,8 +768,6 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - 每个可交易 NPC 卡显示：entity_type 徽章 + 名称 + want/offer 物品 + 玩家持有数 N/M
 - 按钮校验：物品足够 + 玩家存活 + 不在战斗 + 房间未结束
 - 触发 `trade` action（已在 Phase 8.4 接入）→ 服务端校验 + 交换 + applyInteractPollution + entityInteractions/totalEntityInteractions++ → 推动"合流结局"判定（全员 entityInteractions ≥4 + envPollution ≤60）
-
----
 
 ---
 
