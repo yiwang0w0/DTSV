@@ -1,84 +1,373 @@
-﻿'use client'
+'use client'
+
+/**
+ * 首页 / 远星函馆 × DTSV
+ *
+ * 结构：
+ *   1. Hero 区 — 世界观介绍 + 主 CTA「立即出勤」
+ *   2. 当前对局快照（如果存在）
+ *   3. 4 类实体预览
+ *   4. 4 装备槽预览
+ *   5. 已登录侧加个人状态卡（库存 / 合同 / 撤离次数）
+ *   6. 底部版本注释
+ */
+
 import { useAuth } from './layout'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { isAdmin } from '@/lib/auth'
+import {
+  ENTITY_TYPE_META,
+  LOADOUT_SLOT_META,
+  LOADOUT_SLOTS,
+  POLLUTION_TIER_META,
+} from '@/lib/constants'
+
+const C = {
+  bg0:    '#0e1117',
+  bg1:    '#1c2129',
+  bg2:    '#161b22',
+  border: '#30363d',
+  text:   '#e6edf3',
+  dim:    '#8b949e',
+  dim2:   '#484f58',
+  accent: '#58a6ff',
+  green:  '#3fb950',
+  red:    '#f85149',
+  yellow: '#d29922',
+  purple: '#bc8cff',
+  orange: '#f0883e',
+}
+
+function pollutionTier(env) {
+  if (env >= 100) return 'meltdown'
+  if (env >= 80)  return 'severe'
+  if (env >= 60)  return 'moderate'
+  if (env >= 40)  return 'mild'
+  return 'none'
+}
 
 export default function Home() {
   const { user, loading } = useAuth()
-  const [stats, setStats] = useState({ rooms: 0, items: 0, npcs: 0 })
+  const [snapshot, setSnapshot] = useState(null)
+  const [meStats, setMeStats] = useState(null)
 
   useEffect(() => {
-    async function load() {
-      const [r, i, n] = await Promise.all([
-        supabase.from('rooms').select('id', { count: 'exact', head: true }).in('gamestate', [0, 1]),
-        supabase.from('item_pool').select('id', { count: 'exact', head: true }),
-        supabase.from('npc_pool').select('id', { count: 'exact', head: true }),
-      ])
-      setStats({ rooms: r.count || 0, items: i.count || 0, npcs: n.count || 0 })
+    async function loadSnapshot() {
+      // 当前对局快照
+      const { data } = await supabase
+        .from('rooms')
+        .select('id,gamenum,gamestate,gamevars,validnum,alivenum,deathnum,started_at')
+        .in('gamestate', [0, 1])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setSnapshot(data || null)
     }
-    load()
+    loadSnapshot()
   }, [])
 
-  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>加载中...</div>
+  useEffect(() => {
+    async function loadMe() {
+      if (!user) { setMeStats(null); return }
+      const [stash, contracts, profile] = await Promise.all([
+        supabase.from('player_stash').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('player_contracts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
+        supabase.from('profiles').select('stash_capacity').eq('id', user.id).maybeSingle(),
+      ])
+      setMeStats({
+        stashCount: stash.count || 0,
+        capacity: profile.data?.stash_capacity || 40,
+        activeContracts: contracts.count || 0,
+      })
+    }
+    loadMe()
+  }, [user])
+
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>加载中...</div>
+  }
 
   return (
-    <div className="animate-in">
-      <div style={{
-        textAlign: 'center', padding: '60px 20px',
-        background: 'radial-gradient(ellipse at center, rgba(88,166,255,0.08) 0%, transparent 70%)',
-        borderRadius: 16, marginBottom: 32,
-      }}>
-        <h1 style={{ fontSize: 42, fontWeight: 700, margin: '0 0 32px', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-          🌌 远星函馆
-        </h1>
-        <p style={{ fontSize: 14, color: '#8b949e', margin: '-20px 0 24px', maxWidth: 480 }}>
-          17号异常段 · 引导者协议已启动
-        </p>
-        {user ? (
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <Link href="/rooms" style={{
-              padding: '12px 32px', borderRadius: 10, background: '#58a6ff', color: '#fff',
-              textDecoration: 'none', fontWeight: 600, fontSize: 15,
-            }}>进入游戏大厅</Link>
-            {isAdmin(user) && (
-              <Link href="/admin" style={{
-                padding: '12px 32px', borderRadius: 10, border: '1px solid #30363d',
-                background: 'transparent', color: '#8b949e', textDecoration: 'none', fontWeight: 500, fontSize: 15,
-              }}>管理后台</Link>
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <Link href="/login" style={{
-              padding: '12px 32px', borderRadius: 10, background: '#58a6ff', color: '#fff',
-              textDecoration: 'none', fontWeight: 600, fontSize: 15,
-            }}>登录</Link>
-            <Link href="/register" style={{
-              padding: '12px 32px', borderRadius: 10, border: '1px solid #30363d',
-              background: 'transparent', color: '#8b949e', textDecoration: 'none', fontWeight: 500, fontSize: 15,
-            }}>注册</Link>
-          </div>
-        )}
-      </div>
+    <div className="animate-in" style={{ paddingBottom: 40 }}>
+      <HeroSection user={user} />
+      <RaidSnapshotCard snapshot={snapshot} />
+      {user && meStats && <PersonalStatsCard meStats={meStats} />}
+      <EntitiesPreview />
+      <LoadoutPreview />
+      <Footer />
+    </div>
+  )
+}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-        {[
-          { label: '活跃对局', value: stats.rooms, emoji: '🌀', color: '#58a6ff' },
-          { label: '物品种类', value: stats.items, emoji: '🔮', color: '#d29922' },
-          { label: '实体种类', value: stats.npcs, emoji: '👻', color: '#f85149' },
-        ].map(s => (
-          <div key={s.label} style={{
-            background: '#1c2129', borderRadius: 12, border: '1px solid #30363d',
-            padding: 24, textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 28 }}>{s.emoji}</div>
-            <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace', color: s.color, margin: '8px 0 4px' }}>{s.value}</div>
-            <div style={{ fontSize: 13, color: '#8b949e' }}>{s.label}</div>
-          </div>
-        ))}
+// ── Hero ──────────────────────────────────────────
+function HeroSection({ user }) {
+  return (
+    <div style={{
+      position: 'relative', overflow: 'hidden',
+      padding: '80px 28px 70px',
+      borderRadius: 20, marginBottom: 28,
+      background: `
+        radial-gradient(ellipse 80% 60% at 30% 20%, ${C.purple}22 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, ${C.accent}1A 0%, transparent 60%),
+        linear-gradient(135deg, ${C.bg2} 0%, ${C.bg0} 100%)
+      `,
+      border: `1px solid ${C.border}`,
+    }}>
+      {/* 装饰：网格 */}
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.05, pointerEvents: 'none',
+        backgroundImage: `linear-gradient(${C.dim} 1px, transparent 1px), linear-gradient(90deg, ${C.dim} 1px, transparent 1px)`,
+        backgroundSize: '40px 40px',
+      }} />
+
+      <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 11, color: C.purple, letterSpacing: 4, marginBottom: 12, fontWeight: 600 }}>
+          第六纪元 · 深界时代
+        </div>
+        <h1 style={{
+          fontSize: 48, fontWeight: 800, margin: '0 0 8px',
+          fontFamily: 'var(--font-noto-sans-sc), sans-serif',
+          color: C.text, letterSpacing: 2,
+          textShadow: `0 0 40px ${C.purple}40`,
+        }}>
+          远星函馆 × DTSV
+        </h1>
+        <div style={{ fontSize: 14, color: C.dim, marginBottom: 28, fontFamily: 'monospace' }}>
+          17 号异常段 · PI 引导者协议 · v1.0
+        </div>
+
+        <p style={{
+          fontSize: 14, color: C.dim, lineHeight: 1.9, marginBottom: 36,
+          maxWidth: 560, margin: '0 auto 36px',
+        }}>
+          深界结构在塌陷环带边缘缓慢漂移，泡层文明的残响仍在 17 号异常段循环。
+          作为 PI 引导者（Pioneer Interface Operator），你被派往未归档主控路径的最深处，
+          完成 <span style={{ color: C.accent }}>探查 / 对抗 / 提取</span>，
+          决定这段异常的归属——
+          <span style={{ color: C.purple }}>崩解 / 清算 / 合流 / 探索</span>。
+        </p>
+
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {user ? (
+            <Link href="/rooms" style={ctaPrimary}>🚀 立即出勤</Link>
+          ) : (
+            <>
+              <Link href="/login" style={ctaPrimary}>登录</Link>
+              <Link href="/register" style={ctaSecondary}>注册</Link>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
+}
+
+// ── 当前对局快照 ──────────────────────────────────
+function RaidSnapshotCard({ snapshot }) {
+  if (!snapshot) {
+    return (
+      <div style={sectionCard}>
+        <SectionHeader title="🌌 现役异常段" subtitle="对局状态" />
+        <div style={{ padding: '24px 0', textAlign: 'center', color: C.dim2, fontSize: 13 }}>
+          系统正在重新部署 17 号异常段，下一段对局即将就绪
+        </div>
+      </div>
+    )
+  }
+  const env = snapshot.gamevars?.envPollution || 0
+  const tier = pollutionTier(env)
+  const tierMeta = POLLUTION_TIER_META[tier]
+  const turn = snapshot.gamevars?.turn || 0
+  const players = Object.values(snapshot.gamevars?.players || {})
+  const extracted = players.filter(p => p?.extracted).length
+  const isActive = snapshot.gamestate === 1
+
+  return (
+    <Link href="/rooms" style={{ textDecoration: 'none' }}>
+      <div style={{ ...sectionCard, cursor: 'pointer', transition: 'border-color .2s' }}
+           className="hov-card">
+        <SectionHeader
+          title="🌌 现役异常段"
+          subtitle={`#${snapshot.gamenum || snapshot.id} · ${isActive ? '进行中' : '等待集结'}`}
+          right={<span style={{ fontSize: 11, color: C.accent }}>查看详情 →</span>}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
+          <Stat label="在场" value={snapshot.alivenum || 0} color={C.text} />
+          <Stat label="已撤离" value={extracted} color={C.green} />
+          <Stat label="阵亡" value={snapshot.deathnum || 0} color={C.red} />
+          <Stat label="回合" value={turn} color={C.dim} />
+        </div>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+            <span style={{ color: C.dim }}>环境污染 · {tierMeta?.label}</span>
+            <span style={{ color: tierMeta?.color, fontFamily: 'monospace', fontWeight: 700 }}>{env}/100</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: C.bg2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${env}%`, background: tierMeta?.color, transition: 'width .3s' }} />
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// ── 个人简报（已登录） ─────────────────────────────
+function PersonalStatsCard({ meStats }) {
+  return (
+    <div style={sectionCard}>
+      <SectionHeader title="👤 你的引导者档案" subtitle="档案速览" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+        <Stat
+          label="账户库容量"
+          value={`${meStats.stashCount} / ${meStats.capacity}`}
+          color={C.accent}
+        />
+        <Stat label="进行中合同" value={meStats.activeContracts} color={C.yellow} />
+      </div>
+      <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <Link href="/stash" style={miniLink}>🎒 查看账户库</Link>
+        <Link href="/contracts" style={miniLink}>📜 查看合同</Link>
+      </div>
+    </div>
+  )
+}
+
+// ── 4 类实体预览 ──────────────────────────────────
+function EntitiesPreview() {
+  const ENTITIES = [
+    { key: 'remnant',     desc: '泡层文明残响。主动搜查目标，周期性撤回 Ω-段。', subTag: '敌对' },
+    { key: 'infiltrator', desc: '伪造 PI 编号潜入异常段。隐蔽攻击，识别失败可致命。', subTag: '敌对' },
+    { key: 'symbiote',    desc: '驻守关键节点。可交易：环段部件 ↔ Ω物质。', subTag: '可交易' },
+    { key: 'observer',    desc: '只记录、不直接对抗。可换取深界路径情报。', subTag: '可交易' },
+  ]
+  return (
+    <div style={sectionCard}>
+      <SectionHeader title="🌐 4 类异常实体" subtitle="入侵者档案" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+        {ENTITIES.map(e => {
+          const meta = ENTITY_TYPE_META[e.key]
+          return (
+            <div key={e.key} style={{
+              padding: '14px 14px 14px 16px',
+              borderRadius: 10,
+              background: C.bg2,
+              border: `1px solid ${meta.color}30`,
+              borderLeft: `3px solid ${meta.color}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+                <span style={{
+                  marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 6,
+                  background: `${meta.color}18`, color: meta.color, border: `1px solid ${meta.color}40`,
+                }}>{e.subTag}</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7 }}>{e.desc}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── 4 装备槽预览 ──────────────────────────────────
+function LoadoutPreview() {
+  return (
+    <div style={sectionCard}>
+      <SectionHeader title="🎒 装载 · 4 槽" subtitle="栖居带预部署模块" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+        {LOADOUT_SLOTS.map(slot => {
+          const meta = LOADOUT_SLOT_META[slot]
+          return (
+            <div key={slot} style={{
+              padding: '14px 14px 14px 16px',
+              borderRadius: 10,
+              background: C.bg2,
+              border: `1px solid ${meta.color}30`,
+              borderLeft: `3px solid ${meta.color}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7 }}>{meta.desc}</div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{
+        marginTop: 14, padding: '10px 14px', borderRadius: 8,
+        background: `${C.yellow}10`, border: `1px solid ${C.yellow}30`, fontSize: 11, color: C.yellow,
+      }}>
+        ⚠ 出勤前最多带：4 装备 + 4 消耗品 = 8 件总载荷。死亡 = 全失，撤离 = 入库。
+      </div>
+    </div>
+  )
+}
+
+// ── Footer ────────────────────────────────────────
+function Footer() {
+  return (
+    <div style={{
+      marginTop: 28, padding: '20px 28px',
+      borderTop: `1px solid ${C.border}`,
+      textAlign: 'center', fontSize: 11, color: C.dim2,
+      fontFamily: 'monospace', letterSpacing: 1,
+    }}>
+      DTSV × 远星函馆 · Phase 9 · 深界路径已开放
+    </div>
+  )
+}
+
+// ── 共享样式 / 子组件 ────────────────────────────
+const sectionCard = {
+  background: C.bg1,
+  borderRadius: 14,
+  border: `1px solid ${C.border}`,
+  padding: '20px 24px',
+  marginBottom: 16,
+}
+
+function SectionHeader({ title, subtitle, right }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${C.border}` }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{title}</span>
+      {subtitle && <span style={{ fontSize: 11, color: C.dim }}>{subtitle}</span>}
+      <div style={{ flex: 1 }} />
+      {right}
+    </div>
+  )
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div style={{ background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}`, padding: '10px 14px' }}>
+      <div style={{ fontSize: 10, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: 'var(--font-jetbrains-mono), monospace', marginTop: 3 }}>{value}</div>
+    </div>
+  )
+}
+
+const ctaPrimary = {
+  display: 'inline-block',
+  padding: '14px 36px', borderRadius: 12,
+  background: `linear-gradient(135deg, ${C.purple} 0%, ${C.accent} 100%)`,
+  color: '#fff', textDecoration: 'none',
+  fontWeight: 700, fontSize: 15, letterSpacing: 1,
+  boxShadow: `0 0 30px ${C.purple}40`,
+}
+
+const ctaSecondary = {
+  display: 'inline-block',
+  padding: '14px 32px', borderRadius: 12,
+  border: `1px solid ${C.border}`, background: 'transparent',
+  color: C.dim, textDecoration: 'none', fontWeight: 500, fontSize: 15,
+}
+
+const miniLink = {
+  padding: '6px 14px', borderRadius: 8,
+  border: `1px solid ${C.border}`, background: C.bg2,
+  color: C.dim, textDecoration: 'none', fontSize: 12,
 }
