@@ -1,7 +1,44 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 14 Decode Archive 跨周目知识残片系统
-整理方式：基于全量源码交叉验证 + Phase 0-14 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 14.1 残片系统 bug fix（FragmentsTab + RLS）
+整理方式：基于全量源码交叉验证 + Phase 0-14.1 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 14.1）— Phase 14 落地后 bug fix
+
+> Phase 14 主体（schema + 服务端逻辑 + archive 页 + admin tab + 导航 + DB 控制台快捷查询）已上线，
+> 但 FragmentsTab 落地时叠加了 3 个 critical bug 让 admin 残片管理面板完全不可用。
+> 本节记录 14.1 修补。
+
+### 14.1 修补清单
+
+| # | 严重度 | 问题 | 修复 | Commit |
+|---|--------|------|------|--------|
+| 1 | 🔴 critical | `FragmentsTab.jsx` 8 处用 `BTN.primary` / `BTN.secondary` / `BTN.danger` 当 object 访问，但 `BTN` 是 helper 函数 `(bg, color, extra) => ({...})`，全部 undefined → 按钮无样式 | 按 ItemsTab 惯例改为函数调用 | `8018318` |
+| 2 | 🔴 critical | 2 个 Modal 没传 `open` prop，Modal 内 `if (!open) return null`，外层 `{condition && (...)}` 条件渲染救不了 → 编辑/新增/删除确认弹窗永远不显示 | 2 处加 `open={true}`，删除无效的 `width={640}` prop | `8018318` |
+| 3 | 🔴 critical | `decode-archive-schema.sql` 给 `fragment_pool` 启了 RLS 但只配 SELECT 策略（缺 INSERT/UPDATE/DELETE）。FragmentsTab 用 client-side anon supabase 直接写入会被静默拒绝 | 新增 `scripts/decode-archive-rls-fix.sql`：`DISABLE ROW LEVEL SECURITY` on `fragment_pool`，与项目其它配置表（item_pool/npc_pool/...）对齐；保留 `player_fragments` 的 RLS（含玩家私人解码进度） | `a37a6b4` |
+
+### RLS 设计澄清（Phase 14.1 后）
+
+| 表 | RLS | 理由 |
+|----|-----|------|
+| `fragment_pool` | **关闭** | 与 `item_pool` / `npc_pool` / `map_config` / `event_pool` / `contracts` / `endings` / `branch_nodes` 一致 — admin 客户端直连写入 |
+| `player_fragments` | **启用** + per-user 策略 | 含玩家私人解码进度，必须按 user 隔离；archive 页 select、discoverFragment 服务端 upsert/update 均与策略匹配 |
+
+### 14.1 完成后的部署步骤
+
+如果 Phase 14 schema 已经在 Supabase 执行过：
+1. SQL Editor 粘贴 `scripts/decode-archive-rls-fix.sql` 执行
+2. 验证：`SELECT relname, relrowsecurity FROM pg_class WHERE relname = 'fragment_pool'` 返回 `relrowsecurity = false`
+3. `npm run build && npm run lint` 全程绿
+4. 走查：进 `/admin` → 📡 残片 → 点"+ 添加残片"应弹出蓝色样式的对话框 → 填写 4 级文本保存 → 列表刷新；点"删除"应弹出确认对话框
+
+### 次要观察（不阻塞功能，后续优化）
+
+- `gameActions.js:799` `resolution.gamevars?.gamenum` 是 dead code（gamenum 是 rooms 列、不在 gamevars），实际用 `room.gamenum` 兜底正确，建议简化
+- `fragments.js:108` `f.weight \|\| 1` 把 weight=0 也 fallback 到 1（admin 表单 min=0.1 正常路径不会 0，但 `f.weight ?? 1` 更精准）
+- 残片日志"发现了一段损坏的数据残片"没引导玩家去 `/archive`，可加 toast 链接
+
+---
 
 ## 最近变更（2026-05-10 / Phase 14）— Decode Archive 跨周目知识残片系统
 
