@@ -23,6 +23,7 @@
 | 16.3 | `gameActions.js` — searchArea 改用 pickOrSpawnNpcInstance、resolveNpcAttackAction 重写为单次袭击、attackPlayer 加反击 + lastPvpHit、删 fleeNpc、其他动作清 encounter | `97e4540` |
 | 16.4 | `GameClientPage.jsx` — encounter 红色描边 NPC 卡 + ⚔️ 袭击 / 放过双按钮、删持续 battle 双卡布局、PvP toast 监听 lastPvpHit.seq | `c8ebdde` |
 | 16.5 | `NpcsTab.jsx` — admin 加 accuracy / counter_rate 字段编辑 | `58f6ba8` |
+| 16.6 | A 方案：装载流程回归，"加入游戏" 按钮接 LoadoutModal（Phase 15.1 待拍板项关闭） | `89465fb` |
 
 ### 战斗模型对照（Phase 15 → Phase 16）
 
@@ -73,6 +74,20 @@
 - **`game_rules.player_attack_accuracy` / `player_counter_rate` 缓存**：每次 attackNpc / attackPlayer 都查 game_rules，若需可加 5 分钟缓存（gameEngine.loadGameRules 已经缓存了，所以实际成本低，可忽略）
 - **encounter 卡视觉**：可加 ENTITY_TYPE_META 徽章（残响/伪装/共生/观察）
 - **NPC 战斗记录右侧面板**：Phase 16 删了原"战斗记录"，全部改为顶部公共日志；可考虑加"近期战斗"过滤视图
+
+### 16.6 装载流程回归（A 方案，Phase 15.1 待拍板项关闭）
+
+> 用户原话："A，毕竟是搜打撤，带之前撤出来的道具是可以的"
+
+GameClientPage 改动：
+- `import LoadoutModal from '@/components/LoadoutModal'`（不再是孤儿）
+- 新增 `joinLoadoutOpen` state + `handleJoinWithLoadout(payload)`
+- "加入游戏"按钮 onClick 改 `setJoinLoadoutOpen(true)`，文案改"🎒 装载并加入"
+- LoadoutModal `onConfirm({ loadout, consumables, items, equipmentInstanceIds })` → `runGameAction('join', { loadout: payload })` → 服务端 `joinRoom(client, user, roomId, loadout)` 接通
+
+服务端通路（joinRoom 接受 loadout 参数 + consumeForLoadout 扣库 + 装备 room_id := raidId）从 Phase 8.2 起就在；本 sub 只接客户端入口。
+
+bundle 影响：`/game/[id]` 15.4 → 18 kB（LoadoutModal +2.6 kB 重新打包）。
 
 ---
 
