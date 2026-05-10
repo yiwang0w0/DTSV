@@ -29,6 +29,7 @@ import {
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
+import { discoverFragment } from '@/lib/server/fragments'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -690,7 +691,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   const lootable = corpseResult.lootable
-  const { itemChance: rawItemChance, npcChance: rawNpcChance } = getSearchChances(rules, bundle.weather)
+  const { itemChance: rawItemChance, npcChance: rawNpcChance, fragmentChance: rawFragmentChance } = getSearchChances(rules, bundle.weather)
 
   // ── 远星函馆：搜索动作触发个人污染 + 受有效污染影响 ──
   const polluted = applySearchPollution(nextPlayer)
@@ -704,6 +705,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const itemChance = applyPollutionSearchModifier(rawItemChance, eff.effective, { hasProbe: loadoutFx.probe })
   const npcChance  = rawNpcChance  // NPC 出现率不被污染下降影响
 
+  const fragmentChance = rawFragmentChance
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
   const looseItemChance = Math.max(0, itemChance - corpseChance)
   const roll = Math.random()
@@ -776,6 +778,24 @@ async function resolveSearchAction(client, room, gamevars, user) {
       console.error('[searchArea] contract progress 失败:', e?.message)
     }
     return persisted
+  }
+
+  // ── 残片发现：跨周目持久化的知识碎片 ──
+  const fragmentThreshold = npcChance + corpseChance + looseItemChance + fragmentChance
+  if (roll < fragmentThreshold) {
+    try {
+      const gamenum = resolution.gamevars?.gamenum || room.gamenum || 1
+      const fragment = await discoverFragment(client, user.id, mapId, eff.effective, gamenum)
+      if (fragment) {
+        const levelText = fragment.isNew
+          ? '发现了一段损坏的数据残片'
+          : `对已知残片进行了进一步解码（解码度 ${fragment.decode_level}/3）`
+        appendResolutionLog(resolution, `${player.name} ${levelText}`, 'system')
+        return persistResolutionWithPollution(client, room, resolution, user.id)
+      }
+    } catch (e) {
+      console.error('[searchArea] fragment discovery 失败:', e?.message)
+    }
   }
 
   appendResolutionLog(resolution, `${player.name} 搜索了一圈，但没有发现有用的东西`, 'system')
