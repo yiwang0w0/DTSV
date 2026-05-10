@@ -1,7 +1,42 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 11 世界观 Lore 文本落地
+更新时间：2026-05-10（Asia/Tokyo） · Phase 11.5 设定锁定（搜索两类化 + comm 槽 lore 重写）
 整理方式：基于全量源码交叉验证 + Phase 0-11 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 11.5）— 设定锁定：搜索结果两类化 + comm 槽 lore
+
+> 用户拍板的设定确认：**游戏内无友好玩家概念**，**搜索功能只能找到两类：物品 / 敌人**。
+> 受影响的语义：搜索时遭遇尸体不再是独立第三类（"X 的尸体"），并入"敌人（已死亡）"概念；
+> comm 装备槽的 desc 因暗示"友/敌身份识别"与设定矛盾，改写为"侦察类增益"。
+
+### Phase 11.5 一句话清单
+
+| 文件 | 改动 | Commit |
+|------|------|--------|
+| `src/lib/server/gameActions.js:750` | 搜索发现尸体日志：`发现了 残响实体 的尸体` → `发现了一具敌人残骸（残响实体）`（用 `replace(/ 的尸体$/, '')` 提取原名） | `26e8c68` |
+| `src/app/game/[id]/LootModal.jsx:8` | `SOURCE_TEXT.search`：`搜索发现尸体` → `搜索发现敌人残骸` | `26e8c68` |
+| `src/lib/constants.js:67-68` | `LOADOUT_SLOT_META.comm.desc`：`PvP误判率-50%，短暂显示其他操作员真实身份` → `扫描敌方装备与 HP，战斗中显示对方实时状态` | `26e8c68` |
+
+### 搜索结果两类化的逻辑分类（实现层）
+
+| 玩家视角分类 | 内部 roll 分支 | 流程 | 备注 |
+|-------------|--------------|------|------|
+| **物品** | ② `looseItemChance` 散落物品 | 直接入背包 | 由 `bundle.itemPool` 加权抽取 |
+| **物品**（敌人残骸） | ① `corpseChance` 尸体可拾取 | 弹 `LootModal` 选 1 件入背包 | 来自 NPC 击杀或 PvP 死亡；UI 文案统一为"敌人残骸" |
+| **敌人** | ③ `npcChance` 遭遇 NPC | 进入 `battle` 状态 | 残响/伪装/共生/观察 4 类实体 |
+| 无收获 | 兜底 | "搜索了一圈，但没有发现有用的东西" | 1 - sum(其余概率) |
+
+> 实现层仍保留 3 个 roll 分支（不合并），但 UI 文案 + 模态语义对玩家呈现"物品 / 敌人"两大类。
+
+### comm 槽改写后的待实装
+
+`getLoadoutEffects(player).comm` 仍仅返回 boolean，未接入战斗。新 lore 方向（"扫描敌方装备 + HP"）的实装锚点：
+- 服务端：`attackPlayer` resolution 中，若攻击方 comm=true，response 附带目标 hp/loadout 摘要
+- 客户端：PvP 卡 hover 显示 — 仅当本地玩家 comm=true 时渲染
+
+未来若开新 phase 推进，对照本节修改即可。
+
+---
 
 ## 最近变更（2026-05-10 / Phase 11）— 精简世界观落地 + Lore 文本重写
 
@@ -637,7 +672,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `src/app/game/[id]/GameClientPage.jsx` | 局内主容器（含撤离按钮 + 结局横幅） |
 | `src/app/game/[id]/CraftModal.jsx` | 装备合成面板 |
 | `src/app/game/[id]/ExtractionModal.jsx` | **2026-05 重写** — Phase 8 单出口信息卡（exit_cost 校验） |
-| `src/app/game/[id]/LootModal.jsx` | 尸体拾取面板 |
+| `src/app/game/[id]/LootModal.jsx` | 敌人残骸拾取面板（**Phase 11.5** 文案对齐"无友好玩家"设定） |
 | `src/app/game/[id]/gameUi.js` | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
 | `src/components/LoadoutModal.jsx` | **2026-05 重写** — Phase 8 双 4 槽位（probe/shield/weapon/comm + 4 消耗品） |
 | `src/components/GrantStashModal.jsx` | **2026-05 新增** — 管理员发放道具面板 |
@@ -909,7 +944,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
   - probe ✅ — `applyPollutionSearchModifier(_, _, {hasProbe:true})` 搜索成功率 +15%
   - shield ✅ — `shieldPersonalFactor()` 让个人污染累积 ×0.7；进 map=4 时 omegaCountdown +1
   - weapon ✅ — `applyPollutionCombatModifier(_, _, {hasWeapon:true})` 对实体伤害 +25%；`tickEnvPollution` 计入 weaponHolders 数 +1/回合
-  - comm △ — PvP 误判率 / 身份显示是 UI 范畴，动作层无变化；后续 PvP UI 设计时注入
+  - comm △ — **Phase 11.5 重写为"扫描敌方装备 + HP"**（原"PvP 误判率/真实身份"与"无友好玩家"设定矛盾，已废弃）；动作层 boolean 已就绪，待 PvP UI 设计时把 attackPlayer response 注入目标 hp/loadout 摘要
 - `getLoadoutEffects(player)` 返回 4 个布尔标记，供 gameActions 调用所有动作处使用
 - 装备走 `equipment_instances` 系（不在 item_pool）；4 个 farstar series + 8 个 tier 由 ADDITIVE 迁移引入
 
@@ -938,7 +973,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | gameActions.js 越来越大 | ~1950 行（Phase 8 加 4 个新动作 + 污染钩子 + loadout 接线），可按动作模块拆分 | 中 |
 | GameClientPage.jsx 持续膨胀 | ~770 行（含污染条 + Ω 倒计时 + 邻接图 + 结局横幅 + 交易面板），考虑拆子面板组件 | 中 |
 | 装备槽 raid 内更换 | equipLoadout action 服务端就绪，但 UI 还没接（玩家进 raid 后无法换 4 槽） | 中 |
-| comm 槽 PvP 误判机制 | 服务端识别已就绪（getLoadoutEffects.comm），但 PvP UI 缺"误判率 -50%"和"显示真实身份"的具体表现（需先设计 PvP 误判机制） | 低 |
+| comm 槽侦察增益 | 服务端识别已就绪（getLoadoutEffects.comm），但 attackPlayer response 还没暴露目标 hp/loadout 摘要；PvP 卡 hover 还没接（Phase 11.5 重写后的待办） | 中 |
 | EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 低 |
 | 事件系统 effects 完整性 | 当前 8 种 effect，可扩展至冷却/状态异常/物品掉率/天气切换等 | 中 |
 | 分支引擎条件覆盖 | 9 种条件 + `anyPlayerHas {key,minValue}` 重载够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
