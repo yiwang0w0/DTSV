@@ -53,7 +53,7 @@ export default function ItemCard({
   draggable = false,
 }) {
   if (!item) return null
-  const meta = ITEM_KIND_META[item.kind] || ITEM_KIND_META.special
+  const meta = ITEM_KIND_META[item.kind] || { label: '其他', color: C.dim, icon: '📦' }
   const label = actionLabel || (inPool ? '移除' : '+ 加入')
 
   return (

@@ -154,7 +154,7 @@ export default function GrantStashModal({ open, onClose, targetUser }) {
             </div>
           )}
           {!loading && filtered.map(it => {
-            const meta = ITEM_KIND_META[it.kind] || ITEM_KIND_META.special
+            const meta = ITEM_KIND_META[it.kind] || { label: '其他', color: C.dim, icon: '📦' }
             const qty = quantities[it.name] || 0
             return (
               <div key={it.id} style={{
