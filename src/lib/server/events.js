@@ -299,7 +299,7 @@ async function applyOneEffect(client, effect, player, gv, context, userId) {
         npc = effect.npc
       }
       if (!npc) {
-        return { log: `[事件] 尝试生成 ${effect.entity_type || 'NPC'} 但池中无可用候选`, logType: 'system' }
+        return { log: `[事件] 尝试生成 ${effect.entity_type || '实体'} 但池中无可用候选`, logType: 'system' }
       }
 
       const battleNpc = {

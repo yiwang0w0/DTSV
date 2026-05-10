@@ -48,25 +48,25 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
   }
 
   async function save() {
-    if (!editNpc.name.trim()) { toast('请填写NPC名称', 'error'); return }
+    if (!editNpc.name.trim()) { toast('请填写实体名称', 'error'); return }
     const payload = { ...editNpc }; delete payload.created_at
     if (editNpc.id) {
       const id = payload.id; delete payload.id
       const { error } = await supabase.from('npc_pool').update(payload).eq('id', id)
       if (error) { toast('更新失败', 'error'); return }
-      toast('NPC已更新')
+      toast('实体已更新')
     } else {
       delete payload.id
       const { error } = await supabase.from('npc_pool').insert(payload)
       if (error) { toast('添加失败', 'error'); return }
-      toast('NPC已添加')
+      toast('实体已添加')
     }
     setModal(false); setEditNpc(null); onRefresh('npcs')
   }
   async function del(id) {
     const { error } = await supabase.from('npc_pool').delete().eq('id', id)
     if (error) { toast('删除失败', 'error'); return }
-    toast('NPC已删除'); setConfirmDel(null); onRefresh('npcs')
+    toast('实体已删除'); setConfirmDel(null); onRefresh('npcs')
   }
   function toggleMap(arr, id) { return arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id] }
 
@@ -75,7 +75,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
       {/* ── 顶部筛选栏 ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input style={{ ...INPUT, width: 190 }} placeholder="🔍 搜索NPC..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input style={{ ...INPUT, width: 190 }} placeholder="🔍 搜索实体..." value={search} onChange={e => setSearch(e.target.value)} />
           <div style={{ display: 'flex', gap: 4 }}>
             {['all', ...Object.keys(NPC_LEVEL_META)].map(k => (
               <button key={k} onClick={() => setFilter(k)} style={{ padding: '6px 12px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: `1px solid ${filter === k ? '#58a6ff' : '#30363d'}`, background: filter === k ? 'rgba(88,166,255,0.12)' : 'transparent', color: filter === k ? '#58a6ff' : '#8b949e' }}>
@@ -84,7 +84,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
             ))}
           </div>
         </div>
-        <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 新增 NPC</button>
+        <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 新增实体</button>
       </div>
 
       {/* ── 卡片列表 ── */}
@@ -130,10 +130,10 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
           )
         })}
       </div>
-      {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>暂无NPC</div>}
+      {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 56, color: '#8b949e' }}>暂无实体</div>}
 
       {/* ── 编辑 / 新增弹窗 ── */}
-      <Modal open={modal} onClose={() => { setModal(false); setEditNpc(null) }} title={editNpc?.id ? `编辑NPC：${editNpc?.name}` : '添加 NPC'}>
+      <Modal open={modal} onClose={() => { setModal(false); setEditNpc(null) }} title={editNpc?.id ? `编辑实体：${editNpc?.name}` : '添加实体'}>
         {editNpc && (
           <div>
             {/* ── 第一组：基础信息 ── */}
@@ -142,14 +142,14 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
               <div>
                 <label style={LABEL}>名称</label>
                 <input style={INPUT} value={editNpc.name} onChange={e => setEditNpc({ ...editNpc, name: e.target.value })} />
-                <div style={HINT}>NPC 的显示名称，玩家在游戏中会看到</div>
+                <div style={HINT}>实体的显示名称，玩家在游戏中会看到</div>
               </div>
               <div>
                 <label style={LABEL}>难度</label>
                 <select style={INPUT} value={editNpc.level} onChange={e => setEditNpc({ ...editNpc, level: e.target.value })}>
                   {Object.entries(NPC_LEVEL_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
-                <div style={HINT}>影响 NPC 掉落奖励和 AI 行为模式</div>
+                <div style={HINT}>影响实体掉落奖励和 AI 行为模式</div>
               </div>
             </div>
 
@@ -159,7 +159,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
               <div>
                 <label style={LABEL}>HP 生命值</label>
                 <input type="number" style={INPUT} value={editNpc.hp} onChange={e => setEditNpc({ ...editNpc, hp: Number(e.target.value) })} />
-                <div style={HINT}>NPC 的最大生命值，被击杀时归零</div>
+                <div style={HINT}>实体的最大生命值，被击杀时归零</div>
               </div>
               <div>
                 <label style={LABEL}>ATK 攻击</label>
@@ -169,7 +169,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
               <div>
                 <label style={LABEL}>DEF 防御</label>
                 <input type="number" style={INPUT} value={editNpc.def} onChange={e => setEditNpc({ ...editNpc, def: Number(e.target.value) })} />
-                <div style={HINT}>基础防御力，降低玩家对 NPC 的伤害</div>
+                <div style={HINT}>基础防御力，降低玩家对实体的伤害</div>
               </div>
               <div>
                 <label style={LABEL}>EXP 经验</label>
@@ -260,7 +260,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
                 <button onClick={() => setEditNpc({ ...editNpc, maps: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
               </div>
             </div>
-            <div style={HINT}>选择该 NPC 可以在哪些地图上出现，未选择则不会被刷新</div>
+            <div style={HINT}>选择该实体可以在哪些地图上出现，未选择则不会被刷新</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 150, overflowY: 'auto', marginTop: 8 }}>
               {MAP_LIST.map(m => (
                 <button key={m.id} onClick={() => setEditNpc({ ...editNpc, maps: toggleMap(editNpc.maps, m.id) })}
@@ -271,7 +271,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
             {/* ── 操作按钮 ── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
               <button onClick={() => { setModal(false); setEditNpc(null) }} style={{ ...BTN('transparent', '#8b949e'), border: '1px solid #30363d' }}>取消</button>
-              <button onClick={save} style={BTN('#58a6ff', '#fff')}>{editNpc.id ? '保存修改' : '添加 NPC'}</button>
+              <button onClick={save} style={BTN('#58a6ff', '#fff')}>{editNpc.id ? '保存修改' : '添加实体'}</button>
             </div>
           </div>
         )}

@@ -405,7 +405,7 @@ export default function MapsTab({
             <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}` }}>
               {[
                 { key: 'items', label: `📦 道具池 (${mapItems.length})`, color: C.yellow },
-                { key: 'npcs',  label: `👹 NPC 池 (${mapNpcs.length})`,  color: C.purple },
+                { key: 'npcs',  label: `👹 实体池 (${mapNpcs.length})`,  color: C.purple },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -509,7 +509,7 @@ export default function MapsTab({
                 }}>
                   <input
                     style={{ ...INPUT, flex: 1, minWidth: 180 }}
-                    placeholder="🔍 搜索 NPC 名称..."
+                    placeholder="🔍 搜索实体名称..."
                     value={npcSearch}
                     onChange={e => setNpcSearch(e.target.value)}
                   />
@@ -533,10 +533,10 @@ export default function MapsTab({
                     emptyHint="拖到这里移除"
                     style={{ padding: 12, minHeight: 240, background: '#0e1117' }}
                   >
-                    <PanelHeader title="待选 NPC" count={npcsAvailable.length} total={npcs.length - mapNpcs.length} color={C.dim} />
+                    <PanelHeader title="待选实体" count={npcsAvailable.length} total={npcs.length - mapNpcs.length} color={C.dim} />
                     <CardGrid>
                       {npcsAvailable.length === 0 ? (
-                        <EmptyHint text={npcs.length === mapNpcs.length ? '所有 NPC 已加入' : '没有匹配的待选 NPC'} />
+                        <EmptyHint text={npcs.length === mapNpcs.length ? '所有实体已加入' : '没有匹配的待选实体'} />
                       ) : npcsAvailable.map(npc => (
                         <DraggableCard key={npc.id} id={npc.id} payload={{ kind: 'npc', from: 'available' }}>
                           <NpcCard
@@ -551,15 +551,15 @@ export default function MapsTab({
 
                   <DroppableArea
                     id={ZONE_POOL} highlight={C.green}
-                    emptyHint="拖到这里加入 NPC 池"
+                    emptyHint="拖到这里加入实体池"
                     style={{ padding: 12, minHeight: 240, background: '#0e1117' }}
                   >
-                    <PanelHeader title="本地图 NPC 池" count={npcsInPool.length} total={mapNpcs.length} color={C.green} />
+                    <PanelHeader title="本地图实体池" count={npcsInPool.length} total={mapNpcs.length} color={C.green} />
                     <CardGrid>
                       {mapNpcs.length === 0 ? (
-                        <EmptyHint text="NPC 池为空。从左侧拖入或点 + 加入" />
+                        <EmptyHint text="实体池为空。从左侧拖入或点 + 加入" />
                       ) : npcsInPool.length === 0 ? (
-                        <EmptyHint text="没有匹配的池中 NPC" />
+                        <EmptyHint text="没有匹配的池中实体" />
                       ) : npcsInPool.map(npc => (
                         <DraggableCard key={npc.id} id={npc.id} payload={{ kind: 'npc', from: 'pool' }}>
                           <NpcCard

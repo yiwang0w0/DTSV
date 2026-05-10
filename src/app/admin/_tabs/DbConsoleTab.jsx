@@ -9,7 +9,7 @@ const QUICK_QUERIES = [
   { label: '对局列表', sql: `SELECT id, gamenum, gamestate, validnum, alivenum, deathnum, created_at FROM rooms ORDER BY created_at DESC LIMIT 20` },
   { label: '玩家状态', sql: `SELECT p.id, p.username, p.roomid, p.hp, p.atk, p.def, p.alive FROM profiles p WHERE p.roomid IS NOT NULL` },
   { label: '道具池', sql: `SELECT * FROM item_pool ORDER BY kind, name` },
-  { label: 'NPC 池', sql: `SELECT * FROM npc_pool ORDER BY level, name` },
+  { label: '实体池', sql: `SELECT * FROM npc_pool ORDER BY level, name` },
   { label: '地图配置', sql: `SELECT map_id, weather, npc_count FROM map_config ORDER BY map_id LIMIT 20` },
   { label: '游戏日志（最近）', sql: `SELECT * FROM game_events ORDER BY created_at DESC LIMIT 30` },
 ]

@@ -18,7 +18,7 @@
  *
  * 支持的事件：
  *   { type: 'item_acquired', itemName }  — 玩家获得道具（搜索/拾取/合成等）
- *   { type: 'npc_killed',    npcName }   — 玩家击杀 NPC
+ *   { type: 'npc_killed',    npcName }   — 玩家击杀实体
  *   { type: 'extracted',     extractionPointId }
  */
 

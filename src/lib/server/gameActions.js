@@ -785,7 +785,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
 async function resolveNpcAttackAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
-  if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
+  if (!battle?.npc) throw new Error('当前没有实体战斗')
 
   const [rules, buffPool, equippedInstances, weather] = await Promise.all([
     loadGameRules(client),
@@ -924,7 +924,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 async function resolveNpcFleeAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   const battle = player?.battle
-  if (!battle?.npc) throw new Error('当前没有 NPC 战斗')
+  if (!battle?.npc) throw new Error('当前没有实体战斗')
 
   const [rules, equippedInstances, weather] = await Promise.all([
     loadGameRules(client),
@@ -1589,10 +1589,10 @@ async function tradeWithNpc(client, room, gamevars, user, payload) {
   if (player.battle) throw new Error('战斗中无法交易')
 
   const npcId = Number(payload?.npcId)
-  if (!npcId) throw new Error('缺少 NPC ID')
+  if (!npcId) throw new Error('缺少实体 ID')
 
   const { data: npc } = await client.from('npc_pool').select('*').eq('id', npcId).maybeSingle()
-  if (!npc) throw new Error('NPC 不存在')
+  if (!npc) throw new Error('实体不存在')
   if (!npc.tradeable) throw new Error(`${npc.name} 不可交易`)
   if (!Array.isArray(npc.maps) || !npc.maps.includes(player.map ?? 0)) {
     throw new Error(`${npc.name} 不在你当前所在地图`)
@@ -1601,7 +1601,7 @@ async function tradeWithNpc(client, room, gamevars, user, payload) {
   const wants = npc.trade_wants
   const offers = npc.trade_offers
   if (!wants?.item || !offers?.item) {
-    throw new Error('该 NPC 的交易配置无效')
+    throw new Error('该实体的交易配置无效')
   }
   const needQty = Number(wants.qty) || 1
   const giveQty = Number(offers.qty) || 1

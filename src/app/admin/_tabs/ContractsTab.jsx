@@ -14,7 +14,7 @@ const C = {
 
 const OBJECTIVE_TYPES = [
   { value: 'find_item',  label: '搜集道具',          fields: ['itemName', 'count'] },
-  { value: 'kill_npc',   label: '击杀 NPC',          fields: ['npcName', 'count'] },
+  { value: 'kill_npc',   label: '击杀实体',          fields: ['npcName', 'count'] },
   { value: 'extract',    label: '成功撤离 N 次',     fields: ['count'] },
   { value: 'extract_at', label: '从指定撤离点撤离', fields: ['extractionPointId'] },
 ]

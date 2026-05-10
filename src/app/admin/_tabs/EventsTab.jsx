@@ -15,7 +15,7 @@ const C = {
 const TRIGGER_TYPES = [
   { value: 'on_search',    label: '玩家搜索时',     fields: ['mapId'] },
   { value: 'on_enter_map', label: '玩家进入地图时', fields: ['mapId'] },
-  { value: 'on_kill_npc',  label: '玩家击杀 NPC 时', fields: ['npcName'] },
+  { value: 'on_kill_npc',  label: '玩家击杀实体时', fields: ['npcName'] },
   { value: 'on_pickup',    label: '玩家获得物品时', fields: ['itemName'] },
 ]
 
@@ -25,7 +25,7 @@ const EFFECT_TYPES = [
   { value: 'take_item',      label: '扣除玩家物品', fields: ['itemName', 'count'] },
   { value: 'damage',         label: '扣血',         fields: ['amount'] },
   { value: 'heal',           label: '回血',         fields: ['amount'] },
-  { value: 'spawn_npc',      label: '触发 NPC 战斗', fields: ['npc'] },
+  { value: 'spawn_npc',      label: '触发实体战斗', fields: ['npc'] },
   { value: 'set_flag',       label: '设置 flag',    fields: ['key', 'valueJson'] },
   { value: 'inc_flag',       label: 'flag 累加',    fields: ['key', 'value'] },
 ]
@@ -270,7 +270,7 @@ function EventEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
               value={draft.trigger?.npcName || ''}
               onChange={e => setTrigger({ npcName: e.target.value })}
             >
-              <option value="">（任意 NPC）</option>
+              <option value="">（任意实体）</option>
               {npcs.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
             </select>
           )}

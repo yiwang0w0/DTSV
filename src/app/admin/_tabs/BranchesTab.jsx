@@ -280,7 +280,7 @@ function ConditionRow({ idx, cond, items, npcs, onChange, onDelete }) {
         )}
         {meta.fields.includes('npcName') && (
           <select style={{ ...INPUT, flex: 1 }} value={cond.npcName || ''} onChange={e => onChange({ npcName: e.target.value })}>
-            <option value="">选择 NPC…</option>
+            <option value="">选择实体…</option>
             {npcs.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
           </select>
         )}
