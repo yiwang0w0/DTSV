@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
 import { POLLUTION_TIER_META } from '@/lib/constants'
+import { postGameApi } from '@/lib/gameApi'
 
 const ENDING_META = {
   collapse: { label: '崩解', icon: '💥', color: '#f85149', desc: '异常段坠入视界线' },
@@ -36,8 +38,11 @@ function formatDate(dateStr) {
 
 export default function RoomsPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState(null)
   const loadingRef = useRef(false)
 
   useEffect(() => {
@@ -58,6 +63,23 @@ export default function RoomsPage() {
     }
     load()
   }, [])
+
+  async function handleStartNextRound() {
+    setStarting(true)
+    setStartError(null)
+    try {
+      const { room } = await postGameApi('/api/game/rooms', { ensureNextRound: true })
+      if (room?.id) {
+        router.push(`/game/${room.id}`)
+      } else {
+        setStartError('未能获取下一周目对局')
+        setStarting(false)
+      }
+    } catch (err) {
+      setStartError(err?.message || '启动失败，请稍后再试')
+      setStarting(false)
+    }
+  }
 
   if (!user) {
     return (
@@ -82,6 +104,54 @@ export default function RoomsPage() {
           17 号异常段的所有探索尝试。每一次出勤都是一个周目，绝大部分以净化失败告终。
         </p>
       </div>
+
+      {/* 没有进行中的周目 — 显示启动 CTA */}
+      {active.length === 0 && (
+        <div style={{
+          marginBottom: 24,
+          padding: '20px 24px',
+          background: '#1c2129',
+          border: '1px solid #30363d',
+          borderLeft: '3px solid #3fb950',
+          borderRadius: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#e6edf3', marginBottom: 4 }}>
+              暂无进行中的周目
+            </div>
+            <div style={{ fontSize: 12, color: '#8b949e' }}>
+              点击右侧按钮启动下一段 17 号异常段探查。
+            </div>
+            {startError && (
+              <div style={{ marginTop: 8, fontSize: 11, color: '#f85149' }}>
+                ⚠ {startError}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleStartNextRound}
+            disabled={starting}
+            style={{
+              padding: '10px 20px',
+              borderRadius: 8,
+              border: 'none',
+              background: starting ? '#21262d' : '#3fb950',
+              color: starting ? '#8b949e' : '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: starting ? 'wait' : 'pointer',
+              opacity: starting ? 0.7 : 1,
+            }}
+          >
+            {starting ? '准备就绪中…' : '🚀 启动下一周目'}
+          </button>
+        </div>
+      )}
 
       {/* 当前进行中 / 等待中 */}
       {active.length > 0 && (
