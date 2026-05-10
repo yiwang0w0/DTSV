@@ -93,9 +93,7 @@ bundle 影响：`/game/[id]` 15.4 → 18 kB（LoadoutModal +2.6 kB 重新打包�
 
 ---
 
-## 历史变更（2026-05-10 / Phase 15.1）— 周目死路修复 + ITEM_KIND_META 残余遗漏
-
-## 最近变更（2026-05-10 / Phase 15.1）— 周目流程死路修复 + 残余 bug 收尾
+## 历史变更（2026-05-10 / Phase 15.1）— 周目流程死路修复 + 残余 bug 收尾
 
 > 用户反馈：达成结局后无法开启新对局。彻查发现 Phase 13 重做 rooms 页时
 > 砍掉了客户端 ensureNextRound 调用，但首页"立即出勤"snapshot=null 时
@@ -921,23 +919,32 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-11 全部上线）**：
+**当前状态（2026-05 / Phase 0-16 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
 - **术语 + 首页/大厅收尾**（Phase 9）：术语对齐远星函馆；大厅改为单一全服对局；首页升级为 lore 落地页
 - **FX 视觉层**（Phase 10）：5 WebGL shader + 5 文本粒子组件，首页 Hero / 结局横幅 / 撤离面板接入；prefers-reduced-motion + document.hidden 自动暂停
-- **世界观 lore 文本落地**（Phase 11）：精简世界观参考文档 + Supabase 全量 lore 文本重写（map/item/npc/event/contract/ending/branch 按早/中/后期分层）+ 全站术语二次收束（"对局大厅" / "撤离点" badge / NPC→实体）
+- **世界观 lore 文本落地**（Phase 11 + 11.5）：精简世界观参考文档 + Supabase 全量 lore 文本重写 + "搜索结果只有物品/敌人两类" + comm 槽 lore 重写（侦察类）
+- **管理后台 NPC→实体术语全清**（Phase 12）
+- **周目系统 UI**（Phase 13）：回合→周目术语，污染度百分比，"立即出勤直入"，rooms 页改为周目记录列表
+- **跨周目残片系统**（Phase 14 + 14.1）：fragment_pool / player_fragments 表 + /archive 档案库页 + 4 级解码（0→3）+ admin 残片 Tab；fragment_pool RLS 关闭与项目惯例一致
+- **战斗 UI 改造 + bug fix**（Phase 15 + 15.1）：搜索/攻击按钮加载进度条（fill 式），ITEM_KIND_META.special crash 全部修齐，首页 + rooms 页 ensureNextRound CTA 双保险（修复 Phase 13 死路）
+- **单次袭击战斗模型**（Phase 16）：从持续 battle 改为 player.encounter 单次结算 + NPC 实例池跨袭击 HP 持久化 + PvP 反击 + 被攻击方 toast；装载流程回归（"加入游戏"按钮接 LoadoutModal）
 - **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有引导者加入它，结束后自动开新一段
-- **13 标签页管理后台**：合同 / 事件 / 分支 / 结局编辑器全部就绪
+- **14 标签页管理后台**：合同 / 事件 / 分支 / 结局 / 残片 编辑器全部就绪
 
 **核心循环**：
 
-1. 账户库（player_stash）准备 → /rooms 选房间
-2. 装载（4 装备槽 + 4 消耗品槽，最多 8 件）→ 进 raid（默认 map=0 外环维护廊）
-3. raid 内：搜索 / 战斗 / 移动（受邻接限制）/ 交易 / 撤离
+1. 账户库（player_stash）准备 → 首页 / rooms 周目记录页 → "立即出勤" / "启动下一周目"
+2. **装载**（LoadoutModal 4 装备槽 + 4 消耗品槽，最多 8 件）→ 进 raid（默认 map=0 外环维护廊）
+3. raid 内：搜索 / 袭击 / 移动（受邻接限制）/ 交易 / 撤离
+   - 搜索 → 物品 / 敌人残骸（尸体）/ 遭遇 NPC（设 player.encounter）/ 残片（12% 基础概率）
+   - 遭遇 NPC → 中央面板红色卡 + "⚔️ 袭击（一次性）" / "放过" 双按钮
+   - 袭击 = 单次结算（命中判定 → 伤害；反击独立判定 → NPC 一次完整反击）
+   - **NPC HP 跨袭击持久化**（gamevars.npcInstances 池），同一只可被多次追杀
    - 每动作消耗个人污染；环境污染按区域 pollution_accel 自然增长
-   - 行为驱动事件 + 合同 + 分支评估 + 自动 flag 更新
+   - 行为驱动事件 + 合同 + 分支评估 + 自动 flag 更新 + 残片发现
 4. 撤离（is_exit=true 区域 → 消耗 exit_cost）或 缝隙维护轨道（envPollution≥60% 强制传送 map=0 + 个人污染 +15%）
 5. 死亡 = 物资全失走尸体系统；撤离 = 物资入库 + 合同奖励
 6. 分支引擎在每次 persist 后评估 4 结局判定节点（崩解/清算/合流/探索）；触发即结局横幅 + 奖励发到全体存活玩家账户库
@@ -962,19 +969,22 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `src/app/page.js` | **2026-05 Phase 9.3 重写** — 远星函馆 lore 落地页（Hero / 现役对局快照 / 个人档案 / 4 实体 / 4 装备槽预览） |
 | `src/app/login/page.js` | 登录页 |
 | `src/app/register/page.js` | 注册页 |
-| `src/app/rooms/page.js` | **2026-05 Phase 9.2 重写 + Phase 11 术语收束** — 对局大厅（单一当前对局信息卡 + 数据栏 + 污染条 + 引导者列表 + 立即出勤大按钮） |
-| `src/app/stash/page.js` | **2026-05 新增** — 玩家账户库浏览页（容量条 + 装备 + 按 kind 分组） |
-| `src/app/contracts/page.js` | **2026-05 新增** — 合同列表（按状态过滤 + 进度 + 接受） |
+| `src/app/rooms/page.js` | **Phase 13 重写 + 15.1 加 CTA** — 周目记录列表（当前周目卡 + 历史周目结局图标列表 + active=0 时"启动下一周目"CTA 调 ensureNextRound） |
+| `src/app/stash/page.js` | 玩家账户库浏览页（容量条 + 装备 + 按 kind 分组）；Phase 15 修 ITEM_KIND_META.special crash |
+| `src/app/contracts/page.js` | 合同列表（按状态过滤 + 进度 + 接受） |
+| `src/app/archive/page.js` | **Phase 14 新增** — 跨周目残片档案库（统计条 / 分类过滤 / 4 级解码内容卡） |
 | `src/app/game/[id]/page.js` | 入口转发 |
-| `src/app/game/[id]/GameClientPage.jsx` | 局内主容器（含撤离按钮 + 结局横幅） |
+| `src/app/game/[id]/GameClientPage.jsx` | 局内主容器；**Phase 16 大改** — 删持续 battle 双卡布局，改为 encounter 红色 NPC 卡 + 袭击/放过双按钮，PvP 反击 toast 监听 lastPvpHit.seq；Phase 16.6 重新接入 LoadoutModal（"装载并加入"按钮） |
 | `src/app/game/[id]/CraftModal.jsx` | 装备合成面板 |
-| `src/app/game/[id]/ExtractionModal.jsx` | **2026-05 重写** — Phase 8 单出口信息卡（exit_cost 校验） |
-| `src/app/game/[id]/LootModal.jsx` | 敌人残骸拾取面板（**Phase 11.5** 文案对齐"无友好玩家"设定） |
-| `src/app/game/[id]/gameUi.js` | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象） |
-| `src/components/LoadoutModal.jsx` | **2026-05 重写** — Phase 8 双 4 槽位（probe/shield/weapon/comm + 4 消耗品） |
-| `src/components/GrantStashModal.jsx` | **2026-05 新增** — 管理员发放道具面板 |
-| `src/components/cards/*.jsx` | **2026-05 新增** — ItemCard / NpcCard / CardDnd 原语 |
-| `src/app/admin/page.js` | 管理后台入口，**13 标签页**（原 9 + 4 新） |
+| `src/app/game/[id]/ExtractionModal.jsx` | Phase 8 单出口信息卡（exit_cost 校验） |
+| `src/app/game/[id]/LootModal.jsx` | 敌人残骸拾取面板（Phase 11.5 文案对齐"无友好玩家"设定） |
+| `src/app/game/[id]/gameUi.js` | 局内通用 UI（HpBar, BuffTag, LogLine, PanelTitle, T 主题对象）；**Phase 15.2** Btn loading 改为 transform: scaleX 一次性填充进度条 |
+| `src/components/LoadoutModal.jsx` | Phase 8 双 4 槽位装载界面（probe/shield/weapon/comm + 4 消耗品）；Phase 13 调用方被砍后曾是死代码，**Phase 16.6 重新接入**（GameClientPage "加入游戏"按钮） |
+| `src/components/GrantStashModal.jsx` | 管理员发放道具面板；Phase 15 修 ITEM_KIND_META.special crash |
+| `src/components/cards/*.jsx` | ItemCard / NpcCard / CardDnd 原语；Phase 15 修 ItemCard 的 ITEM_KIND_META.special crash |
+| `src/components/fx/Shader.jsx` | **Phase 10 新增** — 5 WebGL 壁纸（pollution_field / deep_path / data_grid / bubble_layer / omega_iface）+ document.hidden 暂停 + WebGL 不可用兜底 |
+| `src/components/fx/ParticleText.jsx` | **Phase 10 新增** — 5 文本粒子模式（assemble / decode / glitch / corrupt / scan）+ prefers-reduced-motion 降级 |
+| `src/app/admin/page.js` | 管理后台入口，**14 标签页**（Phase 14 加 📡 残片） |
 
 ### 管理后台标签页 (`src/app/admin/_tabs/`)
 
@@ -982,17 +992,18 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 |------|------|------|
 | 📊 概览 | OverviewTab.jsx | 统计卡片 + 分布图 |
 | ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选；**2026-05 Phase 8** ITEM_SUB_KINDS 重写匹配远星 5 kind |
-| 🤖 NPC | NpcsTab.jsx | NPC CRUD + 按等级筛选；**2026-05 Phase 8** 加"🌌 远星属性"分组（entity_type / hostile / tradeable / trade_wants&offers / pollution_on_kill / spawn_weight / min_pollution） |
-| 🗺️ 地图 | MapsTab.jsx | **2026-05 重构** — 卡片化拖拽 + 双 Tab（道具池 / NPC 池）；表单加 6 个远星字段（pollution_base/accel, adjacent_maps, is_exit, exit_cost, omega_window） |
-| 🏠 房间 | RoomsTab.jsx | 查看/按状态筛选/强制结束/删除 |
-| 👥 用户权限 | UsersTab.jsx | 权限组管理 + **2026-05 新增 📦 发放道具** |
+| 🤖 实体 | NpcsTab.jsx | 实体 CRUD + 按等级筛选；Phase 8 加"🌌 远星属性"分组（entity_type / hostile / tradeable / trade_wants&offers / pollution_on_kill / spawn_weight / min_pollution）；**Phase 16** 加 accuracy / counter_rate（单次袭击 + 反击参数） |
+| 🗺️ 地图 | MapsTab.jsx | 卡片化拖拽 + 双 Tab（道具池 / 实体池）；表单加 6 个远星字段（pollution_base/accel, adjacent_maps, is_exit, exit_cost, omega_window） |
+| 🏠 对局 | RoomsTab.jsx | 查看/按状态筛选/强制结束/删除 |
+| 👥 用户权限 | UsersTab.jsx | 权限组管理 + 📦 发放道具 |
 | ⚙️ 战斗规则 | RulesTab.jsx | 规则公式编辑 + Buff 池管理 |
 | 🗡️ 装备引擎 | EquipmentTab.jsx | 装备子板块入口 |
-| 📜 合同 | **ContractsTab.jsx** | **2026-05 新增** — 合同 CRUD + 多目标多奖励编辑 |
-| 🎲 事件 | **EventsTab.jsx** | **2026-05 新增** — 触发器联动 + 多效果序列编辑 |
-| 🌿 分支 | **BranchesTab.jsx** | **2026-05 新增** — 条件聚合编辑（atLeast/atMost/all/any/default） |
-| 🎬 结局 | **EndingsTab.jsx** | **2026-05 新增** — 结局 key + 剧情文本 + 奖励 |
-| 🗄️ DB 控制台 | DbConsoleTab.jsx | 直查 SQL |
+| 📜 合同 | ContractsTab.jsx | 合同 CRUD + 多目标多奖励编辑 |
+| 🎲 事件 | EventsTab.jsx | 触发器联动 + 多效果序列编辑 |
+| 🌿 分支 | BranchesTab.jsx | 条件聚合编辑（atLeast/atMost/all/any/default） |
+| 🎬 结局 | EndingsTab.jsx | 结局 key + 剧情文本 + 奖励 |
+| 📡 残片 | **FragmentsTab.jsx** | **Phase 14 新增（14.1 修 BTN/Modal/RLS bug）** — 残片 CRUD + 4 级解码内容编辑器 |
+| 🗄️ DB 控制台 | DbConsoleTab.jsx | 直查 SQL；Phase 14 加残片池/玩家残片快捷查询 |
 
 装备引擎子组件：
 - `EquipmentSeriesSection.jsx` (1431 行) — 系列/阶/变体编辑 + 合成树预览
@@ -1068,9 +1079,9 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner, version) |
 | `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05) |
 | `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). 2026-05 Phase 8 重灌为远星 5 kind（tech_fragment/platform_part/omega_matter/equipment/consumable）；Phase 11 改写所有 description 为 lore 风格短句 |
-| `npc_pool` | NPC 池 (name, hp, atk, def, exp, level, maps[]). **2026-05 Phase 8 新增列**：`entity_type`, `hostile`, `tradeable`, `trade_wants` jsonb, `trade_offers` jsonb, `pollution_on_kill`, `spawn_weight`, `min_pollution` |
+| `npc_pool` | 实体池 (name, hp, atk, def, exp, level, maps[]). **Phase 8 新增列**：`entity_type`, `hostile`, `tradeable`, `trade_wants` jsonb, `trade_offers` jsonb, `pollution_on_kill`, `spawn_weight`, `min_pollution`. **Phase 16 新增列**：`accuracy`（NPC 反击命中率，默认 0.85）+ `counter_rate`（被攻击触发反击的概率，默认 0.30） |
 | `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked). **2026-05 Phase 8 新增列**：`pollution_base`, `pollution_accel`, `adjacent_maps` jsonb, `is_exit` bool, `exit_cost` jsonb, `omega_window`. （Phase 3 的 `extraction_points` jsonb 已在 Phase 8 中被替换） |
-| `game_rules` | 动态规则 (key, value, category) |
+| `game_rules` | 动态规则 (key, value, category)；**Phase 14** 加 `search_fragment_chance`（残片基础发现率 0.12）；**Phase 16** 加 `player_attack_accuracy`（玩家攻击命中率 0.85）+ `player_counter_rate`（PvP 防御方反击率 0.40） |
 | `buff_pool` | Buff 池 (name, icon, is_debuff) |
 | `equipment_series` | 装备系列 (name, slot, icon) |
 | `equipment_tiers` | 装备阶 (series_id, tier, rarity, variant, name, base_atk, base_def, element, passive_id) |
@@ -1079,7 +1090,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `recipe_ingredients` | 配方材料 (quantity, is_consumed, is_catalyst, ingredient_type, item/equipment FK) |
 | `passive_skills` | 被动技能 (name, icon, trigger_chance, effect 定义) |
 
-### 2026-05 新增表（6 张，搜打撤大改造）
+### 2026-05 新增表（8 张，搜打撤大改造 + Phase 14 残片）
 
 | 表名 | 用途 |
 |------|------|
@@ -1089,6 +1100,8 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `event_pool` | 事件库 (trigger jsonb, effects jsonb, weight, once, cooldown, active) |
 | `branch_nodes` | 分支节点 — 条件聚合引擎 (conditions jsonb, branches jsonb, scope, once, active) |
 | `endings` | 多结局元数据 (key UNIQUE, name, banner_text, rewards jsonb, active) |
+| `fragment_pool` | **Phase 14 新增** — 残片模板池 (name, raw_text/partial_1/partial_2/full_text 4 级解码内容, category, rarity, discover_mode, maps[], min_pollution, requires_fragment_id, weight, enabled). RLS 关闭与项目惯例一致 |
+| `player_fragments` | **Phase 14 新增** — 玩家跨周目持久残片记录 (user_id, fragment_id, decode_level 0-3, discovered_at, last_decoded, discover_cycle), UNIQUE(user_id, fragment_id). RLS 启用：玩家只能读自己的；服务端用 service_role bypass |
 
 ### gamevars JSONB 内的运行时字段（2026-05 新增）
 
@@ -1119,7 +1132,15 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `players[uid].extractedItems` | 撤离时快照的物品列表 |
 | `players[uid].loadout` | `{probe, shield, weapon, comm}` 4 装备槽 instanceId |
 
-共 **19 张表 + 13 类 gamevars 运行时字段**（Phase 0-7 + Phase 8）。
+**Phase 16 单次袭击模型新增字段**：
+| 字段 | 用途 |
+|------|------|
+| `npcInstances[]` | **房间共享** NPC 实例池 — 每条 `{ id, npcId, npc: 池数据快照, hp, maxHp, mapId, createdAt }`。HP 跨袭击持久化；死亡时整条移出 |
+| `players[uid].encounter` | `{ instanceId }` 引用 npcInstances 中的某只 NPC（搜索抽到时设；袭击/放过/任何其他动作时清） |
+| `players[uid].lastPvpHit` | `{ seq, fromName, damage, countered, counterDmg, at }` PvP 反击事件，前端用 seq 变化触发被攻击 toast |
+| `players[uid].battle` | **已废弃**（旧字段保留向后兼容；新代码只读 encounter） |
+
+共 **21 张表 + 16 类 gamevars 运行时字段**（Phase 0-7 + 8 + 14 + 16）。
 
 ---
 
@@ -1249,8 +1270,38 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - GameClientPage 左侧栏 PvP 面板下方新增 "🌿 交易" 面板
 - `loadMapData` 同时查 `npc_pool.tradeable=true`，按当前 mapId 过滤
 - 每个可交易 NPC 卡显示：entity_type 徽章 + 名称 + want/offer 物品 + 玩家持有数 N/M
-- 按钮校验：物品足够 + 玩家存活 + 不在战斗 + 房间未结束
+- 按钮校验：物品足够 + 玩家存活 + 房间未结束
 - 触发 `trade` action（已在 Phase 8.4 接入）→ 服务端校验 + 交换 + applyInteractPollution + entityInteractions/totalEntityInteractions++ → 推动"合流结局"判定（全员 entityInteractions ≥4 + envPollution ≤60）
+
+### 19. 跨周目残片系统（2026-05 Phase 14 新增）
+- `fragment_pool` 残片模板池 + `player_fragments` 玩家发现记录（跨周目持久化）
+- 4 级解码内容（`raw_text` 乱码占位 → `partial_1` ~30% → `partial_2` ~70% → `full_text` 完整）
+- 5 类 category（general / omega / eden / bubble / structure）+ 4 稀有度
+- 发现机制：搜索成功率链最末端，基础 12% 概率（迷雾天气 ×1.3，风暴 ×0.95）；70% 抽未发现 / 30% 推进已知解码
+- `discoverFragment(client, userId, mapId, pollution, gamenum)` 候选过滤（地图 + 污染 + 前置）→ 权重抽取 → upsert/update
+- `/archive` 档案库页：统计条 + 分类过滤 + 4 级展开内容卡（level 0 显示 `████████` 名字遮罩，level 3 显示完整文本）
+
+### 20. 单次袭击战斗模型（2026-05 Phase 16 新增）
+- **核心设计变更**：从"持续 battle 状态"改为"每次搜索遭遇是一次单次袭击机会"
+  - 搜索遇到 NPC → 设 `player.encounter = { instanceId }` → 中央面板红色 NPC 卡 + ⚔️袭击 / 放过双按钮
+  - 任何其他动作（搜索/移动/交易/撤离）= 隐式放过（自动清 encounter + 写"X 放过了 Y"日志）
+- **NPC HP 跨袭击持久化**：`gamevars.npcInstances[]` 池 — 每条 `{ id, npcId, npc, hp, maxHp, mapId, createdAt }`
+  - `pickOrSpawnNpcInstance(resolution, mapId, npcPool)` — 60% 复用同地图存活实例 / 40% 新建
+  - 死亡时整条移出池
+  - 同一只 NPC 可被多玩家 / 多次袭击追杀，HP 累计减
+- **单次结算流程**（`resolveNpcAttackAction`）：
+  1. 玩家命中判定（`game_rules.player_attack_accuracy` = 0.85）
+  2. 命中 → `calcDamage` + 污染调整 → instance.hp 扣 → 击杀分支（移出池 + 尸体 + 战利品 + 击杀计数 + boss flag + flag + 事件 + 合同）/ 未命中只写日志
+  3. 反击判定（**独立于命中**，但 NPC 已死则不反击）：`rand < npc.counter_rate`
+  4. 反击命中（`npc.accuracy`）→ `calcDamage(npc, player)` → 玩家扣血 / 玩家死亡处理
+  5. 无论结果清空 `player.encounter`
+- **PvP 反击 + toast**（`resolvePlayerAttackAction`）：
+  - 攻击命中后 `rand < game_rules.player_counter_rate` (0.4) → 触发反击
+  - 反击命中判定（共用 player_attack_accuracy）→ calcDamage → 攻击者扣血 / 攻击者被反杀处理
+  - 写 `defender.lastPvpHit = { seq++, fromName, damage, countered, counterDmg, at }`
+  - 客户端 useRef 跟踪 seq 变化，弹"⚠ 被 X 攻击造成 N 伤害"红色 toast
+- **删除项**：`fleeNpc` action（持续战斗逃跑机制不再需要）；删 `if (player.battle) throw` 4 处旧阻塞检查
+- **向后兼容**：旧 `player.battle` 字段保留（不读不写），旧 raid 数据不受影响
 
 ---
 
@@ -1267,17 +1318,22 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 
 | 问题 | 说明 | 优先级 |
 |------|------|--------|
-| gameActions.js 越来越大 | ~1950 行（Phase 8 加 4 个新动作 + 污染钩子 + loadout 接线），可按动作模块拆分 | 中 |
-| GameClientPage.jsx 持续膨胀 | ~770 行（含污染条 + Ω 倒计时 + 邻接图 + 结局横幅 + 交易面板），考虑拆子面板组件 | 中 |
+| gameActions.js 越来越大 | ~2200 行（Phase 16 加 NPC 实例池 + 单次袭击 + PvP 反击逻辑），可按动作模块拆分 | 中 |
+| GameClientPage.jsx 持续膨胀 | ~870 行（Phase 16 加 encounter 卡 + PvP toast；Phase 16.6 加装载流程），考虑拆子面板组件 | 中 |
 | 装备槽 raid 内更换 | equipLoadout action 服务端就绪，但 UI 还没接（玩家进 raid 后无法换 4 槽） | 中 |
-| comm 槽侦察增益 | 服务端识别已就绪（getLoadoutEffects.comm），但 attackPlayer response 还没暴露目标 hp/loadout 摘要；PvP 卡 hover 还没接（Phase 11.5 重写后的待办） | 中 |
+| comm 槽侦察增益接线 | 服务端识别已就绪（getLoadoutEffects.comm），但 attackPlayer response 还没暴露目标 hp/loadout 摘要；PvP 卡 hover 还没接（Phase 11.5 重写后的待办） | 中 |
+| Phase 16 命中/反击参数缓存 | 每次袭击/PvP 都查 game_rules — 实际 loadGameRules 已经缓存 5 分钟，成本低；如要进一步优化可单独抽常量 | 低 |
+| Phase 16 encounter 卡视觉 | 可加 `ENTITY_TYPE_META` 徽章（残响/伪装/共生/观察），目前只显示 NPC 名字 + HP 条 | 低 |
+| Phase 16 战斗记录视图 | 删了原"右侧战斗记录面板"，全部并入顶部公共日志；可考虑加"近期战斗"过滤视图 | 低 |
+| 散落物 itemPool 空时残片概率被放大 | searchArea 防御导致 itemPool=0 的地图把散落物份额"漏"给残片；远星 7 张地图都有 itemPool 不触发，可忽略 | 低 |
 | EquipmentSeriesSection.jsx 过大 | 1431 行，可拆分 | 低 |
 | 事件系统 effects 完整性 | 当前 8 种 effect，可扩展至冷却/状态异常/物品掉率/天气切换等 | 中 |
 | 分支引擎条件覆盖 | 9 种条件 + `anyPlayerHas {key,minValue}` 重载够用但偏基础；可扩展 flag 比较运算符 / 玩家间关系 / 时间条件等 | 低 |
 | 合同失败/超时 | 当前只有完成态，无失败/超时态 | 低 |
 | 玩家结局展示页 | 游戏内顶部横幅展示，但缺独立"我的结局收藏"页 | 低 |
 | 多人分支冲突 | scope='room' 节点目前任意玩家触发即生效，多人剧情同步可优化 | 中 |
-| smoke 覆盖有限 | 仅核心状态函数；新加的 stash/contracts/events/branches/endings/pollution 模块未覆盖 | 中 |
+| 残片"发现新残片"引导 | 搜索发现残片日志只是文字提示，UX 可加 toast/链接引导玩家去 `/archive` 查看 | 低 |
+| smoke 覆盖有限 | 仅核心状态函数；新加的 stash/contracts/events/branches/endings/pollution/fragments/单次袭击 模块未覆盖 | 中 |
 | 构建验证 | `npm run lint && npm run build` 每次提交都验证通过 | 维护中 |
 
 ---
@@ -1360,17 +1416,20 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - 连击机制：特定武器/技能可触发多段攻击
 - PvP + PvE 共存，NPC 有 AI 行为模式
 
-**DTSV 当前状态：** ⚠ 基础实现
+**DTSV 当前状态（Phase 16 单次袭击模型）：** ⚠ 基础实现，但与原版方向不同
 - ✅ 基础攻击/防御伤害计算（通过 evalFormula 动态公式）
-- ✅ PvP 和 PvE 战斗
-- ✅ Buff/Debuff 系统框架
-- ❌ 姿态系统
-- ❌ 策略系统
+- ✅ PvE 单次袭击 — 玩家命中（85%）+ NPC 反击（counter_rate / accuracy）
+- ✅ NPC 实例池跨袭击 HP 持久化
+- ✅ PvP 单次攻击 + 反击（player_counter_rate 0.4）+ 被攻击方 toast
+- ✅ Buff/Debuff 系统框架（DoT / 持续效果通过 buff 实现）
+- ❌ 姿态系统（已被 Phase 0 主动放弃）
+- ❌ 策略系统（已被 Phase 0 主动放弃）
 - ❌ 部位伤害
 - ❌ 元素克制
-- ❌ 状态异常（毒/烧/冻/麻/乱）
+- ❌ 状态异常（毒/烧/冻/麻/乱）— Buff 框架可承载，但当前未配
 - ❌ 连击机制
 - ❌ 怒气暴击
+- ❌ 持续战斗状态（**Phase 16 主动放弃** — 改为单次袭击 + 实例池追杀模型）
 
 ---
 
