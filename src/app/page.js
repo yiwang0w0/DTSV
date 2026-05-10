@@ -96,7 +96,7 @@ export default function Home() {
 
   return (
     <div className="animate-in" style={{ paddingBottom: 40 }}>
-      <HeroSection user={user} envPollution={envPollution} />
+      <HeroSection user={user} envPollution={envPollution} snapshot={snapshot} />
       <RaidSnapshotCard snapshot={snapshot} />
       {user && meStats && <PersonalStatsCard meStats={meStats} />}
       <EntitiesPreview />
@@ -110,7 +110,7 @@ export default function Home() {
 // 设计稿来源：claude.ai/design 远星函馆 FX 演示。Hero 用「污染场」shader（fbm 域扭曲，柔和云团）+
 // 「decode」文字粒子（纯 DOM，0 Canvas）。pollution 用当前 active 对局的 envPollution 联动。
 // 注：原型 deep_path（隧道）首页太晕，按用户反馈改用 pollution_field 与设计稿一致。
-function HeroSection({ user, envPollution = 0 }) {
+function HeroSection({ user, envPollution = 0, snapshot }) {
   return (
     <div style={{
       position: 'relative', overflow: 'hidden', isolation: 'isolate',
@@ -163,7 +163,7 @@ function HeroSection({ user, envPollution = 0 }) {
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {user ? (
-            <Link href="/rooms" style={ctaPrimary}>🚀 立即出勤</Link>
+            <Link href={snapshot ? `/game/${snapshot.id}` : '/rooms'} style={ctaPrimary}>🚀 立即出勤</Link>
           ) : (
             <>
               <Link href="/login" style={ctaPrimary}>登录</Link>
@@ -197,7 +197,7 @@ function RaidSnapshotCard({ snapshot }) {
   const isActive = snapshot.gamestate === 1
 
   return (
-    <Link href="/rooms" style={{ textDecoration: 'none' }}>
+    <Link href={`/game/${snapshot.id}`} style={{ textDecoration: 'none' }}>
       <div style={{ ...sectionCard, cursor: 'pointer', transition: 'border-color .2s' }}
            className="hov-card">
         <SectionHeader
@@ -209,12 +209,12 @@ function RaidSnapshotCard({ snapshot }) {
           <Stat label="在场" value={snapshot.alivenum || 0} color={C.text} />
           <Stat label="已撤离" value={extracted} color={C.green} />
           <Stat label="阵亡" value={snapshot.deathnum || 0} color={C.red} />
-          <Stat label="回合" value={turn} color={C.dim} />
+          <Stat label="周目" value={turn} color={C.dim} />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-            <span style={{ color: C.dim }}>环境污染 · {tierMeta?.label}</span>
-            <span style={{ color: tierMeta?.color, fontFamily: 'monospace', fontWeight: 700 }}>{env}/100</span>
+            <span style={{ color: C.dim }}>污染度 · {tierMeta?.label}</span>
+            <span style={{ color: tierMeta?.color, fontFamily: 'monospace', fontWeight: 700 }}>{env}%</span>
           </div>
           <div style={{ height: 6, borderRadius: 3, background: C.bg2, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${env}%`, background: tierMeta?.color, transition: 'width .3s' }} />

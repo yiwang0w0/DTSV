@@ -39,7 +39,7 @@ function Nav({ user, onLogout }) {
   const path = usePathname()
   const links = [
     { href: '/', label: '首页' },
-    { href: '/rooms', label: '对局大厅' },
+    { href: '/rooms', label: '周目记录' },
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
     ...(user ? [{ href: '/contracts', label: '合同' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
