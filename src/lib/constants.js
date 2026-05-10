@@ -62,7 +62,7 @@ export const LOADOUT_SLOT_META = {
             desc: '搜索成功率+15%，搜索失败污染惩罚-50%' },
   shield: { label: '防护装置', color: '#3fb950', icon: '🛡️',
             desc: '个人污染累积速度×0.7，Ω-段窗口+1回合' },
-  weapon: { label: '武器模组', color: '#f85149', icon: '⚔️',
+  weapon: { label: '武器模块', color: '#f85149', icon: '⚔️',
             desc: '对抗实体伤害+25%，环境污染增速+1/回合' },
   comm:   { label: '通信组件', color: '#d29922', icon: '📡',
             desc: 'PvP误判率-50%，短暂显示其他操作员真实身份' },

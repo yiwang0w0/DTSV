@@ -539,7 +539,7 @@ export default function GameClientPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontSize: 14, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={busy || room.gamestate === 2}>
-                    {busy ? '攻击中...' : '攻击 NPC'}
+                    {busy ? '攻击中...' : '攻击实体'}
                   </Btn>
                   <Btn variant="ghost" sx={{ flex: 1 }} onClick={() => runGameAction('flee')} disabled={busy || room.gamestate === 2}>逃跑</Btn>
                 </div>

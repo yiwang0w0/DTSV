@@ -11,11 +11,11 @@ export default function OverviewTab({ items, npcs, maps, rooms }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, marginBottom: 20 }}>
         <StatCard label="道具总数" value={items.length} icon="🔮" color="#f85149"
           sub={`碎片 ${items.filter(i=>i.kind==='tech_fragment').length} / 部件 ${items.filter(i=>i.kind==='platform_part').length} / 消耗品 ${items.filter(i=>i.kind==='consumable').length}`} />
-        <StatCard label="NPC总数" value={npcs.length} icon="👻" color="#bc8cff"
+        <StatCard label="实体总数" value={npcs.length} icon="👻" color="#bc8cff"
           sub={`BOSS ${npcs.filter(n=>n.level==='boss').length} / 困难 ${npcs.filter(n=>n.level==='hard').length} / 中等 ${npcs.filter(n=>n.level==='medium').length}`} />
         <StatCard label="活跃地图" value={maps.length} icon="🗺️" color="#3fb950"
           sub={exitMaps > 0 ? `${exitMaps} 个撤离点 / 共 ${maps.length} 区域` : `共 ${maps.length} 个区域`} />
-        <StatCard label="进行中房间" value={activeRooms} icon="🏠" color="#58a6ff"
+        <StatCard label="进行中对局" value={activeRooms} icon="🏠" color="#58a6ff"
           sub={`等待中 ${waitingRooms} / 历史记录 ${rooms.length}`} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

@@ -28,7 +28,7 @@ export const WEATHER = {
 }
 
 export const SLOTS = [
-  { key: 'weapon', label: '武器' },
+  { key: 'weapon', label: '武器模块' },
   { key: 'armor', label: '护甲' },
   { key: 'helmet', label: '头盔' },
   { key: 'boots', label: '靴子' },

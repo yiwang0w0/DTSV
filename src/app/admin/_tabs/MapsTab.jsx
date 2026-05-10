@@ -256,7 +256,7 @@ export default function MapsTab({
                   <div>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{map.name || `地图 ${map.map_id}`}</span>
                     {map.blocked && (
-                      <span style={{ marginLeft: 6, fontSize: 10, color: C.red, padding: '1px 6px', borderRadius: 6, background: `${C.red}20`, border: `1px solid ${C.red}40` }}>禁区</span>
+                      <span style={{ marginLeft: 6, fontSize: 10, color: C.red, padding: '1px 6px', borderRadius: 6, background: `${C.red}20`, border: `1px solid ${C.red}40` }}>封闭段</span>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -390,14 +390,14 @@ export default function MapsTab({
               </div>
 
               <button
-                onClick={() => updateNow(sel.map_id, { blocked: !sel.blocked }, sel.blocked ? '已解除禁区' : '已设为禁区')}
+                onClick={() => updateNow(sel.map_id, { blocked: !sel.blocked }, sel.blocked ? '已解除封闭' : '已设为封闭')}
                 style={{
                   ...BTN(sel.blocked ? `${C.green}20` : `${C.red}20`, sel.blocked ? C.green : C.red),
                   marginTop: 14, width: '100%', justifyContent: 'center',
                   border: `1px solid ${sel.blocked ? `${C.green}40` : `${C.red}40`}`,
                 }}
               >
-                {sel.blocked ? '✅ 解除禁区' : '⛔ 设为禁区'}
+                {sel.blocked ? '✅ 解除封闭' : '⛔ 设为封闭'}
               </button>
             </div>
 

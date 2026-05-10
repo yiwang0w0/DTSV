@@ -12,7 +12,7 @@ async function findOpenRoom(client) {
     .maybeSingle()
 
   if (error && error.code !== 'PGRST116') {
-    throw new Error(error.message || '获取房间状态失败')
+    throw new Error(error.message || '获取对局状态失败')
   }
 
   return data || null
@@ -38,6 +38,6 @@ export async function POST(request) {
     const room = await createRoom(auth.supabase, auth.user, payload)
     return NextResponse.json({ room, created: true })
   } catch (error) {
-    return NextResponse.json({ error: error.message || '创建房间失败' }, { status: 500 })
+    return NextResponse.json({ error: error.message || '创建对局失败' }, { status: 500 })
   }
 }

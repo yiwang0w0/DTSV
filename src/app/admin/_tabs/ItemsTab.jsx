@@ -31,7 +31,7 @@ const ITEM_SUB_KINDS = {
   equipment: [
     { value: 'probe',  label: '探测设备' },
     { value: 'shield', label: '防护装置' },
-    { value: 'weapon', label: '武器模组' },
+    { value: 'weapon', label: '武器模块' },
     { value: 'comm',   label: '通信组件' },
   ],
 }
