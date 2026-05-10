@@ -1,7 +1,84 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 15.1 周目死路修复 + ITEM_KIND_META 残余遗漏
-整理方式：基于全量源码交叉验证 + Phase 0-15.1 改造提交记录。
+更新时间：2026-05-10（Asia/Tokyo） · Phase 16 单次袭击战斗模型重做（NPC 实例池 + PvP 反击）
+整理方式：基于全量源码交叉验证 + Phase 0-16 改造提交记录。
+
+## 最近变更（2026-05-10 / Phase 16）— 单次袭击战斗模型重做
+
+> 用户拍板的核心设计变更：
+> 1. 战斗不再"持续进行" — 玩家每次攻击是一次单结算（命中 + 反击判定一次完成）
+> 2. NPC 实例池跨袭击持久化 — 同一只 NPC 被反复遭遇时 HP 累计
+> 3. 所有判定在攻击者侧做，被攻击方"无感"（仅日志 + PvP 一个 toast）
+> 4. 反击不依赖攻击是否命中（独立判定）；反击 = NPC 一次完整攻击
+>
+> 旧 `player.battle` 持续战斗状态字段废弃（保留向后兼容），新引入
+> `gamevars.npcInstances` 池 + `player.encounter` 引用。
+
+### Phase 16 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 16.1 | `scripts/single-shot-combat-schema.sql` — npc_pool 加 accuracy / counter_rate + game_rules 加 player_attack_accuracy (0.85) / player_counter_rate (0.4) | `785af26` |
+| 16.2 | `roomState.js` — gamevars.npcInstances 池字段 + player.encounter / lastPvpHit 字段 + 3 个 normalize helper | `ac90cad` |
+| 16.3 | `gameActions.js` — searchArea 改用 pickOrSpawnNpcInstance、resolveNpcAttackAction 重写为单次袭击、attackPlayer 加反击 + lastPvpHit、删 fleeNpc、其他动作清 encounter | `97e4540` |
+| 16.4 | `GameClientPage.jsx` — encounter 红色描边 NPC 卡 + ⚔️ 袭击 / 放过双按钮、删持续 battle 双卡布局、PvP toast 监听 lastPvpHit.seq | `c8ebdde` |
+| 16.5 | `NpcsTab.jsx` — admin 加 accuracy / counter_rate 字段编辑 | `58f6ba8` |
+
+### 战斗模型对照（Phase 15 → Phase 16）
+
+| 项 | Phase 15 | Phase 16 |
+|----|---------|---------|
+| 战斗状态 | `player.battle = { npc, npcHp, npcMaxHp, turn, log }` 持续 | `player.encounter = { instanceId }` 单次机会 |
+| NPC HP 持久化 | 否（每次搜索 fresh）| **是**（实例池 `gamevars.npcInstances[]`，跨袭击保留 HP）|
+| 一次攻击结算 | 玩家打 NPC + NPC 反击 = 一回合，battle 字段持续到一方倒下 | 玩家命中判定 → 命中扣 HP → 反击判定（独立）→ 反击命中扣玩家血 → 清 encounter |
+| 反击触发条件 | 必反击（每回合）| `rand < npc.counter_rate`，与命中无关 |
+| 命中判定 | 必中 | 玩家：`game_rules.player_attack_accuracy` (0.85)；NPC 反击：`npc.accuracy` |
+| 逃跑 | flee action 逃跑率 60% | **删除**（不需要，单次结算后 NPC 自动离开）|
+| 阻塞其他动作 | battle 中无法 search/move/extract/trade | encounter **不阻塞** — 任何其他动作 = 隐式放过 |
+| PvP 反击 | 无 | `player_counter_rate` (0.4) 决定，写 `lastPvpHit` 给被攻击方 toast |
+| 死代码清理 | — | LoadoutModal.jsx 仍是孤儿（与 Phase 13 已记录），未本次清 |
+
+### NPC 实例池机制
+
+`gamevars.npcInstances[]` — 房间共享，每条：
+```js
+{ id, npcId, npc: 池数据快照, hp, maxHp, mapId, createdAt }
+```
+
+**搜索抽取规则**（`pickOrSpawnNpcInstance`）：
+- 同地图存活实例池有 N 只 → **60% 复用** / 40% 新建
+- 池为空 → 必新建
+- 死亡 → 移出池 + 触发尸体/掉落/合同
+
+**HP 跨袭击持久化**：玩家伤了一只 NPC 放过 → 下次搜索 60% 概率再遇到这只（HP 已减），可继续追杀直到死亡。
+
+### PvP 反击 + toast
+
+`resolvePlayerAttackAction` 增量：
+- 攻击命中后 → `rand < game_rules.player_counter_rate` (0.4) 触发反击
+- 反击命中判定（用 player_attack_accuracy 共享）→ 命中扣攻击者血
+- 攻击者被反击杀死 → 死亡处理 + 尸体生成
+
+**toast** 路径：服务端写 `defender.lastPvpHit = { seq++, fromName, damage, countered, counterDmg, at }`；客户端 `useRef` 跟踪 seq 变化时弹 error toast。
+
+### 部署步骤
+
+1. **Supabase SQL Editor** 跑 `scripts/single-shot-combat-schema.sql`（npc_pool 加 2 列 + game_rules 加 2 个常量）
+2. 验证：`SELECT name, hp, accuracy, counter_rate FROM npc_pool LIMIT 5` 看到新列
+3. `npm run build` 全程绿
+4. 走查路径：搜索遇到 NPC → 中央面板红色描边卡 + 袭击/放过按钮 → 点袭击：单次结算（命中或未命中 + 可能反击）→ encounter 消失 → 再次搜索 60% 概率遇到同一只（HP 已减）
+
+### 已知优化项（不阻塞功能）
+
+- **`game_rules.player_attack_accuracy` / `player_counter_rate` 缓存**：每次 attackNpc / attackPlayer 都查 game_rules，若需可加 5 分钟缓存（gameEngine.loadGameRules 已经缓存了，所以实际成本低，可忽略）
+- **encounter 卡视觉**：可加 ENTITY_TYPE_META 徽章（残响/伪装/共生/观察）
+- **NPC 战斗记录右侧面板**：Phase 16 删了原"战斗记录"，全部改为顶部公共日志；可考虑加"近期战斗"过滤视图
+
+---
+
+---
+
+## 历史变更（2026-05-10 / Phase 15.1）— 周目死路修复 + ITEM_KIND_META 残余遗漏
 
 ## 最近变更（2026-05-10 / Phase 15.1）— 周目流程死路修复 + 残余 bug 收尾
 
