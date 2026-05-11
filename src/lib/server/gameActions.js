@@ -1038,19 +1038,24 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     } catch (e) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
-    // Phase 18.1: 击杀链残片发现（combat chain）— 20% 概率
+    // Phase 18.1+20.7: 击杀链残片发现（combat chain）— PvE 击杀夺残片
+    // 概率按 NPC 等级缩放：easy 10% / medium 25% / hard 45% / boss 80%
+    // 让高等级击杀对 meta-progression(知识解锁) 有显著推力
     try {
-      if (Math.random() < 0.2) {
+      const npcLvl = instance.npc.level || 'easy'
+      const dropChance = ({ easy: 0.10, medium: 0.25, hard: 0.45, boss: 0.80 })[npcLvl] ?? 0.20
+      if (Math.random() < dropChance) {
         const eff = calcEffectivePollution(
           resolution.gamevars.envPollution || 0,
           getResolutionPlayer(resolution, user.id)?.personalPollution || 0,
         )
         const fragment = await discoverFragment(client, user.id, player.map ?? 0, eff.effective, room.gamenum || 1, { chain: 'combat' })
         if (fragment) {
+          const verb = npcLvl === 'boss' ? '从 boss 残骸中夺取了' : '从残骸中夺取了'
           const note = fragment.isNew
-            ? `从【${instance.npc.name}】残骸中发现数据残片【${fragment.name}】`
-            : `从【${instance.npc.name}】残骸中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
-          appendResolutionLog(resolution, `${player.name} ${note}`, 'system')
+            ? `${verb}数据残片【${fragment.name}】`
+            : `${verb}【${fragment.name}】的更深一层解码（${fragment.decode_level}/3）`
+          appendResolutionLog(resolution, `${player.name}（击杀 ${instance.npc.name}）${note}`, npcLvl === 'boss' ? 'crit' : 'system')
           // Phase 20.4: 合成解锁日志
           for (const u of (fragment.comboUnlocks || [])) {
             appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')

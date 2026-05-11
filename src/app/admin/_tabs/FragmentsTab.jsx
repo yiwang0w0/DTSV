@@ -61,6 +61,13 @@ const EMPTY_FRAGMENT = {
   requires_fragment_id: null,
   weight: 1.0,
   enabled: true,
+  // Phase 20.1: 残片完全解码后对下次 raid 的解锁规则
+  unlocks_rules: {
+    chamber_weight: {},
+    lore_chunk_pool: [],
+    npc_unlock: [],
+    item_amount_delta: {},
+  },
 }
 
 export default function FragmentsTab({ toast }) {
@@ -99,6 +106,14 @@ export default function FragmentsTab({ toast }) {
       ...f,
       maps: f.maps || [],
       phase_chain: f.phase_chain || 'search',
+      // Phase 20.1: 合并解锁规则字段（DB 字段可能为空对象）
+      unlocks_rules: {
+        chamber_weight: {},
+        lore_chunk_pool: [],
+        npc_unlock: [],
+        item_amount_delta: {},
+        ...(f.unlocks_rules || {}),
+      },
     })
     setModal(true)
   }
@@ -425,6 +440,95 @@ export default function FragmentsTab({ toast }) {
                 placeholder="完整可读的残片内容..."
                 style={{ ...INPUT, resize: 'vertical' }}
               />
+            </div>
+          </div>
+
+          {/* Phase 20.1: 解锁规则编辑器 — 完全解码后的下次 raid 影响 */}
+          <div style={SECTION_TITLE}>🔓 解锁规则 <span style={{ color: '#484f58', fontWeight: 400 }}>（完全解码后影响下次 raid）</span></div>
+          <div style={{
+            background: 'rgba(188,140,255,0.05)',
+            border: '1px solid rgba(188,140,255,0.2)',
+            borderRadius: 6, padding: 12,
+            display: 'flex', flexDirection: 'column', gap: 14,
+          }}>
+            {/* lore_chunk_pool — 解锁的 chamber 描述短句池 */}
+            <div>
+              <label style={LABEL}>Lore 短句池 <span style={{ color: '#484f58' }}>（每行一条，会随机注入 chamber 描述）</span></label>
+              <textarea
+                rows={3}
+                value={(editFrag.unlocks_rules?.lore_chunk_pool || []).join('\n')}
+                onChange={e => setEditFrag({
+                  ...editFrag,
+                  unlocks_rules: {
+                    ...(editFrag.unlocks_rules || {}),
+                    lore_chunk_pool: e.target.value.split('\n').map(s => s.trim()).filter(Boolean),
+                  },
+                })}
+                placeholder="【Ω-观测残片】回声内含 17.3Hz 节律"
+                style={{ ...INPUT, resize: 'vertical', fontSize: 12 }}
+              />
+              <p style={HINT}>每行一条；30% 概率被注入到本局 chamber 描述里</p>
+            </div>
+
+            {/* chamber_weight — JSON 编辑器（key=template_id, value=delta） */}
+            <div>
+              <label style={LABEL}>Chamber 抽取权重加成 <span style={{ color: '#484f58' }}>（JSON：template_id → delta）</span></label>
+              <textarea
+                rows={2}
+                value={JSON.stringify(editFrag.unlocks_rules?.chamber_weight || {})}
+                onChange={e => {
+                  try {
+                    const obj = JSON.parse(e.target.value || '{}')
+                    setEditFrag({
+                      ...editFrag,
+                      unlocks_rules: { ...(editFrag.unlocks_rules || {}), chamber_weight: obj },
+                    })
+                  } catch { /* 静默：保留原值 */ }
+                }}
+                placeholder='{"5": 2, "12": -1}'
+                style={{ ...INPUT, resize: 'vertical', fontSize: 11, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+              />
+              <p style={HINT}>正数加权重（更可能被抽到），负数减；最低 0.1 保底</p>
+            </div>
+
+            {/* npc_unlock — int array */}
+            <div>
+              <label style={LABEL}>解锁 NPC ID 列表 <span style={{ color: '#484f58' }}>（逗号分隔）</span></label>
+              <input
+                type="text"
+                value={(editFrag.unlocks_rules?.npc_unlock || []).join(',')}
+                onChange={e => setEditFrag({
+                  ...editFrag,
+                  unlocks_rules: {
+                    ...(editFrag.unlocks_rules || {}),
+                    npc_unlock: e.target.value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)),
+                  },
+                })}
+                placeholder="3,17,42"
+                style={INPUT}
+              />
+              <p style={HINT}>把这些 NPC 加入本局 chamber NPC 池（即使 chamber_template_ids 不含）</p>
+            </div>
+
+            {/* item_amount_delta — JSON */}
+            <div>
+              <label style={LABEL}>物品掉落权重加成 <span style={{ color: '#484f58' }}>（JSON：物品名 → delta）</span></label>
+              <textarea
+                rows={2}
+                value={JSON.stringify(editFrag.unlocks_rules?.item_amount_delta || {})}
+                onChange={e => {
+                  try {
+                    const obj = JSON.parse(e.target.value || '{}')
+                    setEditFrag({
+                      ...editFrag,
+                      unlocks_rules: { ...(editFrag.unlocks_rules || {}), item_amount_delta: obj },
+                    })
+                  } catch { /* 静默 */ }
+                }}
+                placeholder='{"结构碎片": 1, "Ω物质": 2}'
+                style={{ ...INPUT, resize: 'vertical', fontSize: 11, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+              />
+              <p style={HINT}>按物品名加权重；最低 1 保底</p>
             </div>
           </div>
 
