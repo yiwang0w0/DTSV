@@ -1,7 +1,7 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 19 走查 + 天气系统移除 + bugfix
-整理方式：基于全量源码交叉验证 + Phase 0-19 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 20 知识驱动生成池（9 sub 全部落地）
+整理方式：基于全量源码交叉验证 + Phase 0-20 改造提交记录。
 
 ## 最近变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
 
@@ -118,9 +118,69 @@
 
 ### Phase 19 后续路线图（待用户决定）
 
-- **Phase 20** 知识驱动生成池（残片解锁影响 chamber 抽取权重）
+- ✅ **Phase 20** 知识驱动生成池（残片解锁影响 chamber 抽取权重） — 完成
 - **Phase 21** 异步 PvPVE 探针（撤离时留信号，跨 raid 遭遇）
 - **Phase 22** 抛光与平衡（playtest 数据校准）
+
+---
+
+## 最近变更（2026-05-11 / Phase 20）— 知识驱动生成池（9 sub 全部落地）
+
+> 主题：让玩家完全解码的残片**反向影响下次 raid 的内容**，闭环 meta-progression。
+> 预期评分提升：维度 2 知识即进度（+5）/ 10 重玩价值（+5）/ 3 考古解读（+1）
+
+### Phase 20 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 20.1 | **fragment_pool 加 unlocks_rules JSONB**：`{ chamber_weight, lore_chunk_pool, npc_unlock, item_amount_delta }`；3 个种子规则示例（omega/eden/bubble 类 rare+legendary）；`scripts/phase-20-1-fragment-unlocks-rules.sql` 部署 | `8957c56` |
+| 20.2 | **pathGenerator 接入 unlocks_rules**：`mergeUnlocksRules()` 合并多条规则；`generateRaidPath(chambers, mergedRules)` 应用 `chamberWeight` delta；joinRoom 查玩家所有 `decode_level=3` 残片合并写入 `gamevars.unlocksMerged`；`fetchSearchChamberBundle` 应用 `item_amount_delta` + `npc_unlock` | `db28ace` |
+| 20.3 | **lore_chunk_pool chamber 动态注入**：30% 概率从解锁池随机注入到 chamber.description（同 commit） | `db28ace` |
+| 20.4 | **fragment_combos 表 A+B → C 自动解锁**：`scripts/phase-20-4-fragment-combos.sql` 建表 + RLS off；`fragments.evaluateFragmentCombos()` 扫所有以 triggered 残片为输入的配方，双方达 level=3 时自动 upsert C（decode_level=0）；search/combat/extract 三链都加 combo unlock 日志 | `732dba7` |
+| 20.5 | **/archive 知识图谱视图**：折叠 details 展示所有 fragment_combos 配方，标"已解锁(绿)/待 raid(黄)/未达成(灰)" 三态；未发现的 A/B 用 ████ 占位 | `1713a1b` |
+| 20.6 | **结局横幅展示本局解锁规则**：GameClientPage 结局横幅加"⚛️ 本局应用的残片解锁规则"区，列 `gamevars.unlocksContributed` 残片徽章 | `1713a1b` |
+| 20.7 | **PvE 击杀残片掉率按等级缩放**：easy 10% / medium 25% / hard 45% / boss 80%；高级击杀日志类型升级为 'crit' 红字（"从 boss 残骸中夺取了【X】"） | `ee4fae9` |
+| 20.8 | **admin FragmentsTab unlocks_rules 编辑器**：lore_chunk_pool 多行 / chamber_weight JSON / npc_unlock CSV / item_amount_delta JSON；**新 FragmentCombosTab**：fragment_combos CRUD + 残片下拉选择 + 叙事文案 | `ee4fae9` |
+| 20.9 | Readme 同步 Phase 20 | (本次) |
+
+### 部署步骤
+
+依次在 Supabase SQL Editor 跑：
+1. `scripts/phase-20-1-fragment-unlocks-rules.sql` — fragment_pool 加 unlocks_rules
+2. `scripts/phase-20-4-fragment-combos.sql` — 建 fragment_combos 表（已部署生产）
+
+跑完验证：
+```sql
+SELECT count(*), count(*) FILTER (WHERE unlocks_rules != '{}'::jsonb) AS with_rules
+FROM fragment_pool;
+SELECT count(*) FROM fragment_combos;
+```
+
+### 走查路径
+
+1. **20.1 schema**：admin → 📡 残片 → 编辑一个 legendary 残片 → "🔓 解锁规则"区显示 4 个字段
+2. **20.2 chamber_weight**：填写 `{"5": 3}` → 把 fragment 解码到 level=3 → 下次 joinRoom 该 chamber template_id=5 抽取概率上升
+3. **20.3 lore 短句**：填写"【Ω-观测残片】..." → 加入 raid → 部分 chamber 描述末尾出现该短句
+4. **20.4 combo**：admin → 🔗 残片合成 → 添加配方 A + B → C → 玩家把 A、B 都解码到 level=3 → 自动在 player_fragments 出现 C（decode_level=0）+ 系统日志"🔗 合成新残片【C】"
+5. **20.5 知识图谱**：/archive → 上方"🔗 知识图谱"折叠卡 → 看到所有配方三态着色
+6. **20.6 结局横幅**：触发结局 → 横幅底部出现"⚛️ 本局应用的残片解锁规则"区列残片徽章
+7. **20.7 PvE 夺残片**：击杀 boss → ~80% 概率掉残片 + 'crit' 红字"从 boss 残骸中夺取了【X】"
+8. **20.8 admin combos tab**：admin → 🔗 残片合成 → "+ 添加配方" → A/B/C 下拉 + 描述 → 保存
+
+### 预期评分提升（Phase 20 后）
+
+| 维度 | Phase 19 | Phase 20 | 增量 |
+|------|----------|----------|------|
+| 2 知识即进度 | 5 | 9-10 | +4-5（完全闭环：解码 → 影响下次 raid） |
+| 3 考古解读深度 | 8 | 9 | +1（combo 配方提供"两片拼图"叙事） |
+| 10 长期重玩价值 | 6 | 9-10 | +3-4（每次解锁都改变下次 raid） |
+
+**Phase 20 后估算平均 ≈ 8.7/10**（Phase 19 7.8）
+
+### 仍未做
+
+- **Phase 21** 异步 PvPVE 探针 — 撤离时留信号，跨 raid 遭遇
+- **Phase 22** 抛光与平衡 — playtest 数据收集 + chamber 模板权重校准
 
 ---
 
