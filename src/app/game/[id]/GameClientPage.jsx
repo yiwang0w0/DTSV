@@ -442,6 +442,22 @@ export default function GameClientPage() {
                 </span>
               </div>
             )}
+            {/* Phase 18.2: 引导玩家去 Archive 查看本局贡献 */}
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+              <a
+                href="/archive"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, color: T.cyan, textDecoration: 'none',
+                  padding: '4px 10px', borderRadius: 6,
+                  background: `${T.cyan}18`, border: `1px solid ${T.cyan}40`,
+                }}
+              >
+                📡 在档案库查看本局贡献的残片 →
+              </a>
+            </div>
           </div>
         </div>
       )}

@@ -256,6 +256,18 @@ export default function ArchivePage() {
     return arr
   }, [discoveredFragments, filter, chainFilter])
 
+  // Phase 18.2: 最近贡献区 — 24h 内 last_decoded 改动的残片，按时间倒序
+  const recentContributions = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    return discoveredFragments
+      .filter(d => {
+        const ts = new Date(d.playerData.last_decoded || d.playerData.discovered_at).getTime()
+        return ts >= cutoff
+      })
+      .sort((a, b) => new Date(b.playerData.last_decoded || b.playerData.discovered_at) - new Date(a.playerData.last_decoded || a.playerData.discovered_at))
+      .slice(0, 10)
+  }, [discoveredFragments])
+
   // 统计
   const stats = useMemo(() => {
     const total = fragments.length
@@ -426,6 +438,63 @@ export default function ArchivePage() {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* Phase 18.2: 最近 24h 内的贡献（结局横幅引导后玩家进 archive 直观看到本局成果） */}
+      {recentContributions.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+            paddingBottom: 6, borderBottom: `1px solid ${C.yellow}40`,
+          }}>
+            <span style={{ fontSize: 14, color: C.yellow, fontWeight: 700 }}>📍 最近 24 小时贡献</span>
+            <span style={{ fontSize: 11, color: C.dim2 }}>({recentContributions.length} 条，包括新发现与解码推进)</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {recentContributions.map(({ fragment, playerData }) => {
+              const chainKey = fragment.phase_chain || 'search'
+              const chainMeta = CHAIN_META[chainKey]
+              const cat = CATEGORY_META[fragment.category] || CATEGORY_META.general
+              const isFresh = (Date.now() - new Date(playerData.discovered_at).getTime()) < 24 * 60 * 60 * 1000
+              const level = playerData.decode_level
+              return (
+                <div key={`recent-${fragment.id}`} style={{
+                  background: C.bg2,
+                  borderRadius: 8,
+                  border: `1px solid ${C.yellow}30`,
+                  borderLeft: `3px solid ${C.yellow}`,
+                  padding: '8px 12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 10,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 12 }}>{cat.icon}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: level >= 3 ? C.text : C.dim, fontFamily: 'monospace' }}>
+                        {level === 0 ? '████████' : fragment.name}
+                      </span>
+                      {chainMeta && (
+                        <span style={{ fontSize: 9, padding: '0 6px', borderRadius: 6, background: `${chainMeta.color}18`, color: chainMeta.color }}>
+                          {chainMeta.icon}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 10, color: isFresh ? C.green : C.dim2, fontWeight: 600 }}>
+                        {isFresh ? '✨ 新发现' : `🔓 解码 ${level}/3`}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.dim2 }}>
+                      {new Date(playerData.last_decoded || playerData.discovered_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {playerData.discover_cycle != null && <span style={{ marginLeft: 8 }}>· 周目 #{playerData.discover_cycle}</span>}
+                    </div>
+                  </div>
+                  <DecodeBar level={level} />
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
