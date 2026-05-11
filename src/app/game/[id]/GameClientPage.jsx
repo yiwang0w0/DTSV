@@ -69,6 +69,7 @@ export default function GameClientPage() {
   const [equipments, setEquipments] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState(null)  // 追踪当前执行的动作名，用于精确显示 loading
   const [panel, setPanel] = useState('log')
   const [craftOpen, setCraftOpen] = useState(false)
   const [extractOpen, setExtractOpen] = useState(false)
@@ -328,6 +329,7 @@ export default function GameClientPage() {
 
   async function runGameAction(action, payload = {}, options = {}) {
     setBusy(true)
+    setBusyAction(action)
     try {
       const { room: nextRoom } = await postGameApi('/api/game/actions', {
         roomId: Number(roomId),
@@ -341,6 +343,7 @@ export default function GameClientPage() {
       return null
     } finally {
       setBusy(false)
+      setBusyAction(null)
     }
   }
 
@@ -921,7 +924,7 @@ export default function GameClientPage() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                      <Btn variant="danger" loading={busy} loadingText="袭击中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={!me?.alive || room.gamestate === 2}>
+                      <Btn variant="danger" loading={busyAction === 'attackNpc'} loadingText="袭击中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={!me?.alive || room.gamestate === 2}>
                         ⚔️ 袭击（一次性）
                       </Btn>
                       <Btn variant="ghost" sx={{ flex: 1, padding: '10px 0' }} onClick={() => runGameAction('releaseEncounter')} disabled={busy || !me?.alive || room.gamestate === 2}>
@@ -934,7 +937,7 @@ export default function GameClientPage() {
                   </div>
                 )}
 
-                <Btn variant="primary" loading={busy && !encounterInstance} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2}>
+                <Btn variant="primary" loading={busyAction === 'search'} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2}>
                   搜索区域
                 </Btn>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
