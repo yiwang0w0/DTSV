@@ -27,6 +27,19 @@ import {
   hpColor,
 } from './gameUi'
 
+// Phase 19.7: chamber 类型元数据（路径前进面板用）
+const CHAMBER_TYPE_META = {
+  scan_dense:     { label: '搜密', icon: '🔍', color: '#58a6ff' },
+  combat_dense:   { label: '打密', icon: '⚔️', color: '#f85149' },
+  fragment_dense: { label: '残密', icon: '📡', color: '#bc8cff' },
+  hazard:         { label: '危险', icon: '☢',  color: '#d29922' },
+  exit:           { label: '撤离', icon: '🚪', color: '#3fb950' },
+  milestone:      { label: '里程碑 ⚠', icon: '🏆', color: '#ff8c42' },
+}
+function chamberTypeLabel(type) {
+  return (CHAMBER_TYPE_META[type] || CHAMBER_TYPE_META.scan_dense).label
+}
+
 function buildPlayerView(player, equippedInstances) {
   if (!player) return null
   const equippedStats = calcEquippedStats(equippedInstances || [])
@@ -63,17 +76,17 @@ export default function GameClientPage() {
 
   const mapIdRef = useRef(0)
 
-  const loadMapData = useCallback(async (mapId) => {
-    const [{ data: nextMap }, { data: nextAllItems }, { data: nextNpcs }] = await Promise.all([
-      supabase.from('map_config').select('*').eq('map_id', mapId).single(),
+  // Phase 19.7: chamber 模型 — mapId 现在是 chamber.templateId
+  const loadMapData = useCallback(async (chamberTemplateId) => {
+    const [{ data: nextAllItems }, { data: nextNpcs }] = await Promise.all([
       supabase.from('item_pool').select('*'),
-      // 当前地图的可交易非敌对实体
-      supabase.from('npc_pool').select('id,name,entity_type,trade_wants,trade_offers,maps').eq('tradeable', true),
+      // chamber 内可交易非敌对实体（按 chamber_template_ids 过滤）
+      supabase.from('npc_pool').select('id,name,entity_type,trade_wants,trade_offers,chamber_template_ids').eq('tradeable', true),
     ])
 
-    setMapConfig(nextMap || null)
     setAllItems(nextAllItems || [])
-    setTradeableNpcs((nextNpcs || []).filter(n => Array.isArray(n.maps) && n.maps.includes(mapId)))
+    setTradeableNpcs((nextNpcs || []).filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(chamberTemplateId)))
+    // mapConfig 由 useMemo 从 gamevars 算（chamber 数据）
   }, [])
 
   const loadEquipments = useCallback(async () => {
@@ -177,8 +190,44 @@ export default function GameClientPage() {
     if (!instId) return null
     return (gamevars?.npcInstances || []).find(i => i.id === instId) || null
   }, [meBase?.encounter?.instanceId, gamevars?.npcInstances])
+  // Phase 19.7: chamber 路径 — 当前 chamber + 下一段候选
+  const raidPath = useMemo(() => gamevars?.raidPath || [], [gamevars?.raidPath])
+  const currentChamberIdx = meBase?.chamberIndex ?? 0
+  const currentChamber = useMemo(
+    () => raidPath[currentChamberIdx] || null,
+    [raidPath, currentChamberIdx],
+  )
+  const nextChamberOptions = useMemo(() => {
+    if (!raidPath || raidPath.length === 0) return []
+    const opts = []
+    const nextIdx = currentChamberIdx + 1
+    if (nextIdx >= raidPath.length) return opts
+    // A = 真下一段；B/C = 装饰预览（取后续段，便于玩家看远景）
+    const exitCount = currentChamber?.exitCount || 2
+    for (let k = 0; k < exitCount; k++) {
+      const idx = nextIdx + k
+      if (idx < raidPath.length) {
+        opts.push({
+          ...raidPath[idx],
+          optionLabel: String.fromCharCode(65 + k), // A/B/C
+          isRealNext: k === 0,
+          previewOnly: k !== 0,
+        })
+      }
+    }
+    return opts
+  }, [raidPath, currentChamberIdx, currentChamber?.exitCount])
   const inGame = !!meBase
-  const weather = WEATHER[mapConfig?.weather || 'clear'] || WEATHER.clear
+  // Phase 19.7: 用 currentChamber 替代 mapConfig（保留 mapConfig 变量名兼容旧引用）
+  const effectiveMapConfig = currentChamber ? {
+    name: currentChamber.name,
+    description: currentChamber.description,
+    weather: currentChamber.weather,
+    is_exit: currentChamber.isExit,
+    exit_cost: currentChamber.exitCost,
+    adjacent_maps: [], // 新模型无邻接
+  } : mapConfig
+  const weather = WEATHER[effectiveMapConfig?.weather || 'clear'] || WEATHER.clear
   const aliveCount = room?.alivenum ?? allPlayers.filter(player => player.alive).length
   const currentMapCorpseCount = useMemo(
     () => (gamevars?.corpses || []).filter(corpse => corpse.mapId === (meBase?.map ?? 0)).length,
@@ -216,8 +265,8 @@ export default function GameClientPage() {
     let extractLabel = '非撤离点'
     let extractColor = T.dim
     let extractRate = 0
-    if (mapConfig?.is_exit) {
-      const cost = mapConfig.exit_cost
+    if (effectiveMapConfig?.is_exit) {
+      const cost = effectiveMapConfig?.exit_cost
       const need = cost?.qty || 0
       const item = cost?.item
       const have = item ? (meBase?.inventory || []).filter(it => it === item).length : Infinity
@@ -431,9 +480,9 @@ export default function GameClientPage() {
         onClose={() => setExtractOpen(false)}
         onExtract={handleExtract}
         busy={busy}
-        mapName={mapConfig?.name || `地图 ${meBase?.map ?? 0}`}
-        mapDescription={mapConfig?.description || ''}
-        exitCost={mapConfig?.exit_cost || null}
+        mapName={effectiveMapConfig?.name || `地图 ${meBase?.map ?? 0}`}
+        mapDescription={effectiveMapConfig?.description || ''}
+        exitCost={effectiveMapConfig?.exit_cost || null}
         inventory={meBase?.inventory || []}
         equippedCount={equipments.length}
       />
@@ -528,7 +577,7 @@ export default function GameClientPage() {
           远星函馆 · 17号异常段
         </div>
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: T.dim, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: T.text, fontWeight: 700 }}>{mapConfig?.name || '未知区域'}</span>
+          <span style={{ color: T.text, fontWeight: 700 }}>{effectiveMapConfig?.name || '未知区域'}</span>
           <span>{weather.icon} {weather.label}{weather.mod ? <span style={{ color: T.yellow, marginLeft: 4, fontSize: 10 }}>({weather.mod})</span> : null}</span>
 
           {/* 环境污染 */}
@@ -893,7 +942,7 @@ export default function GameClientPage() {
                     装备合成
                   </Btn>
                 </div>
-                {mapConfig?.is_exit && (
+                {effectiveMapConfig?.is_exit && (
                   <Btn
                     variant="ghost"
                     onClick={() => setExtractOpen(true)}
@@ -901,9 +950,9 @@ export default function GameClientPage() {
                     disabled={!me?.alive || room.gamestate === 2}
                   >
                     🚪 结构退避
-                    {mapConfig.exit_cost?.item && (
+                    {effectiveMapConfig?.exit_cost?.item && (
                       <span style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
-                        （需 {mapConfig.exit_cost.item} ×{mapConfig.exit_cost.qty || 1}）
+                        （需 {effectiveMapConfig?.exit_cost.item} ×{effectiveMapConfig?.exit_cost.qty || 1}）
                       </span>
                     )}
                   </Btn>
@@ -1019,39 +1068,84 @@ export default function GameClientPage() {
         </div>
 
         <div style={{ borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
-          <PanelTitle right={me?.alive ? <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>仅相邻可达</span> : null}>区域</PanelTitle>
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {MAP_LIST.map(map => {
-                  const current = (meBase?.map ?? 0) === map.id
-                  const adjacent = Array.isArray(mapConfig?.adjacent_maps)
-                    ? mapConfig.adjacent_maps.includes(map.id)
-                    : false
-                  const canMove = me?.alive && !busy && !current && adjacent && room.gamestate !== 2
-                  const greyOut = !current && !adjacent
+          <PanelTitle right={
+            raidPath.length > 0 ? (
+              <span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>
+                {currentChamberIdx + 1} / {raidPath.length}
+              </span>
+            ) : null
+          }>⏭ 路径前进</PanelTitle>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+            {/* 当前 chamber 卡 */}
+            {currentChamber && (
+              <div style={{
+                padding: '10px 12px', marginBottom: 12,
+                background: T.bg2, borderRadius: 8,
+                borderLeft: `3px solid ${T.cyan}`, border: `1px solid ${T.cyan}30`,
+              }}>
+                <div style={{ fontSize: 10, color: T.dim2, marginBottom: 2 }}>当前 chamber</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan }}>
+                  {currentChamber.name}
+                </div>
+                <div style={{ fontSize: 10, color: T.dimB, marginTop: 4 }}>
+                  {currentChamber.regionLabel || ''} · {chamberTypeLabel(currentChamber.type)}
+                </div>
+                {currentChamber.description && (
+                  <div style={{ fontSize: 10, color: T.dim, marginTop: 6, fontStyle: 'italic', lineHeight: 1.4 }}>
+                    「{currentChamber.description}」
+                  </div>
+                )}
+              </div>
+            )}
+            {/* 下一段候选 */}
+            {nextChamberOptions.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: T.dim2, marginBottom: 6, paddingLeft: 2 }}>
+                  下一段（选择前进路径）
+                </div>
+                {nextChamberOptions.map((opt) => {
+                  const canMove = me?.alive && !busy && !meBase?.extracted && room.gamestate !== 2
+                  const typeMeta = CHAMBER_TYPE_META[opt.type] || CHAMBER_TYPE_META.scan_dense
                   return (
                     <div
-                      key={map.id}
-                      onClick={() => canMove && runGameAction('move', { mapId: map.id })}
+                      key={`${opt.idx}-${opt.optionLabel}`}
+                      onClick={() => canMove && runGameAction('move', { selection: opt.optionLabel })}
                       style={{
-                        padding: '8px 12px',
-                        borderBottom: `1px solid ${T.border}`,
-                        borderLeft: `3px solid ${current ? T.cyan : adjacent ? T.green : 'transparent'}`,
-                        background: current ? `${T.cyan}10` : 'transparent',
-                        cursor: canMove ? 'pointer' : 'default',
-                        opacity: greyOut ? 0.35 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        padding: '8px 12px', marginBottom: 6,
+                        background: T.bg2, borderRadius: 8,
+                        borderLeft: `3px solid ${typeMeta.color}`,
+                        border: opt.isRealNext ? `1px solid ${typeMeta.color}50` : `1px solid ${T.border}`,
+                        cursor: canMove ? 'pointer' : 'not-allowed',
+                        opacity: canMove ? 1 : 0.5,
                       }}
                     >
-                      <span style={{ fontSize: 12, color: current ? T.cyan : adjacent ? T.text : T.dim2, fontWeight: current ? 700 : 400 }}>{map.name}</span>
-                      <span style={{ fontSize: 10, color: T.dim2 }}>
-                        {current ? '当前' : adjacent ? '可达' : '远'}
-                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: typeMeta.color }}>
+                          [{opt.optionLabel}] {opt.name}
+                        </span>
+                        <span style={{ fontSize: 9, color: T.dim2 }}>
+                          {typeMeta.icon} {typeMeta.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.dim, marginTop: 3 }}>
+                        {opt.regionLabel || ''} · 污染基线 {opt.pollutionBase || 0}%
+                      </div>
+                      {opt.previewOnly && (
+                        <div style={{ fontSize: 9, color: T.dim2, marginTop: 3, fontStyle: 'italic' }}>
+                          （远景预览 — 选此先经过 A）
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
+            )}
+            {nextChamberOptions.length === 0 && currentChamberIdx >= raidPath.length - 1 && raidPath.length > 0 && (
+              <div style={{ textAlign: 'center', color: T.yellow, fontSize: 11, padding: '20px 0' }}>
+                🏆 已到达路径终点 — 完成里程碑或撤离归档
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
