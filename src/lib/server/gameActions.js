@@ -123,34 +123,61 @@ async function fetchRoom(client, roomId) {
   return data
 }
 
-async function fetchMapWeather(client, mapId) {
-  const { data } = await client.from('map_config').select('weather').eq('map_id', mapId).maybeSingle()
-  return data?.weather || 'clear'
+// ── Phase 19.5: 从 gamevars.raidPath 取 chamber 数据（替代 map_config 表查询） ──
+
+/** 取玩家当前所在 chamber（基于 player.chamberIndex 在 raidPath 中索引） */
+function getChamberForPlayer(gamevars, player) {
+  const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
+  const idx = player?.chamberIndex ?? 0
+  return path[idx] || null
 }
 
-async function fetchMapConfig(client, mapId) {
-  const { data } = await client.from('map_config').select('*').eq('map_id', mapId).maybeSingle()
-  return data || null
+/** 兼容旧 fetchMapConfig 调用 — 把 chamber 对象伪装成 map_config 形状 */
+function getChamberAsMapConfig(gamevars, player) {
+  const ch = getChamberForPlayer(gamevars, player)
+  if (!ch) return null
+  return {
+    map_id:          ch.templateId,          // 把 templateId 当 mapId
+    name:            ch.name,
+    description:     ch.description,
+    weather:         ch.weather,
+    pollution_base:  ch.pollutionBase,
+    pollution_accel: ch.pollutionAccel,
+    adjacent_maps:   [],                     // Phase 19 无邻接概念（路径线性）
+    is_exit:         ch.isExit,
+    exit_cost:       ch.exitCost,
+    omega_window:    ch.omegaWindow,
+    max_items:       ch.maxItems,
+    max_npcs:        ch.maxNpcs,
+    // chamber 特有字段
+    _chamber:        ch,
+  }
 }
 
-// 缓存所有地图的 pollution_accel（用于 tick 时取所有玩家所在地图最大 accel）
-async function fetchMapAccelTable(client) {
-  const { data } = await client.from('map_config').select('map_id, pollution_accel')
+/** Phase 19.5: 直接从 chamber 取天气，无需 DB */
+function getChamberWeather(gamevars, player) {
+  const ch = getChamberForPlayer(gamevars, player)
+  return ch?.weather || 'clear'
+}
+
+/** Phase 19.5: 从 gamevars.raidPath 构建 chamber accel 表（key = chamberIndex） */
+function buildChamberAccelTable(gamevars) {
   const table = new Map()
-  for (const row of (data || [])) {
-    table.set(row.map_id, Number(row.pollution_accel) || 0)
+  const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
+  for (const ch of path) {
+    table.set(ch.templateId, Number(ch.pollutionAccel) || 0)
   }
   return table
 }
 
-// ── 全局道具/NPC 池缓存（只缓存全量数据，按地图过滤在内存中做） ──
+// ── 全局道具/NPC 池缓存（按 chamber_template_ids 过滤） ──
 let _allItemsCache = null
 let _allNpcsCache = null
-const _weatherCache = new Map()
 const POOL_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
 let _poolCacheTs = 0
 
-async function fetchSearchMapBundle(client, mapId) {
+/** Phase 19.5: 按 chamber.templateId 过滤 item/npc 池（替代旧 fetchSearchMapBundle） */
+async function fetchSearchChamberBundle(client, gamevars, player) {
   const now = Date.now()
   const stale = now - _poolCacheTs > POOL_CACHE_TTL
 
@@ -159,28 +186,20 @@ async function fetchSearchMapBundle(client, mapId) {
       client.from('item_pool').select('*'),
       client.from('npc_pool').select('*'),
     ])
-    if (itemRes.error) console.error('[fetchSearchMapBundle] item_pool 查询失败:', itemRes.error.message)
-    if (npcRes.error) console.error('[fetchSearchMapBundle] npc_pool 查询失败:', npcRes.error.message)
+    if (itemRes.error) console.error('[fetchSearchChamberBundle] item_pool 查询失败:', itemRes.error.message)
+    if (npcRes.error) console.error('[fetchSearchChamberBundle] npc_pool 查询失败:', npcRes.error.message)
     _allItemsCache = itemRes.data || []
     _allNpcsCache = npcRes.data || []
     _poolCacheTs = now
   }
 
-  // 天气单独查（可能不同地图不同天气）
-  let weather = 'clear'
-  const cachedW = _weatherCache.get(mapId)
-  if (cachedW && now - cachedW.ts < POOL_CACHE_TTL) {
-    weather = cachedW.val
-  } else {
-    const { data: mapConfig } = await client
-      .from('map_config').select('weather').eq('map_id', mapId).maybeSingle()
-    weather = mapConfig?.weather || 'clear'
-    _weatherCache.set(mapId, { val: weather, ts: now })
-  }
+  const chamber = getChamberForPlayer(gamevars, player)
+  const tid = chamber?.templateId ?? -1
+  const weather = chamber?.weather || 'clear'
 
-  // 在内存中按地图过滤（避免 Supabase .contains() 可能的兼容问题）
-  const itemPool = _allItemsCache.filter(i => Array.isArray(i.maps) && i.maps.includes(mapId))
-  const npcPool = _allNpcsCache.filter(n => Array.isArray(n.maps) && n.maps.includes(mapId))
+  // Phase 19.2 已迁移：按 chamber_template_ids 过滤
+  const itemPool = _allItemsCache.filter(i => Array.isArray(i.chamber_template_ids) && i.chamber_template_ids.includes(tid))
+  const npcPool = _allNpcsCache.filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(tid))
 
   return { weather, itemPool, npcPool }
 }
@@ -241,7 +260,8 @@ async function persistResolution(client, room, resolution, options = {}) {
 //   6. persistResolution — 写入数据库
 async function persistResolutionWithPollution(client, room, resolution, userId, options = {}) {
   try {
-    const accelTable = await fetchMapAccelTable(client)
+    // Phase 19.5: 从 gamevars.raidPath 算 accel 表（替代 DB 查询）
+    const accelTable = buildChamberAccelTable(resolution.gamevars)
     resolution.gamevars = tickEnvPollution(resolution.gamevars, accelTable)
 
     const player = getResolutionPlayer(resolution, userId)
@@ -734,12 +754,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法搜索')
 
-  // ── 并行：规则/Buff缓存 + 地图数据 + 尸体数据 一次性全拉 ──
-  const mapId = player.map ?? 0
+  // ── 并行：规则/Buff缓存 + chamber 数据 + 尸体数据 一次性全拉 ──
+  // Phase 19.5: 用 chamber.templateId 作为 mapId（兼容旧 corpse.mapId 匹配）
+  const currentChamber = getChamberForPlayer(gamevars, player)
+  const mapId = currentChamber?.templateId ?? (player.map ?? 0)
   const [rules, buffPool, bundle, corpseResult] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
-    fetchSearchMapBundle(client, mapId),
+    fetchSearchChamberBundle(client, gamevars, player),
     collectLootableCorpses(client, room.id, gamevars, mapId),
   ])
 
@@ -892,12 +914,13 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     return persistResolution(client, room, resolution)
   }
 
-  const [rules, buffPool, equippedInstances, weather] = await Promise.all([
+  const [rules, buffPool, equippedInstances] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
     fetchEquippedInstances(client, room.id, [user.id]),
-    fetchMapWeather(client, player.map ?? 0),
   ])
+  // Phase 19.5: 从 chamber 取天气
+  const weather = getChamberWeather(gamevars, player)
 
   const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
   let me = buildCombatPlayer(player, myEquips)
@@ -1117,7 +1140,8 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
   let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
   const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
-  const weather = await fetchMapWeather(client, attackerAfterTurn.map ?? 0)
+  // Phase 19.5: 从 attacker 的 chamber 取天气
+  const weather = getChamberWeather(gamevars, attackerAfterTurn)
 
   const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '', weather)
   const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
@@ -1562,8 +1586,9 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return joinRoom(client, user, roomId, payload.loadout || null)
   }
 
-  if (payload.action === 'move') {
-    return movePlayer(client, room, gamevars, user, Number(payload.mapId))
+  if (payload.action === 'move' || payload.action === 'advanceChamber') {
+    // Phase 19: 旧 move 与新 advanceChamber 等价（沿 raidPath 前进 1 步）
+    return movePlayer(client, room, gamevars, user, payload.selection || 'A')
   }
 
   if (payload.action === 'search') {
@@ -1613,35 +1638,45 @@ export async function executeGameAction(client, user, payload, options = {}) {
   throw new Error('未知动作')
 }
 
-async function movePlayer(client, room, gamevars, user, mapId) {
-  if (mapId === undefined || Number.isNaN(mapId)) throw new Error('缺少地图 ID')
+// Phase 19.5+19.6: movePlayer 重写为 advanceChamber 模型
+// 旧签名 (client, room, gamevars, user, mapId) — mapId 现在被忽略（payload.selection 可选）
+// 玩家沿 raidPath 前进 1 步（player.chamberIndex += 1）。selection（'A'/'B'/'C'）仅
+// 用于日志叙事（pathGenerator.getNextChamberOptions 提供的选项里 A 是真正下一段）
+async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') {
   const player = getPlayer(gamevars, user.id)
-  if (!player?.alive) throw new Error('已阵亡玩家无法移动')
-  if (player.extracted) throw new Error('已撤离玩家无法移动')
+  if (!player?.alive) throw new Error('已阵亡玩家无法前进')
+  if (player.extracted) throw new Error('已撤离玩家无法前进')
 
-  // ── 邻接校验（远星函馆 spec §2.2） ──
-  const currentMap = await fetchMapConfig(client, player.map ?? 0)
-  const targetMap  = await fetchMapConfig(client, mapId)
-  if (!targetMap) throw new Error(`目标地图 ${mapId} 不存在`)
+  const raidPath = Array.isArray(gamevars.raidPath) ? gamevars.raidPath : []
+  if (raidPath.length === 0) throw new Error('对局未初始化路径（缺少 raidPath）')
 
-  const adjacent = Array.isArray(currentMap?.adjacent_maps) ? currentMap.adjacent_maps : []
-  // 同一地图允许（no-op）；其它必须邻接
-  if (mapId !== player.map && adjacent.length > 0 && !adjacent.includes(mapId)) {
-    throw new Error(`【${currentMap?.name || `地图 ${player.map}`}】无法直接通往【${targetMap.name}】`)
+  const currentIdx = player.chamberIndex ?? 0
+  const nextIdx = currentIdx + 1
+  if (nextIdx >= raidPath.length) {
+    throw new Error('已到达路径终点，无法继续前进')
   }
 
-  const mapName = targetMap.name || `地图 ${mapId}`
+  const nextChamber = raidPath[nextIdx]
+  if (!nextChamber) throw new Error('下一段 chamber 不存在')
+
+  const chamberName = nextChamber.name || `chamber-${nextIdx}`
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
   clearEncounterIfAny(resolution, user.id)
 
-  // ── 进入 Ω-段(map_id=4) 启动倒计时 + 累计访问次数 ──
-  // shield 装载额外 +1 回合（spec §6.3）
-  // Phase 16: 移动会自动放过当前 encounter（已由 clearEncounterIfAny 写日志，此处显式置 null 防被 spread 覆盖）
-  let nextPlayer = { ...player, map: mapId, encounter: null }
-  if (mapId === 4) {
+  // Phase 19.5: 推进 chamberIndex + 历史栈 + map 字段同步（保持向后兼容）
+  let nextPlayer = {
+    ...player,
+    chamberIndex: nextIdx,
+    chamberHistory: [...(player.chamberHistory || []), currentIdx],
+    map: nextChamber.templateId,   // 保留 map 字段同步为 chamber.templateId
+    encounter: null,
+  }
+
+  // ── Ω-段倒计时（chamber.omegaWindow > 0 视为 Ω-段，启动倒计时） ──
+  if ((nextChamber.omegaWindow || 0) > 0) {
     const fx = getLoadoutEffects(player)
-    const window = POLLUTION_CONFIG.OMEGA_WINDOW + (fx.shield ? 1 : 0)
+    const window = (nextChamber.omegaWindow || POLLUTION_CONFIG.OMEGA_WINDOW) + (fx.shield ? 1 : 0)
     nextPlayer.omegaCountdown = window
     nextPlayer.omegaVisits = (player.omegaVisits || 0) + 1
   } else {
@@ -1655,17 +1690,24 @@ async function movePlayer(client, room, gamevars, user, mapId) {
   nextPlayer = applyRetreatDecay(nextPlayer, gamevars.envPollution || 0)
 
   setResolutionPlayer(resolution, user.id, nextPlayer)
-  appendResolutionLog(resolution, `${player.name} 转移至【${mapName}】`, 'system')
-  if (mapId === 4) {
-    appendResolutionLog(resolution, `Ω-段倒计时启动：${POLLUTION_CONFIG.OMEGA_WINDOW} 回合后强制退避`, 'system')
+  appendResolutionLog(
+    resolution,
+    `${player.name} 前进至【${chamberName}】(${nextIdx + 1}/${raidPath.length})`,
+    'system',
+  )
+  if ((nextChamber.omegaWindow || 0) > 0) {
+    appendResolutionLog(resolution, `Ω-段倒计时启动：${nextChamber.omegaWindow} 回合后强制退避`, 'system')
+  }
+  if (nextChamber.type === 'milestone') {
+    appendResolutionLog(resolution, `⚔ 里程碑 chamber：${chamberName} —— 强敌可能正等待`, 'damage')
   }
 
-  // 自动 flag：玩家曾访问该地图（供分支引擎使用）
-  setVisitedMapFlag(resolution, mapId)
+  // 自动 flag：玩家曾访问该 chamber（供分支引擎）— 用 templateId 替代 mapId
+  setVisitedMapFlag(resolution, nextChamber.templateId)
 
-  // on_enter_map 事件钩子
+  // on_enter_map 事件钩子（保持事件 API 兼容，传 templateId 作 mapId）
   try {
-    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId })
+    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId: nextChamber.templateId })
   } catch (e) {
     console.error('[movePlayer] event trigger 失败:', e?.message)
   }
@@ -1693,12 +1735,13 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   if (!player.alive) throw new Error('阵亡玩家无法撤离')
   if (player.extracted) throw new Error('已经撤离')
 
-  const playerMapId = player.map ?? 0
-  const mapConfig = await fetchMapConfig(client, playerMapId)
-  if (!mapConfig) throw new Error('地图配置不存在')
+  // Phase 19.5: 从 gamevars.raidPath 取当前 chamber（不查 map_config）
+  const mapConfig = getChamberAsMapConfig(gamevars, player)
+  if (!mapConfig) throw new Error('chamber 数据不存在（raidPath 未初始化？）')
   if (!mapConfig.is_exit) {
     throw new Error(`【${mapConfig.name}】不是撤离点`)
   }
+  const playerMapId = mapConfig.map_id   // 实际是 chamber.templateId（兼容旧代码引用）
 
   // ── exit_cost 校验与扣除 ──
   let inventoryAfter = [...(player.inventory || [])]
@@ -1850,8 +1893,11 @@ async function tradeWithNpc(client, room, gamevars, user, payload) {
   const { data: npc } = await client.from('npc_pool').select('*').eq('id', npcId).maybeSingle()
   if (!npc) throw new Error('实体不存在')
   if (!npc.tradeable) throw new Error(`${npc.name} 不可交易`)
-  if (!Array.isArray(npc.maps) || !npc.maps.includes(player.map ?? 0)) {
-    throw new Error(`${npc.name} 不在你当前所在地图`)
+  // Phase 19.5: 按 chamber_template_ids 过滤（替代旧 maps 字段）
+  const curChamber = getChamberForPlayer(gamevars, player)
+  const curTid = curChamber?.templateId ?? -1
+  if (!Array.isArray(npc.chamber_template_ids) || !npc.chamber_template_ids.includes(curTid)) {
+    throw new Error(`${npc.name} 不在你当前 chamber`)
   }
 
   const wants = npc.trade_wants
