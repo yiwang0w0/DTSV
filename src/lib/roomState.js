@@ -204,6 +204,7 @@ export function createPlayerState(user, stats = {}) {
     passiveCooldowns: {},
     battle: null,            // 旧字段：保留向后兼容；Phase 16 不再使用
     encounter: null,         // Phase 16: { instanceId } 引用 gamevars.npcInstances
+    probeEncounter: null,    // Phase 21: { probeId, ownerId, hp, maxHp, atk, def, equipmentSnapshot, fragmentCount } 跨 raid 探针遭遇
     lastPvpHit: null,        // Phase 16: { seq, fromName, damage, countered, counterDmg, at } 给被攻击方 toast
     lootPrompt: null,
     // ── 远星函馆：污染 + Ω + 结局判定字段 ──

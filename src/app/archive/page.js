@@ -215,6 +215,7 @@ export default function ArchivePage() {
   const [playerFragments, setPlayerFragments] = useState([])
   const [deathLog, setDeathLog] = useState([])
   const [combos, setCombos] = useState([])
+  const [probes, setProbes] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [chainFilter, setChainFilter] = useState('all')
@@ -223,18 +224,20 @@ export default function ArchivePage() {
     if (!user) return
 
     async function load() {
-      // 并行请求残片池、玩家发现记录、玩家死亡日志、合成配方
-      const [poolRes, playerRes, deathRes, combosRes] = await Promise.all([
+      // 并行请求残片池、玩家发现记录、玩家死亡日志、合成配方、我的探针
+      const [poolRes, playerRes, deathRes, combosRes, probesRes] = await Promise.all([
         supabase.from('fragment_pool').select('*').eq('enabled', true),
         supabase.from('player_fragments').select('*').eq('user_id', user.id),
         supabase.from('player_death_log').select('*').eq('user_id', user.id).order('died_at', { ascending: false }).limit(20),
         supabase.from('fragment_combos').select('*').eq('enabled', true),
+        supabase.from('cross_room_probes').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(30),
       ])
 
       setFragments(poolRes.data || [])
       setPlayerFragments(playerRes.data || [])
       setDeathLog(deathRes.data || [])
       setCombos(combosRes.data || [])
+      setProbes(probesRes.data || [])
       setLoading(false)
     }
 
@@ -558,6 +561,79 @@ export default function ArchivePage() {
           </div>
         </details>
       )}
+
+      {/* Phase 21.5: 我的探针 — 跨 raid 异步探针的命运 */}
+      {probes.length > 0 && (() => {
+        const active = probes.filter(p => p.status === 'active')
+        const defeated = probes.filter(p => p.status === 'defeated')
+        const expired = probes.filter(p => p.status === 'expired')
+        const totalFound = probes.reduce((s, p) => s + (p.found_count || 0), 0)
+        return (
+          <details style={{ marginBottom: 24 }}>
+            <summary style={{
+              cursor: 'pointer', padding: '8px 12px',
+              background: `${C.cyan}10`, border: `1px solid ${C.cyan}40`,
+              borderLeft: `3px solid ${C.cyan}`, borderRadius: 8,
+              fontSize: 13, color: C.cyan, fontWeight: 600,
+            }}>
+              📡 我的探针 ({probes.length})
+              {active.length > 0 && <span style={{ color: C.green, marginLeft: 6 }}>· 活跃 {active.length}</span>}
+              {defeated.length > 0 && <span style={{ color: C.red, marginLeft: 6 }}>· 被击败 {defeated.length}</span>}
+              {expired.length > 0 && <span style={{ color: C.dim2, marginLeft: 6 }}>· 过期 {expired.length}</span>}
+              {totalFound > 0 && <span style={{ color: C.dim, marginLeft: 6 }}>· 共被遭遇 {totalFound} 次</span>}
+            </summary>
+            <div style={{
+              marginTop: 8, padding: 12,
+              background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8,
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              {probes.map(p => {
+                const statusColor = p.status === 'active' ? C.green : p.status === 'defeated' ? C.red : C.dim2
+                const statusLabel = p.status === 'active' ? '🟢 活跃' : p.status === 'defeated' ? '💀 被击败' : '⏳ 过期'
+                const equip = p.equipment_snapshot || {}
+                return (
+                  <div key={p.id} style={{
+                    padding: '8px 12px',
+                    background: C.bg0,
+                    border: `1px solid ${statusColor}30`,
+                    borderRadius: 6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
+                        <span style={{ fontSize: 11, color: C.dim, fontFamily: 'monospace' }}>chamber #{p.chamber_template_id}</span>
+                        <span style={{ fontSize: 10, color: C.dim2 }}>
+                          HP {p.hp}/{p.max_hp} · ATK {p.atk} · DEF {p.def}
+                        </span>
+                        {p.fragments_carry && p.fragments_carry.length > 0 && (
+                          <span style={{ fontSize: 10, color: C.purple, padding: '1px 6px', borderRadius: 6, background: `${C.purple}15` }}>
+                            🎁 携带 {p.fragments_carry.length} 残片
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace' }}>
+                        遭遇 {p.found_count || 0} · 击败 {p.defeated_count || 0}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.dim2, marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span>留置: {new Date(p.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                      {p.expires_at && p.status === 'active' && (
+                        <span>过期: {new Date(p.expires_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit' })}</span>
+                      )}
+                      {p.defeated_at && (
+                        <span style={{ color: C.red }}>击败时间: {new Date(p.defeated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit' })}</span>
+                      )}
+                      {Object.values(equip).filter(Boolean).length > 0 && (
+                        <span>装备: {Object.entries(equip).filter(([_, v]) => v).map(([k]) => k).join('/')}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </details>
+        )
+      })()}
 
       {/* Phase 20.5: 知识图谱 — 残片合成解锁链 */}
       {combos.length > 0 && (() => {

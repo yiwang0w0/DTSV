@@ -20,6 +20,7 @@
  */
 
 import dynamic from 'next/dynamic'
+import { useState } from 'react'
 import { T } from './gameUi'
 
 // 远星函馆 FX：撤离面板顶部 Ω 接口效果（仅打开时按需加载）
@@ -29,7 +30,10 @@ export default function ExtractionModal({
   open, onClose, onExtract, busy,
   mapName = '当前地图', mapDescription = '',
   exitCost = null, inventory = [], equippedCount = 0,
+  platformPartCount = 0, // Phase 21.2: 留探针需要的 platform_part 持有数
 }) {
+  // Phase 21.2: 留探针选项
+  const [leaveProbe, setLeaveProbe] = useState(false)
   if (!open) return null
 
   const itemCounts = inventory.reduce((acc, name) => {
@@ -127,8 +131,37 @@ export default function ExtractionModal({
             </div>
           )}
 
+          {/* Phase 21.2: 留探针选项 */}
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 14px', borderRadius: 8,
+            background: leaveProbe ? `${T.purple}10` : T.bg2,
+            border: `1px solid ${leaveProbe ? T.purple : T.border}`,
+            borderLeft: `3px solid ${platformPartCount > 0 ? T.purple : T.dim2}`,
+            marginBottom: 12, cursor: platformPartCount > 0 ? 'pointer' : 'not-allowed',
+            opacity: platformPartCount > 0 ? 1 : 0.5,
+          }}>
+            <input
+              type="checkbox"
+              checked={leaveProbe}
+              disabled={platformPartCount === 0}
+              onChange={e => setLeaveProbe(e.target.checked)}
+              style={{ accentColor: T.purple }}
+            />
+            <div style={{ flex: 1, fontSize: 12 }}>
+              <div style={{ color: leaveProbe ? T.purple : T.text, fontWeight: 600 }}>
+                📡 留下异步探针（消耗 1 件环段部件）
+              </div>
+              <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>
+                {platformPartCount > 0
+                  ? `你有 ${platformPartCount} 件 platform_part — 7 天内其他玩家有概率遭遇`
+                  : '没有 platform_part 物品 — 无法留探针'}
+              </div>
+            </div>
+          </label>
+
           <button
-            onClick={() => canExtract && onExtract()}
+            onClick={() => canExtract && onExtract({ leaveProbe: leaveProbe && platformPartCount > 0 })}
             disabled={!canExtract}
             style={{
               width: '100%', padding: '10px 0', borderRadius: 8,

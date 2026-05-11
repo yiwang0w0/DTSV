@@ -31,6 +31,7 @@ import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
 import { generateRaidPath, mergeUnlocksRules } from '@/lib/server/pathGenerator'
+import { leaveProbe, tryEncounterProbe, defeatProbe } from '@/lib/server/probes'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -1673,6 +1674,14 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return extractPlayer(client, room, gamevars, user, payload)
   }
 
+  // Phase 21.4: 探针交互
+  if (payload.action === 'probeAttack') {
+    return actOnProbe(client, room, gamevars, user, 'attack')
+  }
+  if (payload.action === 'probeIgnore') {
+    return actOnProbe(client, room, gamevars, user, 'ignore')
+  }
+
   if (payload.action === 'emergencyRetreat') {
     return emergencyRetreat(client, room, gamevars, user)
   }
@@ -1774,6 +1783,119 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
     console.error('[movePlayer] event trigger 失败:', e?.message)
   }
 
+  // Phase 21.3: 进入 chamber 时 8% 概率遭遇异步探针
+  try {
+    const probe = await tryEncounterProbe(client, user.id, nextChamber.templateId)
+    if (probe) {
+      // 把 probe 信息挂到玩家身上作为 encounter（特殊类型）
+      const playerWithProbe = {
+        ...nextPlayer,
+        probeEncounter: {
+          probeId: probe.id,
+          ownerId: probe.owner_id,
+          hp: probe.hp,
+          maxHp: probe.max_hp,
+          atk: probe.atk,
+          def: probe.def,
+          equipmentSnapshot: probe.equipment_snapshot || {},
+          fragmentCount: (probe.fragments_carry || []).length,
+        },
+      }
+      setResolutionPlayer(resolution, user.id, playerWithProbe)
+      appendResolutionLog(
+        resolution,
+        `⚠ 探测到未知探针：HP ${probe.hp}/${probe.max_hp} · ATK ${probe.atk} · 携带 ${(probe.fragments_carry || []).length} 条残片碎片`,
+        'system',
+      )
+    }
+  } catch (e) {
+    console.error('[movePlayer] probe encounter 失败:', e?.message)
+  }
+
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+// ── Phase 21.4: 探针交互（袭击/放过） ──
+async function actOnProbe(client, room, gamevars, user, action) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('已阵亡玩家无法操作')
+  const probeEnc = player.probeEncounter
+  if (!probeEnc) throw new Error('当前没有探针遭遇')
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+
+  if (action === 'ignore') {
+    setResolutionPlayer(resolution, user.id, { ...player, probeEncounter: null })
+    appendResolutionLog(resolution, `${player.name} 选择避开探针，无声离开`, 'system')
+    return persistResolution(client, room, resolution)
+  }
+
+  if (action !== 'attack') throw new Error('未知的探针动作')
+
+  // 攻击：单次结算 — 玩家攻击探针, 探针反击
+  const myAtk = player.atk || 10
+  const myDef = player.def || 8
+  const myHp = player.hp || 0
+  const probeDmgFromMe = Math.max(1, myAtk - Math.floor(probeEnc.def * 0.5))
+  const probeHpAfter = Math.max(0, probeEnc.hp - probeDmgFromMe)
+  const probeKilled = probeHpAfter <= 0
+
+  let myHpAfter = myHp
+  let probeDmgToMe = 0
+  if (!probeKilled) {
+    probeDmgToMe = Math.max(1, probeEnc.atk - Math.floor(myDef * 0.5))
+    myHpAfter = Math.max(0, myHp - probeDmgToMe)
+  }
+
+  const playerAlive = myHpAfter > 0
+
+  appendResolutionLog(resolution, `${player.name} 袭击探针，造成 ${probeDmgFromMe} 伤害（探针 HP ${probeHpAfter}/${probeEnc.maxHp}）`, 'attack')
+
+  if (probeKilled) {
+    appendResolutionLog(resolution, `🎯 探针被击败！`, 'kill')
+    // 抢 1 条残片
+    try {
+      const stolen = await defeatProbe(client, probeEnc.probeId, user.id)
+      if (stolen?.stolenFragmentName) {
+        appendResolutionLog(resolution, `${player.name} 从探针残骸中夺取了【${stolen.stolenFragmentName}】 — 解码 +1（${stolen.newLevel}/3）`, 'crit')
+      } else {
+        appendResolutionLog(resolution, `探针未携带可夺残片`, 'system')
+      }
+    } catch (e) {
+      console.error('[actOnProbe] defeatProbe 失败:', e?.message)
+    }
+    setResolutionPlayer(resolution, user.id, {
+      ...player,
+      probeEncounter: null,
+      hp: myHpAfter,
+      alive: playerAlive,
+    })
+  } else {
+    appendResolutionLog(resolution, `探针反击 ${player.name}，造成 ${probeDmgToMe} 伤害（HP ${myHpAfter}/${player.maxHp || 100}）`, 'damage')
+    setResolutionPlayer(resolution, user.id, {
+      ...player,
+      hp: myHpAfter,
+      alive: playerAlive,
+      probeEncounter: {
+        ...probeEnc,
+        hp: probeHpAfter,
+      },
+    })
+    if (!playerAlive) {
+      appendResolutionLog(resolution, `${player.name} 在与探针的交手中倒下了`, 'death')
+      await settleCorpseGeneration(resolution)
+      try {
+        await logPlayerDeath(client, user.id, {
+          roomId: room.id,
+          gamenum: room.gamenum || 1,
+          mapId: player.map ?? 0,
+          reason: 'npc_counter',
+          context: { probeOwner: probeEnc.ownerId, envPollution: resolution.gamevars.envPollution || 0 },
+        })
+      } catch (e) { console.error('[actOnProbe] deathLog 失败:', e?.message) }
+    }
+  }
+
   return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 
@@ -1820,6 +1942,63 @@ async function extractPlayer(client, room, gamevars, user, payload) {
       if (it === cost.item && removed < need) { removed++; return false }
       return true
     })
+  }
+
+  // ── Phase 21.2: 留探针选项（payload.leaveProbe === true） ──
+  // 消耗 1 件 platform_part 物品；探针快照玩家当前装备与残片
+  let probeLeftLog = null
+  if (payload?.leaveProbe === true) {
+    // 找 platform_part 物品
+    const platformPartIdx = (await (async () => {
+      const { data: parts } = await client.from('item_pool').select('name').eq('kind', 'platform_part')
+      const partNames = new Set((parts || []).map(p => p.name))
+      return inventoryAfter.findIndex(name => partNames.has(name))
+    })())
+    if (platformPartIdx < 0) {
+      throw new Error('留探针需要至少 1 件「环段部件」(platform_part) 物品')
+    }
+    const partName = inventoryAfter[platformPartIdx]
+    inventoryAfter.splice(platformPartIdx, 1)
+
+    // 抓玩家已发现的残片 ID 列表（任意 decode_level >=1 都算）作为探针 carry
+    let probeFragmentsCarry = []
+    try {
+      const { data: pfs } = await client
+        .from('player_fragments')
+        .select('fragment_id')
+        .eq('user_id', user.id)
+        .gte('decode_level', 1)
+        .limit(10)
+      probeFragmentsCarry = (pfs || []).map(p => p.fragment_id)
+    } catch { /* skip */ }
+
+    // 装备快照（不实际占用）
+    const equipmentSnapshot = {
+      probe: player.loadout?.probe || null,
+      shield: player.loadout?.shield || null,
+      weapon: player.loadout?.weapon || null,
+      comm: player.loadout?.comm || null,
+    }
+
+    // 探针属性按玩家当前 atk/def 推算（保守）
+    const probeAtk = Math.max(8, Math.floor((player.atk || 10) * 0.7))
+    const probeDef = Math.max(5, Math.floor((player.def || 8) * 0.6))
+    const probeHp = Math.max(40, Math.floor((player.maxHp || 100) * 0.6))
+
+    const leftProbe = await leaveProbe(client, {
+      ownerId: user.id,
+      chamberTemplateId: player.chamberIndex != null && Array.isArray(gamevars.raidPath)
+        ? (gamevars.raidPath[player.chamberIndex]?.templateId || null)
+        : null,
+      equipmentSnapshot,
+      atk: probeAtk,
+      def: probeDef,
+      hp: probeHp,
+      fragmentsCarry: probeFragmentsCarry,
+    })
+    if (leftProbe) {
+      probeLeftLog = `${player.name} 用【${partName}】留下了一座探针（HP ${probeHp}, ATK ${probeAtk}）— 7 天内其他玩家可能遭遇`
+    }
   }
 
   // ── 转移背包道具到账户库（含 tech_fragment 计数） ──
@@ -1878,6 +2057,11 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     ? `${player.name} 从【${mapConfig.name}】完成结构退避（带回 ${totalCount} 件物资）`
     : `${player.name} 从【${mapConfig.name}】完成结构退避`
   appendResolutionLog(resolution, note, 'system')
+
+  // Phase 21.2: 留探针日志
+  if (probeLeftLog) {
+    appendResolutionLog(resolution, probeLeftLog, 'system')
+  }
 
   // Phase 18.1: 撤离链残片发现（extract chain）— 撤离成功 35% 概率
   // 撤离链残片往往是"深界时代撤离日志"类，写在玩家成功带回物资时

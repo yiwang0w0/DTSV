@@ -369,10 +369,10 @@ export default function GameClientPage() {
     return result
   }
 
-  async function handleExtract() {
-    const next = await runGameAction('extract', {}, { refreshEquipment: true })
+  async function handleExtract(opts = {}) {
+    const next = await runGameAction('extract', { leaveProbe: !!opts.leaveProbe }, { refreshEquipment: true })
     if (next) {
-      toast('🚪 已成功撤离，物资已入库', 'success')
+      toast(opts.leaveProbe ? '🚪 已撤离 · 探针已部署' : '🚪 已成功撤离，物资已入库', 'success')
       setExtractOpen(false)
     }
   }
@@ -485,6 +485,11 @@ export default function GameClientPage() {
         exitCost={effectiveMapConfig?.exit_cost || null}
         inventory={meBase?.inventory || []}
         equippedCount={equipments.length}
+        // Phase 21.2: 计算玩家持有的 platform_part 件数
+        platformPartCount={(() => {
+          const partNames = new Set((allItems || []).filter(i => i.kind === 'platform_part').map(i => i.name))
+          return (meBase?.inventory || []).filter(name => partNames.has(name)).length
+        })()}
       />
       <LoadoutModal
         open={joinLoadoutOpen}
@@ -916,6 +921,45 @@ export default function GameClientPage() {
               </div>
             ) : (
               <div>
+                {/* Phase 21.4: 探针遭遇卡 */}
+                {meBase?.probeEncounter && (
+                  <div style={{
+                    background: T.bg0, borderRadius: 10,
+                    border: `1px solid ${T.purple}50`, borderLeft: `3px solid ${T.purple}`,
+                    padding: '14px 16px', marginBottom: 12,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>未知探针（来自其他玩家）</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>📡 异步探针</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
+                        #{String(meBase.probeEncounter.probeId).slice(-6)}
+                      </div>
+                    </div>
+                    <HpBar hp={meBase.probeEncounter.hp} max={meBase.probeEncounter.maxHp} h={8} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                      <span style={{ color: hpColor(meBase.probeEncounter.hp, meBase.probeEncounter.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>
+                        HP {meBase.probeEncounter.hp}/{meBase.probeEncounter.maxHp}
+                      </span>
+                      <span style={{ color: T.dim }}>
+                        ATK {meBase.probeEncounter.atk} · DEF {meBase.probeEncounter.def}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
+                      🎁 携带 {meBase.probeEncounter.fragmentCount} 条残片碎片 — 击败后可夺取 1 条
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <Btn variant="danger" loading={busyAction === 'probeAttack'} loadingText="交战中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('probeAttack')} disabled={!me?.alive || room.gamestate === 2}>
+                        ⚔️ 袭击探针
+                      </Btn>
+                      <Btn variant="ghost" sx={{ flex: 1, padding: '10px 0' }} onClick={() => runGameAction('probeIgnore')} disabled={busy || !me?.alive || room.gamestate === 2}>
+                        放过
+                      </Btn>
+                    </div>
+                  </div>
+                )}
+
                 {/* Phase 16: encounter 卡 — 待袭击 NPC 实例 */}
                 {encounterInstance && (
                   <div style={{
