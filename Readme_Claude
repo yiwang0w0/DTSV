@@ -1,7 +1,7 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 20 知识驱动生成池（9 sub 全部落地）
-整理方式：基于全量源码交叉验证 + Phase 0-20 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 21 异步 PvPVE 探针（6 sub 全部落地）
+整理方式：基于全量源码交叉验证 + Phase 0-21 改造提交记录。
 
 ## 最近变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
 
@@ -179,8 +179,49 @@ SELECT count(*) FROM fragment_combos;
 
 ### 仍未做
 
-- **Phase 21** 异步 PvPVE 探针 — 撤离时留信号，跨 raid 遭遇
+- ✅ **Phase 21** 异步 PvPVE 探针 — 完成
 - **Phase 22** 抛光与平衡 — playtest 数据收集 + chamber 模板权重校准
+
+---
+
+## 最近变更（2026-05-11 / Phase 21）— 异步 PvPVE 探针（6 sub 全部落地）
+
+> 主题：让玩家感受到"不只我一个人在爬"，撤离时可消耗 platform_part 留下"探针"，
+> 7 天内在其他玩家进入同 chamber_template 时遭遇。击败 → 抢主人 1 条残片解码。
+
+### Phase 21 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 21.1 | **cross_room_probes 表**：`scripts/phase-21-1-cross-room-probes.sql` 建表（owner_id / chamber_template_id / hp / atk / def / equipment_snapshot jsonb / fragments_carry int[] / expires_at 默认 7 天 / status active/defeated/expired）+ 双索引（active 抽取 / owner 查询） | `b37f7c0` |
+| 21.2 | **extractPlayer leaveProbe 选项**：payload.leaveProbe → 校验 + 消耗 1 platform_part，快照玩家 atk/def/hp/loadout/已发现残片，写入 cross_room_probes；ExtractionModal 加紫色"📡 留下异步探针"复选框 + platformPartCount 显示 | 同 commit |
+| 21.3 | **movePlayer 进入 chamber 时 8% 遭遇探针**：tryEncounterProbe 排除自己 + 过期 → 抽最旧的 active probe；挂 player.probeEncounter 字段 | 同 commit |
+| 21.4 | **探针交互卡**：GameClientPage 紫色卡（HP/ATK/DEF + 携带残片数 + ⚔️ 袭击/放过）；actOnProbe action(attack/ignore)，击败 → defeatProbe 从 fragments_carry 随机抽 1 条让 attacker decode +1；探针反击致死走 deathLog(npc_counter) | 同 commit |
+| 21.5 | **/archive 我的探针**：青色 details 卡列玩家自己留下的所有 probe + 状态(active/defeated/expired) + found_count/defeated_count + 装备列表 + 时间戳 | 同 commit |
+| 21.6 | Readme 同步 Phase 21 | (本次) |
+
+### 部署步骤
+
+1. `scripts/phase-21-1-cross-room-probes.sql` — 建 cross_room_probes 表（已部署生产）
+
+跑完验证：
+```sql
+SELECT count(*), status FROM cross_room_probes GROUP BY status;
+```
+
+### 走查路径
+
+1. **21.1 schema**：Supabase Table Editor 看到 cross_room_probes
+2. **21.2 留探针**：撤离 modal → 持有 platform_part → 复选"留下异步探针" → 撤离 → cross_room_probes 写入 1 条
+3. **21.3+21.4 遭遇**：用第二账号进入同 chamber_template → 8% 概率弹紫色探针卡 → 袭击 → 击败 → toast"夺取了【X】" + decode +1
+4. **21.5 我的探针**：用主账号回到 /archive → 顶部"📡 我的探针" 折叠卡 → 看到被击败次数 + 击败时间
+
+### 设计要点
+
+- **探针冷启动**：新对局 cross_room_probes 池为空时，没有探针可遇 — 玩家先互相留几条种子即可启动
+- **不能遇到自己的**：tryEncounterProbe 用 `.neq('owner_id', userId)` 过滤
+- **7 天过期**：expires_at 默认 now() + 7days；后续可加 cron 把过期 active 改 expired
+- **抢残片机制**：探针主人留下的 fragments_carry 都是 decode_level >= 1 的；击败者随机抽 1 条 decode +1（如果该残片未发现则以 level=1 起步）
 
 ---
 
