@@ -64,11 +64,26 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   )
 
   function openAdd() {
-    setEditItem({ name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1, maps: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '' })
+    setEditItem({
+      name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1,
+      maps: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
+      // Phase 17: 使用模式 + 情报文本
+      use_mode: 'consume', inspect_text: '',
+    })
     setModal(true)
   }
   function openEdit(item) {
-    setEditItem({ ...item, maps: item.maps || [], on_use_buff_ids: item.on_use_buff_ids || [], heal_formula: item.heal_formula || '', atk_formula: item.atk_formula || '', def_formula: item.def_formula || '', effect: item.effect ?? 0 })
+    setEditItem({
+      ...item,
+      maps: item.maps || [],
+      on_use_buff_ids: item.on_use_buff_ids || [],
+      heal_formula: item.heal_formula || '',
+      atk_formula: item.atk_formula || '',
+      def_formula: item.def_formula || '',
+      effect: item.effect ?? 0,
+      use_mode: item.use_mode || 'consume',
+      inspect_text: item.inspect_text || '',
+    })
     setModal(true)
   }
   async function save() {
@@ -191,7 +206,41 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
               <div style={{ gridColumn: '1/-1' }}>
                 <label style={LABEL}>描述</label>
                 <input style={INPUT} value={editItem.description || ''} onChange={e => setEditItem({ ...editItem, description: e.target.value })} />
-                <div style={HINT}>对玩家展示的道具说明文本</div>
+                <div style={HINT}>对玩家展示的道具说明文本（背包项卡片下方）</div>
+              </div>
+            </div>
+
+            {/* ─── Phase 17: 使用模式 ─── */}
+            <div style={SECTION_TITLE}>🎒 使用模式（Phase 17）</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={LABEL}>use_mode</label>
+                <select
+                  style={INPUT}
+                  value={editItem.use_mode || 'consume'}
+                  onChange={e => setEditItem({ ...editItem, use_mode: e.target.value })}
+                >
+                  <option value="consume">consume — 使用：应用 effect + 消耗</option>
+                  <option value="inspect_keep">inspect_keep — 查看：写日志 + 不消耗</option>
+                  <option value="inspect_consume">inspect_consume — 查看：写日志 + 一次性消耗</option>
+                </select>
+                <div style={HINT}>
+                  inspect 模式忽略 ATK/DEF/HEAL/effect/buff，只把 inspect_text（或回落 description）写入对局日志
+                </div>
+              </div>
+              <div>
+                <label style={LABEL}>inspect_text（情报文本）</label>
+                <textarea
+                  rows={4}
+                  style={{ ...INPUT, fontFamily: 'inherit', resize: 'vertical' }}
+                  value={editItem.inspect_text || ''}
+                  disabled={(editItem.use_mode || 'consume') === 'consume'}
+                  onChange={e => setEditItem({ ...editItem, inspect_text: e.target.value })}
+                  placeholder="例：锚点-β 残段日志：……整段失稳前 17 秒，环结构出现非典型振颤……"
+                />
+                <div style={HINT}>
+                  仅 inspect_keep / inspect_consume 启用；玩家「查看」时会以「X 查看 物品：内容」格式写日志
+                </div>
               </div>
             </div>
 
