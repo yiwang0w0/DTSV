@@ -32,6 +32,7 @@ export default function PlaytestTab({ toast }) {
     setLoading(false)
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [windowSize])
 
   const agg = useMemo(() => {
