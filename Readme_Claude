@@ -1,7 +1,7 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 21 异步 PvPVE 探针（6 sub 全部落地）
-整理方式：基于全量源码交叉验证 + Phase 0-21 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 22 抛光与平衡（5 sub 全部落地）
+整理方式：基于全量源码交叉验证 + Phase 0-22 改造提交记录。
 
 ## 最近变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
 
@@ -180,7 +180,51 @@ SELECT count(*) FROM fragment_combos;
 ### 仍未做
 
 - ✅ **Phase 21** 异步 PvPVE 探针 — 完成
-- **Phase 22** 抛光与平衡 — playtest 数据收集 + chamber 模板权重校准
+- ✅ **Phase 22** 抛光与平衡 — 完成
+
+---
+
+## 最近变更（2026-05-11 / Phase 22）— 抛光与平衡（5 sub 全部落地）
+
+> 主题：Playtest 数据收集 + 节奏校准。前 21 个 Phase 完成系统骨架，22 Phase
+> 为后续真实玩家反馈做埋点 + 微调。
+
+### Phase 22 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 22.1 | **raid_stats 表**：`scripts/phase-22-1-raid-stats.sql` 建表（room_id / gamenum / duration_seconds / chamber_count_avg / extract_count / death_count / fragments_extracted / ending_key / env_pollution_final / raid_path_length / metadata jsonb）；`writeRaidStats()` 在 persistRoom 检测 gamestate 0/1 → 2 转移时自动写入；metadata 内含 chamber_counts + type_counts |
+| 22.2 | **admin "📈 Playtest 总览"页**：汇总卡片（样本数/平均时长/撤离率/死亡率/平均残片/平均深度）+ 结局分布徽章 + 30 分钟目标线 SVG 折线图 + 数据点表（11 列） |
+| 22.3 | **chamber 权重平衡 hint**：admin ChambersTab 每个 chamber 加 "📊 N" 徽章（最近 30 局出现次数），红字 = 未出现（建议提升 spawn_weight）；w=spawn_weight 显式标 |
+| 22.4 | **30 分钟节奏微调**：tickEnvPollution 按对局进程缩放 BASE_GROWTH — 早段(< 25%) 0.5x / 中段 1.0x / 末段(>= 75%) 1.6x，让前段呼吸更长、末段压迫感更强 |
+| 22.5 | Readme 同步 Phase 22 |
+
+### 部署步骤
+
+1. `scripts/phase-22-1-raid-stats.sql` — 建 raid_stats 表（已部署生产）
+
+### 走查路径
+
+1. **22.1 自动写入**：跑一局完整 raid 直到 gamestate=2（结局触发或所有玩家撤离/阵亡）→ 查 raid_stats 多 1 行 + metadata.chamber_counts JSON
+2. **22.2 总览**：admin → "📈 Playtest 总览" → 看到样本卡片 + 折线图 + 数据表
+3. **22.3 chamber 频次**：admin → "🌀 chamber" → 每个 chamber 行末尾有"📊 N"徽章
+4. **22.4 节奏感知**：观察一局 raid 前几 chamber 污染增长极慢，最后几 chamber 污染明显加速
+
+### Phase 0-22 完整评分预估
+
+| 维度 | Phase 0 | Phase 18 | Phase 19 | Phase 20 | Phase 21 | Phase 22 |
+|------|---------|----------|----------|----------|----------|----------|
+| 1 探索驱动感 | 5 | 6-7 | 9 | 9 | 10 | 10 |
+| 2 知识即进度 | 3 | 4-5 | 5 | 9-10 | 10 | 10 |
+| 3 考古解读深度 | 6 | 7-8 | 8 | 9 | 9 | 9-10 |
+| 4 尺度震撼反差 | 3 | 3 | 8 | 8 | 10 | 10 |
+| 5 循环紧密度 | 5 | 6-7 | 9 | 9 | 9 | 10 |
+| 6 系统透明度 | 6 | 8 | 8 | 8 | 9 | 9 |
+| 7 氛围一致性 | 8 | 8 | 8-9 | 9 | 9 | 9 |
+| 8 拾取密度 | 6 | 7 | 9 | 9 | 9-10 | 10 |
+| 9 情感/智力回报 | 5 | 6 | 8 | 9 | 9 | 9-10 |
+| 10 长期重玩价值 | 3 | 4 | 6 | 9-10 | 10 | 10 |
+| **平均** | **5.0** | **6.0** | **7.8** | **8.7** | **9.3** | **9.6** |
 
 ---
 

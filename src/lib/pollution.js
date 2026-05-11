@@ -138,18 +138,33 @@ export function applyPartRepair(gv) {
  */
 export function tickEnvPollution(gv, mapAccelById) {
   // 收集所有玩家所在地图的最大 accel；同时统计武器持有者人数
+  // Phase 22.4: 30 分钟节奏调优 — 按对局进程缩放 BASE_GROWTH，
+  //   早期(< 25% 路径) 0.5x / 中期 1.0x / 末段(>= 75%) 1.6x
+  //   配合 chamber.pollution_accel 在末段的天然提升，让前段呼吸更长，末段压迫感更强。
   const players = Object.values(gv?.players || {})
   let maxAccel = 0
   let weaponHolders = 0
+  let maxChamberProgress = 0
   for (const p of players) {
     if (!p?.alive || p?.extracted) continue
     const mapId = p.map ?? 0
     const accel = mapAccelLookup(mapAccelById, mapId)
     if (accel > maxAccel) maxAccel = accel
     if (p.loadout?.weapon) weaponHolders++
+    // 取所有玩家最深进度（chamberIndex / raidPath 长度）
+    const pathLen = Array.isArray(gv.raidPath) ? gv.raidPath.length : 0
+    const progress = pathLen > 0 ? ((p.chamberIndex || 0) / pathLen) : 0
+    if (progress > maxChamberProgress) maxChamberProgress = progress
   }
+
+  // 阶段倍率：opening/early < 25% / middle 25-75% / late+finale >= 75%
+  let stageMultiplier = 1.0
+  if (maxChamberProgress < 0.25) stageMultiplier = 0.5
+  else if (maxChamberProgress >= 0.75) stageMultiplier = 1.6
+
   // 武器装载者每人额外 +1 环境污染/回合（spec §6.3 weapon 副作用）
-  const inc = POLLUTION_CONFIG.BASE_GROWTH + maxAccel + weaponHolders
+  const baseInc = POLLUTION_CONFIG.BASE_GROWTH * stageMultiplier
+  const inc = baseInc + maxAccel + weaponHolders
   return {
     ...gv,
     envPollution: clamp((gv.envPollution || 0) + inc, 0, 100),

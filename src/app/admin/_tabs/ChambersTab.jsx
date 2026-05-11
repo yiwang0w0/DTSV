@@ -40,6 +40,8 @@ export default function ChambersTab({ toast }) {
   const [modal, setModal] = useState(false)
   const [edit, setEdit] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  // Phase 22.3: 最近 N 局每个 chamber 的出现次数（balance hint）
+  const [appearanceCounts, setAppearanceCounts] = useState({})
 
   async function load() {
     const { data } = await supabase
@@ -48,6 +50,24 @@ export default function ChambersTab({ toast }) {
       .order('type')
       .order('template_key')
     setChambers(data || [])
+
+    // Phase 22.3: 从最近 30 局 raid_stats.metadata.chamber_counts 累加
+    try {
+      const { data: stats } = await supabase
+        .from('raid_stats')
+        .select('metadata')
+        .order('ended_at', { ascending: false })
+        .limit(30)
+      const acc = {}
+      for (const s of stats || []) {
+        const counts = s.metadata?.chamber_counts || {}
+        for (const [tid, n] of Object.entries(counts)) {
+          acc[tid] = (acc[tid] || 0) + Number(n)
+        }
+      }
+      setAppearanceCounts(acc)
+    } catch { /* skip if raid_stats not deployed yet */ }
+
     setLoading(false)
   }
 
@@ -125,6 +145,11 @@ export default function ChambersTab({ toast }) {
 
       <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 12 }}>
         共 {chambers.length} 个 chamber · 显示 {filtered.length} · 启用 {chambers.filter(c => c.enabled).length}
+        {Object.keys(appearanceCounts).length > 0 && (
+          <span style={{ marginLeft: 12, color: '#d29922' }}>
+            📊 数字 = 最近 30 局出现次数（红字 = 未出现，建议提升 spawn_weight）
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -150,6 +175,20 @@ export default function ChambersTab({ toast }) {
                   <span style={{ fontSize: 9, color: '#8b949e' }}>污染 {c.pollution_base}%(+{c.pollution_accel}/t)</span>
                   {c.is_exit && <span style={{ fontSize: 9, color: '#3fb950' }}>🚪 撤离</span>}
                   {c.omega_window > 0 && <span style={{ fontSize: 9, color: '#bc8cff' }}>Ω{c.omega_window}t</span>}
+                  <span style={{ fontSize: 9, color: '#d29922' }}>w={c.spawn_weight}</span>
+                  {/* Phase 22.3: 最近 30 局出现次数 */}
+                  {(() => {
+                    const cnt = appearanceCounts[c.id] || 0
+                    const color = cnt === 0 ? '#f85149' : cnt > 5 ? '#3fb950' : '#8b949e'
+                    return (
+                      <span title={`最近 30 局共出现 ${cnt} 次`} style={{
+                        fontSize: 9, padding: '1px 6px', borderRadius: 6,
+                        background: `${color}15`, color, border: `1px solid ${color}30`,
+                      }}>
+                        📊 {cnt}
+                      </span>
+                    )
+                  })()}
                 </div>
                 {c.description && <div style={{ fontSize: 11, color: '#8b949e', marginTop: 3 }}>{c.description.slice(0, 100)}</div>}
               </div>

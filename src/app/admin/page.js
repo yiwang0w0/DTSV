@@ -20,6 +20,7 @@ import EndingsTab    from './_tabs/EndingsTab'
 import FragmentsTab  from './_tabs/FragmentsTab'
 import FragmentCombosTab from './_tabs/FragmentCombosTab'
 import ChambersTab   from './_tabs/ChambersTab'
+import PlaytestTab   from './_tabs/PlaytestTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
@@ -38,6 +39,7 @@ const TABS = [
   { key: 'fragments', label: '📡 残片' },
   { key: 'combos',    label: '🔗 残片合成' },
   { key: 'chambers',  label: '🌀 chamber' },
+  { key: 'playtest',  label: '📈 Playtest 总览' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
@@ -135,6 +137,7 @@ export default function AdminPage() {
       {tab === 'fragments' && <FragmentsTab toast={toast} />}
       {tab === 'combos'    && <FragmentCombosTab toast={toast} />}
       {tab === 'chambers'  && <ChambersTab toast={toast} />}
+      {tab === 'playtest'  && <PlaytestTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )

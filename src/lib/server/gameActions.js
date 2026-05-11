@@ -366,7 +366,61 @@ async function persistRoom(client, room, gamevars, logs = [], options = {}) {
     throw new Error(error.message || '对局状态更新失败')
   }
 
+  // Phase 22.1: 当对局从 进行/等待 转入 ended(2) 时写一次 raid_stats
+  if (data && room.gamestate !== 2 && data.gamestate === 2) {
+    try {
+      await writeRaidStats(client, data)
+    } catch (e) {
+      console.error('[raid_stats] 写入失败:', e?.message)
+    }
+  }
+
   return data
+}
+
+// Phase 22.1: 单局结束统计写入
+async function writeRaidStats(client, finalRoom) {
+  if (!finalRoom) return
+  const gv = finalRoom.gamevars || {}
+  const players = Object.values(gv.players || {})
+  const chamberIdxs = players.map(p => p?.chamberIndex || 0)
+  const chamberAvg = chamberIdxs.length > 0
+    ? chamberIdxs.reduce((s, n) => s + n, 0) / chamberIdxs.length
+    : 0
+  const chamberMax = chamberIdxs.length > 0 ? Math.max(...chamberIdxs) : 0
+  const extractCount = players.filter(p => p?.extracted).length
+  const startedAt = finalRoom.started_at ? new Date(finalRoom.started_at).getTime() : null
+  const endedAt = Date.now()
+  const durationSec = startedAt ? Math.floor((endedAt - startedAt) / 1000) : 0
+
+  // Phase 22.3: 把 chamber 出现次数 + 类型分布写入 metadata（供平衡 dashboard 用）
+  const chamberCounts = {}
+  const typeCounts = {}
+  for (const ch of (Array.isArray(gv.raidPath) ? gv.raidPath : [])) {
+    if (ch?.templateId != null) {
+      chamberCounts[ch.templateId] = (chamberCounts[ch.templateId] || 0) + 1
+    }
+    if (ch?.type) {
+      typeCounts[ch.type] = (typeCounts[ch.type] || 0) + 1
+    }
+  }
+
+  await client.from('raid_stats').insert({
+    room_id: finalRoom.id,
+    gamenum: finalRoom.gamenum || 0,
+    duration_seconds: durationSec,
+    chamber_count_avg: Number(chamberAvg.toFixed(2)),
+    chamber_count_max: chamberMax,
+    player_count: finalRoom.validnum || players.length,
+    alive_count: finalRoom.alivenum || 0,
+    death_count: finalRoom.deathnum || 0,
+    extract_count: extractCount,
+    fragments_extracted: gv.totalFragmentsExtracted || 0,
+    ending_key: gv.endingResult?.key || null,
+    env_pollution_final: Math.floor(gv.envPollution || 0),
+    raid_path_length: Array.isArray(gv.raidPath) ? gv.raidPath.length : 0,
+    metadata: { chamber_counts: chamberCounts, type_counts: typeCounts },
+  })
 }
 
 async function fetchItemDefByName(client, name) {
