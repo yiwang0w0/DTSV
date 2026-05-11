@@ -46,6 +46,19 @@ inspect_text 缺省回落：`inspect_text → description → "— 没有额外�
 3. （可选）admin 后台 → 道具池 → 编辑某道具 → 切 use_mode 为 inspect_keep → 填 inspect_text → 保存
 4. 走查：玩家进 raid → 左侧"🎒 背包"面板常驻 → consume 道具按钮"使用"（蓝）/ inspect_keep "查看"（ghost）/ inspect_consume "查看（一次性）"（黄）
 
+### 端到端走查验证（2026-05-11 完成）
+
+在 dtsv.vercel.app 线上环境完成全部 6 步验证：
+
+| # | 检查项 | 结果 |
+|---|-------|------|
+| 1 | 左面板布局顺序：玩家信息 → ⚔️ PvP → 🎒 背包（常驻） | ✅ 通过 |
+| 2 | 中央 tab 仅「日志 / 装备」，无「背包」 | ✅ 通过 |
+| 3 | consume（结构修复包）：蓝色「使用」→ HP +30 → 库存 -1 | ✅ 通过 |
+| 4 | inspect_keep（锚点稳定协议）：ghost「查看」→ inspect_text 写入日志 → 库存不变 → 可重复 | ✅ 通过 |
+| 5 | inspect_consume（语言压缩算法 临时设置）：黄色「查看（一次性）」→ 日志显示内容 + "X 在查阅后碎裂了" → 库存 -1 | ✅ 通过 |
+| 6 | 背包面板高度限制：≤7 项无滚动，10 项触发内部滚动（maxHeight:320px, overflowY:auto） | ✅ 通过 |
+
 ### 已知优化项（17 后续）
 
 - inspect 类道具的批量编辑（admin 一次给一批残段日志填 inspect_text 会比较繁琐）— 可后续做 CSV 导入
