@@ -551,6 +551,55 @@ export default function GameClientPage() {
               </div>
             </>
           )}
+
+          {/* Phase 17: 背包面板 — 从中央 tab 搬到左侧常驻 */}
+          {inGame && (
+            <>
+              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{(me?.inventory || []).length} 件</span>}>🎒 背包</PanelTitle>
+              <div style={{ padding: '8px 12px', maxHeight: 320, overflowY: 'auto' }}>
+                {Object.keys(invCount).length === 0 ? (
+                  <div style={{ textAlign: 'center', color: T.dim, padding: '12px 0', fontSize: 11 }}>背包空空如也</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {Object.entries(invCount).map(([name, count]) => {
+                      const itemDef = allItems.find(item => item.name === name)
+                      const mode = itemDef?.use_mode || 'consume'
+                      const btnLabel = mode === 'inspect_keep' ? '查看'
+                        : mode === 'inspect_consume' ? '查看（一次性）'
+                        : '使用'
+                      const btnVariant = mode === 'inspect_keep' ? 'ghost'
+                        : mode === 'inspect_consume' ? 'warn'
+                        : 'default'
+                      return (
+                        <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}` }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 12, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {name}
+                              {count > 1 && <span style={{ color: T.dim, fontSize: 10, marginLeft: 5 }}>×{count}</span>}
+                            </div>
+                            {itemDef?.description && (
+                              <div style={{ fontSize: 10, color: T.dimB, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemDef.description}</div>
+                            )}
+                          </div>
+                          {me?.alive && room.gamestate !== 2 && (
+                            <Btn
+                              size="sm"
+                              variant={btnVariant}
+                              onClick={() => runGameAction('useItem', { itemName: name })}
+                              disabled={busy}
+                              sx={{ flexShrink: 0, fontSize: 10, padding: '3px 8px' }}
+                            >
+                              {btnLabel}
+                            </Btn>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -658,7 +707,6 @@ export default function GameClientPage() {
           <div style={{ display: 'flex', background: T.bg0, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
             {[
               { key: 'log', label: '日志' },
-              { key: 'bag', label: `背包${inGame ? ` (${(me?.inventory || []).length})` : ''}` },
               { key: 'equip', label: `装备 (${equipments.length})` },
             ].map(tab => (
               <button
@@ -687,32 +735,6 @@ export default function GameClientPage() {
                 {logs.length === 0
                   ? <div style={{ textAlign: 'center', color: T.dim, marginTop: 24, fontSize: 12 }}>等待事件发生...</div>
                   : logs.map((entry, index) => <LogLine key={`${entry.time}-${index}`} entry={entry} />)}
-              </div>
-            )}
-
-            {panel === 'bag' && (
-              <div>
-                {!inGame && <div style={{ textAlign: 'center', color: T.dim, marginTop: 24, fontSize: 12 }}>加入游戏后显示背包</div>}
-                {inGame && Object.keys(invCount).length === 0 && <div style={{ textAlign: 'center', color: T.dim, marginTop: 24, fontSize: 12 }}>背包空空如也</div>}
-                {Object.entries(invCount).map(([name, count]) => {
-                  const itemDef = allItems.find(item => item.name === name)
-                  return (
-                    <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}`, marginBottom: 6 }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 12 }}>
-                          {name}
-                          {count > 1 && <span style={{ color: T.dim, fontSize: 11, marginLeft: 5 }}>x{count}</span>}
-                        </div>
-                        {itemDef?.description && <div style={{ fontSize: 11, color: T.dimB, marginTop: 2 }}>{itemDef.description}</div>}
-                      </div>
-                      {me?.alive && room.gamestate !== 2 && (
-                        <Btn size="sm" onClick={() => runGameAction('useItem', { itemName: name })} disabled={busy}>
-                          使用
-                        </Btn>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
             )}
 
