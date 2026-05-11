@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, WEATHER_OPTIONS, GAME_TYPES, ITEM_KIND_META, NPC_LEVEL_META } from '../_shared/ui'
+import { BTN, INPUT, LABEL, GAME_TYPES, ITEM_KIND_META, NPC_LEVEL_META } from '../_shared/ui'
 import { CardDndProvider, DraggableCard, DroppableArea, ItemCard, NpcCard } from '@/components/cards'
 
 const C = {
@@ -262,9 +262,6 @@ export default function MapsTab({
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{ fontSize: 10, color: itemCount > 0 ? C.yellow : C.dim2 }}>📦 {itemCount}</span>
                     <span style={{ fontSize: 10, color: npcCount  > 0 ? C.purple : C.dim2 }}>👹 {npcCount}</span>
-                    <span style={{ fontSize: 11, color: C.dim }}>
-                      {(WEATHER_OPTIONS.find(w => w.value === map.weather) || WEATHER_OPTIONS[0]).label}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -300,12 +297,6 @@ export default function MapsTab({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={LABEL}>天气</label>
-                  <select style={INPUT} value={sel.weather || 'clear'} onChange={e => update(sel.map_id, { weather: e.target.value })}>
-                    {WEATHER_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label} — {w.desc}</option>)}
-                  </select>
-                </div>
                 <div>
                   <label style={LABEL}>游戏模式</label>
                   <select style={INPUT} value={sel.game_type ?? 0} onChange={e => update(sel.map_id, { game_type: Number(e.target.value) })}>

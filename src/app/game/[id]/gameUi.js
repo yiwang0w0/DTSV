@@ -18,15 +18,6 @@ export const T = {
   orange: '#ff8c42',
 }
 
-export const WEATHER = {
-  clear: { label: '晴天', icon: '☀️', mod: '' },
-  rain: { label: '暴雨', icon: '🌧️', mod: '远程命中下降' },
-  fog: { label: '大雾', icon: '🌫️', mod: '搜索收益下降' },
-  storm: { label: '风暴', icon: '⛈️', mod: '全属性轻微波动' },
-  night: { label: '黑夜', icon: '🌙', mod: '遭遇风险上升' },
-  snow: { label: '暴雪', icon: '❄️', mod: '行动受限' },
-}
-
 export const SLOTS = [
   { key: 'probe', label: '探测' },
   { key: 'shield', label: '防护' },

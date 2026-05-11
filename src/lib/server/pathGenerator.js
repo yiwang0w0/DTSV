@@ -98,7 +98,6 @@ export function generateRaidPath(allChambers) {
       type: chamber.type,
       description: chamber.description || '',
       regionLabel: chamber.region_label || null,
-      weather: chamber.weather || 'clear',
       pollutionBase: chamber.pollution_base || 0,
       pollutionAccel: chamber.pollution_accel || 0,
       isExit: !!chamber.is_exit,

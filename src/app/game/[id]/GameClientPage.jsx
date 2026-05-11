@@ -23,7 +23,6 @@ import {
   PanelTitle,
   SLOTS,
   T,
-  WEATHER,
   hpColor,
 } from './gameUi'
 
@@ -223,12 +222,10 @@ export default function GameClientPage() {
   const effectiveMapConfig = currentChamber ? {
     name: currentChamber.name,
     description: currentChamber.description,
-    weather: currentChamber.weather,
     is_exit: currentChamber.isExit,
     exit_cost: currentChamber.exitCost,
     adjacent_maps: [], // 新模型无邻接
   } : mapConfig
-  const weather = WEATHER[effectiveMapConfig?.weather || 'clear'] || WEATHER.clear
   const aliveCount = room?.alivenum ?? allPlayers.filter(player => player.alive).length
   const currentMapCorpseCount = useMemo(
     () => (gamevars?.corpses || []).filter(corpse => corpse.mapId === (meBase?.map ?? 0)).length,
@@ -581,7 +578,6 @@ export default function GameClientPage() {
         </div>
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: T.dim, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: T.text, fontWeight: 700 }}>{effectiveMapConfig?.name || '未知区域'}</span>
-          <span>{weather.icon} {weather.label}{weather.mod ? <span style={{ color: T.yellow, marginLeft: 4, fontSize: 10 }}>({weather.mod})</span> : null}</span>
 
           {/* 环境污染 */}
           <PollutionPill

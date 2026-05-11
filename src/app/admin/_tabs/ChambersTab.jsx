@@ -14,17 +14,12 @@ const TYPE_OPTIONS = [
   { value: 'milestone',      label: '里程碑 (milestone)',    color: '#ff8c42', icon: '🏆' },
 ]
 
-const WEATHER_OPTIONS = [
-  'clear', 'fog', 'storm', 'snow', 'rain', 'night',
-]
-
 const EMPTY = {
   template_key: '',
   name: '',
   type: 'scan_dense',
   description: '',
   region_label: '',
-  weather: 'clear',
   pollution_base: 0,
   pollution_accel: 0,
   is_exit: false,
@@ -207,12 +202,6 @@ export default function ChambersTab({ toast }) {
             <div>
               <label style={LABEL}>region_label</label>
               <input style={INPUT} value={edit.region_label || ''} onChange={e => setEdit({ ...edit, region_label: e.target.value })} placeholder="如 外环维护廊" />
-            </div>
-            <div>
-              <label style={LABEL}>天气</label>
-              <select style={INPUT} value={edit.weather} onChange={e => setEdit({ ...edit, weather: e.target.value })}>
-                {WEATHER_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
             </div>
             <div style={{ gridColumn: '1/-1' }}>
               <label style={LABEL}>lore 描述（玩家进入时显示）</label>

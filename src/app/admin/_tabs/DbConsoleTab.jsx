@@ -12,7 +12,7 @@ const QUICK_QUERIES = [
   { label: '实体池', sql: `SELECT * FROM npc_pool ORDER BY level, name` },
   { label: '残片池', sql: `SELECT id, name, category, rarity, discover_mode, min_pollution, weight, enabled FROM fragment_pool ORDER BY category, name` },
   { label: '玩家残片', sql: `SELECT pf.user_id, fp.name, fp.category, pf.decode_level, pf.discover_cycle, pf.discovered_at FROM player_fragments pf JOIN fragment_pool fp ON fp.id = pf.fragment_id ORDER BY pf.discovered_at DESC LIMIT 50` },
-  { label: '地图配置', sql: `SELECT map_id, weather, npc_count FROM map_config ORDER BY map_id LIMIT 20` },
+  { label: '地图配置', sql: `SELECT map_id, npc_count FROM map_config ORDER BY map_id LIMIT 20` },
   { label: '游戏日志（最近）', sql: `SELECT * FROM game_events ORDER BY created_at DESC LIMIT 30` },
 ]
 

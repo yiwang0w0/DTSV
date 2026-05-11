@@ -97,27 +97,14 @@ export function getRule(rules, key, defaultVal) {
  * @param {object} attacker - 攻击者 player 对象
  * @param {object} defender - 防御者 player 对象
  * @param {object} rules    - 从 loadGameRules() 得到的规则对象
- * @param {string} weaponSubKind - 武器子类型（用于天气减益判断）
- * @param {string} weather  - 当前地图天气
+ * @param {string} weaponSubKind - 武器子类型
  * @returns {number} 最终伤害值（≥1）
  */
-export function calcDamage(attacker, defender, rules, weaponSubKind = '', weather = 'clear') {
+export function calcDamage(attacker, defender, rules, weaponSubKind = '') {
   const formula = getRule(rules, 'damage_formula', 'atk * atkMultiplier - def * defMultiplier')
 
-  // 天气修正
-  let atkMultiplier = getRule(rules, 'atk_base_multiplier', 1.0)
-  let defMultiplier = getRule(rules, 'def_base_multiplier', 0.5)
-
-  // 射击武器在雨天命中惩罚
-  if (weather === 'rain' && (weaponSubKind === 'shooting' || weaponSubKind === 'throwing')) {
-    const penalty = getRule(rules, 'weather_rain_shooting_penalty', 0.1)
-    atkMultiplier *= (1 - penalty)
-  }
-  if (weather === 'storm') {
-    const penalty = getRule(rules, 'weather_storm_all_penalty', 0.05)
-    atkMultiplier *= (1 - penalty)
-    defMultiplier *= (1 - penalty)
-  }
+  const atkMultiplier = getRule(rules, 'atk_base_multiplier', 1.0)
+  const defMultiplier = getRule(rules, 'def_base_multiplier', 0.5)
 
   const vars = {
     atk: attacker.atk || 0,
@@ -273,29 +260,12 @@ export function applyBuff(player, buffId, buffDef) {
 }
 
 /**
- * 天气对搜索概率的影响
+ * 搜索概率（纯规则驱动）
  */
-export function getSearchChances(rules, weather) {
-  let itemChance = getRule(rules, 'search_item_chance', 0.4)
-  let npcChance = getRule(rules, 'search_npc_chance', 0.25)
-  let fragmentChance = getRule(rules, 'search_fragment_chance', 0.12)
-
-  if (weather === 'fog') {
-    const multi = getRule(rules, 'weather_fog_search_multiplier', 0.5)
-    itemChance *= multi
-    fragmentChance *= 1.3  // 迷雾中更容易发现残片
-  }
-  if (weather === 'night') {
-    const penalty = getRule(rules, 'weather_night_search_penalty', 0.15)
-    itemChance -= penalty
-    npcChance += 0.05
-  }
-  if (weather === 'storm') {
-    const penalty = getRule(rules, 'weather_storm_all_penalty', 0.05)
-    itemChance *= (1 - penalty)
-    npcChance *= (1 + penalty)
-    fragmentChance *= (1 - penalty)  // 风暴降低发现率
-  }
+export function getSearchChances(rules) {
+  const itemChance = getRule(rules, 'search_item_chance', 0.4)
+  const npcChance = getRule(rules, 'search_npc_chance', 0.25)
+  const fragmentChance = getRule(rules, 'search_fragment_chance', 0.12)
 
   return {
     itemChance: Math.max(0.05, Math.min(0.9, itemChance)),

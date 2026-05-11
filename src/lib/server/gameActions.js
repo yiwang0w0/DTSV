@@ -139,7 +139,6 @@ function getChamberAsMapConfig(gamevars, player) {
     map_id:          ch.templateId,          // 把 templateId 当 mapId
     name:            ch.name,
     description:     ch.description,
-    weather:         ch.weather,
     pollution_base:  ch.pollutionBase,
     pollution_accel: ch.pollutionAccel,
     adjacent_maps:   [],                     // Phase 19 无邻接概念（路径线性）
@@ -151,12 +150,6 @@ function getChamberAsMapConfig(gamevars, player) {
     // chamber 特有字段
     _chamber:        ch,
   }
-}
-
-/** Phase 19.5: 直接从 chamber 取天气，无需 DB */
-function getChamberWeather(gamevars, player) {
-  const ch = getChamberForPlayer(gamevars, player)
-  return ch?.weather || 'clear'
 }
 
 /** Phase 19.5: 从 gamevars.raidPath 构建 chamber accel 表（key = chamberIndex） */
@@ -194,13 +187,12 @@ async function fetchSearchChamberBundle(client, gamevars, player) {
 
   const chamber = getChamberForPlayer(gamevars, player)
   const tid = chamber?.templateId ?? -1
-  const weather = chamber?.weather || 'clear'
 
   // Phase 19.2 已迁移：按 chamber_template_ids 过滤
   const itemPool = _allItemsCache.filter(i => Array.isArray(i.chamber_template_ids) && i.chamber_template_ids.includes(tid))
   const npcPool = _allNpcsCache.filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(tid))
 
-  return { weather, itemPool, npcPool }
+  return { itemPool, npcPool }
 }
 
 async function fetchEquippedInstances(client, roomId, ownerIds) {
@@ -776,7 +768,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   const lootable = corpseResult.lootable
-  const { itemChance: rawItemChance, npcChance: rawNpcChance, fragmentChance: rawFragmentChance } = getSearchChances(rules, bundle.weather)
+  const { itemChance: rawItemChance, npcChance: rawNpcChance, fragmentChance: rawFragmentChance } = getSearchChances(rules)
 
   // ── 远星函馆：搜索动作触发个人污染 + 受有效污染影响 ──
   const polluted = applySearchPollution(nextPlayer)
@@ -918,9 +910,6 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     loadBuffPool(client),
     fetchEquippedInstances(client, room.id, [user.id]),
   ])
-  // Phase 19.5: 从 chamber 取天气
-  const weather = getChamberWeather(gamevars, player)
-
   const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
   let me = buildCombatPlayer(player, myEquips)
   const weapon = myEquips.find(eq => eq.tier?.series?.slot === 'weapon')
@@ -943,7 +932,6 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       { ...instance.npc, hp: instance.hp, maxHp: instance.maxHp },
       rules,
       weapon?.tier?.sub_kind || '',
-      weather,
     )
     const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
       'on_attack',
@@ -1066,7 +1054,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
         const damageIn = calcDamage(
           { ...instance.npc, hp: instanceHpAfter, maxHp: instance.maxHp },
           buildCombatPlayer(cur, myEquips),
-          rules, '', weather,
+          rules, '',
         )
         const playerHpAfter = Math.max(0, (cur.hp || 0) - damageIn)
         setResolutionPlayer(resolution, user.id, {
@@ -1139,10 +1127,8 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
   let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
   const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
-  // Phase 19.5: 从 attacker 的 chamber 取天气
-  const weather = getChamberWeather(gamevars, attackerAfterTurn)
 
-  const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '', weather)
+  const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '')
   const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
     'on_attack',
     me,
@@ -1168,7 +1154,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
       const counterAccuracy = getRule(rules, 'player_attack_accuracy', 0.85)
       const counterHit = Math.random() < counterAccuracy
       if (counterHit) {
-        counterDamage = calcDamage(target, me, rules, '', weather)
+        counterDamage = calcDamage(target, me, rules, '')
         attackerHpAfter = Math.max(0, attackerHpAfter - counterDamage)
         appendResolutionLog(
           resolution,

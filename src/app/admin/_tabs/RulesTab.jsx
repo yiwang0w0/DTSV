@@ -10,7 +10,6 @@ const CATEGORY_META = {
   items:   { label: '🎒 道具公式',  color: '#d29922' },
   search:  { label: '🔍 搜索概率',  color: '#58a6ff' },
   player:  { label: '👤 玩家属性',  color: '#3fb950' },
-  weather: { label: '🌦️ 天气效果', color: '#bc8cff' },
   general: { label: '⚙️ 通用',      color: '#8b949e' },
 }
 

@@ -22,15 +22,6 @@ export const GAME_TYPES = {
   14: '自由团战',
 }
 
-export const WEATHER_OPTIONS = [
-  { value: 'clear', label: '☀️ 晴天',   desc: '无特殊效果' },
-  { value: 'rain',  label: '🌧️ 雨天',   desc: '射击命中-10%' },
-  { value: 'fog',   label: '🌫️ 大雾',   desc: '视野减半' },
-  { value: 'storm', label: '⛈️ 暴风雨', desc: '全属性-5%' },
-  { value: 'snow',  label: '❄️ 暴雪',   desc: '移动速度-20%' },
-  { value: 'night', label: '🌙 黑夜',   desc: '搜索概率-15%' },
-]
-
 // ── 物品分类（远星函馆 5 kinds） ──────────────────────────
 export const ITEM_KIND_META = {
   tech_fragment: { label: '结构碎片', color: '#bc8cff', icon: '🔮' },
