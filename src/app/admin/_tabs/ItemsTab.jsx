@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, MAP_LIST } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META } from '../_shared/ui'
 
 /* ── 子类型中文映射（远星函馆） ── */
 const ITEM_SUB_KINDS = {
@@ -57,6 +57,12 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   const [modal, setModal]       = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  // Phase 19.10: 加载 chamber_templates 替代 MAP_LIST
+  const [chambers, setChambers] = useState([])
+  useEffect(() => {
+    supabase.from('chamber_templates').select('id,template_key,name,type,region_label').eq('enabled', true)
+      .then(({ data }) => setChambers(data || []))
+  }, [])
 
   const filtered = items.filter(i =>
     (filter === 'all' || i.kind === filter) &&
@@ -66,7 +72,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   function openAdd() {
     setEditItem({
       name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1,
-      maps: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
+      chamber_template_ids: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
       // Phase 17: 使用模式 + 情报文本
       use_mode: 'consume', inspect_text: '',
     })
@@ -75,7 +81,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   function openEdit(item) {
     setEditItem({
       ...item,
-      maps: item.maps || [],
+      chamber_template_ids: item.chamber_template_ids || [],
       on_use_buff_ids: item.on_use_buff_ids || [],
       heal_formula: item.heal_formula || '',
       atk_formula: item.atk_formula || '',
@@ -157,9 +163,9 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                {(item.maps || []).slice(0, 5).map(mid => <span key={mid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{MAP_LIST.find(x => x.id === mid)?.name || mid}</span>)}
-                {(item.maps || []).length > 5 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{item.maps.length - 5}</span>}
-                {!(item.maps?.length) && <span style={{ fontSize: 10, color: '#484f58' }}>未分配地图</span>}
+                {(item.chamber_template_ids || []).slice(0, 5).map(cid => <span key={cid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{chambers.find(x => x.id === cid)?.name || `#${cid}`}</span>)}
+                {(item.chamber_template_ids || []).length > 5 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{item.chamber_template_ids.length - 5}</span>}
+                {!(item.chamber_template_ids?.length) && <span style={{ fontSize: 10, color: '#484f58' }}>未分配 chamber</span>}
               </div>
             </div>
           )
@@ -305,20 +311,25 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
               <div style={{ ...HINT, padding: '12px 0' }}>暂无可用的 Buff，请先在「战斗规则」标签页中添加 Buff 池</div>
             )}
 
-            {/* ─── 地图分配 ─── */}
+            {/* ─── chamber 分配（Phase 19.10 替代 maps） ─── */}
             <div style={{ marginTop: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ ...LABEL, margin: 0 }}>分配地图 ({editItem.maps.length} / {MAP_LIST.length} 已选)</label>
+                <label style={{ ...LABEL, margin: 0 }}>分配 chamber ({(editItem.chamber_template_ids || []).length} / {chambers.length} 已选)</label>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setEditItem({ ...editItem, maps: MAP_LIST.map(m => m.id) })} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
-                  <button onClick={() => setEditItem({ ...editItem, maps: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
+                  <button onClick={() => setEditItem({ ...editItem, chamber_template_ids: chambers.map(c => c.id) })} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
+                  <button onClick={() => setEditItem({ ...editItem, chamber_template_ids: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 150, overflowY: 'auto' }}>
-                {MAP_LIST.map(m => (
-                  <button key={m.id} onClick={() => setEditItem({ ...editItem, maps: toggleArr(editItem.maps, m.id) })}
-                    style={{ padding: '4px 12px', borderRadius: 16, fontSize: 11, cursor: 'pointer', border: `1px solid ${editItem.maps.includes(m.id) ? '#58a6ff' : '#30363d'}`, background: editItem.maps.includes(m.id) ? 'rgba(88,166,255,0.12)' : 'transparent', color: editItem.maps.includes(m.id) ? '#58a6ff' : '#8b949e' }}>{m.name}</button>
-                ))}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 200, overflowY: 'auto' }}>
+                {chambers.map(c => {
+                  const selected = (editItem.chamber_template_ids || []).includes(c.id)
+                  return (
+                    <button key={c.id} onClick={() => setEditItem({ ...editItem, chamber_template_ids: toggleArr(editItem.chamber_template_ids || [], c.id) })}
+                      style={{ padding: '4px 10px', borderRadius: 16, fontSize: 10, cursor: 'pointer', border: `1px solid ${selected ? '#58a6ff' : '#30363d'}`, background: selected ? 'rgba(88,166,255,0.12)' : 'transparent', color: selected ? '#58a6ff' : '#8b949e' }}>
+                      {c.name}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 

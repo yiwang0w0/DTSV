@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META, MAP_LIST } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META } from '../_shared/ui'
 import { ENTITY_TYPE_META } from '@/lib/constants'
 
 /* ── 样式常量 ── */
@@ -12,6 +12,12 @@ const SECTION_TITLE = {
 const HINT = { fontSize: 11, color: '#484f58', marginTop: 4 }
 
 export default function NpcsTab({ npcs, onRefresh, toast }) {
+  // Phase 19.10: 加载 chamber_templates 替代 MAP_LIST
+  const [chambers, setChambers] = useState([])
+  useEffect(() => {
+    supabase.from('chamber_templates').select('id,template_key,name,type,region_label').eq('enabled', true)
+      .then(({ data }) => setChambers(data || []))
+  }, [])
   const [filter, setFilter]   = useState('all')
   const [search, setSearch]   = useState('')
   const [modal, setModal]     = useState(false)
@@ -24,7 +30,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
 
   function openAdd() {
     setEditNpc({
-      name: '', hp: 50, atk: 10, def: 5, exp: 20, level: 'easy', maps: [],
+      name: '', hp: 50, atk: 10, def: 5, exp: 20, level: 'easy', chamber_template_ids: [],
       entity_type: 'remnant', hostile: true, tradeable: false,
       trade_wants: null, trade_offers: null,
       pollution_on_kill: 4, spawn_weight: 1.0, min_pollution: 0,
@@ -36,7 +42,7 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
   function openEdit(n) {
     setEditNpc({
       ...n,
-      maps: n.maps || [],
+      chamber_template_ids: n.chamber_template_ids || [],
       entity_type: n.entity_type || 'remnant',
       hostile: n.hostile ?? true,
       tradeable: n.tradeable ?? false,
@@ -126,9 +132,9 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
                 </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {(npc.maps || []).slice(0, 4).map(mid => <span key={mid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{MAP_LIST.find(x => x.id === mid)?.name || mid}</span>)}
-                {(npc.maps || []).length > 4 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{npc.maps.length - 4}</span>}
-                {!(npc.maps?.length) && <span style={{ fontSize: 10, color: '#484f58' }}>未分配地图</span>}
+                {(npc.chamber_template_ids || []).slice(0, 4).map(cid => <span key={cid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{chambers.find(x => x.id === cid)?.name || `#${cid}`}</span>)}
+                {(npc.chamber_template_ids || []).length > 4 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{npc.chamber_template_ids.length - 4}</span>}
+                {!(npc.chamber_template_ids?.length) && <span style={{ fontSize: 10, color: '#484f58' }}>未分配 chamber</span>}
               </div>
             </div>
           )
@@ -266,20 +272,25 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
             </div>
 
             {/* ── 第四组：地图分配 ── */}
-            <div style={SECTION_TITLE}>🗺️ 地图分配</div>
+            <div style={SECTION_TITLE}>🌀 chamber 分配（Phase 19.10）</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <label style={{ ...LABEL, margin: 0 }}>出没地图（{editNpc.maps.length} / {MAP_LIST.length} 已选）</label>
+              <label style={{ ...LABEL, margin: 0 }}>出没 chamber（{(editNpc.chamber_template_ids || []).length} / {chambers.length} 已选）</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setEditNpc({ ...editNpc, maps: MAP_LIST.map(m => m.id) })} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
-                <button onClick={() => setEditNpc({ ...editNpc, maps: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
+                <button onClick={() => setEditNpc({ ...editNpc, chamber_template_ids: chambers.map(c => c.id) })} style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: 12, cursor: 'pointer' }}>全选</button>
+                <button onClick={() => setEditNpc({ ...editNpc, chamber_template_ids: [] })} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: 12, cursor: 'pointer' }}>清空</button>
               </div>
             </div>
-            <div style={HINT}>选择该实体可以在哪些地图上出现，未选择则不会被刷新</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 150, overflowY: 'auto', marginTop: 8 }}>
-              {MAP_LIST.map(m => (
-                <button key={m.id} onClick={() => setEditNpc({ ...editNpc, maps: toggleMap(editNpc.maps, m.id) })}
-                  style={{ padding: '4px 12px', borderRadius: 16, fontSize: 11, cursor: 'pointer', border: `1px solid ${editNpc.maps.includes(m.id) ? '#58a6ff' : '#30363d'}`, background: editNpc.maps.includes(m.id) ? 'rgba(88,166,255,0.12)' : 'transparent', color: editNpc.maps.includes(m.id) ? '#58a6ff' : '#8b949e' }}>{m.name}</button>
-              ))}
+            <div style={HINT}>选择该实体可以在哪些 chamber 中出现；未选择则不会被刷新</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxHeight: 200, overflowY: 'auto', marginTop: 8 }}>
+              {chambers.map(c => {
+                const sel = (editNpc.chamber_template_ids || []).includes(c.id)
+                return (
+                  <button key={c.id} onClick={() => setEditNpc({ ...editNpc, chamber_template_ids: toggleMap(editNpc.chamber_template_ids || [], c.id) })}
+                    style={{ padding: '4px 10px', borderRadius: 16, fontSize: 10, cursor: 'pointer', border: `1px solid ${sel ? '#58a6ff' : '#30363d'}`, background: sel ? 'rgba(88,166,255,0.12)' : 'transparent', color: sel ? '#58a6ff' : '#8b949e' }}>
+                    {c.name}
+                  </button>
+                )
+              })}
             </div>
 
             {/* ── 操作按钮 ── */}

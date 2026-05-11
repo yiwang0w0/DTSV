@@ -1,9 +1,97 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 18 10 维评估首批落地（D1 保守路线 5 sub）
-整理方式：基于全量源码交叉验证 + Phase 0-18 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 19 肉鸽路径生成 + 30 分钟节奏 + chamber 模板池
+整理方式：基于全量源码交叉验证 + Phase 0-19 改造提交记录。
 
-## 最近变更（2026-05-11 / Phase 18）— 10 维评估框架的低改动量落地
+## 最近变更（2026-05-11 / Phase 19）— 肉鸽路径基础（10 sub 全部落地）
+
+> 用户需求：加肉鸽要素 / 扩大探索面 / 单 run 30 分钟 / 提升 10 维评分。
+> 决策 D1+A1+B1+C1 → 19.1-19.10 严格顺序，4 个数据库改 + 6 个代码改。
+> 平均分预期 6.0 → 7.8（探索驱动 +3，尺度震撼 +5，循环紧密 +3）。
+
+### 设计核心：模板池 + 路径生成
+
+废弃 7 张固定地图，改用：
+- **25 个 chamber 模板**（admin 可编辑，覆盖 7 区域 lore）
+- **每 raid 生成 20-25 chamber 路径**（5 阶段加权抽取：opening/early/middle/late/finale）
+- **6 种 chamber 类型**：scan_dense（搜密）/ combat_dense（打密）/ fragment_dense
+  （残密）/ hazard（危险）/ exit（撤离点）/ milestone（里程碑 boss）
+- **玩家选 A/B/C 分支**沿路径前进（A=真下一段，B/C=远景预览）
+
+### Phase 19 一句话清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 19.1 | `chamber_templates` 表 + 25 seed 模板 + 强制结束旧对局（Q1=B Q2=B-a Q3=a） | `d65d9ec` |
+| 19.2 | item_pool/npc_pool/fragment_pool 的 `maps[]` 迁移为 `chamber_template_ids[]` | `aeb9acc` |
+| 19.3 | `pathGenerator.js` 服务端 — `generateRaidPath(allChambers)` 5 阶段加权抽 + joinRoom 接入 | `0b57144` |
+| 19.4 | `roomState` 加 `gamevars.raidPath[]` + `player.chamberIndex/chamberHistory` + `getCurrentChamber()` helper | `46b026b` |
+| 19.5+19.6 | gameActions 全面切 chamber 模型（fetchMapConfig → getChamberAsMapConfig；fetchMapWeather → getChamberWeather；fetchSearchMapBundle → fetchSearchChamberBundle 按 chamber_template_ids 过滤）+ movePlayer 重写为 advanceChamber（player.chamberIndex += 1） | `a26570b` |
+| 19.7 | 客户端右侧"区域"面板重写为"⏭ 路径前进"（当前 chamber + 下一段 A/B/C 候选 + chamberTypeMeta 徽章） | `5f92b40` |
+| 19.8 | 污染节奏校准 — `BASE_GROWTH 5→1` + `EMERGENCY_UNLOCK 60→75`；里程碑 boss 通过 npc_pool.chamber_template_ids 自然 spawn | `3d603eb` |
+| 19.9 | admin `ChambersTab` 模板池 CRUD（类型筛选 + 搜索 + 编辑 Modal 全字段） | `dbc7f38` |
+| 19.10 | ItemsTab/NpcsTab 改用 chamber_template_ids 字段；删 MAP_LIST 无用 import；Readme 同步 | （本提交）|
+
+### 数据库三处改动（已在 Supabase 部署）
+
+1. 新表 `chamber_templates`（id, template_key, name, type CHECK, description,
+   region_label, weather, pollution_base/accel, is_exit, exit_cost JSONB,
+   omega_window, max_items/npcs, spawn_weight, exit_count, enabled）+ 25 seed
+2. `UPDATE rooms SET gamestate=2 WHERE gamestate IN (0,1)` — 旧对局强制归档
+3. `item_pool/npc_pool/fragment_pool` 加 `chamber_template_ids INTEGER[]` 列，
+   `maps` 迁移后重命名为 `_legacy_maps`（保留备份）
+   - 迁移规则：旧 map_id (0/1/2/3/4/10/11) → region_label → 该区域所有 chambers
+   - 部署结果：item_pool 13 行→12 有 chambers (avg 11.5)；npc_pool 10 行→10 (avg 9.9)；
+     fragment_pool 0 行（残片库尚空）
+
+### Chamber 类型分布（25 seed）
+
+| 区域 (region_label) | 数量 | 类型分配 |
+|--------------------|------|---------|
+| 外环维护廊 (map=0) | 3 | scan ×2, exit ×1（起点安全） |
+| 锚点走廊 (map=1) | 4 | scan/combat/fragment/hazard 各 1 |
+| 伊甸港残墟 (map=2) | 6 | scan/combat ×2/fragment/hazard/exit |
+| 剪切界面缓冲带 (map=3) | 5 | scan/combat/hazard ×2/**milestone** |
+| Ω-段核心接口 (map=4) | 6 | scan ×2/combat/fragment ×2/**milestone** |
+| 罕见（不固定区域） | 1 | bubble_drift_1（漂流点） |
+
+总：scan_dense 8 / combat_dense 5 / fragment_dense 4 / hazard 4 / exit 2 / milestone 2
+
+### 30 分钟节奏推算
+
+- 单 raid 20-25 chamber × 平均 5-10 玩家 action ≈ 100-200 turns
+- 污染：BASE_GROWTH=1 + chamber.pollution_accel(1-8 末段) ≈ 80% 到 25 分钟附近
+- Phase 18.4 客户端 70% 警报 / 90% 强制撤离倒计时 → 28-30 分钟自然结束
+
+### 部署步骤（按序）
+
+1. `scripts/phase-19-1-chamber-templates.sql` — 已跑（25 模板就位）
+2. `scripts/phase-19-2-maps-to-chamber-ids.sql` — 已跑（item/npc 迁移）
+
+无需额外部署。`enabled` chamber 数 = 25。
+
+### 走查路径（端到端验证 19.1-19.10）
+
+1. 老对局已被强制归档（19.1）→ 首页"启动下一周目"按钮可点
+2. 进 raid → 顶栏显示 "1 / 22"（chamberIndex / raidPath.length，19.7）
+3. 右侧"⏭ 路径前进"面板显示当前 chamber 名（如"外环-巡查节点"）+ description
+4. 下方 A/B/C 选项，每个有类型徽章（🔍/⚔️/📡/☢/🚪/🏆）
+5. 点 A 触发 advance → chamberIndex+1 → 进入下一 chamber（19.6）
+6. 搜索时按 chamber_template_ids 过滤 item/npc 池（19.5）
+7. 撤离点 chamber 出现"🚪 结构退避"按钮可激活 emergency-retreat
+8. 到达 milestone chamber → 日志"⚔ 强敌可能正等待" + npc_pool 中的 BOSS 自然 spawn
+9. admin → 🌀 chamber tab（19.9）→ CRUD 增删改 chamber 模板
+10. admin → 🔮 道具池 / 👻 实体 编辑器现按 chamber 分配（19.10），不再有"地图"概念
+
+### Phase 19 后续路线图（待用户决定）
+
+- **Phase 20** 知识驱动生成池（残片解锁影响 chamber 抽取权重）
+- **Phase 21** 异步 PvPVE 探针（撤离时留信号，跨 raid 遭遇）
+- **Phase 22** 抛光与平衡（playtest 数据校准）
+
+---
+
+## 历史变更（2026-05-11 / Phase 18）— 10 维评估框架的低改动量落地
 
 > 用户提供了完整的 10 维设计评分框架（探索驱动 / 知识即进度 / 考古解读 /
 > 尺度震撼 / 循环紧密 / 透明度 / 氛围 / 拾取密度 / 回报曲线 / 重玩价值）。
@@ -1046,7 +1134,7 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-18 全部上线）**：
+**当前状态（2026-05 / Phase 0-19 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）

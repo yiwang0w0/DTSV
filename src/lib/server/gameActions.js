@@ -1,4 +1,3 @@
-import { MAP_LIST } from '@/lib/constants'
 import {
   applyBuff,
   calcDamage,
