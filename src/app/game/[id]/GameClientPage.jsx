@@ -650,6 +650,28 @@ export default function GameClientPage() {
                 </span>
               </div>
             )}
+            {/* Phase 20.6: 本局应用的解锁规则（残片对路径生成的影响） */}
+            {Array.isArray(gamevars?.unlocksContributed) && gamevars.unlocksContributed.length > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                <div style={{ fontSize: 10, color: T.dim, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 4 }}>
+                  ⚛️ 本局应用的残片解锁规则 ({gamevars.unlocksContributed.length})
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {gamevars.unlocksContributed.map((u, i) => (
+                    <span key={u.id || i} style={{
+                      fontSize: 10, padding: '2px 8px', borderRadius: 8,
+                      background: `${T.purple}18`, color: T.purple, border: `1px solid ${T.purple}40`,
+                    }}>
+                      🔓 {u.name || `残片 #${u.id}`}
+                    </span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, color: T.dim2, marginTop: 4, fontStyle: 'italic' }}>
+                  这些完全解码的残片影响了本局 chamber 抽取权重、lore 短句、物品掉落
+                </div>
+              </div>
+            )}
+
             {/* Phase 18.2: 引导玩家去 Archive 查看本局贡献 */}
             <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
               <a

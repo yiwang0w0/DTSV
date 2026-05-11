@@ -214,6 +214,7 @@ export default function ArchivePage() {
   const [fragments, setFragments] = useState([])
   const [playerFragments, setPlayerFragments] = useState([])
   const [deathLog, setDeathLog] = useState([])
+  const [combos, setCombos] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [chainFilter, setChainFilter] = useState('all')
@@ -222,16 +223,18 @@ export default function ArchivePage() {
     if (!user) return
 
     async function load() {
-      // 并行请求残片池、玩家发现记录、玩家死亡日志
-      const [poolRes, playerRes, deathRes] = await Promise.all([
+      // 并行请求残片池、玩家发现记录、玩家死亡日志、合成配方
+      const [poolRes, playerRes, deathRes, combosRes] = await Promise.all([
         supabase.from('fragment_pool').select('*').eq('enabled', true),
         supabase.from('player_fragments').select('*').eq('user_id', user.id),
         supabase.from('player_death_log').select('*').eq('user_id', user.id).order('died_at', { ascending: false }).limit(20),
+        supabase.from('fragment_combos').select('*').eq('enabled', true),
       ])
 
       setFragments(poolRes.data || [])
       setPlayerFragments(playerRes.data || [])
       setDeathLog(deathRes.data || [])
+      setCombos(combosRes.data || [])
       setLoading(false)
     }
 
@@ -555,6 +558,104 @@ export default function ArchivePage() {
           </div>
         </details>
       )}
+
+      {/* Phase 20.5: 知识图谱 — 残片合成解锁链 */}
+      {combos.length > 0 && (() => {
+        const fragMap = new Map(fragments.map(f => [f.id, f]))
+        const pfMap = new Map(playerFragments.map(p => [p.fragment_id, p]))
+        const enriched = combos.map(c => {
+          const a = fragMap.get(c.fragment_id_a)
+          const b = fragMap.get(c.fragment_id_b)
+          const out = fragMap.get(c.unlocks_fragment)
+          const aLevel = pfMap.get(c.fragment_id_a)?.decode_level ?? -1
+          const bLevel = pfMap.get(c.fragment_id_b)?.decode_level ?? -1
+          const outOwned = pfMap.has(c.unlocks_fragment)
+          const ready = aLevel >= 3 && bLevel >= 3
+          return { c, a, b, out, aLevel, bLevel, outOwned, ready }
+        }).filter(e => e.a && e.b && e.out)
+
+        const unlocked = enriched.filter(e => e.outOwned).length
+        const ready = enriched.filter(e => e.ready && !e.outOwned).length
+        const pending = enriched.length - unlocked - ready
+
+        return (
+          <details style={{ marginBottom: 24 }} open={ready > 0}>
+            <summary style={{
+              cursor: 'pointer', padding: '8px 12px',
+              background: `${C.purple}10`, border: `1px solid ${C.purple}40`,
+              borderLeft: `3px solid ${C.purple}`, borderRadius: 8,
+              fontSize: 13, color: C.purple, fontWeight: 600,
+            }}>
+              🔗 知识图谱 — 残片合成链 ({enriched.length} 条配方
+                {unlocked > 0 && <span style={{ color: C.green, marginLeft: 6 }}>· 已解锁 {unlocked}</span>}
+                {ready > 0 && <span style={{ color: C.yellow, marginLeft: 6 }}>· 待解锁 {ready}</span>}
+                {pending > 0 && <span style={{ color: C.dim2, marginLeft: 6 }}>· 未达成 {pending}</span>}
+              )
+            </summary>
+            <div style={{
+              marginTop: 8, padding: 12,
+              background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8,
+              display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              {enriched.map(({ c, a, b, out, aLevel, bLevel, outOwned, ready }) => {
+                const statusColor = outOwned ? C.green : ready ? C.yellow : C.dim2
+                const aCatColor = (CATEGORY_META[a.category] || CATEGORY_META.general).color
+                const bCatColor = (CATEGORY_META[b.category] || CATEGORY_META.general).color
+                const outCatColor = (CATEGORY_META[out.category] || CATEGORY_META.general).color
+                const aName = aLevel >= 1 ? a.name : '████████'
+                const bName = bLevel >= 1 ? b.name : '████████'
+                const outName = outOwned ? out.name : '？？？'
+                return (
+                  <div key={c.id} style={{
+                    padding: '8px 12px',
+                    background: outOwned ? `${C.green}08` : ready ? `${C.yellow}08` : C.bg0,
+                    border: `1px solid ${statusColor}30`,
+                    borderRadius: 6,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        background: `${aCatColor}18`, color: aCatColor, border: `1px solid ${aCatColor}40`,
+                        fontFamily: aLevel >= 1 ? 'inherit' : 'monospace',
+                      }}>
+                        {aName} {aLevel >= 0 && <span style={{ opacity: 0.7, marginLeft: 4 }}>{aLevel}/3</span>}
+                      </span>
+                      <span style={{ color: C.dim2, fontSize: 14 }}>+</span>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        background: `${bCatColor}18`, color: bCatColor, border: `1px solid ${bCatColor}40`,
+                        fontFamily: bLevel >= 1 ? 'inherit' : 'monospace',
+                      }}>
+                        {bName} {bLevel >= 0 && <span style={{ opacity: 0.7, marginLeft: 4 }}>{bLevel}/3</span>}
+                      </span>
+                      <span style={{ color: statusColor, fontSize: 14 }}>→</span>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                        background: `${outCatColor}18`, color: outOwned ? outCatColor : C.dim,
+                        border: `1px solid ${outCatColor}40`,
+                        fontFamily: outOwned ? 'inherit' : 'monospace',
+                      }}>
+                        {outName}
+                      </span>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: statusColor, fontWeight: 700 }}>
+                        {outOwned ? '✓ 已解锁' : ready ? '⏳ 待 raid' : `🔒 ${aLevel < 3 ? 'A' : ''}${aLevel < 3 && bLevel < 3 ? '+' : ''}${bLevel < 3 ? 'B' : ''} 未完全解码`}
+                      </span>
+                    </div>
+                    {c.description && (
+                      <div style={{
+                        fontSize: 11, color: C.dim, marginTop: 6, paddingLeft: 4,
+                        fontStyle: 'italic',
+                      }}>
+                        {c.description}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </details>
+        )
+      })()}
 
       {/* 残片列表 */}
       {filtered.length === 0 ? (
