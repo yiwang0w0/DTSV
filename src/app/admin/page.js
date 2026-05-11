@@ -18,6 +18,7 @@ import EventsTab     from './_tabs/EventsTab'
 import BranchesTab   from './_tabs/BranchesTab'
 import EndingsTab    from './_tabs/EndingsTab'
 import FragmentsTab  from './_tabs/FragmentsTab'
+import ChambersTab   from './_tabs/ChambersTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
@@ -34,6 +35,7 @@ const TABS = [
   { key: 'branches',  label: '🌿 分支' },
   { key: 'endings',   label: '🎬 结局' },
   { key: 'fragments', label: '📡 残片' },
+  { key: 'chambers',  label: '🌀 chamber' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
@@ -129,6 +131,7 @@ export default function AdminPage() {
       {tab === 'branches'  && <BranchesTab toast={toast} />}
       {tab === 'endings'   && <EndingsTab toast={toast} />}
       {tab === 'fragments' && <FragmentsTab toast={toast} />}
+      {tab === 'chambers'  && <ChambersTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )
