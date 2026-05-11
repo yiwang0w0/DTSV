@@ -1206,10 +1206,35 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
 
   if (!itemDef) throw new Error(`未知道具：${itemName}`)
 
-  const me = buildCombatPlayer(player, groupEquipsByOwner(equippedInstances)[user.id] || [])
-  const nextPlayer = { ...player, lootPrompt: null }
-  const result = calcItemEffect(itemDef, me, rules)
+  // ── Phase 17: 校验库存（无论何种 use_mode 都必须持有） ──
+  const haveCount = (player.inventory || []).filter(it => it === itemName).length
+  if (haveCount <= 0) throw new Error(`你没有 ${itemName}`)
+
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  const nextPlayer = { ...player, lootPrompt: null }
+
+  // ── Phase 17: inspect 模式分支 — 写 inspect_text 到日志，按需扣库存 ──
+  const mode = itemDef.use_mode || 'consume'
+  if (mode === 'inspect_keep' || mode === 'inspect_consume') {
+    const text = (itemDef.inspect_text && String(itemDef.inspect_text).trim())
+      || (itemDef.description && String(itemDef.description).trim())
+      || '— 没有额外信息 —'
+    appendResolutionLog(
+      resolution,
+      `${player.name} 查看 ${itemName}：${text}`,
+      'system',
+    )
+    if (mode === 'inspect_consume') {
+      nextPlayer.inventory = removeInventoryItem(player.inventory, itemName, 1)
+      appendResolutionLog(resolution, `${itemName} 在查阅后碎裂了`, 'system')
+    }
+    setResolutionPlayer(resolution, user.id, nextPlayer)
+    return persistResolution(client, room, resolution)
+  }
+
+  // ── consume 模式（默认）：保持原有 effect 链路 ──
+  const me = buildCombatPlayer(player, groupEquipsByOwner(equippedInstances)[user.id] || [])
+  const result = calcItemEffect(itemDef, me, rules)
 
   if (result.hpDelta) {
     nextPlayer.hp = Math.max(0, Math.min(me.maxHp, (player.hp || 0) + result.hpDelta))
