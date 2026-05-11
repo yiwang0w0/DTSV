@@ -132,7 +132,25 @@ export function normalizeGamevars(gamevars = {}) {
     npcInstances: Array.isArray(gamevars.npcInstances)
       ? gamevars.npcInstances.map(normalizeNpcInstance).filter(Boolean)
       : [],
+    // ── Phase 19.4: 肉鸽 chamber 路径（joinRoom 时生成，房间共享） ──
+    raidPath: Array.isArray(gamevars.raidPath) ? gamevars.raidPath : [],
   }
+}
+
+// ── Phase 19.4: chamber 路径相关 helper ──
+
+/** 取玩家当前所在 chamber 数据（从 raidPath[player.chamberIndex]） */
+export function getCurrentChamber(gamevars, player) {
+  const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
+  const idx = player?.chamberIndex ?? 0
+  if (idx < 0 || idx >= path.length) return null
+  return path[idx]
+}
+
+/** 取玩家当前 chamber 的 templateId（用于过滤 item/npc/fragment 池） */
+export function getCurrentChamberTemplateId(gamevars, player) {
+  const ch = getCurrentChamber(gamevars, player)
+  return ch?.templateId ?? null
 }
 
 export function createLogEntry(text, type = 'system', at = new Date()) {
@@ -170,7 +188,9 @@ export function createPlayerState(user, stats = {}) {
     maxHp: stats.maxHp ?? stats.hp ?? 100,
     atk: stats.atk ?? 10,
     def: stats.def ?? 5,
-    map: 0,
+    map: 0,                  // 旧字段：保留向后兼容；Phase 19 改用 chamberIndex
+    chamberIndex: 0,         // Phase 19.4: 玩家在 gamevars.raidPath 中的位置（0 = 入口）
+    chamberHistory: [],      // Phase 19.4: 已走过的 chamber idx 列表
     inventory: [],
     alive: true,
     kills: 0,
