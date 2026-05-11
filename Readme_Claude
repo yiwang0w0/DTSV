@@ -1,9 +1,60 @@
 # Readme_Claude
 
-更新时间：2026-05-10（Asia/Tokyo） · Phase 16 单次袭击战斗模型重做（NPC 实例池 + PvP 反击）
-整理方式：基于全量源码交叉验证 + Phase 0-16 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 17 物品使用模式扩展 + 背包面板重定位
+整理方式：基于全量源码交叉验证 + Phase 0-17 改造提交记录。
 
-## 最近变更（2026-05-10 / Phase 16）— 单次袭击战斗模型重做
+## 最近变更（2026-05-11 / Phase 17）— 物品使用模式扩展 + 背包面板搬左
+
+> 用户反馈：
+> 1. 当前所有 useItem 都消耗，对情报类道具（残段日志、密信等）不合适 — 应区分"使用消耗"/"查看不消耗"/"查看即消耗"
+> 2. 背包在中央 tab 里需要切换，希望搬到左侧常驻便于交互
+> 3. 管理后台应能编辑这些行为属性
+
+### Phase 17 变更清单
+
+| Sub | 内容 | Commit |
+|-----|------|--------|
+| 17.1 | `scripts/inspect-items-schema.sql` — `item_pool` 加 `use_mode TEXT DEFAULT 'consume'` + `inspect_text TEXT`；CHECK 约束 use_mode IN (consume/inspect_keep/inspect_consume) | `1a227c8` |
+| 17.2 | `gameActions.js resolveUseItemAction` 分支：inspect 模式写 inspect_text 到日志 + 按 mode 决定是否扣库存；consume 走原 calcItemEffect 链路；任何 mode 都先校验库存 ≥1 | `943afd9` |
+| 17.3 | `GameClientPage.jsx` 背包面板搬左侧常驻（PvP / 交易 之后），按钮按 use_mode 切换文案/风格；中央 tab 删除"背包" | `a9e936e` |
+| 17.4 | `ItemsTab.jsx` 新增「🎒 使用模式」分组：use_mode 下拉 3 选 + inspect_text 多行 textarea（consume 时 disabled） | `999295b` |
+
+### 三种 use_mode 行为对照
+
+| use_mode | 玩家按钮 | 服务端行为 | 用例 |
+|----------|---------|-----------|------|
+| `consume`（默认） | "使用" | calcItemEffect → hp/atk/def/buffs 应用 → 扣库存 1 | 治疗包、解毒剂、增益药剂 — 现有所有道具向后兼容此模式 |
+| `inspect_keep` | "查看"（ghost 描边） | 写日志 "X 查看 Y：${inspect_text}" → 不扣库存 | 锚点稳定协议、地图碎片 — 可反复查阅 |
+| `inspect_consume` | "查看（一次性）"（warn 黄色） | 写日志 + 写"Y 在查阅后碎裂了" → 扣库存 1 | 密信、不稳定的数据残段 — 一次性密文 |
+
+inspect_text 缺省回落：`inspect_text → description → "— 没有额外信息 —"`（管理员忘填也能跑）
+
+### 背包面板搬位置（17.3）
+
+| | Phase 16 之前 | Phase 17 之后 |
+|---|---------------|---------------|
+| 位置 | 中央右侧 tab（与"日志"/"装备"互斥） | 左侧常驻面板（"交易"之后） |
+| 同屏可见 | 切换 tab 才看到 | 与日志、PvP、交易同屏 |
+| 中央 tab | 日志 / 背包 / 装备 | 日志 / 装备（少 1 个 tab） |
+| 按钮 | 全部 "使用" | 按 use_mode 切：使用 / 查看 / 查看（一次性） |
+| 行高 | 8px 10px padding | 7px 10px padding（紧凑） |
+
+### 部署步骤
+
+1. **Supabase SQL Editor** 跑 `scripts/inspect-items-schema.sql`（加 2 列 + CHECK 约束）
+2. 验证：`SELECT use_mode, count(*) FROM item_pool GROUP BY use_mode` 应只有 'consume' 一行（现有道具默认）
+3. （可选）admin 后台 → 道具池 → 编辑某道具 → 切 use_mode 为 inspect_keep → 填 inspect_text → 保存
+4. 走查：玩家进 raid → 左侧"🎒 背包"面板常驻 → consume 道具按钮"使用"（蓝）/ inspect_keep "查看"（ghost）/ inspect_consume "查看（一次性）"（黄）
+
+### 已知优化项（17 后续）
+
+- inspect 类道具的批量编辑（admin 一次给一批残段日志填 inspect_text 会比较繁琐）— 可后续做 CSV 导入
+- 背包面板最大高度 320 — 如玩家持有 ≥20 件，需滚动；可做"折叠/全展开"切换
+- 反复查看 inspect_keep 物品 → 日志会重复写一样文本；可考虑 throttle 或加"已查看"标记
+
+---
+
+## 历史变更（2026-05-10 / Phase 16）— 单次袭击战斗模型重做
 
 > 用户拍板的核心设计变更：
 > 1. 战斗不再"持续进行" — 玩家每次攻击是一次单结算（命中 + 反击判定一次完成）
@@ -919,7 +970,7 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-16 全部上线）**：
+**当前状态（2026-05 / Phase 0-17 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
@@ -931,6 +982,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - **跨周目残片系统**（Phase 14 + 14.1）：fragment_pool / player_fragments 表 + /archive 档案库页 + 4 级解码（0→3）+ admin 残片 Tab；fragment_pool RLS 关闭与项目惯例一致
 - **战斗 UI 改造 + bug fix**（Phase 15 + 15.1）：搜索/攻击按钮加载进度条（fill 式），ITEM_KIND_META.special crash 全部修齐，首页 + rooms 页 ensureNextRound CTA 双保险（修复 Phase 13 死路）
 - **单次袭击战斗模型**（Phase 16）：从持续 battle 改为 player.encounter 单次结算 + NPC 实例池跨袭击 HP 持久化 + PvP 反击 + 被攻击方 toast；装载流程回归（"加入游戏"按钮接 LoadoutModal）
+- **物品使用模式 + 背包面板搬左**（Phase 17）：item_pool 加 use_mode（consume / inspect_keep / inspect_consume）+ inspect_text；背包从中央 tab 搬到左侧常驻；admin 加编辑器
 - **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有引导者加入它，结束后自动开新一段
 - **14 标签页管理后台**：合同 / 事件 / 分支 / 结局 / 残片 编辑器全部就绪
 
@@ -974,7 +1026,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `src/app/contracts/page.js` | 合同列表（按状态过滤 + 进度 + 接受） |
 | `src/app/archive/page.js` | **Phase 14 新增** — 跨周目残片档案库（统计条 / 分类过滤 / 4 级解码内容卡） |
 | `src/app/game/[id]/page.js` | 入口转发 |
-| `src/app/game/[id]/GameClientPage.jsx` | 局内主容器；**Phase 16 大改** — 删持续 battle 双卡布局，改为 encounter 红色 NPC 卡 + 袭击/放过双按钮，PvP 反击 toast 监听 lastPvpHit.seq；Phase 16.6 重新接入 LoadoutModal（"装载并加入"按钮） |
+| `src/app/game/[id]/GameClientPage.jsx` | 局内主容器；**Phase 16 大改** — 删持续 battle 双卡布局，改为 encounter 红色 NPC 卡 + 袭击/放过双按钮，PvP 反击 toast 监听 lastPvpHit.seq；Phase 16.6 重新接入 LoadoutModal（"装载并加入"按钮）；**Phase 17** 背包面板从中央 tab 搬到左侧常驻（PvP / 交易 之后），按 use_mode 切换按钮文案（使用 / 查看 / 查看一次性） |
 | `src/app/game/[id]/CraftModal.jsx` | 装备合成面板 |
 | `src/app/game/[id]/ExtractionModal.jsx` | Phase 8 单出口信息卡（exit_cost 校验） |
 | `src/app/game/[id]/LootModal.jsx` | 敌人残骸拾取面板（Phase 11.5 文案对齐"无友好玩家"设定） |
@@ -991,7 +1043,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | 标签 | 文件 | 功能 |
 |------|------|------|
 | 📊 概览 | OverviewTab.jsx | 统计卡片 + 分布图 |
-| ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选；**2026-05 Phase 8** ITEM_SUB_KINDS 重写匹配远星 5 kind |
+| ⚔️ 道具池 | ItemsTab.jsx | 道具 CRUD + 搜索/按 kind 筛选；Phase 8 ITEM_SUB_KINDS 重写匹配远星 5 kind；**Phase 17 加「🎒 使用模式」分组**（use_mode 下拉 3 选 + inspect_text 多行） |
 | 🤖 实体 | NpcsTab.jsx | 实体 CRUD + 按等级筛选；Phase 8 加"🌌 远星属性"分组（entity_type / hostile / tradeable / trade_wants&offers / pollution_on_kill / spawn_weight / min_pollution）；**Phase 16** 加 accuracy / counter_rate（单次袭击 + 反击参数） |
 | 🗺️ 地图 | MapsTab.jsx | 卡片化拖拽 + 双 Tab（道具池 / 实体池）；表单加 6 个远星字段（pollution_base/accel, adjacent_maps, is_exit, exit_cost, omega_window） |
 | 🏠 对局 | RoomsTab.jsx | 查看/按状态筛选/强制结束/删除 |
@@ -1078,7 +1130,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 |------|------|
 | `rooms` | 房间/对局 (gamenum, gametype, gamestate 0/1/2, gamevars JSONB, validnum, alivenum, deathnum, winner, version) |
 | `profiles` | 用户档案 (id FK auth.users, roomid, **stash_capacity** ← 2026-05) |
-| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). 2026-05 Phase 8 重灌为远星 5 kind（tech_fragment/platform_part/omega_matter/equipment/consumable）；Phase 11 改写所有 description 为 lore 风格短句 |
+| `item_pool` | 道具池 (name, kind, sub_kind, atk, def, heal, effect, amount, maps[], description). Phase 8 重灌为远星 5 kind（tech_fragment/platform_part/omega_matter/equipment/consumable）；Phase 11 改写所有 description 为 lore 风格短句。**Phase 17 新增列**：`use_mode TEXT DEFAULT 'consume'`（CHECK ∈ consume/inspect_keep/inspect_consume）+ `inspect_text TEXT`（情报文本，inspect 模式时写入对局日志） |
 | `npc_pool` | 实体池 (name, hp, atk, def, exp, level, maps[]). **Phase 8 新增列**：`entity_type`, `hostile`, `tradeable`, `trade_wants` jsonb, `trade_offers` jsonb, `pollution_on_kill`, `spawn_weight`, `min_pollution`. **Phase 16 新增列**：`accuracy`（NPC 反击命中率，默认 0.85）+ `counter_rate`（被攻击触发反击的概率，默认 0.30） |
 | `map_config` | 地图配置 (map_id, name, weather, max_items, max_npcs, blocked). **2026-05 Phase 8 新增列**：`pollution_base`, `pollution_accel`, `adjacent_maps` jsonb, `is_exit` bool, `exit_cost` jsonb, `omega_window`. （Phase 3 的 `extraction_points` jsonb 已在 Phase 8 中被替换） |
 | `game_rules` | 动态规则 (key, value, category)；**Phase 14** 加 `search_fragment_chance`（残片基础发现率 0.12）；**Phase 16** 加 `player_attack_accuracy`（玩家攻击命中率 0.85）+ `player_counter_rate`（PvP 防御方反击率 0.40） |
