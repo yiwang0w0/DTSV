@@ -189,6 +189,56 @@ export default function GameClientPage() {
     [allPlayers, meBase?.map, user?.id],
   )
 
+  // Phase 18.5: 区域评估 — 战斗强度 + 撤离成功率
+  const regionAssessment = useMemo(() => {
+    const mapId = meBase?.map ?? 0
+    const liveNpcs = (gamevars?.npcInstances || []).filter(i => i.mapId === mapId && i.hp > 0)
+    const totalHp = liveNpcs.reduce((sum, i) => sum + (i.hp || 0), 0)
+    const maxAtk = liveNpcs.reduce((m, i) => Math.max(m, i.npc?.atk || 0), 0)
+    // 战斗强度：HP 总和 + 最大 ATK 加权（粗略估算）
+    let combatTier = 'safe'
+    let combatLabel = '安全'
+    let combatColor = T.green
+    const threat = totalHp + maxAtk * 3
+    if (liveNpcs.length === 0) {
+      combatTier = 'clear'; combatLabel = '无威胁'; combatColor = T.dim
+    } else if (threat >= 200) {
+      combatTier = 'extreme'; combatLabel = '极危'; combatColor = T.red
+    } else if (threat >= 100) {
+      combatTier = 'high'; combatLabel = '高'; combatColor = T.red
+    } else if (threat >= 50) {
+      combatTier = 'medium'; combatLabel = '中'; combatColor = T.yellow
+    } else {
+      combatTier = 'low'; combatLabel = '低'; combatColor = T.green
+    }
+    // 撤离成功率：is_exit 地图 + exit_cost 是否满足 + 当前血量
+    let extractTier = 'no_exit'
+    let extractLabel = '非撤离点'
+    let extractColor = T.dim
+    let extractRate = 0
+    if (mapConfig?.is_exit) {
+      const cost = mapConfig.exit_cost
+      const need = cost?.qty || 0
+      const item = cost?.item
+      const have = item ? (meBase?.inventory || []).filter(it => it === item).length : Infinity
+      if (!item || have >= need) {
+        // 满足消耗 → 看血量
+        const hpRatio = (meBase?.hp || 0) / (meBase?.maxHp || 100)
+        if (hpRatio >= 0.5) {
+          extractRate = 95; extractTier = 'good'; extractLabel = '可立即撤离'; extractColor = T.green
+        } else if (hpRatio >= 0.2) {
+          extractRate = 75; extractTier = 'caution'; extractLabel = '血量偏低，建议补血'; extractColor = T.yellow
+        } else {
+          extractRate = 50; extractTier = 'risk'; extractLabel = '血量危险'; extractColor = T.red
+        }
+      } else {
+        extractRate = 0; extractTier = 'cost_unmet'; extractLabel = `缺 ${item} ×${need - have}`; extractColor = T.red
+      }
+    }
+    return { combatTier, combatLabel, combatColor, npcCount: liveNpcs.length, totalHp, extractTier, extractLabel, extractColor, extractRate }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamevars?.npcInstances, meBase?.map, meBase?.hp, meBase?.maxHp, meBase?.inventory, mapConfig])
+
   // Phase 16: PvP 被攻击 toast — 检测 lastPvpHit.seq 变化
   const lastPvpSeqRef = useRef(0)
   const pvpHit = meBase?.lastPvpHit
@@ -601,6 +651,50 @@ export default function GameClientPage() {
               <div style={{ textAlign: 'center', color: T.dim, fontSize: 12, padding: '12px 0' }}>加入游戏后会显示你的状态</div>
             )}
           </div>
+
+          {/* Phase 18.5: 区域评估小卡 — 战斗强度 + 撤离成功率 */}
+          {inGame && me?.alive && !meBase?.extracted && (
+            <>
+              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>当前地图</span>}>📊 区域评估</PanelTitle>
+              <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{
+                  padding: '6px 10px', borderRadius: 6,
+                  background: T.bg2, border: `1px solid ${regionAssessment.combatColor}40`,
+                  borderLeft: `3px solid ${regionAssessment.combatColor}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: T.dimB }}>预计战斗强度</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: regionAssessment.combatColor, marginTop: 1 }}>
+                      {regionAssessment.combatLabel}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 10, color: T.dim2 }}>实体 {regionAssessment.npcCount}</div>
+                    <div style={{ fontSize: 10, color: T.dim2 }}>总 HP {regionAssessment.totalHp}</div>
+                  </div>
+                </div>
+                <div style={{
+                  padding: '6px 10px', borderRadius: 6,
+                  background: T.bg2, border: `1px solid ${regionAssessment.extractColor}40`,
+                  borderLeft: `3px solid ${regionAssessment.extractColor}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: T.dimB }}>撤离成功率</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: regionAssessment.extractColor, marginTop: 1 }}>
+                      {regionAssessment.extractLabel}
+                    </div>
+                  </div>
+                  {regionAssessment.extractRate > 0 && (
+                    <div style={{ fontSize: 16, fontWeight: 900, color: regionAssessment.extractColor, fontFamily: 'monospace' }}>
+                      {regionAssessment.extractRate}%
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>同地图可攻击</span>}>⚔️ PvP</PanelTitle>
           <div style={{ padding: '10px 12px', maxHeight: 220, overflowY: 'auto' }}>
