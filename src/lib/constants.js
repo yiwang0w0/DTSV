@@ -74,7 +74,8 @@ export const LOADOUT_CONSUMABLE_CAP = 4
 
 // ── 污染系统配置（spec §12.3） ────────────────────────────
 export const POLLUTION_CONFIG = {
-  BASE_GROWTH:        5,    // 每回合环境污染基础增长
+  // Phase 19.8: 节奏校准 — 30 分钟一轮 ≈ 100-150 action turns，每 turn 0.5-1 污染
+  BASE_GROWTH:        1,    // 每回合环境污染基础增长（Phase 19 前为 5，已调整为 30 分钟节奏）
   SEARCH_PERSONAL:    2,    // 搜索个人污染增加
   COMBAT_PERSONAL:    4,    // 战斗个人污染增加
   INTERACT_PERSONAL: -3,    // 与非敌对实体交互个人污染减少
@@ -84,7 +85,7 @@ export const POLLUTION_CONFIG = {
   MELTDOWN_COST:     10,    // 穿越熔断区域代价
   REPAIR_MIN:         5,    // 环段部件修复最小值
   REPAIR_MAX:        15,    // 环段部件修复最大值
-  EMERGENCY_UNLOCK:  60,    // 缝隙维护轨道解锁阈值
+  EMERGENCY_UNLOCK:  75,    // 缝隙维护轨道解锁阈值（Phase 19 从 60→75，配合慢节奏）
   OMEGA_WINDOW:       3,    // Ω-段行动回合数
   // 有效污染权重 (spec §3.3)
   WEIGHT_ENV:         0.6,
