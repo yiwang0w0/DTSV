@@ -1,9 +1,85 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 22 抛光与平衡（5 sub 全部落地）
-整理方式：基于全量源码交叉验证 + Phase 0-22 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 23 残片冷启动数据
+整理方式：基于全量源码交叉验证 + Phase 0-23 改造提交记录。
 
-## 最近变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
+## 最近变更（2026-05-11 / Phase 23）— 残片冷启动数据 + 走查修复
+
+### Phase 23 内容
+
+| 项目 | 内容 | Commit |
+|------|------|--------|
+| 走查修复 | `probes.js` defeatProbe 探针夺取新残片补 `discover_cycle=-1`；DbConsoleTab 补 3 张新表快捷查询（残片配方/异步探针/对局统计） | `fbfa48f` |
+| 冷启动 SQL | `scripts/phase-23-cold-start-fragments.sql` — 15 个种子残片 + 8 条合成配方 + 14 条 unlocks_rules | `21aa1d6` |
+
+### 15 个种子残片
+
+| 类别 | 残片名 | 稀有度 | 链 | min_pollution | 备注 |
+|------|--------|--------|----|---------------|------|
+| general | 维护日志-041 | common | search | 0 | 入门级残片 |
+| general | 人事备忘-引导者轮换表 | uncommon | search | 15 | 07-Γ 失联线索 |
+| general | 急救包备忘录 | common | combat | 0 | 药效在 Ω-段反常 |
+| omega | Ω-频率残响 | rare | search | 70 | 17.3 Hz 核心线索 |
+| omega | 观察者行为日志 | legendary | combat | 85 | 需先发现 Ω-频率残响 |
+| omega | Ω-物质样本报告 | uncommon | extract | 50 | 物质"轮流扮演" |
+| eden | 伊甸协议-初版草案 | uncommon | search | 30 | 被删条款 |
+| eden | 伊甸港-投放记录 | rare | combat | 55 | M-06 模块之谜 |
+| eden | 港务规章-第 7 次修订 | common | extract | 20 | 概念被替换 |
+| bubble | 气泡壳振动频谱 | rare | search | 60 | 7 天偏移周期 |
+| bubble | 因果律偏差实验 | legendary | extract | 80 | 需先发现振动频谱 |
+| bubble | 泡泡壳厚度测量 | uncommon | search | 40 | 不可能的精度 |
+| structure | 环段部件规格书 | uncommon | extract | 25 | ST-77 在"学习" |
+| structure | 结构稳定性年报-第 5 纪元 | rare | combat | 65 | "不是建造出来的" |
+| structure | 深界路径假说 | legendary | search | 90 | 需先发现年报；终极残片 |
+
+### 8 条合成配方（A+B→C）
+
+| A | B | C | 叙事逻辑 |
+|---|---|---|----------|
+| 维护日志-041 | 伊甸协议-初版草案 | 港务规章-第 7 次修订 | 0.03% 偏移 + 被删条款 → 系统性修改 |
+| Ω-频率残响 | 伊甸港-投放记录 | 观察者行为日志 | 17.3 Hz + M-06 → 观察者回应信号 |
+| 气泡壳振动频谱 | 泡泡壳厚度测量 | 因果律偏差实验 | 振动 + 精度 → 泡泡壳是设计的 |
+| 结构稳定性年报 | Ω-物质样本报告 | 深界路径假说 | "不是建造的" + 物质扮演 → 函馆是活的 |
+| 人事备忘 | 观察者行为日志 | 环段部件规格书 | 07-Γ + 观察者模仿 → 建材在"适应" |
+| 伊甸协议 | 港务规章修订 | 伊甸港-投放记录 | 被删禁令 + 概念替换 → M-06 真相 |
+| 急救包备忘录 | Ω-物质样本报告 | Ω-频率残响 | 药效异常 + 物质重组 → 17.3 Hz 来源 |
+| 气泡壳振动频谱 | 深界路径假说 | 结构稳定性年报 | 壳振动 + 嵌套结构 → 时间本身在变 |
+
+### unlocks_rules 概览（14 个残片）
+
+全部 14 个非 legendary 以上残片均有 lore_chunk_pool（共 30+ 短句，30% 概率注入）。
+item_amount_delta 加成：急救包 +1、结构碎片 +1/+2、Ω物质 +1/+2、环段部件 +1/+2。
+
+### 叙事主线
+
+> 维护异常 → 协议掩盖 → 观察者预测 → 因果异常 → **函馆就是泡泡本身**
+>
+> 07-Γ 是贯穿线索的关键人物：拒绝撤离、声称"看到锚点之外的东西"、被观察者模仿/预测。
+> 终极残片「深界路径假说」揭示核心设定："我们不是在探索空间站——我们在探索一个正在思考的实体的内部。"
+
+### 部署步骤
+
+在 Supabase SQL Editor 跑：
+```
+scripts/phase-23-cold-start-fragments.sql
+```
+幂等设计（ON CONFLICT DO NOTHING + WHERE unlocks_rules = '{}'），可反复执行。
+
+验证：
+```sql
+SELECT category, count(*) FROM fragment_pool GROUP BY category ORDER BY category;
+-- 预期：bubble(3), eden(3), general(3), omega(3), structure(3)
+
+SELECT count(*) FROM fragment_combos WHERE enabled = true;
+-- 预期：8
+
+SELECT count(*) FROM fragment_pool WHERE unlocks_rules != '{}'::jsonb;
+-- 预期：14+（加上之前 Phase 20 的 3 个种子）
+```
+
+---
+
+## 历史变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
 
 ### 天气系统移除（commit `39f459a`）
 
