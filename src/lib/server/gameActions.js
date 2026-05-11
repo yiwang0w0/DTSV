@@ -31,6 +31,7 @@ import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
+import { generateRaidPath } from '@/lib/server/pathGenerator'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -1496,8 +1497,31 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     player.inventory = initialInventory
   }
   player.loadout = initialLoadout
+  // Phase 19.3: 玩家加入时初始化 chamber 路径位置（chamber 0 = 入口 scan_dense）
+  player.chamberIndex = 0
+
+  // Phase 19.3: 首位玩家加入时生成 raidPath（gamevars 级别，所有玩家共用）
+  let nextRaidPath = gamevars.raidPath
+  if (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0) {
+    try {
+      const { data: chambers } = await client
+        .from('chamber_templates')
+        .select('*')
+        .eq('enabled', true)
+      if (chambers && chambers.length > 0) {
+        nextRaidPath = generateRaidPath(chambers)
+      } else {
+        nextRaidPath = []
+      }
+    } catch (e) {
+      console.error('[joinRoom] path generator 失败:', e?.message)
+      nextRaidPath = []
+    }
+  }
+
   const nextGamevars = {
     ...gamevars,
+    raidPath: nextRaidPath,
     players: {
       ...gamevars.players,
       [user.id]: player,
@@ -1505,8 +1529,11 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   }
 
   const loadoutNote = initialInventory.length > 0 ? `（装载 ${initialInventory.length} 件物资）` : ''
+  const pathNote = nextRaidPath.length > 0 && (!Array.isArray(gamevars.raidPath) || gamevars.raidPath.length === 0)
+    ? `（已生成 ${nextRaidPath.length} chamber 路径）`
+    : ''
   const nextRoom = await persistRoom(client, room, nextGamevars, [
-    createLogEntry(`${player.name} 加入了游戏${loadoutNote}`, 'system'),
+    createLogEntry(`${player.name} 加入了游戏${loadoutNote}${pathNote}`, 'system'),
   ], { startGame: true })
 
   await client.from('profiles').update({ roomid: roomId }).eq('id', user.id)
