@@ -4,6 +4,85 @@
  */
 
 /**
+ * Phase 20.4: 残片合成解锁
+ * 玩家在某个残片上达到 decode_level=3 时调用：扫 fragment_combos 表
+ * 找所有以"该残片"为输入 A 或 B 的配方，检查另一边是否也已完全解码 →
+ * 若是则自动以 decode_level=0 解锁 C 残片。
+ *
+ * @param {object} client - supabase admin client
+ * @param {string} userId - 玩家 UUID
+ * @param {number} triggeredFragmentId - 刚达到 level 3 的残片 ID
+ * @returns {Array<{fragmentId, name, comboDescription}>} 本次新解锁的残片清单
+ */
+export async function evaluateFragmentCombos(client, userId, triggeredFragmentId) {
+  if (!triggeredFragmentId) return []
+  try {
+    // 找以 triggered 残片为 A 或 B 的所有启用配方
+    const { data: combos } = await client
+      .from('fragment_combos')
+      .select('id, fragment_id_a, fragment_id_b, unlocks_fragment, description')
+      .eq('enabled', true)
+      .or(`fragment_id_a.eq.${triggeredFragmentId},fragment_id_b.eq.${triggeredFragmentId}`)
+
+    if (!combos || combos.length === 0) return []
+
+    // 查玩家所有 level=3 的残片
+    const { data: decodedRows } = await client
+      .from('player_fragments')
+      .select('fragment_id')
+      .eq('user_id', userId)
+      .eq('decode_level', 3)
+    const decoded = new Set((decodedRows || []).map(r => r.fragment_id))
+
+    // 查玩家已发现的所有残片（避免重复解锁）
+    const { data: ownedRows } = await client
+      .from('player_fragments')
+      .select('fragment_id')
+      .eq('user_id', userId)
+    const owned = new Set((ownedRows || []).map(r => r.fragment_id))
+
+    const unlocked = []
+    for (const c of combos) {
+      // 已经拥有 C 则跳过（不重复解锁）
+      if (owned.has(c.unlocks_fragment)) continue
+      // 双方都已完全解码
+      if (decoded.has(c.fragment_id_a) && decoded.has(c.fragment_id_b)) {
+        // 写入 player_fragments(decode_level=0)
+        const { error } = await client
+          .from('player_fragments')
+          .upsert({
+            user_id: userId,
+            fragment_id: c.unlocks_fragment,
+            decode_level: 0,
+            discovered_at: new Date().toISOString(),
+            last_decoded: new Date().toISOString(),
+            discover_cycle: 0, // 0 表示合成解锁，非搜索
+          }, { onConflict: 'user_id,fragment_id' })
+
+        if (!error) {
+          owned.add(c.unlocks_fragment) // 避免同一次循环内被多个配方重复解锁
+          // 查 C 的名字
+          const { data: cMeta } = await client
+            .from('fragment_pool')
+            .select('id, name')
+            .eq('id', c.unlocks_fragment)
+            .maybeSingle()
+          unlocked.push({
+            fragmentId: c.unlocks_fragment,
+            name: cMeta?.name || `残片 #${c.unlocks_fragment}`,
+            comboDescription: c.description || '',
+          })
+        }
+      }
+    }
+    return unlocked
+  } catch (e) {
+    console.warn('[evaluateFragmentCombos] 跳过:', e?.message)
+    return []
+  }
+}
+
+/**
  * 尝试发现残片或推进已知残片的解码度
  *
  * Phase 18.1: 加 chain 参数 — search/combat/extract 三链。chain 直接过滤
@@ -105,7 +184,21 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
       .eq('fragment_id', target.id)
 
     if (error) throw error
-    return { fragment_id: target.id, decode_level: newLevel, isNew: false, chain, name: target.name }
+
+    // Phase 20.4: 解码达到 level 3 时，检查 fragment_combos 是否触发解锁
+    let comboUnlocks = []
+    if (newLevel === 3 && currentLevel < 3) {
+      comboUnlocks = await evaluateFragmentCombos(client, userId, target.id)
+    }
+
+    return {
+      fragment_id: target.id,
+      decode_level: newLevel,
+      isNew: false,
+      chain,
+      name: target.name,
+      comboUnlocks, // [{ fragmentId, name, comboDescription }]
+    }
   }
 }
 

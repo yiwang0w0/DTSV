@@ -901,6 +901,10 @@ async function resolveSearchAction(client, room, gamevars, user) {
           ? `发现了一段损坏的数据残片【${fragment.name}】`
           : `对【${fragment.name}】进行了进一步解码（解码度 ${fragment.decode_level}/3）`
         appendResolutionLog(resolution, `${player.name} ${levelText}`, 'system')
+        // Phase 20.4: 合成解锁日志
+        for (const u of (fragment.comboUnlocks || [])) {
+          appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
+        }
         return persistResolutionWithPollution(client, room, resolution, user.id)
       }
     } catch (e) {
@@ -1047,6 +1051,10 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
             ? `从【${instance.npc.name}】残骸中发现数据残片【${fragment.name}】`
             : `从【${instance.npc.name}】残骸中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
           appendResolutionLog(resolution, `${player.name} ${note}`, 'system')
+          // Phase 20.4: 合成解锁日志
+          for (const u of (fragment.comboUnlocks || [])) {
+            appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
+          }
         }
       }
     } catch (e) {
@@ -1881,6 +1889,10 @@ async function extractPlayer(client, room, gamevars, user, payload) {
           ? `撤离后在归档中析出残片【${fragment.name}】`
           : `撤离归档过程中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
         appendResolutionLog(resolution, `${player.name} ${note2}`, 'system')
+        // Phase 20.4: 合成解锁日志
+        for (const u of (fragment.comboUnlocks || [])) {
+          appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
+        }
       }
     }
   } catch (e) {
