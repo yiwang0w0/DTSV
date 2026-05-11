@@ -30,6 +30,7 @@ import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
+import { logPlayerDeath } from '@/lib/server/deathLog'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -1058,6 +1059,16 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
         if (playerHpAfter <= 0) {
           appendResolutionLog(resolution, `${player.name} 在与 ${instance.npc.name} 的交手中倒下了`, 'death')
           await settleCorpseGeneration(resolution)
+          // Phase 18.3: 记录死亡 — NPC 反击致死
+          try {
+            await logPlayerDeath(client, user.id, {
+              roomId: room.id,
+              gamenum: room.gamenum || 1,
+              mapId: player.map ?? 0,
+              reason: 'npc_counter',
+              context: { npcName: instance.npc.name, envPollution: resolution.gamevars.envPollution || 0 },
+            })
+          } catch (e) { console.error('[attackNpc] deathLog 失败:', e?.message) }
         }
       } else {
         appendResolutionLog(resolution, `${instance.npc.name} 反击挥空`, 'system')
@@ -1174,6 +1185,16 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   if (attackerHpAfter <= 0) {
     appendResolutionLog(resolution, `${attacker.name} 被 ${target.name} 的反击击倒了`, 'death')
     await settleCorpseGeneration(resolution)
+    // Phase 18.3: PvP 反击致死 — 攻击者死亡
+    try {
+      await logPlayerDeath(client, user.id, {
+        roomId: room.id,
+        gamenum: room.gamenum || 1,
+        mapId: attackerAfterTurn.map ?? 0,
+        reason: 'pvp',
+        context: { attacker: target.name, role: 'attacker_killed_by_counter' },
+      })
+    } catch (e) { console.error('[attackPlayer] deathLog 失败:', e?.message) }
   }
 
   if (targetHp <= 0) {
@@ -1187,6 +1208,17 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
       lootPrompt: null,
     }))
     appendResolutionLog(resolution, `${attacker.name} 击败了 ${target.name}`, 'kill')
+
+    // Phase 18.3: PvP 被攻击致死 — defender 视角
+    try {
+      await logPlayerDeath(client, targetUid, {
+        roomId: room.id,
+        gamenum: room.gamenum || 1,
+        mapId: defenderAfterTurn.map ?? 0,
+        reason: 'pvp',
+        context: { attacker: attacker.name, role: 'defender_killed' },
+      })
+    } catch (e) { console.error('[attackPlayer] defender deathLog 失败:', e?.message) }
 
     await settleCorpseGeneration(resolution)
     const corpse = (resolution.gamevars.corpses || []).find(

@@ -45,6 +45,15 @@ const CHAIN_META = {
   extract: { label: '撤离链',  icon: '🚪', color: C.green },
 }
 
+// Phase 18.3: 死亡原因元数据
+const DEATH_REASON_META = {
+  pvp:                { label: 'PvP 交手', icon: '🔪', color: C.red },
+  npc_counter:        { label: '实体反击', icon: '👹', color: C.red },
+  omega_timeout:      { label: 'Ω 超时',  icon: '⏳', color: C.purple },
+  pollution_meltdown: { label: '污染崩溃', icon: '☢',  color: C.yellow },
+  other:              { label: '未知',     icon: '?',  color: C.dim },
+}
+
 const RARITY_META = {
   common:    { label: '普通', color: C.dim },
   uncommon:  { label: '优秀', color: C.green },
@@ -204,6 +213,7 @@ export default function ArchivePage() {
   const { user, loading: authLoading } = useAuth()
   const [fragments, setFragments] = useState([])
   const [playerFragments, setPlayerFragments] = useState([])
+  const [deathLog, setDeathLog] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [chainFilter, setChainFilter] = useState('all')
@@ -212,14 +222,16 @@ export default function ArchivePage() {
     if (!user) return
 
     async function load() {
-      // 并行请求残片池和玩家发现记录
-      const [poolRes, playerRes] = await Promise.all([
+      // 并行请求残片池、玩家发现记录、玩家死亡日志
+      const [poolRes, playerRes, deathRes] = await Promise.all([
         supabase.from('fragment_pool').select('*').eq('enabled', true),
         supabase.from('player_fragments').select('*').eq('user_id', user.id),
+        supabase.from('player_death_log').select('*').eq('user_id', user.id).order('died_at', { ascending: false }).limit(20),
       ])
 
       setFragments(poolRes.data || [])
       setPlayerFragments(playerRes.data || [])
+      setDeathLog(deathRes.data || [])
       setLoading(false)
     }
 
@@ -496,6 +508,52 @@ export default function ArchivePage() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Phase 18.3: 死亡日志侧栏 — 让玩家看到自己失败模式以规避 */}
+      {deathLog.length > 0 && (
+        <details style={{ marginBottom: 24 }}>
+          <summary style={{
+            cursor: 'pointer', padding: '8px 12px',
+            background: `${C.red}10`, border: `1px solid ${C.red}40`,
+            borderLeft: `3px solid ${C.red}`, borderRadius: 8,
+            fontSize: 13, color: C.red, fontWeight: 600,
+          }}>
+            💀 死亡记录 ({deathLog.length}) — 点击展开
+          </summary>
+          <div style={{
+            marginTop: 8, padding: 12,
+            background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8,
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}>
+            {deathLog.map(d => {
+              const meta = DEATH_REASON_META[d.reason] || DEATH_REASON_META.other
+              return (
+                <div key={d.id} style={{
+                  display: 'flex', gap: 10, alignItems: 'center',
+                  padding: '6px 10px', borderRadius: 6,
+                  background: C.bg0, border: `1px solid ${C.border}`,
+                }}>
+                  <span style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 6,
+                    background: `${meta.color}18`, color: meta.color,
+                    border: `1px solid ${meta.color}40`,
+                    flexShrink: 0, minWidth: 70, textAlign: 'center',
+                  }}>
+                    {meta.icon} {meta.label}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 12, color: C.text }}>
+                    {d.reason_text}
+                  </span>
+                  <span style={{ fontSize: 10, color: C.dim2, flexShrink: 0 }}>
+                    {d.gamenum != null ? `周目 #${d.gamenum} · ` : ''}
+                    {new Date(d.died_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </details>
       )}
 
       {/* 残片列表 */}
