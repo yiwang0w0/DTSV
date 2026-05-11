@@ -148,15 +148,19 @@ export async function defeatProbe(client, probeId, attackerId) {
       newLevel = Math.min(3, (existing.decode_level || 0) + 1)
     }
 
+    const upsertPayload = {
+      user_id: attackerId,
+      fragment_id: targetFragId,
+      decode_level: newLevel,
+      last_decoded: new Date().toISOString(),
+    }
+    if (!existing) {
+      upsertPayload.discovered_at = new Date().toISOString()
+      upsertPayload.discover_cycle = -1 // -1 表示从探针夺取（非搜索/战斗/撤离）
+    }
     await client
       .from('player_fragments')
-      .upsert({
-        user_id: attackerId,
-        fragment_id: targetFragId,
-        decode_level: newLevel,
-        discovered_at: existing ? undefined : new Date().toISOString(),
-        last_decoded: new Date().toISOString(),
-      }, { onConflict: 'user_id,fragment_id' })
+      .upsert(upsertPayload, { onConflict: 'user_id,fragment_id' })
 
     // 查残片名字（log 用）
     const { data: fragMeta } = await client

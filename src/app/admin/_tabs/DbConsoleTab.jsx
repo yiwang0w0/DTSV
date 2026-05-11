@@ -14,6 +14,9 @@ const QUICK_QUERIES = [
   { label: '玩家残片', sql: `SELECT pf.user_id, fp.name, fp.category, pf.decode_level, pf.discover_cycle, pf.discovered_at FROM player_fragments pf JOIN fragment_pool fp ON fp.id = pf.fragment_id ORDER BY pf.discovered_at DESC LIMIT 50` },
   { label: '地图配置', sql: `SELECT map_id, npc_count FROM map_config ORDER BY map_id LIMIT 20` },
   { label: '游戏日志（最近）', sql: `SELECT * FROM game_events ORDER BY created_at DESC LIMIT 30` },
+  { label: '残片配方', sql: `SELECT fc.id, fa.name AS frag_a, fb.name AS frag_b, fu.name AS unlocks, fc.description, fc.enabled FROM fragment_combos fc LEFT JOIN fragment_pool fa ON fa.id = fc.fragment_id_a LEFT JOIN fragment_pool fb ON fb.id = fc.fragment_id_b LEFT JOIN fragment_pool fu ON fu.id = fc.unlocks_fragment ORDER BY fc.id` },
+  { label: '异步探针', sql: `SELECT cp.id, p.username AS owner, cp.chamber_template_id, cp.hp, cp.atk, cp.def, cp.status, cp.found_count, cp.defeated_count, cp.created_at, cp.expires_at FROM cross_room_probes cp LEFT JOIN profiles p ON p.id = cp.owner_id ORDER BY cp.created_at DESC LIMIT 30` },
+  { label: '对局统计', sql: `SELECT rs.id, rs.room_id, rs.gamenum, rs.duration_seconds, rs.player_count, rs.alive_count, rs.death_count, rs.extract_count, rs.fragments_extracted, rs.ending_key, rs.env_pollution_final FROM raid_stats rs ORDER BY rs.created_at DESC LIMIT 20` },
 ]
 
 export default function DbConsoleTab({ toast }) {
