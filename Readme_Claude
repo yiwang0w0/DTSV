@@ -1,7 +1,40 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 19 肉鸽路径生成 + 30 分钟节奏 + chamber 模板池
+更新时间：2026-05-11（Asia/Tokyo） · Phase 19 走查 + 天气系统移除 + bugfix
 整理方式：基于全量源码交叉验证 + Phase 0-19 改造提交记录。
+
+## 最近变更（2026-05-11）— 天气系统移除 + busyAction bugfix + Phase 18-19 走查
+
+### 天气系统移除（commit `39f459a`）
+
+用户判断天气系统不符合世界观，从 11 个文件中完全删除：
+- `constants.js`: 删除 `WEATHER_OPTIONS` 数组（6 种天气类型）
+- `gameEngine.js`: `calcDamage()` / `getSearchChances()` 移除 weather 参数及所有天气修正（雨天射击减益、风暴全局减益、雾天搜索加成等）
+- `gameActions.js`: 删除 `getChamberWeather()` 函数，搜索/战斗/PvP 调用链不再传递 weather
+- `pathGenerator.js`: chamber 实例不再生成 weather 字段
+- `GameClientPage.jsx`: 移除天气显示和 effectiveMapConfig.weather
+- `gameUi.js`: 删除 WEATHER 常量映射（6 种天气 icon/label/mod）
+- 管理后台 `ChambersTab` / `MapsTab` / `RulesTab` / `DbConsoleTab` / `ui.js`: 移除天气编辑 UI 与查询
+
+### busyAction 修复（commit `66380c6`）
+
+**问题**：点击"放过"（dismissNpc）时，攻击按钮也显示 loading 动画。
+**原因**：`loading={busy}` 被所有 action 共享。
+**修复**：引入 `busyAction` 状态追踪当前动作名，按钮各自判定 `loading={busyAction === 'xxx'}`。
+
+### Phase 18-19 端到端走查结果
+
+已验证功能点（全部通过）：
+- **chamber 路径生成**：25 个 chamber 模板 → 20-25 段路径，5 阶段加权抽取
+- **chamber 前进**：A/B/C 分支选择，chamberIndex 递增，chamberHistory 记录
+- **Ω-段倒计时**：3 回合 omega_window，UI 显示红色警告
+- **区域评估面板**：显示当前 chamber 的道具/实体/残片池数量
+- **交易 NPC**：Ω-段出现交易实体（friendly NPC）
+- **污染强制撤离**：envPollution ≥ 75% 触发 EMERGENCY_UNLOCK，85% 红色闪烁 UI
+- **busyAction 隔离**：各操作按钮独立 loading 动画
+- **死亡日志系统**：4 种死因（pvp/npc_counter/omega_timeout/pollution_meltdown），写入 `player_death_log`，/archive 页展示
+- **残片三链过滤**：search/combat/extract 三链各自触发对应 `phase_chain` 的残片，70% 新发现 / 30% 解码推进
+- **档案页 /archive**：统计条（已发现/完全解码/分类覆盖/进度条）、分类过滤、三链过滤、24h 贡献区、死亡记录折叠面板、解码度 0-3 文本渐进展示
 
 ## 最近变更（2026-05-11 / Phase 19）— 肉鸽路径基础（10 sub 全部落地）
 
