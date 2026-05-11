@@ -286,6 +286,52 @@ export default function GameClientPage() {
     }
   }
 
+  // Phase 18.4: 污染分阶段警报 — 70% 跨越时弹 toast；90% 弹强制撤离倒计时模态
+  const POLLUTION_WARN_THRESHOLD = 70
+  const POLLUTION_FORCE_THRESHOLD = 90
+  const FORCE_RETREAT_SECONDS = 30
+  const lastPollutionRef = useRef(0)
+  const [forceRetreatActive, setForceRetreatActive] = useState(false)
+  const [forceRetreatSeconds, setForceRetreatSeconds] = useState(FORCE_RETREAT_SECONDS)
+  const forceTriggeredRef = useRef(false)
+
+  const envPollutionLevel = gamevars?.envPollution || 0
+
+  useEffect(() => {
+    if (!inGame || meBase?.extracted || !me?.alive) return
+    const prev = lastPollutionRef.current
+    const cur = envPollutionLevel
+    // 70% 跨越 → 弹 warning toast（仅向上跨越触发）
+    if (prev < POLLUTION_WARN_THRESHOLD && cur >= POLLUTION_WARN_THRESHOLD && cur < POLLUTION_FORCE_THRESHOLD) {
+      toast(`⚠ 张力警报：环境污染 ${cur}%，建议立即评估撤离路径`, 'error')
+    }
+    // 90% 跨越 → 触发强制撤离倒计时（一次性，不会重复触发）
+    if (cur >= POLLUTION_FORCE_THRESHOLD && !forceTriggeredRef.current) {
+      forceTriggeredRef.current = true
+      setForceRetreatActive(true)
+      setForceRetreatSeconds(FORCE_RETREAT_SECONDS)
+    }
+    // 跌回 80% 以下 → 解除强制撤离锁定（理论上不会发生，但防御性）
+    if (cur < POLLUTION_FORCE_THRESHOLD - 10) {
+      forceTriggeredRef.current = false
+      setForceRetreatActive(false)
+    }
+    lastPollutionRef.current = cur
+  }, [envPollutionLevel, inGame, me?.alive, meBase?.extracted, toast])
+
+  // 90% 强制撤离倒计时 — 30s 后自动 emergencyRetreat
+  useEffect(() => {
+    if (!forceRetreatActive) return
+    if (forceRetreatSeconds <= 0) {
+      setForceRetreatActive(false)
+      handleEmergencyRetreat()
+      return
+    }
+    const timer = setTimeout(() => setForceRetreatSeconds(s => s - 1), 1000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceRetreatActive, forceRetreatSeconds])
+
   async function handleTradeNpc(npcId) {
     const next = await runGameAction('trade', { npcId })
     if (next) {
@@ -362,6 +408,70 @@ export default function GameClientPage() {
         }
         .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
       `}</style>
+
+      {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒） */}
+      {inGame && me?.alive && !meBase?.extracted && envPollutionLevel >= POLLUTION_WARN_THRESHOLD && envPollutionLevel < POLLUTION_FORCE_THRESHOLD && (
+        <div style={{
+          background: `linear-gradient(90deg, ${T.yellow}25, ${T.yellow}10)`,
+          borderBottom: `1px solid ${T.yellow}50`,
+          padding: '6px 20px',
+          fontSize: 11, color: T.yellow,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <span>⚠</span>
+          <span>张力警报：环境污染 {envPollutionLevel}% — 结构应力接近临界值，建议立即评估撤离路径</span>
+        </div>
+      )}
+
+      {/* Phase 18.4: 90% 强制撤离倒计时模态（不可关） */}
+      {forceRetreatActive && me?.alive && !meBase?.extracted && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9000,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: T.bg1, border: `2px solid ${T.red}`,
+            borderRadius: 12, padding: '28px 36px',
+            maxWidth: 480, textAlign: 'center',
+            boxShadow: `0 0 40px ${T.red}40`,
+          }}>
+            <div style={{ fontSize: 38, marginBottom: 12 }}>☢</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>
+              结构应力超限，强制撤离协议触发
+            </div>
+            <div style={{ fontSize: 12, color: T.dim, lineHeight: 1.7, marginBottom: 16 }}>
+              环境污染 {envPollutionLevel}%，泡泡壳裂解临界。<br/>
+              系统将在倒计时归零时自动启动缝隙维护轨道。
+            </div>
+            <div style={{
+              fontSize: 42, fontWeight: 900,
+              color: forceRetreatSeconds <= 10 ? T.red : T.yellow,
+              fontFamily: 'monospace',
+              marginBottom: 16,
+              textShadow: `0 0 20px ${forceRetreatSeconds <= 10 ? T.red : T.yellow}40`,
+            }}>
+              {forceRetreatSeconds}s
+            </div>
+            <button
+              onClick={() => {
+                setForceRetreatActive(false)
+                handleEmergencyRetreat()
+              }}
+              style={{
+                padding: '10px 28px', borderRadius: 8,
+                background: T.red, color: '#fff', border: 'none',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              ⚠ 立即启动缝隙维护轨道
+            </button>
+            <div style={{ fontSize: 10, color: T.dim2, marginTop: 10 }}>
+              （个人污染将 +{POLLUTION_CONFIG.EMERGENCY_COST}%，传送至外环维护廊）
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 16, fontWeight: 900, color: T.cyan, letterSpacing: 2, textShadow: `0 0 20px ${T.cyan}80` }}>
