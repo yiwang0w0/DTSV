@@ -14,6 +14,10 @@
  * 每个 chamber 末尾给 2-3 个分支选项（exit_count）— 玩家选下一段。
  * raidPath 是线性序列（已确定），但客户端展示时只 reveal 当前 chamber +
  * 下面 2-3 个候选（用户选定后真正前进）。
+ *
+ * Phase 20.2: 接入 unlocks_rules — 玩家已完全解码（decode_level=3）的残片可影响
+ *   chamber 抽取权重 + lore 短句注入 + item amount delta。规则在 joinRoom 时
+ *   预合并，作为 generateRaidPath 的第二参数传入。
  */
 
 const PATH_LENGTH_MIN = 20
@@ -44,8 +48,10 @@ function weightedPick(items, weightFn = (i) => i.spawn_weight || 1) {
 
 /**
  * 按阶段偏置筛选 + 抽取一个 chamber
+ *
+ * Phase 20.2: 加 chamberWeightDelta（{ template_id: delta }），影响最终权重计算
  */
-function pickChamberForStage(stage, allChambers, usedIds) {
+function pickChamberForStage(stage, allChambers, usedIds, chamberWeightDelta = {}) {
   const bias = STAGE_BIAS[stage] || {}
   const candidates = allChambers
     .filter(c => c.enabled !== false)
@@ -57,16 +63,81 @@ function pickChamberForStage(stage, allChambers, usedIds) {
     return weightedPick(allChambers.filter(c => c.enabled !== false && !usedIds.has(c.id)))
   }
 
-  return weightedPick(candidates, (c) => (c.spawn_weight || 1) * (bias[c.type] || 1))
+  return weightedPick(candidates, (c) => {
+    const base = (c.spawn_weight || 1) * (bias[c.type] || 1)
+    const delta = Number(chamberWeightDelta?.[c.id]) || 0
+    return Math.max(0.1, base + delta) // 权重最少 0.1，避免被完全屏蔽
+  })
+}
+
+/**
+ * Phase 20.2: 把多条 unlocks_rules 合并成一份净规则
+ *
+ * @param {Array<object>} rulesList — 每个元素是 fragment_pool.unlocks_rules（JSON）
+ * @returns {{ chamberWeight: object, loreChunkPool: string[], npcUnlock: number[], itemAmountDelta: object }}
+ */
+export function mergeUnlocksRules(rulesList) {
+  const merged = {
+    chamberWeight: {},
+    loreChunkPool: [],
+    npcUnlock: [],
+    itemAmountDelta: {},
+  }
+  if (!Array.isArray(rulesList)) return merged
+
+  for (const raw of rulesList) {
+    if (!raw || typeof raw !== 'object') continue
+
+    // chamber_weight: 累加
+    const cw = raw.chamber_weight || {}
+    for (const [k, v] of Object.entries(cw)) {
+      const id = Number(k)
+      const delta = Number(v) || 0
+      if (!Number.isFinite(id)) continue
+      merged.chamberWeight[id] = (merged.chamberWeight[id] || 0) + delta
+    }
+
+    // lore_chunk_pool: 合并 + 去重
+    const pool = Array.isArray(raw.lore_chunk_pool) ? raw.lore_chunk_pool : []
+    for (const chunk of pool) {
+      if (typeof chunk === 'string' && !merged.loreChunkPool.includes(chunk)) {
+        merged.loreChunkPool.push(chunk)
+      }
+    }
+
+    // npc_unlock: 合并 + 去重
+    const npcs = Array.isArray(raw.npc_unlock) ? raw.npc_unlock : []
+    for (const npcId of npcs) {
+      const id = Number(npcId)
+      if (Number.isFinite(id) && !merged.npcUnlock.includes(id)) {
+        merged.npcUnlock.push(id)
+      }
+    }
+
+    // item_amount_delta: 累加（按名）
+    const iad = raw.item_amount_delta || {}
+    for (const [name, v] of Object.entries(iad)) {
+      const delta = Number(v) || 0
+      if (!name) continue
+      merged.itemAmountDelta[name] = (merged.itemAmountDelta[name] || 0) + delta
+    }
+  }
+
+  return merged
 }
 
 /**
  * 生成单次 raid 的 chamber 路径
  * @param {Array} allChambers — chamber_templates 全表
+ * @param {object} [unlocksMerged] — Phase 20.2: 玩家解锁规则合并结果（可选）
+ *        { chamberWeight: { template_id: delta }, loreChunkPool: [text], ... }
  * @returns {Array} raidPath — chamber 实例化记录数组
  */
-export function generateRaidPath(allChambers) {
+export function generateRaidPath(allChambers, unlocksMerged = null) {
   if (!allChambers || allChambers.length === 0) return []
+
+  const chamberWeightDelta = unlocksMerged?.chamberWeight || {}
+  const loreChunkPool = unlocksMerged?.loreChunkPool || []
 
   const length = PATH_LENGTH_MIN + Math.floor(Math.random() * (PATH_LENGTH_MAX - PATH_LENGTH_MIN + 1))
   const usedIds = new Set()
@@ -80,7 +151,7 @@ export function generateRaidPath(allChambers) {
     else if (i < length - 1) stage = 'late'
     else stage = 'finale'
 
-    let chamber = pickChamberForStage(stage, allChambers, usedIds)
+    let chamber = pickChamberForStage(stage, allChambers, usedIds, chamberWeightDelta)
     if (!chamber) {
       // 全没选到时强制找最低权重的
       chamber = allChambers.find(c => c.enabled !== false) || null
@@ -89,6 +160,13 @@ export function generateRaidPath(allChambers) {
 
     usedIds.add(chamber.id)
 
+    // Phase 20.3: 注入 lore 短句（30% 概率，从池里随机挑 1 条）
+    let description = chamber.description || ''
+    if (loreChunkPool.length > 0 && Math.random() < 0.30) {
+      const chunk = loreChunkPool[Math.floor(Math.random() * loreChunkPool.length)]
+      description = description ? `${description}\n${chunk}` : chunk
+    }
+
     // 实例化 — 写入 path（快照 chamber 模板的关键字段，避免后续 admin 改模板影响在跑 raid）
     path.push({
       idx: i,
@@ -96,7 +174,7 @@ export function generateRaidPath(allChambers) {
       templateKey: chamber.template_key,
       name: chamber.name,
       type: chamber.type,
-      description: chamber.description || '',
+      description,
       regionLabel: chamber.region_label || null,
       pollutionBase: chamber.pollution_base || 0,
       pollutionAccel: chamber.pollution_accel || 0,

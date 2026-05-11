@@ -134,6 +134,12 @@ export function normalizeGamevars(gamevars = {}) {
       : [],
     // ── Phase 19.4: 肉鸽 chamber 路径（joinRoom 时生成，房间共享） ──
     raidPath: Array.isArray(gamevars.raidPath) ? gamevars.raidPath : [],
+    // ── Phase 20.2: 残片解锁规则合并结果（joinRoom 时写入） ──
+    unlocksMerged: gamevars.unlocksMerged && typeof gamevars.unlocksMerged === 'object'
+      ? gamevars.unlocksMerged
+      : null,
+    // ── Phase 20.2: 本局贡献的解锁残片列表（结局横幅展示用） ──
+    unlocksContributed: Array.isArray(gamevars.unlocksContributed) ? gamevars.unlocksContributed : [],
   }
 }
 

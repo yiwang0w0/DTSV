@@ -30,7 +30,7 @@ import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
-import { generateRaidPath } from '@/lib/server/pathGenerator'
+import { generateRaidPath, mergeUnlocksRules } from '@/lib/server/pathGenerator'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -168,7 +168,8 @@ let _allNpcsCache = null
 const POOL_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
 let _poolCacheTs = 0
 
-/** Phase 19.5: 按 chamber.templateId 过滤 item/npc 池（替代旧 fetchSearchMapBundle） */
+/** Phase 19.5: 按 chamber.templateId 过滤 item/npc 池（替代旧 fetchSearchMapBundle）
+ *  Phase 20.2: 应用 unlocks_rules.item_amount_delta（搜索权重加成）+ npc_unlock（NPC 解锁池） */
 async function fetchSearchChamberBundle(client, gamevars, player) {
   const now = Date.now()
   const stale = now - _poolCacheTs > POOL_CACHE_TTL
@@ -189,8 +190,33 @@ async function fetchSearchChamberBundle(client, gamevars, player) {
   const tid = chamber?.templateId ?? -1
 
   // Phase 19.2 已迁移：按 chamber_template_ids 过滤
-  const itemPool = _allItemsCache.filter(i => Array.isArray(i.chamber_template_ids) && i.chamber_template_ids.includes(tid))
-  const npcPool = _allNpcsCache.filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(tid))
+  let itemPool = _allItemsCache.filter(i => Array.isArray(i.chamber_template_ids) && i.chamber_template_ids.includes(tid))
+  let npcPool = _allNpcsCache.filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(tid))
+
+  // Phase 20.2: 应用残片解锁的修正
+  const merged = gamevars?.unlocksMerged
+  if (merged && typeof merged === 'object') {
+    // item_amount_delta — 按物品名加权重（不改 DB 字段，仅本次抽取）
+    const iad = merged.itemAmountDelta || {}
+    if (Object.keys(iad).length > 0) {
+      itemPool = itemPool.map(i => {
+        const delta = Number(iad[i.name]) || 0
+        if (delta === 0) return i
+        return { ...i, amount: Math.max(1, (i.amount || 1) + delta) }
+      })
+    }
+
+    // npc_unlock — 把"原本不在 chamber 池但被残片解锁"的 NPC 合并进来
+    const npcUnlock = Array.isArray(merged.npcUnlock) ? merged.npcUnlock : []
+    if (npcUnlock.length > 0) {
+      const npcIdSet = new Set(npcPool.map(n => n.id))
+      for (const id of npcUnlock) {
+        if (npcIdSet.has(id)) continue
+        const extra = _allNpcsCache.find(n => n.id === id)
+        if (extra) npcPool.push(extra)
+      }
+    }
+  }
 
   return { itemPool, npcPool }
 }
@@ -1510,17 +1536,45 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   player.chamberIndex = 0
 
   // Phase 19.3: 首位玩家加入时生成 raidPath（gamevars 级别，所有玩家共用）
+  // Phase 20.2: 玩家完全解码（decode_level=3）的残片 unlocks_rules 合并进入路径生成
   let nextRaidPath = gamevars.raidPath
+  let unlocksContributed = []
   if (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0) {
     try {
       const { data: chambers } = await client
         .from('chamber_templates')
         .select('*')
         .eq('enabled', true)
+
+      // Phase 20.2: 查询本玩家已完全解码（level 3）的残片 + 其 unlocks_rules
+      let mergedRules = null
+      try {
+        const { data: decoded } = await client
+          .from('player_fragments')
+          .select('fragment_id, decode_level, fragment_pool!inner(id, name, unlocks_rules)')
+          .eq('user_id', user.id)
+          .eq('decode_level', 3)
+        const rulesList = (decoded || [])
+          .map(d => d.fragment_pool?.unlocks_rules)
+          .filter(r => r && typeof r === 'object' && Object.keys(r).length > 0)
+        if (rulesList.length > 0) {
+          mergedRules = mergeUnlocksRules(rulesList)
+          unlocksContributed = (decoded || [])
+            .filter(d => d.fragment_pool?.unlocks_rules && Object.keys(d.fragment_pool.unlocks_rules).length > 0)
+            .map(d => ({ id: d.fragment_id, name: d.fragment_pool?.name }))
+        }
+      } catch (e) {
+        console.warn('[joinRoom] unlocks_rules 查询跳过:', e?.message)
+      }
+
       if (chambers && chambers.length > 0) {
-        nextRaidPath = generateRaidPath(chambers)
+        nextRaidPath = generateRaidPath(chambers, mergedRules)
       } else {
         nextRaidPath = []
+      }
+      // Phase 20.2: 把 mergedRules 写入 gamevars 供后续动作（搜索 item_amount_delta、NPC 解锁等）读取
+      if (mergedRules) {
+        gamevars.unlocksMerged = mergedRules
       }
     } catch (e) {
       console.error('[joinRoom] path generator 失败:', e?.message)
@@ -1537,10 +1591,20 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     },
   }
 
+  // Phase 20.2: 把合并后的 unlocks 规则带上（item_amount_delta / npc_unlock 后续搜索/战斗会读）
+  if (gamevars.unlocksMerged) {
+    nextGamevars.unlocksMerged = gamevars.unlocksMerged
+  }
+
+  // Phase 20.2: 记录本局贡献的解锁残片（结局横幅展示用）
+  if (unlocksContributed.length > 0 && !Array.isArray(gamevars.unlocksContributed)) {
+    nextGamevars.unlocksContributed = unlocksContributed
+  }
+
   const loadoutNote = initialInventory.length > 0 ? `（装载 ${initialInventory.length} 件物资）` : ''
-  const pathNote = nextRaidPath.length > 0 && (!Array.isArray(gamevars.raidPath) || gamevars.raidPath.length === 0)
-    ? `（已生成 ${nextRaidPath.length} chamber 路径）`
-    : ''
+  const isFirstPath = nextRaidPath.length > 0 && (!Array.isArray(gamevars.raidPath) || gamevars.raidPath.length === 0)
+  const unlocksNote = isFirstPath && unlocksContributed.length > 0 ? `，已应用 ${unlocksContributed.length} 条残片解锁规则` : ''
+  const pathNote = isFirstPath ? `（已生成 ${nextRaidPath.length} chamber 路径${unlocksNote}）` : ''
   const nextRoom = await persistRoom(client, room, nextGamevars, [
     createLogEntry(`${player.name} 加入了游戏${loadoutNote}${pathNote}`, 'system'),
   ], { startGame: true })
