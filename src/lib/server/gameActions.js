@@ -849,16 +849,16 @@ async function resolveSearchAction(client, room, gamevars, user) {
     return persisted
   }
 
-  // ── 残片发现：跨周目持久化的知识碎片 ──
+  // ── 残片发现：搜索链（Phase 18.1：phase_chain='search'）──
   const fragmentThreshold = npcChance + corpseChance + looseItemChance + fragmentChance
   if (roll < fragmentThreshold) {
     try {
-      const gamenum = resolution.gamevars?.gamenum || room.gamenum || 1
-      const fragment = await discoverFragment(client, user.id, mapId, eff.effective, gamenum)
+      const gamenum = room.gamenum || 1
+      const fragment = await discoverFragment(client, user.id, mapId, eff.effective, gamenum, { chain: 'search' })
       if (fragment) {
         const levelText = fragment.isNew
-          ? '发现了一段损坏的数据残片'
-          : `对已知残片进行了进一步解码（解码度 ${fragment.decode_level}/3）`
+          ? `发现了一段损坏的数据残片【${fragment.name}】`
+          : `对【${fragment.name}】进行了进一步解码（解码度 ${fragment.decode_level}/3）`
         appendResolutionLog(resolution, `${player.name} ${levelText}`, 'system')
         return persistResolutionWithPollution(client, room, resolution, user.id)
       }
@@ -995,6 +995,24 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: instance.npc.name })
     } catch (e) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
+    }
+    // Phase 18.1: 击杀链残片发现（combat chain）— 20% 概率
+    try {
+      if (Math.random() < 0.2) {
+        const eff = calcEffectivePollution(
+          resolution.gamevars.envPollution || 0,
+          getResolutionPlayer(resolution, user.id)?.personalPollution || 0,
+        )
+        const fragment = await discoverFragment(client, user.id, player.map ?? 0, eff.effective, room.gamenum || 1, { chain: 'combat' })
+        if (fragment) {
+          const note = fragment.isNew
+            ? `从【${instance.npc.name}】残骸中发现数据残片【${fragment.name}】`
+            : `从【${instance.npc.name}】残骸中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
+          appendResolutionLog(resolution, `${player.name} ${note}`, 'system')
+        }
+      }
+    } catch (e) {
+      console.error('[attackNpc] fragment discovery 失败:', e?.message)
     }
     try {
       await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: instance.npc.name })
@@ -1696,6 +1714,27 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     ? `${player.name} 从【${mapConfig.name}】完成结构退避（带回 ${totalCount} 件物资）`
     : `${player.name} 从【${mapConfig.name}】完成结构退避`
   appendResolutionLog(resolution, note, 'system')
+
+  // Phase 18.1: 撤离链残片发现（extract chain）— 撤离成功 35% 概率
+  // 撤离链残片往往是"深界时代撤离日志"类，写在玩家成功带回物资时
+  try {
+    if (Math.random() < 0.35) {
+      const fragment = await discoverFragment(
+        client, user.id, playerMapId,
+        gamevars.envPollution || 0,
+        room.gamenum || 1,
+        { chain: 'extract' },
+      )
+      if (fragment) {
+        const note2 = fragment.isNew
+          ? `撤离后在归档中析出残片【${fragment.name}】`
+          : `撤离归档过程中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
+        appendResolutionLog(resolution, `${player.name} ${note2}`, 'system')
+      }
+    }
+  } catch (e) {
+    console.error('[extractPlayer] fragment discovery 失败:', e?.message)
+  }
 
   // 玩家不再属于该对局
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)

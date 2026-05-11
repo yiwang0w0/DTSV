@@ -4,15 +4,22 @@
  */
 
 /**
- * 搜索时尝试发现残片或推进已知残片的解码度
+ * 尝试发现残片或推进已知残片的解码度
+ *
+ * Phase 18.1: 加 chain 参数 — search/combat/extract 三链。chain 直接过滤
+ * fragment_pool.phase_chain，让搜索/击杀/撤离三个动作分别抽对应链的残片。
+ *
  * @param {object} client - supabase admin client
  * @param {string} userId - 玩家 UUID
  * @param {number} mapId - 当前地图 ID
  * @param {number} pollution - 当前有效污染度（0-100）
  * @param {number} gamenum - 当前周目编号
- * @returns {object|null} { fragment_id, decode_level, isNew } 或 null（无可发现残片）
+ * @param {object} opts - { chain: 'search' | 'combat' | 'extract' }，默认 'search'
+ * @returns {object|null} { fragment_id, decode_level, isNew, chain } 或 null（无可发现残片）
  */
-export async function discoverFragment(client, userId, mapId, pollution, gamenum) {
+export async function discoverFragment(client, userId, mapId, pollution, gamenum, opts = {}) {
+  const chain = opts.chain || 'search'
+
   // 1. 查询玩家已发现的残片 ID 列表
   const { data: owned } = await client
     .from('player_fragments')
@@ -22,13 +29,14 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
   const ownedMap = new Map((owned || []).map(f => [f.fragment_id, f.decode_level]))
   const ownedIds = [...ownedMap.keys()]
 
-  // 2. 查询候选残片池（启用的、满足污染度要求的、适用当前地图的）
+  // 2. 查询候选残片池（启用 + 满足污染度 + 匹配 chain + 适用当前地图）
   let query = client
     .from('fragment_pool')
-    .select('id, name, category, rarity, discover_mode, maps, min_pollution, requires_fragment_id, weight')
+    .select('id, name, category, rarity, discover_mode, phase_chain, maps, min_pollution, requires_fragment_id, weight')
     .eq('enabled', true)
     .lte('min_pollution', Math.floor(pollution))
     .in('discover_mode', ['search', 'both'])
+    .eq('phase_chain', chain)
 
   const { data: candidates } = await query
   if (!candidates || candidates.length === 0) return null
@@ -82,7 +90,7 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
       }, { onConflict: 'user_id,fragment_id' })
 
     if (error) throw error
-    return { fragment_id: target.id, decode_level: 0, isNew: true }
+    return { fragment_id: target.id, decode_level: 0, isNew: true, chain, name: target.name }
   } else {
     const currentLevel = ownedMap.get(target.id)
     const newLevel = Math.min(3, currentLevel + 1)
@@ -97,7 +105,7 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
       .eq('fragment_id', target.id)
 
     if (error) throw error
-    return { fragment_id: target.id, decode_level: newLevel, isNew: false }
+    return { fragment_id: target.id, decode_level: newLevel, isNew: false, chain, name: target.name }
   }
 }
 

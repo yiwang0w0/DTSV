@@ -29,11 +29,21 @@ const DISCOVER_OPTIONS = [
   { value: 'both',   label: '混合' },
 ]
 
+// Phase 18.1: 残片三链 — 三个 raid 阶段分别抽对应链
+const CHAIN_OPTIONS = [
+  { value: 'search',  label: '搜（监听/构造时代碎片）',   icon: '🔍' },
+  { value: 'combat',  label: '打（失衡/逃逸时代战斗记录）', icon: '⚔️' },
+  { value: 'extract', label: '撤（深界时代撤离日志）',     icon: '🚪' },
+]
+
 const RARITY_COLOR = {
   common: '#8b949e', uncommon: '#3fb950', rare: '#58a6ff', legendary: '#d29922',
 }
 const CATEGORY_ICON = {
   general: '📄', omega: '🌀', eden: '🌿', bubble: '🫧', structure: '🔷',
+}
+const CHAIN_COLOR = {
+  search: '#58a6ff', combat: '#f85149', extract: '#3fb950',
 }
 
 const EMPTY_FRAGMENT = {
@@ -45,6 +55,7 @@ const EMPTY_FRAGMENT = {
   category: 'general',
   rarity: 'common',
   discover_mode: 'search',
+  phase_chain: 'search',
   maps: [],
   min_pollution: 0,
   requires_fragment_id: null,
@@ -87,6 +98,7 @@ export default function FragmentsTab({ toast }) {
       ...EMPTY_FRAGMENT,
       ...f,
       maps: f.maps || [],
+      phase_chain: f.phase_chain || 'search',
     })
     setModal(true)
   }
@@ -208,6 +220,20 @@ export default function FragmentsTab({ toast }) {
                     }}>
                       {DISCOVER_OPTIONS.find(d => d.value === frag.discover_mode)?.label || frag.discover_mode}
                     </span>
+                    {/* Phase 18.1: chain 徽章 */}
+                    {(() => {
+                      const chainKey = frag.phase_chain || 'search'
+                      const chainMeta = CHAIN_OPTIONS.find(c => c.value === chainKey)
+                      const color = CHAIN_COLOR[chainKey] || '#8b949e'
+                      return (
+                        <span style={{
+                          padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 700,
+                          background: `${color}18`, color, border: `1px solid ${color}40`,
+                        }}>
+                          {chainMeta?.icon} {chainKey}
+                        </span>
+                      )
+                    })()}
                     {frag.min_pollution > 0 && (
                       <span style={{
                         padding: '1px 8px', borderRadius: 10, fontSize: 9,
@@ -308,6 +334,15 @@ export default function FragmentsTab({ toast }) {
               <select value={editFrag.discover_mode} onChange={e => setEditFrag({ ...editFrag, discover_mode: e.target.value })} style={INPUT}>
                 {DISCOVER_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+            </div>
+
+            {/* Phase 18.1: 三链阶段 */}
+            <div>
+              <label style={LABEL}>三链阶段（phase_chain）</label>
+              <select value={editFrag.phase_chain || 'search'} onChange={e => setEditFrag({ ...editFrag, phase_chain: e.target.value })} style={INPUT}>
+                {CHAIN_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.icon} {c.label}</option>)}
+              </select>
+              <p style={HINT}>决定残片在哪个 raid 阶段被抽到：搜索 / 击杀 NPC / 撤离</p>
             </div>
 
             {/* 权重 */}

@@ -38,6 +38,13 @@ const CATEGORY_META = {
   structure: { label: '结构体档案',   icon: '🔷', color: C.accent },
 }
 
+// Phase 18.1: 三链阶段过滤
+const CHAIN_META = {
+  search:  { label: '搜索链',  icon: '🔍', color: C.accent },
+  combat:  { label: '战斗链',  icon: '⚔️', color: C.red },
+  extract: { label: '撤离链',  icon: '🚪', color: C.green },
+}
+
 const RARITY_META = {
   common:    { label: '普通', color: C.dim },
   uncommon:  { label: '优秀', color: C.green },
@@ -132,6 +139,24 @@ function FragmentCard({ fragment, playerData }) {
           }}>
             {rarity.label}
           </span>
+          {/* Phase 18.1: chain 徽章 */}
+          {(() => {
+            const chainKey = fragment.phase_chain || 'search'
+            const chainMeta = CHAIN_META[chainKey]
+            if (!chainMeta) return null
+            return (
+              <span
+                title={chainMeta.label}
+                style={{
+                  padding: '1px 6px', borderRadius: 8, fontSize: 9, fontWeight: 700,
+                  background: `${chainMeta.color}18`, color: chainMeta.color,
+                  border: `1px solid ${chainMeta.color}40`,
+                }}
+              >
+                {chainMeta.icon}
+              </span>
+            )
+          })()}
         </div>
         <DecodeBar level={level} />
       </div>
@@ -181,6 +206,7 @@ export default function ArchivePage() {
   const [playerFragments, setPlayerFragments] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [chainFilter, setChainFilter] = useState('all')
 
   useEffect(() => {
     if (!user) return
@@ -218,11 +244,17 @@ export default function ArchivePage() {
       })
   }, [fragments, playerFragments])
 
-  // 按分类过滤
+  // 按分类 + 三链阶段过滤
   const filtered = useMemo(() => {
-    if (filter === 'all') return discoveredFragments
-    return discoveredFragments.filter(d => d.fragment.category === filter)
-  }, [discoveredFragments, filter])
+    let arr = discoveredFragments
+    if (filter !== 'all') {
+      arr = arr.filter(d => d.fragment.category === filter)
+    }
+    if (chainFilter !== 'all') {
+      arr = arr.filter(d => (d.fragment.phase_chain || 'search') === chainFilter)
+    }
+    return arr
+  }, [discoveredFragments, filter, chainFilter])
 
   // 统计
   const stats = useMemo(() => {
@@ -353,6 +385,41 @@ export default function ArchivePage() {
                   cursor: 'pointer',
                   background: filter === key ? `${meta.color}25` : '#21262d',
                   color: filter === key ? meta.color : C.dim,
+                }}
+              >
+                {meta.icon} {meta.label} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Phase 18.1: 三链阶段过滤器 */}
+      {discoveredFragments.length > 0 && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setChainFilter('all')}
+            style={{
+              padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+              border: 'none', cursor: 'pointer',
+              background: chainFilter === 'all' ? C.dim : '#21262d',
+              color: chainFilter === 'all' ? C.bg0 : C.dim2,
+            }}
+          >
+            全链
+          </button>
+          {Object.entries(CHAIN_META).map(([key, meta]) => {
+            const count = discoveredFragments.filter(d => (d.fragment.phase_chain || 'search') === key).length
+            if (count === 0) return null
+            return (
+              <button
+                key={key}
+                onClick={() => setChainFilter(key)}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  border: 'none', cursor: 'pointer',
+                  background: chainFilter === key ? `${meta.color}25` : '#21262d',
+                  color: chainFilter === key ? meta.color : C.dim,
                 }}
               >
                 {meta.icon} {meta.label} ({count})
