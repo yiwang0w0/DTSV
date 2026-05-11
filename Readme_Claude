@@ -1,9 +1,72 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 17 物品使用模式扩展 + 背包面板重定位
-整理方式：基于全量源码交叉验证 + Phase 0-17 改造提交记录。
+更新时间：2026-05-11（Asia/Tokyo） · Phase 18 10 维评估首批落地（D1 保守路线 5 sub）
+整理方式：基于全量源码交叉验证 + Phase 0-18 改造提交记录。
 
-## 最近变更（2026-05-11 / Phase 17）— 物品使用模式扩展 + 背包面板搬左
+## 最近变更（2026-05-11 / Phase 18）— 10 维评估框架的低改动量落地
+
+> 用户提供了完整的 10 维设计评分框架（探索驱动 / 知识即进度 / 考古解读 /
+> 尺度震撼 / 循环紧密 / 透明度 / 氛围 / 拾取密度 / 回报曲线 / 重玩价值）。
+> 评估当前实现约 5.1/10 — 氛围最强（8），尺度震撼（3）+ 知识反馈环（3）最弱。
+>
+> Phase 18 选 D1 保守路线（C1 决策 = 新增 phase_chain 字段不破坏现有数据），
+> 在现有 7 区固定架构上把"知识→行为反馈"和"循环张力"做闭环，5 个 sub。
+
+### Phase 18 一句话清单
+
+| Sub | 内容 | 维度提升 | Commit |
+|-----|------|---------|--------|
+| 18.1 | **残片三链分类**：`fragment_pool` 加 `phase_chain` (search/combat/extract) + CHECK 约束；discoverFragment 接 chain 参数过滤池；搜索 / 击杀(20%) / 撤离(35%) 三动作分别按 chain 抽残片；admin 加下拉 + 列表徽章；archive 加三链过滤器 + 卡片徽章 | 3, 8 | `78194bb` |
+| 18.2 | **Archive 最近 24h 贡献区**（金色描边卡片，按 last_decoded 排序前 10 条）+ 结局横幅加"📡 在档案库查看本局贡献的残片 →"链接 | 9, 2 | `3958ba2` |
+| 18.3 | **死亡日志可追溯**：新表 `player_death_log` (跨周目持久) + `logPlayerDeath()` helper + 接入 NPC 反击致死 / PvP 双向（attacker 被反杀 + defender 被击败）；archive 加红色 `<details>` 折叠卡"💀 死亡记录 (N)" | 6 | `51b7127` |
+| 18.4 | **污染分阶段强制切换**：70% 跨越 → 一次性 toast + 顶栏黄色持久横幅；90% 触发不可关模态 + 30s 倒计时（≤10s 红色）+ 倒计时归零或主动点击自动 emergencyRetreat | 1, 5 | `f297913` |
+| 18.5 | **区域评估小卡**（左侧 PvP 之上）：战斗强度（按 npcInstances totalHp + maxAtk*3 评 5 级）+ 撤离成功率（is_exit + exit_cost 满足度 + hp 比例评 5 级） | 6 | `1bc98a0` |
+
+### 预期评分提升（Phase 18 后）
+
+| 维度 | 之前 | 之后 | 增量 |
+|------|------|------|------|
+| 1 探索驱动感 | 5 | 6-7 | +1-2（强制切换打破纯搜枯燥） |
+| 2 知识即进度 | 3 | 4-5 | +1-2（结局横幅引导 + 24h 贡献高亮） |
+| 3 考古解读深度 | 6 | 7-8 | +1-2（三链让玩家阶段性拼凑历史） |
+| 5 循环紧密度 | 5 | 6-7 | +1-2（90% 强制撤离硬上限） |
+| 6 系统透明度 | 6 | 8 | +2（区域评估 + 死亡日志双向追溯） |
+| 8 拾取物密度 | 6 | 7 | +1（三链分散 + 撤离链奖励高于搜索基础概率 35%） |
+| 9 情感/智力回报 | 5 | 6 | +1（最近贡献高亮 + Archive 引导） |
+
+**Phase 18 后估算平均 ≈ 6.0/10**（之前 5.1）
+
+### 部署步骤
+
+依次在 Supabase SQL Editor 跑：
+1. `scripts/fragment-phase-chain-schema.sql` — fragment_pool 加 phase_chain
+2. `scripts/death-log-schema.sql` — 新表 player_death_log + RLS
+
+跑完验证：
+```sql
+SELECT phase_chain, count(*) FROM fragment_pool GROUP BY phase_chain;
+-- 期望：只有 1 行 ('search', N) — 所有现有残片默认 search
+SELECT reason, count(*) FROM player_death_log GROUP BY reason;
+-- 期望：空表（待玩家死亡后逐步填充）
+```
+
+### 走查路径
+
+1. **18.1 三链**：admin → 📡 残片 → 编辑 → "三链阶段"下拉 → 改为 combat → 保存 → archive 看到该残片小盾徽章变 ⚔️
+2. **18.2 最近贡献**：搜索发现一条残片 → 进 /archive → 顶部"📍 最近 24 小时贡献"区显示该卡片（金色描边 + "✨ 新发现"）
+3. **18.3 死亡日志**：被 NPC 反击死亡 → 重进档案库 → "💀 死亡记录" 折叠卡展开 → 看到"实体反击 - X 反击致命 - 周目 #N - 时间"
+4. **18.4 张力警报**：使用 admin 推一个对局 envPollution 到 70% → 顶栏出现黄色横幅 + toast；推到 90% → 弹模态 + 30s 倒计时
+5. **18.5 区域评估**：raid 内左侧"📊 区域评估"卡 — 切换地图后数值跟着变；持有 exit_cost 物品时撤离率显示 95%
+
+### 仍未做 — 等用户决定下一步
+
+- **Phase 19** 知识驱动生成池（残片解锁影响 spawn 权重）— 需要 fragment_pool 加 `unlocks_rules` jsonb
+- **Phase 20** 异步 PvPVE 探针 — 需要决策 B1/B2 留探针方式
+- **Phase 21** procedural 舱段 — 需要决策 A1/A2/A3，影响最大
+
+---
+
+## 历史变更（2026-05-11 / Phase 17）— 物品使用模式扩展 + 背包面板搬左
 
 > 用户反馈：
 > 1. 当前所有 useItem 都消耗，对情报类道具（残段日志、密信等）不合适 — 应区分"使用消耗"/"查看不消耗"/"查看即消耗"
@@ -983,7 +1046,7 @@ if (gamestate === 1 && normalized.endingResult) {
 
 DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃杀**混合游戏（中文 UI），世界观为**远星函馆 × 17 号异常段**（深界时代）。玩家扮演 PI 引导者（Pioneer Interface Operator），被派遣至 17 号异常段执行探查、对抗、提取任务。
 
-**当前状态（2026-05 / Phase 0-17 全部上线）**：
+**当前状态（2026-05 / Phase 0-18 全部上线）**：
 
 - **搜打撤引擎**（Phase 0-7）：装载、撤离、合同、事件、分支、多结局
 - **远星函馆内容层**（Phase 8）：7 区域邻接图 + 双层污染系统 + 4 类实体（残响/伪装/共生/观察）+ 4 装备槽（probe/shield/weapon/comm）+ Ω-段倒计时 + 4 结局判定（崩解/清算/合流/探索）
@@ -996,6 +1059,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 - **战斗 UI 改造 + bug fix**（Phase 15 + 15.1）：搜索/攻击按钮加载进度条（fill 式），ITEM_KIND_META.special crash 全部修齐，首页 + rooms 页 ensureNextRound CTA 双保险（修复 Phase 13 死路）
 - **单次袭击战斗模型**（Phase 16）：从持续 battle 改为 player.encounter 单次结算 + NPC 实例池跨袭击 HP 持久化 + PvP 反击 + 被攻击方 toast；装载流程回归（"加入游戏"按钮接 LoadoutModal）
 - **物品使用模式 + 背包面板搬左**（Phase 17）：item_pool 加 use_mode（consume / inspect_keep / inspect_consume）+ inspect_text；背包从中央 tab 搬到左侧常驻；admin 加编辑器
+- **10 维评估首批落地**（Phase 18）：残片三链分类 phase_chain（search/combat/extract，3 动作差异化抽取）；archive 加最近 24h 贡献区 + 死亡日志侧栏（player_death_log 新表）；70% 张力警报横幅 + 90% 强制撤离倒计时模态；左侧"📊 区域评估"小卡（战斗强度 + 撤离成功率）
 - **对局模型**：单一全服当前对局 — 永远只有 1 个 active 对局，所有引导者加入它，结束后自动开新一段
 - **14 标签页管理后台**：合同 / 事件 / 分支 / 结局 / 残片 编辑器全部就绪
 
@@ -1155,7 +1219,7 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `recipe_ingredients` | 配方材料 (quantity, is_consumed, is_catalyst, ingredient_type, item/equipment FK) |
 | `passive_skills` | 被动技能 (name, icon, trigger_chance, effect 定义) |
 
-### 2026-05 新增表（8 张，搜打撤大改造 + Phase 14 残片）
+### 2026-05 新增表（9 张，搜打撤大改造 + Phase 14 残片 + Phase 18.3 死亡日志）
 
 | 表名 | 用途 |
 |------|------|
@@ -1165,8 +1229,9 @@ DTSV 是一个基于 Next.js 14 + Supabase 的实时多人**搜打撤 + 大逃�
 | `event_pool` | 事件库 (trigger jsonb, effects jsonb, weight, once, cooldown, active) |
 | `branch_nodes` | 分支节点 — 条件聚合引擎 (conditions jsonb, branches jsonb, scope, once, active) |
 | `endings` | 多结局元数据 (key UNIQUE, name, banner_text, rewards jsonb, active) |
-| `fragment_pool` | **Phase 14 新增** — 残片模板池 (name, raw_text/partial_1/partial_2/full_text 4 级解码内容, category, rarity, discover_mode, maps[], min_pollution, requires_fragment_id, weight, enabled). RLS 关闭与项目惯例一致 |
+| `fragment_pool` | **Phase 14 新增** — 残片模板池 (name, raw_text/partial_1/partial_2/full_text 4 级解码内容, category, rarity, discover_mode, maps[], min_pollution, requires_fragment_id, weight, enabled). RLS 关闭与项目惯例一致. **Phase 18.1 新增列** `phase_chain` (CHECK ∈ search/combat/extract) — 三动作差异化抽残片 |
 | `player_fragments` | **Phase 14 新增** — 玩家跨周目持久残片记录 (user_id, fragment_id, decode_level 0-3, discovered_at, last_decoded, discover_cycle), UNIQUE(user_id, fragment_id). RLS 启用：玩家只能读自己的；服务端用 service_role bypass |
+| `player_death_log` | **Phase 18.3 新增** — 玩家死亡日志（跨周目持久）(user_id, room_id, gamenum, map_id, reason, reason_text, context jsonb, died_at). 5 种 reason：pvp/npc_counter/omega_timeout/pollution_meltdown/other（后 2 类暂未接，预留扩展）. RLS 同 player_fragments |
 
 ### gamevars JSONB 内的运行时字段（2026-05 新增）
 
