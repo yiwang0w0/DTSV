@@ -18,6 +18,50 @@
 BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════
+-- Step 0: 防御性 schema 检查（如果 Phase 18.1 / Phase 20.1 未运行则补齐）
+-- ═══════════════════════════════════════════════════════════════
+
+-- Phase 18.1 残片三链字段
+ALTER TABLE fragment_pool
+  ADD COLUMN IF NOT EXISTS phase_chain TEXT NOT NULL DEFAULT 'search';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fragment_pool_phase_chain_check'
+  ) THEN
+    ALTER TABLE fragment_pool
+      ADD CONSTRAINT fragment_pool_phase_chain_check
+      CHECK (phase_chain IN ('search', 'combat', 'extract'));
+  END IF;
+END $$;
+
+-- Phase 20.1 残片解锁规则字段
+ALTER TABLE fragment_pool
+  ADD COLUMN IF NOT EXISTS unlocks_rules JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Phase 20.4 残片合成配方表（如果不存在则建表）
+CREATE TABLE IF NOT EXISTS fragment_combos (
+  id                 BIGSERIAL PRIMARY KEY,
+  fragment_id_a      INTEGER NOT NULL,
+  fragment_id_b      INTEGER NOT NULL,
+  unlocks_fragment   INTEGER NOT NULL,
+  description        TEXT NOT NULL DEFAULT '',
+  enabled            BOOLEAN NOT NULL DEFAULT true,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fragment_combos_unique UNIQUE (fragment_id_a, fragment_id_b, unlocks_fragment),
+  CONSTRAINT fragment_combos_ne CHECK (fragment_id_a != unlocks_fragment AND fragment_id_b != unlocks_fragment)
+);
+
+CREATE INDEX IF NOT EXISTS fragment_combos_lookup_idx
+  ON fragment_combos(fragment_id_a, fragment_id_b)
+  WHERE enabled = true;
+
+CREATE INDEX IF NOT EXISTS fragment_combos_target_idx
+  ON fragment_combos(unlocks_fragment)
+  WHERE enabled = true;
+
+-- ═══════════════════════════════════════════════════════════════
 -- Step 1: 清理 Phase 23 数据
 -- ═══════════════════════════════════════════════════════════════
 
