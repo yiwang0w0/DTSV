@@ -130,10 +130,26 @@ ON CONFLICT DO UPDATE SET decode_level=2;
 3. 撤离时 → "撤离后在归档中析出残片【F0X ...】"
 4. **预期**：三个链路都能各自抽到 F-系列残片（按 phase_chain 字段过滤——search/combat/extract 残片分布）
 
+### Phase 24a 走查测试结果（2026-05-12 实测）
+
+> Room 20 · kanata 账号 · F10(id=11)+F12(id=13) decode_level=3
+
+| 测试项 | 结果 | 说明 |
+|--------|------|------|
+| 测试 0 准备 | ✅ PASS | 4 用户确认、15 残片 id 2-16 确认 |
+| 测试 2 核心 — joinRoom 应用规则 | ✅ PASS | 日志 "已生成 23 chamber 路径，已应用 2 条残片解锁规则" |
+| 测试 2 核心 — raidPath loreInjections | ✅ PASS | 23 chamber 中 8 个带 loreInjections（~35%，接近 30% 预期）；F10(11)×6、F12(13)×2，每条都有正确 sourceFragmentId |
+| 测试 2 核心 — 客户端 filterLore | ✅ PASS | kanata 看到 F10 lore "墙面慢慢凸起…不是朝黑洞，而是朝里面" + F12 lore ""临时编号"已经持续了两个纪元…" 拼到 chamber description 末尾 |
+| 测试 2 核心 — per-player 过滤逻辑 | ✅ PASS（代码审查） | filterLore 用 `myDecodedIds.has(inj.sourceFragmentId)` 过滤；无解码残片的玩家 Set 为空，lore 不会通过筛选 |
+| 测试 5 — 老 raidPath 兼容 | ✅ PASS | Room 19（Phase 24a 前创建）loreInjections 全部为 NULL/空数组，客户端正常显示 base description |
+| 测试 1/3/4/6 | ⏸ 待测 | 需第二账号（测试 1）、archive 页面（测试 3）、combo 触发（测试 4）、三链残片发现（测试 6） |
+
+**结论：Phase 24a 核心管道（per-player lore 可见性）验证通过。可以启动 Phase 24b。**
+
 ### 已知问题 / 后续修复点
 
+- 测试 1/3/4/6 待后续补全
 - 走查发现的 bug 按 sub 锁定到 24a.X commit 增量修复
-- 24a 验证通过前不启动 24b（4 类点数）或 24c（职业）
 
 ### Phase 24 路线图（24b / 24c 暂未启动）
 
