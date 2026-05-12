@@ -193,10 +193,34 @@ export default function GameClientPage() {
   // Phase 19.7: chamber 路径 — 当前 chamber + 下一段候选
   const raidPath = useMemo(() => gamevars?.raidPath || [], [gamevars?.raidPath])
   const currentChamberIdx = meBase?.chamberIndex ?? 0
-  const currentChamber = useMemo(
+  const rawCurrentChamber = useMemo(
     () => raidPath[currentChamberIdx] || null,
     [raidPath, currentChamberIdx],
   )
+
+  // Phase 24a: per-player lore 可见性过滤 — 把当前玩家解码到 level=3 的残片 id 做成 Set，
+  //   chamber.loreInjections 里 sourceFragmentId 命中该 Set 的条目才展示。
+  //   旧 raidPath（无 loreInjections 字段）→ 数组为空，不影响 base description。
+  const myDecodedIds = useMemo(
+    () => new Set(meBase?.decodedFragmentIds || []),
+    [meBase?.decodedFragmentIds],
+  )
+  function filterLore(chamber) {
+    if (!chamber) return chamber
+    const base = chamber.description || ''
+    const visible = (chamber.loreInjections || [])
+      .filter(inj => inj.sourceFragmentId == null || myDecodedIds.has(inj.sourceFragmentId))
+      .map(inj => inj.text)
+    if (visible.length === 0) return chamber
+    const combined = base ? `${base}\n${visible.join('\n')}` : visible.join('\n')
+    return { ...chamber, description: combined }
+  }
+  const currentChamber = useMemo(
+    () => filterLore(rawCurrentChamber),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawCurrentChamber, myDecodedIds],
+  )
+
   const nextChamberOptions = useMemo(() => {
     if (!raidPath || raidPath.length === 0) return []
     const opts = []
@@ -207,8 +231,10 @@ export default function GameClientPage() {
     for (let k = 0; k < exitCount; k++) {
       const idx = nextIdx + k
       if (idx < raidPath.length) {
+        // Phase 24a: 预览卡也按 lore 可见性过滤
+        const filtered = filterLore(raidPath[idx])
         opts.push({
-          ...raidPath[idx],
+          ...filtered,
           optionLabel: String.fromCharCode(65 + k), // A/B/C
           isRealNext: k === 0,
           previewOnly: k !== 0,
@@ -216,7 +242,8 @@ export default function GameClientPage() {
       }
     }
     return opts
-  }, [raidPath, currentChamberIdx, currentChamber?.exitCount])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raidPath, currentChamberIdx, currentChamber?.exitCount, myDecodedIds])
   const inGame = !!meBase
   // Phase 19.7: 用 currentChamber 替代 mapConfig（保留 mapConfig 变量名兼容旧引用）
   const effectiveMapConfig = currentChamber ? {

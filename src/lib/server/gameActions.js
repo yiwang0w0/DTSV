@@ -1603,8 +1603,24 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   // Phase 19.3: 玩家加入时初始化 chamber 路径位置（chamber 0 = 入口 scan_dense）
   player.chamberIndex = 0
 
+  // Phase 24a: 查询本玩家已完全解码（level 3）的残片 — 用于 lore 可见性过滤
+  //   每个加入的玩家都要拉一次，把自己的 decoded id 列表挂到 player 状态上。
+  //   首位玩家额外用这批规则生成 raidPath。
+  let playerDecoded = []
+  try {
+    const { data: decoded } = await client
+      .from('player_fragments')
+      .select('fragment_id, decode_level, fragment_pool!inner(id, name, unlocks_rules)')
+      .eq('user_id', user.id)
+      .eq('decode_level', 3)
+    playerDecoded = decoded || []
+  } catch (e) {
+    console.warn('[joinRoom] decoded fragments 查询失败:', e?.message)
+  }
+  player.decodedFragmentIds = playerDecoded.map(d => d.fragment_id)
+
   // Phase 19.3: 首位玩家加入时生成 raidPath（gamevars 级别，所有玩家共用）
-  // Phase 20.2: 玩家完全解码（decode_level=3）的残片 unlocks_rules 合并进入路径生成
+  // Phase 20.2 / 24a: 用首位玩家的 decode_level=3 残片 unlocks_rules 合并进入路径生成（带 fragmentId）
   let nextRaidPath = gamevars.raidPath
   let unlocksContributed = []
   if (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0) {
@@ -1614,25 +1630,17 @@ export async function joinRoom(client, user, roomId, loadout = null) {
         .select('*')
         .eq('enabled', true)
 
-      // Phase 20.2: 查询本玩家已完全解码（level 3）的残片 + 其 unlocks_rules
       let mergedRules = null
-      try {
-        const { data: decoded } = await client
-          .from('player_fragments')
-          .select('fragment_id, decode_level, fragment_pool!inner(id, name, unlocks_rules)')
-          .eq('user_id', user.id)
-          .eq('decode_level', 3)
-        const rulesList = (decoded || [])
-          .map(d => d.fragment_pool?.unlocks_rules)
-          .filter(r => r && typeof r === 'object' && Object.keys(r).length > 0)
-        if (rulesList.length > 0) {
-          mergedRules = mergeUnlocksRules(rulesList)
-          unlocksContributed = (decoded || [])
-            .filter(d => d.fragment_pool?.unlocks_rules && Object.keys(d.fragment_pool.unlocks_rules).length > 0)
-            .map(d => ({ id: d.fragment_id, name: d.fragment_pool?.name }))
-        }
-      } catch (e) {
-        console.warn('[joinRoom] unlocks_rules 查询跳过:', e?.message)
+      // Phase 24a: rulesList 元素改为 { rules, fragmentId }，让 lore_chunk_pool 注入带来源
+      const rulesList = playerDecoded
+        .filter(d => d.fragment_pool?.unlocks_rules && Object.keys(d.fragment_pool.unlocks_rules).length > 0)
+        .map(d => ({ rules: d.fragment_pool.unlocks_rules, fragmentId: d.fragment_id }))
+      if (rulesList.length > 0) {
+        mergedRules = mergeUnlocksRules(rulesList)
+        unlocksContributed = rulesList.map(r => ({
+          id: r.fragmentId,
+          name: playerDecoded.find(d => d.fragment_id === r.fragmentId)?.fragment_pool?.name,
+        }))
       }
 
       if (chambers && chambers.length > 0) {

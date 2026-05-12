@@ -1,9 +1,64 @@
 # Readme_Claude
 
-更新时间：2026-05-11（Asia/Tokyo） · Phase 23 残片冷启动数据
-整理方式：基于全量源码交叉验证 + Phase 0-23 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 24a 残片 lore 重写 + per-player 可见性
+整理方式：基于全量源码交叉验证 + Phase 0-24a 改造提交记录。
 
-## 最近变更（2026-05-11 / Phase 23）— 残片冷启动数据 + 走查修复
+## 最近变更（2026-05-12 / Phase 24a）— 残片 lore 重写 + per-player 可见性（6 sub）
+
+> 主题：用六纪元设定文档（Ω-段诞生 / 伊甸港封锁 / D-8821 逃逸 / PI-1 探针 / Ω-段分类失败 / 共构本质 / 深界路径暴露）重写 Phase 23 凭空编造的 15 残片；并把 lore_chunk_pool 改成 per-player 可见——只有完全解码（lv3）该残片的玩家才能在 chamber 描述里看到对应暗示。
+>
+> Phase 24 整体被拆为 24a / 24b / 24c，24a 是第一段（低风险叠加性改动）。后续 24b（4 类点数 + 入场购买 + 商店）和 24c（职业系统）等本段走查通过后启动。
+
+### Phase 24a 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 24a.1 | `scripts/phase-24a-fragment-lore-rewrite.sql` — 删 Phase 23 的 15 残片 + 8 配方（按 name 匹配，连带 player_fragments），插入 F01-F15 + 8 新配方 + unlocks_rules；2-pass requires_fragment_id（F07/F12→F06, F13→F12, F15→F11） |
+| 24a.2 | `pathGenerator.mergeUnlocksRules` 签名扩展：rulesList 元素从 `unlocks_rules JSON` 变为 `{rules, fragmentId}`（向后兼容旧 plain 形式）；loreChunkPool 条目从 `string` 变为 `{text, sourceFragmentId}` |
+| 24a.3 | `pathGenerator.generateRaidPath` 不再把 lore 拼到 `chamber.description`，改存到每个 path entry 的 `loreInjections: [{text, sourceFragmentId}]` 数组 |
+| 24a.4 | `gameActions.joinRoom`：每个加入玩家都查自己 decode_level=3 的残片，挂到 `player.decodedFragmentIds`；首位玩家的规则照样 mergeUnlocksRules → generateRaidPath；`roomState.createPlayerState` 加默认 `decodedFragmentIds: []` |
+| 24a.5 | `GameClientPage.jsx`：`myDecodedIds` Set + `filterLore()` helper 对当前 chamber 与 nextChamberOptions 预览卡都过滤 loreInjections，按 `sourceFragmentId` 命中可见集合再拼到 description |
+| 24a.6 | Readme 同步 Phase 24a |
+
+### 15 残片 lore 来源（六纪元规范）
+
+| 阶段 | 残片 | 内容来源 |
+|-----|-----|---------|
+| 早期 | F01 外环巡检单-第17段 / F02 锚点-β 校准日志 / F03 修复包规程 / F04 PI 序列调度令 / F05 应力图 | 维护日志、锚点协议、应力分布、PI 引导者岗位说明 |
+| 中期 | F06 3 号干道事故摘要 / F07 伊甸港封锁令 / F08 D-8821 追踪 / F09 入侵者编号伪造 / F10 剪切带变形 | Ω-段诞生事故、封锁、泡层逃逸、文明入侵编号系统、引力变形 |
+| 后期 | F11 PI-1 探针 / F12 Ω-段分类报告 / F13 共构样本 / F14 路径污染源 / F15 深界路径标注 | 探针返回"它还在发生中"、分类失败、共构本质、系统污染标记、深界文明闯入 |
+
+主线 combo 链：F01/F05 → F02 → F06 → F07 → F08 → F09 → F10 → F11 → F12 → F13 → F14 → F15
+
+### 部署步骤
+
+```sql
+-- Supabase Studio SQL Editor 跑：
+scripts/phase-24a-fragment-lore-rewrite.sql
+
+-- 验证
+SELECT count(*) FROM fragment_pool WHERE name LIKE 'F%';            -- 期望 15
+SELECT count(*) FROM fragment_combos WHERE enabled=true;             -- 期望 ≥8
+SELECT name FROM fragment_pool WHERE requires_fragment_id IS NOT NULL ORDER BY name;
+-- 期望返回 F07/F12/F13/F15 四个
+```
+
+### 走查路径（两账号测试）
+
+1. **新账号** B：进 raid → chamber 描述只显示 base 文字，没有额外 lore 行
+2. **老账号** A：通过 admin DbConsole 把 player_fragments 里 F10 + F12 的 decode_level 强设为 3 → 进同房间 → 部分 chamber 描述末尾出现 F10/F12 的专属 lore 短句
+3. 两账号同 chamber 看到的描述文本不同 → 验证 per-player 过滤
+4. /archive 知识图谱仍正确显示 8 条新 combo
+5. 老 raidPath 数据（无 loreInjections 字段）→ 数组为空，不崩溃，显示 base only
+
+### Phase 24 路线图（24b / 24c 暂未启动）
+
+- **24b 4 类点数经济**：`high_equip_pt` / `low_equip_pt` / `item_pt` / `class_pt`；extract 折算 + PrepareModal 入场购买 + 商店点数互换；硬迁移现有 stash/equipment_instances
+- **24c 职业系统**：进 raid 时 3 候选随机（10% 出 legendary）+ class_pt 保底；属性加成 + perks 白名单（search_bonus / pollution_resist 等）
+
+---
+
+## 历史变更（2026-05-11 / Phase 23）— 残片冷启动数据 + 走查修复
 
 ### Phase 23 内容
 

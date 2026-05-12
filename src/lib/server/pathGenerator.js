@@ -73,8 +73,13 @@ function pickChamberForStage(stage, allChambers, usedIds, chamberWeightDelta = {
 /**
  * Phase 20.2: 把多条 unlocks_rules 合并成一份净规则
  *
- * @param {Array<object>} rulesList — 每个元素是 fragment_pool.unlocks_rules（JSON）
- * @returns {{ chamberWeight: object, loreChunkPool: string[], npcUnlock: number[], itemAmountDelta: object }}
+ * @param {Array<object>} rulesList — 每个元素可以是：
+ *   - 旧形式：plain unlocks_rules JSON 对象（向后兼容，sourceFragmentId 会为 null）
+ *   - 新形式（Phase 24a）：{ rules: unlocks_rules JSON, fragmentId: number }
+ * @returns {{ chamberWeight: object, loreChunkPool: Array<{text, sourceFragmentId}>, npcUnlock: number[], itemAmountDelta: object }}
+ *
+ * Phase 24a 改造：loreChunkPool 条目从纯字符串变为 { text, sourceFragmentId } 对象，
+ * 让客户端可以按"玩家是否完全解码该残片"过滤可见性。
  */
 export function mergeUnlocksRules(rulesList) {
   const merged = {
@@ -85,7 +90,10 @@ export function mergeUnlocksRules(rulesList) {
   }
   if (!Array.isArray(rulesList)) return merged
 
-  for (const raw of rulesList) {
+  for (const entry of rulesList) {
+    // 兼容两种调用方式
+    const raw = entry?.rules ?? entry
+    const fragmentId = entry?.fragmentId ?? null
     if (!raw || typeof raw !== 'object') continue
 
     // chamber_weight: 累加
@@ -97,12 +105,12 @@ export function mergeUnlocksRules(rulesList) {
       merged.chamberWeight[id] = (merged.chamberWeight[id] || 0) + delta
     }
 
-    // lore_chunk_pool: 合并 + 去重
+    // lore_chunk_pool: 合并 + 去重（按 text + sourceFragmentId 组合去重）
     const pool = Array.isArray(raw.lore_chunk_pool) ? raw.lore_chunk_pool : []
     for (const chunk of pool) {
-      if (typeof chunk === 'string' && !merged.loreChunkPool.includes(chunk)) {
-        merged.loreChunkPool.push(chunk)
-      }
+      if (typeof chunk !== 'string') continue
+      const exists = merged.loreChunkPool.some(c => c.text === chunk && c.sourceFragmentId === fragmentId)
+      if (!exists) merged.loreChunkPool.push({ text: chunk, sourceFragmentId: fragmentId })
     }
 
     // npc_unlock: 合并 + 去重
@@ -160,11 +168,13 @@ export function generateRaidPath(allChambers, unlocksMerged = null) {
 
     usedIds.add(chamber.id)
 
-    // Phase 20.3: 注入 lore 短句（30% 概率，从池里随机挑 1 条）
-    let description = chamber.description || ''
+    // Phase 20.3 / 24a: lore 短句不再直接拼到 description，改存到 loreInjections 数组，
+    // 让客户端按"该玩家是否完全解码 sourceFragmentId"过滤可见性
+    const description = chamber.description || ''
+    const loreInjections = []
     if (loreChunkPool.length > 0 && Math.random() < 0.30) {
-      const chunk = loreChunkPool[Math.floor(Math.random() * loreChunkPool.length)]
-      description = description ? `${description}\n${chunk}` : chunk
+      const pick = loreChunkPool[Math.floor(Math.random() * loreChunkPool.length)]
+      loreInjections.push({ text: pick.text, sourceFragmentId: pick.sourceFragmentId })
     }
 
     // 实例化 — 写入 path（快照 chamber 模板的关键字段，避免后续 admin 改模板影响在跑 raid）
@@ -175,6 +185,7 @@ export function generateRaidPath(allChambers, unlocksMerged = null) {
       name: chamber.name,
       type: chamber.type,
       description,
+      loreInjections, // Phase 24a: 每条 { text, sourceFragmentId }，客户端按解码状态过滤
       regionLabel: chamber.region_label || null,
       pollutionBase: chamber.pollution_base || 0,
       pollutionAccel: chamber.pollution_accel || 0,
