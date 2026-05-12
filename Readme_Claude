@@ -30,26 +30,110 @@
 
 主线 combo 链：F01/F05 → F02 → F06 → F07 → F08 → F09 → F10 → F11 → F12 → F13 → F14 → F15
 
-### 部署步骤
+### 部署步骤（已完成 2026-05-12）
 
 ```sql
 -- Supabase Studio SQL Editor 跑：
 scripts/phase-24a-fragment-lore-rewrite.sql
+-- ↑ 自包含: Step 0 内置 IF NOT EXISTS schema 补丁(phase_chain / unlocks_rules / fragment_combos),
+--   可在任意状态的 DB 上幂等执行
+```
 
--- 验证
+跑完验证（确认 SQL 已正常落地）：
+
+```sql
 SELECT count(*) FROM fragment_pool WHERE name LIKE 'F%';            -- 期望 15
 SELECT count(*) FROM fragment_combos WHERE enabled=true;             -- 期望 ≥8
 SELECT name FROM fragment_pool WHERE requires_fragment_id IS NOT NULL ORDER BY name;
--- 期望返回 F07/F12/F13/F15 四个
+-- 期望返回: F07 伊甸港封锁令 / F12 Ω-段结构分类报告 / F13 共构扰动样本分析 / F15 深界路径标注图
+SELECT count(*) FROM fragment_pool WHERE name LIKE 'F%' AND unlocks_rules != '{}'::jsonb;  -- 期望 14
 ```
 
-### 走查路径（两账号测试）
+### 完整走查步骤（部署后端到端测试）
 
-1. **新账号** B：进 raid → chamber 描述只显示 base 文字，没有额外 lore 行
-2. **老账号** A：通过 admin DbConsole 把 player_fragments 里 F10 + F12 的 decode_level 强设为 3 → 进同房间 → 部分 chamber 描述末尾出现 F10/F12 的专属 lore 短句
-3. 两账号同 chamber 看到的描述文本不同 → 验证 per-player 过滤
-4. /archive 知识图谱仍正确显示 8 条新 combo
-5. 老 raidPath 数据（无 loreInjections 字段）→ 数组为空，不崩溃，显示 base only
+#### 准备阶段
+
+```sql
+-- 1. 查你自己的 user_id（在 SQL Editor 跑，把 'YOUR_EMAIL' 替换为你的邮箱）
+SELECT id FROM auth.users WHERE email='YOUR_EMAIL';
+-- 假设返回 user_id = <UID_A>
+
+-- 2. 查 F10 / F12 / F06 三个残片的 id（后面要用）
+SELECT id, name FROM fragment_pool WHERE name IN (
+  'F06 伊甸港-3号干道事故摘要',
+  'F10 剪切带结构变形报告',
+  'F12 Ω-段结构分类报告'
+) ORDER BY name;
+-- 记下 fragment_id（例如 F10=42, F12=44）
+```
+
+#### 测试 1 — 全新账号看到 base 描述（无 lore 注入）
+
+1. **用账号 B**（最好是个全新账号，从未发现过任何残片）登录 `/rooms`
+2. 加入一局 raid（任意房间）
+3. 在 chamber 里多走几格（前进 5-10 个 chamber）
+4. **预期**：每个 chamber 的描述只显示 chamber 模板的原文，**末尾不会有额外的 lore 短句**
+5. 浏览器开 DevTools → Application → 看 gamevars 或 React DevTools 查 meBase
+   - `meBase.decodedFragmentIds` 应为 `[]` 或非常少
+   - `currentChamber.loreInjections` **可能有内容**（30% roll），但客户端过滤后不会显示
+
+#### 测试 2 — 给账号 A 注入解码记录，看到专属 lore
+
+```sql
+-- 把 F10 + F12 直接设为 decode_level=3（模拟玩家已经完全解码这两条残片）
+INSERT INTO player_fragments (user_id, fragment_id, decode_level, discovered_at, last_decoded, discover_cycle)
+VALUES
+  ('<UID_A>', <F10_id>, 3, now(), now(), 1),
+  ('<UID_A>', <F12_id>, 3, now(), now(), 1)
+ON CONFLICT (user_id, fragment_id) DO UPDATE SET decode_level=3, last_decoded=now();
+```
+
+1. 账号 A 重新进入一个**全新房间**（确保 raidPath 是新生成的，会带上 F10/F12 的 unlocks_rules）
+2. **进入房间后立即检查游戏日志**：应该看到一行
+   > "🎬 ... 加入了游戏（已生成 N chamber 路径，已应用 2 条残片解锁规则）"
+3. 在 chamber 里多走几格
+4. **预期**：约 30% 的 chamber 在 base 描述末尾会多出 F10 或 F12 的 lore 短句，例如：
+   > `墙面慢慢凸起，凸的方向不对——不是朝黑洞，而是朝里面。`（来自 F10）
+   > `"临时编号"已经持续了两个纪元...`（来自 F12）
+5. 同房间用账号 B 看同一格 chamber → 不会出现这些 lore 短句
+
+#### 测试 3 — Archive 知识图谱
+
+1. 任意账号打开 `/archive`
+2. 顶部"🔗 知识图谱 — 残片合成链"折叠卡展开
+3. **预期**：看到 8 条配方，按状态分色（绿=已解锁 / 黄=待 raid / 灰=未达成）
+4. F01 + F05 → F02 这条配方应该是黄色"待 raid"（如果你已经把 F01/F05 都设到 lv3）或灰色"未达成"
+
+#### 测试 4 — Combo 自动触发
+
+```sql
+-- 把 F01 + F05 都设为 lv2（差一步触发 combo）
+INSERT INTO player_fragments (user_id, fragment_id, decode_level, ...)
+VALUES ('<UID_A>', <F01_id>, 2, ...), ('<UID_A>', <F05_id>, 2, ...)
+ON CONFLICT DO UPDATE SET decode_level=2;
+```
+
+1. 账号 A 进 raid → 通过搜索 / 战斗 / 撤离任一动作让 F01 升到 lv3
+2. **预期日志行**："🔗 解码完成，合成新残片【F02 锚点-β 校准日志】 — 巡检发现的"不归我们管"加上一个不在清单里的反向应力源..."
+3. `/archive` 上 F02 出现，decode_level=0
+
+#### 测试 5 — 老 raidPath 兼容性
+
+1. 找一个 Phase 24a 部署**前**就开始的房间（gamevars.raidPath 里没有 loreInjections 字段）
+2. 该房间的玩家继续游戏
+3. **预期**：不崩溃，chamber 描述仍按原文显示（filterLore 在 undefined 上返回空数组，base description 原样显示）
+
+#### 测试 6 — 死亡 / 撤离三链残片发现
+
+1. 账号 A 进 raid，搜到 chamber → 看日志是否有"发现了一段损坏的数据残片【F0X ...】"
+2. 击杀一个 NPC（特别是 boss）→ "从残骸中夺取了数据残片【F0X ...】"
+3. 撤离时 → "撤离后在归档中析出残片【F0X ...】"
+4. **预期**：三个链路都能各自抽到 F-系列残片（按 phase_chain 字段过滤——search/combat/extract 残片分布）
+
+### 已知问题 / 后续修复点
+
+- 走查发现的 bug 按 sub 锁定到 24a.X commit 增量修复
+- 24a 验证通过前不启动 24b（4 类点数）或 24c（职业）
 
 ### Phase 24 路线图（24b / 24c 暂未启动）
 
