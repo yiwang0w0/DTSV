@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
 
@@ -33,17 +33,38 @@ const EMPTY = {
 
 export default function ClassesTab({ toast }) {
   const [classes, setClasses] = useState([])
+  const [classRuns, setClassRuns] = useState([])  // Phase 25.3: 玩家选职业历史
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [edit, setEdit] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
 
   async function load() {
-    const { data } = await supabase.from('classes').select('*').order('rarity').order('id')
-    setClasses(data || [])
+    const [classesRes, runsRes] = await Promise.all([
+      supabase.from('classes').select('*').order('rarity').order('id'),
+      supabase.from('player_class_runs').select('class_id, used_class_pt, acquired_at').order('acquired_at', { ascending: false }).limit(200),
+    ])
+    setClasses(classesRes.data || [])
+    setClassRuns(runsRes.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  // Phase 25.3: 每个 class 的使用率统计 — 基于最近 200 局 player_class_runs
+  const usageStats = useMemo(() => {
+    const out = {}
+    const total = classRuns.length || 1
+    for (const c of classes) {
+      const picks = classRuns.filter(r => r.class_id === c.id)
+      const forced = picks.filter(r => r.used_class_pt > 0).length
+      out[c.id] = {
+        picks: picks.length,
+        rate: picks.length / total,
+        forced,
+      }
+    }
+    return { byId: out, total: classRuns.length }
+  }, [classes, classRuns])
 
   function openAdd() { setEdit({ ...EMPTY, perks: {} }); setModal(true) }
   function openEdit(c) {
@@ -109,6 +130,9 @@ export default function ClassesTab({ toast }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: '#8b949e' }}>
           共 {classes.length} 职业 · NORMAL {normals.length} · LEGENDARY {legendaries.length} · 启用 {classes.filter(c => c.enabled).length}
+          {usageStats.total > 0 && (
+            <span style={{ marginLeft: 12, color: '#d29922' }}>📊 最近 {usageStats.total} 局使用率统计</span>
+          )}
         </div>
         <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 添加职业</button>
       </div>
@@ -132,6 +156,26 @@ export default function ClassesTab({ toast }) {
                       background: `${rmeta?.color}15`, color: rmeta?.color,
                     }}>{rmeta?.label}</span>
                     <span style={{ fontSize: 10, color: '#8b949e' }}>ATK +{c.base_atk_bonus} · DEF +{c.base_def_bonus} · HP +{c.base_hp_bonus}</span>
+                    {/* Phase 25.3: 使用率徽章 */}
+                    {(() => {
+                      const u = usageStats.byId[c.id]
+                      if (!u || u.picks === 0) {
+                        return usageStats.total > 0 ? (
+                          <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: '#f8514915', color: '#f85149', border: '1px solid #f8514930' }} title="从未被选择,建议调强或降低出现门槛">
+                            🔇 0% 未被选择
+                          </span>
+                        ) : null
+                      }
+                      const pct = Math.round(u.rate * 100)
+                      const color = pct >= 20 ? '#3fb950' : pct >= 5 ? '#d29922' : '#8b949e'
+                      return (
+                        <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 6, background: `${color}15`, color, border: `1px solid ${color}30` }}
+                              title={`最近 ${usageStats.total} 局共被选择 ${u.picks} 次${u.forced > 0 ? ` (含 ${u.forced} 次保底刷出)` : ''}`}>
+                          📊 {pct}% · {u.picks} 次
+                          {u.forced > 0 && <span style={{ color: '#ff8c42', marginLeft: 3 }}>(💎{u.forced})</span>}
+                        </span>
+                      )
+                    })()}
                   </div>
                   {c.description && <div style={{ fontSize: 11, color: '#8b949e', marginTop: 3 }}>{c.description}</div>}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>

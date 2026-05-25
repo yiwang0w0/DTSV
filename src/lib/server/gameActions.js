@@ -413,6 +413,18 @@ async function writeRaidStats(client, finalRoom) {
     }
   }
 
+  // Phase 25.1: 加职业分布 + 玩家撤离深度分布
+  const classDistribution = {}
+  const playerDepths = []   // 每个玩家最深 chamberIndex（衡量探索投入）
+  const playerExtracts = [] // 每个玩家撤离成功 / 阵亡
+  for (const p of players) {
+    if (p?.classId != null) {
+      classDistribution[p.classId] = (classDistribution[p.classId] || 0) + 1
+    }
+    playerDepths.push(p?.chamberIndex || 0)
+    playerExtracts.push(p?.extracted ? 'extracted' : (p?.alive ? 'alive' : 'dead'))
+  }
+
   await client.from('raid_stats').insert({
     room_id: finalRoom.id,
     gamenum: finalRoom.gamenum || 0,
@@ -427,7 +439,13 @@ async function writeRaidStats(client, finalRoom) {
     ending_key: gv.endingResult?.key || null,
     env_pollution_final: Math.floor(gv.envPollution || 0),
     raid_path_length: Array.isArray(gv.raidPath) ? gv.raidPath.length : 0,
-    metadata: { chamber_counts: chamberCounts, type_counts: typeCounts },
+    metadata: {
+      chamber_counts: chamberCounts,
+      type_counts: typeCounts,
+      class_distribution: classDistribution,
+      player_depths: playerDepths,
+      player_extracts: playerExtracts,
+    },
   })
 }
 

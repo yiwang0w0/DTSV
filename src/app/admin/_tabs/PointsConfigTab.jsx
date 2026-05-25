@@ -81,11 +81,24 @@ export default function PointsConfigTab({ toast }) {
     const stats = {}
     for (const [t, arr] of Object.entries(byType)) {
       const sum = arr.reduce((a, b) => a + b, 0)
+      const sorted = arr.slice().sort((a, b) => b - a)
+      const topCount = Math.max(1, Math.floor(arr.length * 0.25))
+      const topSum = sorted.slice(0, topCount).reduce((a, b) => a + b, 0)
+      const topShare = sum > 0 ? topSum / sum : 0
+      // Phase 25.4: 集中度警告
+      let warning = null
+      if (sorted[0] > 0 && sum > 0) {
+        const maxShare = sorted[0] / sum
+        if (maxShare > 0.5) warning = `⚠ 单玩家占 ${Math.round(maxShare * 100)}% 总量,建议调低折算系数`
+        else if (topShare > 0.8 && arr.length > 3) warning = `⚠ 前 25% 玩家占 ${Math.round(topShare * 100)}% 总量,分配过度集中`
+      }
       stats[t] = {
         count: arr.length,
         sum,
         avg: arr.length > 0 ? Math.round(sum / arr.length) : 0,
         max: arr.length > 0 ? Math.max(...arr) : 0,
+        topShare: Math.round(topShare * 100),
+        warning,
       }
     }
     return stats
@@ -137,15 +150,27 @@ export default function PointsConfigTab({ toast }) {
             return (
               <div key={p.value} style={{
                 padding: '10px 12px', borderRadius: 8,
-                background: '#161b22', border: `1px solid #21262d`, borderLeft: `3px solid ${p.color}`,
+                background: '#161b22', border: `1px solid ${d.warning ? '#f8514950' : '#21262d'}`, borderLeft: `3px solid ${p.color}`,
               }}>
                 <div style={{ fontSize: 11, color: '#8b949e', marginBottom: 4 }}>{p.label}</div>
-                <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
+                <div style={{ display: 'flex', gap: 12, fontSize: 11, flexWrap: 'wrap' }}>
                   <span><span style={{ color: '#484f58' }}>持有</span> <strong style={{ color: p.color }}>{d.count || 0}</strong></span>
                   <span><span style={{ color: '#484f58' }}>总量</span> <strong>{d.sum || 0}</strong></span>
                   <span><span style={{ color: '#484f58' }}>均值</span> <strong>{d.avg || 0}</strong></span>
                   <span><span style={{ color: '#484f58' }}>峰值</span> <strong>{d.max || 0}</strong></span>
+                  {/* Phase 25.4: 前 25% 占比 */}
+                  {d.count > 0 && d.topShare > 0 && (
+                    <span title="前 25% 玩家占总量比例(基尼系数近似)">
+                      <span style={{ color: '#484f58' }}>P25</span> <strong style={{ color: d.topShare > 80 ? '#f85149' : '#8b949e' }}>{d.topShare}%</strong>
+                    </span>
+                  )}
                 </div>
+                {/* Phase 25.4: 集中度警告 */}
+                {d.warning && (
+                  <div style={{ fontSize: 10, color: '#f85149', marginTop: 6, padding: '4px 6px', background: '#f8514910', borderRadius: 4 }}>
+                    {d.warning}
+                  </div>
+                )}
               </div>
             )
           })}

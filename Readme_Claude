@@ -1,9 +1,61 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 24c 职业系统（5 sub 全部落地）
-整理方式：基于全量源码交叉验证 + Phase 0-24c 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 25 数据驱动平衡 + 专属 catalog
+整理方式：基于全量源码交叉验证 + Phase 0-25 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 24c）— 职业系统（5 sub）
+## 最近变更（2026-05-12 / Phase 25）— 数据驱动平衡基础设施 + Legendary 专属装备
+
+> 主题：为 3 个 legendary 职业各填 3 件 `required_class_ids` 锁定的专属装备；扩展 `raid_stats.metadata` 收集职业分布与玩家深度；admin 3 个 tab 加平衡 hint 徽章。
+
+### 专属 catalog 填充（9 件 legendary 专属装备）
+
+3 个 legendary 职业各 3 件，`shop_catalog.required_class_ids = [class_id]`：
+
+| 职业 | tier | 槽 | 稀有度 | 价格 |
+|------|------|----|--------|------|
+| Ω-段研究员 (id=9) | Ω-段穿透探针 | probe | legendary | 40 high_equip_pt |
+| Ω-段研究员 | Ω-段隔离罩 | shield | epic | 22 high_equip_pt |
+| Ω-段研究员 | Ω-频率监听器 | comm | legendary | 40 high_equip_pt |
+| PI-1 引导者 (id=10) | PI-1 探针-高频 | probe | legendary | 40 high_equip_pt |
+| PI-1 引导者 | 深空通信链 | comm | epic | 22 high_equip_pt |
+| PI-1 引导者 | 残片解码扫描仪 | probe | legendary | 40 high_equip_pt |
+| 伊甸协议执行者 (id=11) | 伊甸协议防护甲 | shield | epic | 22 high_equip_pt |
+| 伊甸协议执行者 | 执行者-爆裂 | weapon | legendary | 40 high_equip_pt |
+| 伊甸协议执行者 | 协议爆裂炮 | weapon | legendary | 40 high_equip_pt |
+
+`equipment_tiers.special_note` 标了 `omega_gear / pi_intel / eden_arsenal` 对应 perks.catalog_unlock_tag。这些 catalog 行只在玩家选定对应 legendary 职业后才在 PrepareModal 装备 tab 显示。
+
+### Phase 25 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 25.1 | `writeRaidStats.metadata` 扩展 — 加 `class_distribution`(每局玩家选了什么职业)、`player_depths`(每个玩家最深 chamberIndex)、`player_extracts`(extracted/alive/dead 状态)。原 chamber_counts/type_counts 保留 |
+| 25.2 | ChambersTab 加 ⚖ 推荐 spawn_weight hint — 同 type chambers 比较实际出现次数 vs 中位数；< 50% 显示"建议 +1"，> 200% 显示"建议 -1" |
+| 25.3 | ClassesTab 加使用率徽章 — 最近 200 次 player_class_runs 统计 picks / rate / forced(💎 保底次数)；从未被选 → 红字 "🔇 0%" |
+| 25.4 | PointsConfigTab 加集中度警告 — 显示前 25% 玩家占比(P25)；单玩家 > 50% 总量 → 红字"⚠ 建议调低折算系数"；前 25% > 80% → "⚠ 分配过度集中" |
+| 25.5 | Readme 同步 + commit + push |
+
+### 设计意图
+
+**Phase 22 raid_stats 表只是埋点骨架**。Phase 25 在不引入新表的前提下，把现有 metadata + player_class_runs 转换成 admin 可直接读懂的"调优建议"。**真实玩家局 < 5 时所有 hint 都会沉默**（中位数为 0 跳过、total=0 不渲染徽章），避免噪音。
+
+### 走查步骤
+
+1. **admin → 🌀 chamber** — 多跑几局后，未出现的 chamber 行出现"⚖ 建议 +1"金色徽章
+2. **admin → ✦ 职业** — 出现"📊 N% · X 次" / "🔇 0% 未被选择"使用率徽章
+3. **admin → 💱 点数 / 兑换** — 顶部分布卡新增 "P25 N%" 显示；过度集中时整卡边框变红 + 警告条
+4. **PrepareModal** — 用一个普通玩家进 raid，装备 tab 看不到 Ω/PI/伊甸 9 件专属；切换到选 legendary 职业后再回装备 tab，对应 catalog_unlock_tag 的 3 件出现
+
+### Phase 24-25 完整路线总结
+
+- ✅ **Phase 24a** 残片 lore 重写 + per-player 可见性 — `78a0fd9`
+- ✅ **Phase 24b** 4 类点数经济 + 商店 + 入场购买 — `d5ef4db`
+- ✅ **Phase 24c** 职业系统 — `0d70b20`
+- ✅ **Phase 25** 数据驱动平衡 + 专属 catalog — 本次
+
+---
+
+## 历史变更（2026-05-12 / Phase 24c）— 职业系统（5 sub）
 
 > 主题：入场前从 3 个 normal 候选 + 10% 概率的 legendary 中选择职业；可消耗 1 class_pt 保底强刷一个 legendary。职业提供 ATK/DEF/HP 加成 + 7 个白名单 perk（搜索/污染/战斗/Ω/残片/专属商店）。
 

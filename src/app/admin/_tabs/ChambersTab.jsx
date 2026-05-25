@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
 
@@ -77,6 +77,33 @@ export default function ChambersTab({ toast }) {
     (filter === 'all' || c.type === filter)
     && (!search || c.name.includes(search) || c.template_key.includes(search) || (c.description || '').includes(search))
   )
+
+  // Phase 25.2: 推荐 spawn_weight 调整 — 按 type 分组计算中位数,偏离 50%/200% 给出提示
+  const recommendations = useMemo(() => {
+    const out = {}
+    const byType = {}
+    for (const c of chambers) {
+      if (!c.enabled) continue
+      const cnt = appearanceCounts[c.id] || 0
+      if (!byType[c.type]) byType[c.type] = []
+      byType[c.type].push({ id: c.id, cnt })
+    }
+    for (const [type, arr] of Object.entries(byType)) {
+      if (arr.length < 2) continue
+      const sorted = arr.map(a => a.cnt).sort((a, b) => a - b)
+      const median = sorted[Math.floor(sorted.length / 2)]
+      if (median === 0) continue
+      for (const a of arr) {
+        const ratio = a.cnt / median
+        if (ratio < 0.5) {
+          out[a.id] = { kind: 'up', text: '建议 +1', tip: `仅出现 ${a.cnt} 次,同类型中位数 ${median}` }
+        } else if (ratio > 2.0) {
+          out[a.id] = { kind: 'down', text: '建议 -1', tip: `出现 ${a.cnt} 次,同类型中位数 ${median}` }
+        }
+      }
+    }
+    return out
+  }, [chambers, appearanceCounts])
 
   function openAdd() {
     setEdit({ ...EMPTY })
@@ -186,6 +213,21 @@ export default function ChambersTab({ toast }) {
                         background: `${color}15`, color, border: `1px solid ${color}30`,
                       }}>
                         📊 {cnt}
+                      </span>
+                    )
+                  })()}
+                  {/* Phase 25.2: 推荐 spawn_weight 调整 */}
+                  {(() => {
+                    const r = recommendations[c.id]
+                    if (!r) return null
+                    const color = r.kind === 'up' ? '#d29922' : '#8b949e'
+                    return (
+                      <span title={r.tip} style={{
+                        fontSize: 9, padding: '1px 6px', borderRadius: 6,
+                        background: `${color}25`, color, border: `1px solid ${color}50`,
+                        fontWeight: 600,
+                      }}>
+                        ⚖ {r.text}
                       </span>
                     )
                   })()}
