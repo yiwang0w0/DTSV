@@ -29,6 +29,7 @@ import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, POINT_LABEL } from '@/lib/server/points'
 import { purchaseFromCatalog } from '@/lib/server/shop'
+import { commitClassChoice, applyClassToPlayer } from '@/lib/server/classes'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
@@ -248,12 +249,17 @@ function buildCombatPlayer(basePlayer, instances = []) {
   if (!basePlayer) return null
   const equipped = calcEquippedStats(instances)
   const maxHp = (basePlayer.maxHp || 100) + (equipped.totalHp || 0)
+  // Phase 24c: 应用职业 perks combat_dmg_mult / combat_def_mult
+  const dmgMult = 1 + (Number(basePlayer.classPerks?.combat_dmg_mult) || 0)
+  const defMult = 1 + (Number(basePlayer.classPerks?.combat_def_mult) || 0)
+  const baseAtk = (basePlayer.atk || 0) + equipped.totalAtk
+  const baseDef = (basePlayer.def || 0) + equipped.totalDef
   return {
     ...basePlayer,
     hp: Math.min(basePlayer.hp || 0, maxHp),
     maxHp,
-    atk: (basePlayer.atk || 0) + equipped.totalAtk,
-    def: (basePlayer.def || 0) + equipped.totalDef,
+    atk: Math.round(baseAtk * dmgMult),
+    def: Math.round(baseDef * defMult),
     _pass: instances.map(instance => instance.tier?.passive).filter(Boolean),
   }
 }
@@ -862,10 +868,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
     polluted.personalPollution || 0,
   )
   const loadoutFx = getLoadoutEffects(polluted)
-  const itemChance = applyPollutionSearchModifier(rawItemChance, eff.effective, { hasProbe: loadoutFx.probe })
+  const rawItemMod = applyPollutionSearchModifier(rawItemChance, eff.effective, { hasProbe: loadoutFx.probe })
+  // Phase 24c: 职业 perks search_bonus 加成 / fragment_drop_bonus 加成
+  const searchBonus = Number(polluted.classPerks?.search_bonus) || 0
+  const fragBonus   = Number(polluted.classPerks?.fragment_drop_bonus) || 0
+  const itemChance = Math.min(0.95, rawItemMod * (1 + searchBonus))
   const npcChance  = rawNpcChance  // NPC 出现率不被污染下降影响
 
-  const fragmentChance = rawFragmentChance
+  const fragmentChance = Math.min(0.5, rawFragmentChance + fragBonus)
   const corpseChance = lootable.length > 0 ? itemChance * 0.5 : 0
   const looseItemChance = Math.max(0, itemChance - corpseChance)
   const roll = Math.random()
@@ -1612,13 +1622,26 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     }
   }
 
-  const player = createPlayerState(user, getInitPlayerStats(rules))
+  let player = createPlayerState(user, getInitPlayerStats(rules))
   if (initialInventory.length > 0) {
     player.inventory = initialInventory
   }
   player.loadout = initialLoadout
   // Phase 19.3: 玩家加入时初始化 chamber 路径位置（chamber 0 = 入口 scan_dense）
   player.chamberIndex = 0
+
+  // Phase 24c: 应用职业属性加成 + perks（loadout 提交时携带 classId）
+  let chosenClass = null
+  if (loadout?.classId) {
+    try {
+      chosenClass = await commitClassChoice(client, user.id, roomId, Number(loadout.classId), !!loadout.usedHighPt)
+      player = applyClassToPlayer(player, chosenClass)
+      // 清掉 pending_class_roll
+      await client.from('profiles').update({ pending_class_roll: null }).eq('id', user.id)
+    } catch (e) {
+      console.error('[joinRoom] commitClassChoice 失败:', e?.message)
+    }
+  }
 
   // Phase 24a: 查询本玩家已完全解码（level 3）的残片 — 用于 lore 可见性过滤
   //   每个加入的玩家都要拉一次，把自己的 decoded id 列表挂到 player 状态上。
@@ -1694,12 +1717,15 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     nextGamevars.unlocksContributed = unlocksContributed
   }
 
+  const classNote = chosenClass
+    ? `[${chosenClass.rarity === 'legendary' ? '★' : ''}${chosenClass.name}] `
+    : ''
   const loadoutNote = initialInventory.length > 0 ? `（装载 ${initialInventory.length} 件物资）` : ''
   const isFirstPath = nextRaidPath.length > 0 && (!Array.isArray(gamevars.raidPath) || gamevars.raidPath.length === 0)
   const unlocksNote = isFirstPath && unlocksContributed.length > 0 ? `，已应用 ${unlocksContributed.length} 条残片解锁规则` : ''
   const pathNote = isFirstPath ? `（已生成 ${nextRaidPath.length} chamber 路径${unlocksNote}）` : ''
   const nextRoom = await persistRoom(client, room, nextGamevars, [
-    createLogEntry(`${player.name} 加入了游戏${loadoutNote}${pathNote}`, 'system'),
+    createLogEntry(`${classNote}${player.name} 加入了游戏${loadoutNote}${pathNote}`, 'system'),
   ], { startGame: true })
 
   await client.from('profiles').update({ roomid: roomId }).eq('id', user.id)
@@ -1826,7 +1852,9 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
   // ── Ω-段倒计时（chamber.omegaWindow > 0 视为 Ω-段，启动倒计时） ──
   if ((nextChamber.omegaWindow || 0) > 0) {
     const fx = getLoadoutEffects(player)
-    const window = (nextChamber.omegaWindow || POLLUTION_CONFIG.OMEGA_WINDOW) + (fx.shield ? 1 : 0)
+    // Phase 24c: 职业 perk omega_window_bonus 直接加在窗口上
+    const classBonus = Number(player.classPerks?.omega_window_bonus) || 0
+    const window = (nextChamber.omegaWindow || POLLUTION_CONFIG.OMEGA_WINDOW) + (fx.shield ? 1 : 0) + classBonus
     nextPlayer.omegaCountdown = window
     nextPlayer.omegaVisits = (player.omegaVisits || 0) + 1
   } else {

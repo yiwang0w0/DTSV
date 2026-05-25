@@ -1,9 +1,82 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 24b 4 类点数经济（9 sub 全部落地）
-整理方式：基于全量源码交叉验证 + Phase 0-24b 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 24c 职业系统（5 sub 全部落地）
+整理方式：基于全量源码交叉验证 + Phase 0-24c 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 24b）— 4 类点数经济 + 商店 + 入场购买（9 sub）
+## 最近变更（2026-05-12 / Phase 24c）— 职业系统（5 sub）
+
+> 主题：入场前从 3 个 normal 候选 + 10% 概率的 legendary 中选择职业；可消耗 1 class_pt 保底强刷一个 legendary。职业提供 ATK/DEF/HP 加成 + 7 个白名单 perk（搜索/污染/战斗/Ω/残片/专属商店）。
+
+### Phase 24c 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 24c.1 | `scripts/phase-24c-classes.sql` — classes + player_class_runs 建表 + profiles.pending_class_roll JSONB + seed 8 normal + 3 legendary 职业(已通过 postgres MCP 部署) |
+| 24c.2 | `src/lib/server/classes.js` — rollClassChoices(3 normal + 10% legendary 自然 roll) / forceRollLegendary(消耗 1 class_pt) / commitClassChoice / applyClassToPlayer / getClassPerk; PERK_WHITELIST 7 个 key |
+| 24c.3 | `PrepareModal` 加"✦ 职业"首 tab — 候选卡片(rarity 着色 + perks 徽章 + ATK/DEF/HP 加成) + "💎 保底刷出"按钮; 未选职业时"进入异常段"按钮禁用 |
+| 24c.4 | `joinRoom` 接 `loadout.classId + usedHighPt` → `commitClassChoice → applyClassToPlayer`; 加入日志带职业标签 "[★伊甸协议执行者] 玩家 加入了游戏"; runtime perks 接入: movePlayer(omega_window_bonus) / buildCombatPlayer(combat_dmg/def_mult) / bumpPersonal(pollution_resist 仅对增量) / searchArea(search_bonus + fragment_drop_bonus) |
+| 24c.5 | admin ClassesTab(CRUD + 7 个 perk 白名单可视化编辑器) + DbConsole 加 2 张新表快捷查询(职业模板/玩家选职业历史) + Readme |
+
+### 11 个 seed 职业
+
+**8 normal** — 巡检员 / 应急工程师 / 信号兵 / 武装协调员 / 清算员 / 归档员 / 维护员 / 斥候
+**3 legendary** — Ω-段研究员（Ω 窗口 +2 / 污染抵抗 +35% / 解锁 omega_gear 目录） · PI-1 引导者（搜索 +20% / 残片 +25% / 解锁 pi_intel 目录） · 伊甸协议执行者（伤害 +25% / 防御 +20% / 污染累积 +15% / 解锁 eden_arsenal 目录）
+
+### 7 个 perk 白名单
+
+| key | 作用 | 接入点 |
+|-----|------|--------|
+| `search_bonus` | 搜索成功率 ×(1+x) | `searchArea` 在 pollution modifier 后乘 |
+| `pollution_resist` | 个人污染累积 ×(1-x)，负值则加快 | `bumpPersonal` 仅对正向 delta 生效 |
+| `combat_dmg_mult` | 玩家 atk ×(1+x) | `buildCombatPlayer` 一次性应用 |
+| `combat_def_mult` | 玩家 def ×(1+x) | `buildCombatPlayer` 一次性应用 |
+| `omega_window_bonus` | Ω-段倒计时 +N 回合 | `movePlayer` 进入 Ω-chamber 时累加 |
+| `fragment_drop_bonus` | 残片掉率 +N（绝对加值） | `searchArea` fragmentChance 加值 |
+| `catalog_unlock_tag` | 解锁 shop_catalog.required_class_ids 含 self id 的条目 | `PrepareModal.EquipmentList` 过滤 |
+
+未列入白名单的 perk key 会被 admin 编辑器 + classes.js 静默过滤，避免数据污染。
+
+### 部署步骤
+
+```sql
+-- 已通过 postgres MCP 部署
+scripts/phase-24c-classes.sql
+```
+
+跑完验证：
+
+```sql
+SELECT rarity, count(*) FROM classes WHERE enabled=true GROUP BY rarity;
+-- 期望: normal=8 / legendary=3
+SELECT name, jsonb_pretty(perks) FROM classes WHERE rarity='legendary';
+```
+
+### 走查步骤
+
+1. **admin → ✦ 职业**：看到 11 个职业，分 normal/legendary 着色；编辑某个职业的 perks（7 个白名单 key 输入框）；上下架
+2. **玩家入场 PrepareModal**：
+   - 第一个 tab "✦ 职业" — 自然 roll 3 个 normal 卡片；点击选定，左侧 ✓ 出现
+   - ~10% 概率额外出现一个 legendary 卡片（金色 ★ 标签）
+   - 底部"💎 保底刷出"按钮：余额 ≥ 1 class_pt 时可点 → 消耗 1 class_pt → 列表追加 1 个 legendary
+   - 未选职业时"进入异常段"按钮禁用 + 红字提示
+3. **入场日志**：游戏日志显示 "[★Ω-段研究员] 玩家 加入了游戏（...）"
+4. **属性加成生效**：HUD 顶部玩家 ATK/DEF/HP 比 base 高（按选定职业的 base_*_bonus）
+5. **perk 接入验证**：
+   - 选"Ω-段研究员"进 Ω chamber → omegaCountdown 比无职业多 +2
+   - 选"PI-1 引导者"搜索 → 残片日志频率显著提升
+   - 选"伊甸协议执行者"战斗 → 玩家伤害日志数字提升
+
+### Phase 24 路线图（完成）
+
+- ✅ **Phase 24a** 残片 lore 重写 + per-player 可见性
+- ✅ **Phase 24b** 4 类点数经济 + 商店 + 入场购买
+- ✅ **Phase 24c** 职业系统（本次）
+
+下一阶段建议：Phase 25 真实玩家走查 + raid_stats 数据收集 → 决定折算系数 / shop 价格 / class 平衡调整。
+
+---
+
+## 历史变更（2026-05-12 / Phase 24b）— 4 类点数经济 + 商店 + 入场购买（9 sub）
 
 > 主题：玩家不再直接把装备/物品带出 raid，而是在撤离时折算为 4 类点数；入场前从 shop_catalog 购买初始 loadout；不同点数可在 shop_exchange_rates 互换。
 >

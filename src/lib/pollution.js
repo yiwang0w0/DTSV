@@ -278,7 +278,13 @@ export function recomputeFlags(gv) {
 
 function bumpPersonal(player, delta) {
   if (!player) return player
-  const next = clamp((player.personalPollution || 0) + delta, 0, 100)
+  // Phase 24c: pollution_resist 仅对"增量"生效（减量比如低污染区衰减不应被强化）
+  let appliedDelta = delta
+  if (delta > 0) {
+    const resist = Number(player.classPerks?.pollution_resist) || 0
+    appliedDelta = Math.max(0, Math.round(delta * (1 - resist)))
+  }
+  const next = clamp((player.personalPollution || 0) + appliedDelta, 0, 100)
   if (next === player.personalPollution) return player
   return { ...player, personalPollution: next }
 }

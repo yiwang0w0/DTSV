@@ -206,6 +206,11 @@ export function createPlayerState(user, stats = {}) {
     encounter: null,         // Phase 16: { instanceId } 引用 gamevars.npcInstances
     probeEncounter: null,    // Phase 21: { probeId, ownerId, hp, maxHp, atk, def, equipmentSnapshot, fragmentCount } 跨 raid 探针遭遇
     decodedFragmentIds: [],  // Phase 24a: 本玩家 decode_level=3 的 fragment_id 列表（lore 可见性过滤用）
+    // Phase 24c: 职业系统
+    classId: null,
+    className: null,
+    classRarity: null,        // 'normal' | 'legendary'
+    classPerks: {},           // { search_bonus, pollution_resist, ... } 白名单 perk
     lastPvpHit: null,        // Phase 16: { seq, fromName, damage, countered, counterDmg, at } 给被攻击方 toast
     lootPrompt: null,
     // ── 远星函馆：污染 + Ω + 结局判定字段 ──

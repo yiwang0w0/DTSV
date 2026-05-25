@@ -21,6 +21,9 @@ const QUICK_QUERIES = [
   { label: '玩家点数', sql: `SELECT pp.user_id, p.username, pp.point_type, pp.balance, pp.updated_at FROM player_points pp LEFT JOIN profiles p ON p.id = pp.user_id ORDER BY pp.user_id, pp.point_type` },
   { label: '商店目录', sql: `SELECT sc.id, sc.entry_kind, sc.point_type, sc.cost, COALESCE(et.name, sc.item_name) AS target, et.rarity, sc.enabled, sc.display_order FROM shop_catalog sc LEFT JOIN equipment_tiers et ON et.id = sc.tier_id ORDER BY sc.display_order LIMIT 100` },
   { label: '兑换汇率', sql: `SELECT id, from_type, from_amount, to_type, to_amount, enabled, description FROM shop_exchange_rates ORDER BY from_type, to_type` },
+  // Phase 24c
+  { label: '职业模板', sql: `SELECT id, name, rarity, base_atk_bonus, base_def_bonus, base_hp_bonus, jsonb_pretty(perks) AS perks, enabled FROM classes ORDER BY rarity DESC, id` },
+  { label: '玩家选职业历史', sql: `SELECT pcr.id, pcr.user_id, p.username, pcr.room_id, c.name AS class_name, c.rarity, pcr.used_class_pt, pcr.acquired_at FROM player_class_runs pcr LEFT JOIN profiles p ON p.id = pcr.user_id LEFT JOIN classes c ON c.id = pcr.class_id ORDER BY pcr.acquired_at DESC LIMIT 30` },
 ]
 
 export default function DbConsoleTab({ toast }) {

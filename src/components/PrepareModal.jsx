@@ -1,24 +1,26 @@
 'use client'
 
 /**
- * PrepareModal — Phase 24b 入场准备模态（替代 LoadoutModal）
+ * PrepareModal — Phase 24b+24c 入场准备模态（替代 LoadoutModal）
  *
- * 3 tab:
- *   1. 装备购买 — 从 shop_catalog (entry_kind=equipment) 选 4 槽
- *   2. 道具购买 — 从 shop_catalog (entry_kind=consumable/story_item) 累加 qty
- *   3. 商店兑换 — shop_exchange_rates 跨类型互换
+ * 4 tab:
+ *   1. 职业    — 3 normal + 10% legendary 候选 + 1 class_pt 保底刷高级（Phase 24c）
+ *   2. 装备购买 — 从 shop_catalog (entry_kind=equipment) 选 4 槽
+ *   3. 道具购买 — 从 shop_catalog (entry_kind=consumable/story_item) 累加 qty
+ *   4. 商店兑换 — shop_exchange_rates 跨类型互换
  *
  * 持久 points 余额栏（4 类）显示当前余额 - cart 扣除后预览
  *
  * Props:
  *   open
  *   onClose()
- *   onConfirm({ catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] })
+ *   onConfirm({ classId, usedHighPt, catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] })
  *   roomTitle
  */
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
 
 const C = {
@@ -56,7 +58,7 @@ const SLOT_LABEL = {
 
 export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const { user } = useAuth()
-  const [tab, setTab] = useState('equipment')
+  const [tab, setTab] = useState('class')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -64,6 +66,12 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const [balances, setBalances] = useState({ high_equip_pt: 0, low_equip_pt: 0, item_pt: 0, class_pt: 0 })
   const [catalog, setCatalog] = useState({ equipment: [], consumables: [], storyItems: [] })
   const [rates, setRates] = useState([])
+
+  // Phase 24c 职业状态
+  const [classCandidates, setClassCandidates] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState(null)
+  const [usedHighPt, setUsedHighPt] = useState(false)
+  const [classForcing, setClassForcing] = useState(false)
 
   // cart 状态
   const [equipCart, setEquipCart] = useState({}) // { catalogId: true } — 装备每件 qty=1
@@ -79,14 +87,17 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
     setEquipCart({})
     setItemCart({})
     setExchangeCart({})
-    setTab('equipment')
+    setClassCandidates([])
+    setSelectedClassId(null)
+    setUsedHighPt(false)
+    setTab('class')
 
     Promise.all([
       supabase.from('player_points').select('point_type, balance').eq('user_id', user.id),
       supabase
         .from('shop_catalog')
         .select(`
-          id, entry_kind, tier_id, item_name, point_type, cost, display_order,
+          id, entry_kind, tier_id, item_name, point_type, cost, display_order, required_class_ids,
           equipment_tiers (
             id, name, rarity, base_atk, base_def, base_hp, durability_max,
             equipment_series ( name, slot )
@@ -96,7 +107,9 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
         .eq('enabled', true)
         .order('display_order'),
       supabase.from('shop_exchange_rates').select('*').eq('enabled', true),
-    ]).then(([balRes, catRes, ratesRes]) => {
+      // Phase 24c: 拉职业候选
+      getGameApi('/api/classes').catch(() => ({ candidates: [], canForceHigh: false, classPtBalance: 0 })),
+    ]).then(([balRes, catRes, ratesRes, classRes]) => {
       if (cancelled) return
       const b = { high_equip_pt: 0, low_equip_pt: 0, item_pt: 0, class_pt: 0 }
       for (const row of (balRes?.data || [])) b[row.point_type] = Number(row.balance) || 0
@@ -109,6 +122,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
         storyItems: cat.filter(r => r.entry_kind === 'story_item'),
       })
       setRates(ratesRes?.data || [])
+      setClassCandidates(classRes?.candidates || [])
     }).catch(e => {
       if (!cancelled) setError(`加载失败：${e?.message || e}`)
     }).finally(() => {
@@ -117,6 +131,26 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 
     return () => { cancelled = true }
   }, [open, user?.id])
+
+  async function handleForceLegendary() {
+    if (classForcing || balances.class_pt < 1) return
+    setClassForcing(true)
+    try {
+      const res = await postGameApi('/api/classes', { action: 'force' })
+      if (res.candidate) {
+        setClassCandidates(prev => {
+          if (prev.some(c => c.id === res.candidate.id)) return prev
+          return [...prev, res.candidate]
+        })
+        setBalances(prev => ({ ...prev, class_pt: prev.class_pt - 1 }))
+        setUsedHighPt(true)
+      }
+    } catch (e) {
+      setError(`保底刷出失败：${e?.message || e}`)
+    } finally {
+      setClassForcing(false)
+    }
+  }
 
   // ── 计算 cart 扣点（含 exchange 影响） ──
   const previewBalances = useMemo(() => {
@@ -220,6 +254,11 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 
   async function handleConfirm() {
     if (hasInsufficient) return
+    if (!selectedClassId) {
+      setError('请先选择一个职业')
+      setTab('class')
+      return
+    }
     setConfirming(true)
     try {
       const catalogPurchases = []
@@ -235,7 +274,12 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
         const T = Number(times) || 0
         if (T > 0) exchanges.push({ rateId: Number(rid), times: T })
       }
-      await onConfirm({ catalogPurchases, exchanges })
+      await onConfirm({
+        classId: selectedClassId,
+        usedHighPt,
+        catalogPurchases,
+        exchanges,
+      })
     } catch (e) {
       setError(e?.message || '提交失败')
     } finally {
@@ -314,6 +358,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
           display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`, flexShrink: 0,
         }}>
           {[
+            { key: 'class',     label: `✦ 职业${selectedClassId ? ' ✓' : ''}` },
             { key: 'equipment', label: `⚔ 装备购买${cartSummary.equipCount > 0 ? ` (${cartSummary.equipCount}/4)` : ''}` },
             { key: 'consumable', label: `💊 道具购买${cartSummary.itemCount > 0 ? ` (${cartSummary.itemCount})` : ''}` },
             { key: 'exchange',  label: `💱 商店兑换${cartSummary.exchangeCount > 0 ? ` (${cartSummary.exchangeCount})` : ''}` },
@@ -334,8 +379,26 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
           {loading && <div style={{ textAlign: 'center', padding: 40, color: C.dim }}>加载中...</div>}
           {error && <div style={{ color: C.red, padding: 12, background: `${C.red}10`, borderRadius: 6 }}>{error}</div>}
 
+          {!loading && !error && tab === 'class' && (
+            <ClassList
+              candidates={classCandidates}
+              selectedId={selectedClassId}
+              onSelect={setSelectedClassId}
+              classPtBalance={balances.class_pt}
+              onForceLegendary={handleForceLegendary}
+              forcing={classForcing}
+              usedHighPt={usedHighPt}
+            />
+          )}
           {!loading && !error && tab === 'equipment' && (
-            <EquipmentList rows={catalog.equipment} cart={equipCart} slotsState={equipSlots} onToggle={toggleEquip} previewBal={previewBalances} />
+            <EquipmentList
+              rows={catalog.equipment}
+              selectedClassId={selectedClassId}
+              cart={equipCart}
+              slotsState={equipSlots}
+              onToggle={toggleEquip}
+              previewBal={previewBalances}
+            />
           )}
           {!loading && !error && tab === 'consumable' && (
             <ItemList rows={[...catalog.consumables, ...catalog.storyItems]} cart={itemCart} onChange={changeItemQty} previewBal={previewBalances} />
@@ -350,19 +413,21 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
           padding: '12px 20px', borderTop: `1px solid ${C.border}`, flexShrink: 0,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
         }}>
-          <div style={{ fontSize: 11, color: hasInsufficient ? C.red : C.dim }}>
-            {hasInsufficient
-              ? '⚠ 点数不足，请减少购买或先兑换'
-              : `已选 ${cartSummary.equipCount} 装备 / ${cartSummary.itemCount} 道具 / ${cartSummary.exchangeCount} 次兑换`}
+          <div style={{ fontSize: 11, color: hasInsufficient || !selectedClassId ? C.red : C.dim }}>
+            {!selectedClassId
+              ? '⚠ 请先选择职业'
+              : hasInsufficient
+                ? '⚠ 点数不足，请减少购买或先兑换'
+                : `已选职业 + ${cartSummary.equipCount} 装备 / ${cartSummary.itemCount} 道具 / ${cartSummary.exchangeCount} 次兑换`}
           </div>
           <button
             onClick={handleConfirm}
-            disabled={hasInsufficient || confirming}
+            disabled={hasInsufficient || confirming || !selectedClassId}
             style={{
               padding: '10px 28px', borderRadius: 8, border: 'none',
-              background: hasInsufficient ? C.bg0 : C.green,
-              color: hasInsufficient ? C.dim2 : '#fff',
-              cursor: hasInsufficient || confirming ? 'not-allowed' : 'pointer',
+              background: hasInsufficient || !selectedClassId ? C.bg0 : C.green,
+              color: hasInsufficient || !selectedClassId ? C.dim2 : '#fff',
+              cursor: hasInsufficient || confirming || !selectedClassId ? 'not-allowed' : 'pointer',
               fontSize: 14, fontWeight: 700,
               opacity: confirming ? 0.6 : 1,
             }}
@@ -377,16 +442,128 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 
 // ───────────────────────────── 子组件 ─────────────────────────────
 
-function EquipmentList({ rows, cart, slotsState, onToggle, previewBal }) {
+const PERK_LABEL = {
+  search_bonus:         { label: '搜索成功率', icon: '🔍', formatter: v => `+${Math.round(v * 100)}%` },
+  pollution_resist:     { label: '污染抵抗',   icon: '☢',  formatter: v => v >= 0 ? `+${Math.round(v * 100)}%` : `${Math.round(v * 100)}%` },
+  combat_dmg_mult:      { label: '战斗伤害',   icon: '⚔', formatter: v => `+${Math.round(v * 100)}%` },
+  combat_def_mult:      { label: '战斗防御',   icon: '🛡', formatter: v => `+${Math.round(v * 100)}%` },
+  omega_window_bonus:   { label: 'Ω 窗口',     icon: '⏳', formatter: v => `+${v} 回合` },
+  fragment_drop_bonus:  { label: '残片掉率',   icon: '📡', formatter: v => `+${Math.round(v * 100)}%` },
+  catalog_unlock_tag:   { label: '专属商店',   icon: '🛒', formatter: v => `${v}` },
+}
+
+function ClassList({ candidates, selectedId, onSelect, classPtBalance, onForceLegendary, forcing, usedHighPt }) {
+  const hasLegendaryInList = candidates.some(c => c.rarity === 'legendary')
+
+  return (
+    <div>
+      {candidates.length === 0 && (
+        <div style={{ color: C.dim, textAlign: 'center', padding: 30 }}>加载职业候选中...</div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+        {candidates.map(c => {
+          const isSelected = selectedId === c.id
+          const legendaryColor = c.rarity === 'legendary' ? C.yellow : C.accent
+          return (
+            <div key={c.id}
+              onClick={() => onSelect(c.id)}
+              style={{
+                padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
+                background: isSelected ? `${legendaryColor}20` : C.bg2,
+                border: `1px solid ${isSelected ? legendaryColor : C.border}`,
+                borderLeft: `4px solid ${legendaryColor}`,
+                transition: 'all 0.15s',
+              }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: legendaryColor }}>
+                  {c.name}
+                </span>
+                <span style={{
+                  padding: '1px 8px', borderRadius: 6, fontSize: 9, fontWeight: 700,
+                  background: `${legendaryColor}18`, color: legendaryColor, border: `1px solid ${legendaryColor}40`,
+                }}>
+                  {c.rarity === 'legendary' ? '★ LEGENDARY' : 'NORMAL'}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: C.dim, marginBottom: 6 }}>
+                {c.description}
+              </div>
+              <div style={{ display: 'flex', gap: 8, fontSize: 10, color: C.dim2, marginBottom: 6 }}>
+                <span>ATK +{c.base_atk_bonus}</span>
+                <span>DEF +{c.base_def_bonus}</span>
+                <span>HP +{c.base_hp_bonus}</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {Object.entries(c.perks || {}).map(([k, v]) => {
+                  const meta = PERK_LABEL[k]
+                  if (!meta) return null
+                  return (
+                    <span key={k} title={meta.label} style={{
+                      fontSize: 10, padding: '2px 6px', borderRadius: 6,
+                      background: `${C.purple}15`, color: C.purple, border: `1px solid ${C.purple}30`,
+                    }}>
+                      {meta.icon} {meta.label} {meta.formatter(v)}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* class_pt 保底刷高级按钮 */}
+      <div style={{
+        marginTop: 16, padding: '10px 14px', borderRadius: 8,
+        background: C.bg2, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.orange}`,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, color: C.text, marginBottom: 2 }}>
+              💎 高级职业保底（消耗 1 高级职业点刷出一个 legendary 候选）
+            </div>
+            <div style={{ fontSize: 10, color: C.dim }}>
+              当前余额：<span style={{ color: C.orange, fontWeight: 700 }}>{classPtBalance}</span>
+              {usedHighPt && <span style={{ color: C.green, marginLeft: 6 }}>✓ 已保底刷出</span>}
+              {hasLegendaryInList && !usedHighPt && <span style={{ color: C.yellow, marginLeft: 6 }}>★ 自然 roll 已包含 legendary</span>}
+            </div>
+          </div>
+          <button
+            onClick={onForceLegendary}
+            disabled={forcing || classPtBalance < 1 || usedHighPt}
+            style={{
+              padding: '6px 16px', borderRadius: 6, border: 'none',
+              background: classPtBalance < 1 || usedHighPt ? C.bg0 : C.orange,
+              color: classPtBalance < 1 || usedHighPt ? C.dim2 : '#fff',
+              cursor: forcing || classPtBalance < 1 || usedHighPt ? 'not-allowed' : 'pointer',
+              fontSize: 12, fontWeight: 700,
+            }}
+          >
+            {forcing ? '刷出中...' : '保底刷出'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EquipmentList({ rows, selectedClassId, cart, slotsState, onToggle, previewBal }) {
+  // Phase 24c: 按 required_class_ids 过滤 — 空数组 = 所有 class 可见，否则必须包含 selectedClassId
+  const visibleRows = useMemo(() => rows.filter(r => {
+    if (!Array.isArray(r.required_class_ids) || r.required_class_ids.length === 0) return true
+    return selectedClassId != null && r.required_class_ids.includes(Number(selectedClassId))
+  }), [rows, selectedClassId])
+
   // 按 slot 分组
   const grouped = useMemo(() => {
     const out = { probe: [], shield: [], weapon: [], comm: [] }
-    for (const r of rows) {
+    for (const r of visibleRows) {
       const slot = r.equipment_tiers?.equipment_series?.slot
       if (slot && out[slot]) out[slot].push(r)
     }
     return out
-  }, [rows])
+  }, [visibleRows])
 
   if (rows.length === 0) return <div style={{ color: C.dim, textAlign: 'center', padding: 30 }}>商店暂无装备</div>
 
