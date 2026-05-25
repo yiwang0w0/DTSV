@@ -27,6 +27,8 @@ import {
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
+import { convertExtractToPoints, creditPoints, classPtForExtract, POINT_LABEL } from '@/lib/server/points'
+import { purchaseFromCatalog } from '@/lib/server/shop'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
@@ -1561,35 +1563,50 @@ export async function joinRoom(client, user, roomId, loadout = null) {
 
   const rules = await loadGameRules(client)
 
-  // ── 装载（搜打撤）：从账户库扣除选中的道具与装备 ──
+  // ── Phase 24b: 装载 — 从 player_points 扣点 + 按 shop_catalog 购买 ──
+  // 新 payload 形状: loadout = { catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] }
+  // 旧 payload(items + equipmentInstanceIds)走 legacy 分支以兼容未迁移的客户端
   let initialInventory = []
   let initialLoadout = { probe: null, shield: null, weapon: null, comm: null }
   if (loadout) {
-    const items = Array.isArray(loadout.items) ? loadout.items : []
-    const equipmentInstanceIds = Array.isArray(loadout.equipmentInstanceIds) ? loadout.equipmentInstanceIds : []
-    if (items.length > 0 || equipmentInstanceIds.length > 0) {
-      const result = await consumeForLoadout(client, user.id, roomId, { items, equipmentInstanceIds })
-      initialInventory = result.inventory
-    }
-    // 远星 Phase 8.11：把 4 槽装备 instanceId 写入 player.loadout
-    // 优先用 LoadoutModal 直接传的 loadout 字段；缺省时按 instanceId 查 slot
-    if (loadout.loadout && typeof loadout.loadout === 'object') {
-      initialLoadout = {
-        probe:  loadout.loadout.probe  ?? null,
-        shield: loadout.loadout.shield ?? null,
-        weapon: loadout.loadout.weapon ?? null,
-        comm:   loadout.loadout.comm   ?? null,
+    const catalogPurchases = Array.isArray(loadout.catalogPurchases) ? loadout.catalogPurchases : []
+    const exchanges = Array.isArray(loadout.exchanges) ? loadout.exchanges : []
+
+    // 1) 先跑兑换（让玩家可以临时凑够某种点数再买）
+    if (exchanges.length > 0) {
+      const { exchangePoints } = await import('@/lib/server/shop')
+      for (const ex of exchanges) {
+        if (ex?.rateId) {
+          await exchangePoints(client, user.id, ex.rateId, Math.max(1, Number(ex.times) || 1))
+        }
       }
-    } else if (equipmentInstanceIds.length > 0) {
-      // 兜底：按 slot 反查
-      const { data: instances } = await client
-        .from('equipment_instances')
-        .select('id, tier:equipment_tiers(series:equipment_series(slot))')
-        .in('id', equipmentInstanceIds)
-      for (const inst of (instances || [])) {
-        const slot = inst.tier?.series?.slot
-        if (slot && initialLoadout[slot] === null) {
-          initialLoadout[slot] = inst.id
+    }
+
+    // 2) 再走 catalog 购买
+    if (catalogPurchases.length > 0) {
+      const result = await purchaseFromCatalog(client, user.id, roomId, catalogPurchases)
+      initialInventory = result.inventory
+      initialLoadout = result.loadout
+    }
+
+    // ── Legacy fallback：旧客户端传的 items + equipmentInstanceIds（Phase 24b 前）──
+    // 此分支已经废弃，但仍保留兼容（用户存量 equipment_instances 已被 24b SQL 清空，equipmentInstanceIds 不应再出现）
+    const legacyItems = Array.isArray(loadout.items) ? loadout.items : []
+    const legacyInstIds = Array.isArray(loadout.equipmentInstanceIds) ? loadout.equipmentInstanceIds : []
+    if ((legacyItems.length > 0 || legacyInstIds.length > 0) && catalogPurchases.length === 0) {
+      console.warn('[joinRoom] 接收到 legacy loadout 形状（items/equipmentInstanceIds），Phase 24b 后应使用 catalogPurchases')
+      try {
+        const result = await consumeForLoadout(client, user.id, roomId, { items: legacyItems, equipmentInstanceIds: legacyInstIds })
+        initialInventory = [...initialInventory, ...result.inventory]
+      } catch (e) {
+        console.error('[joinRoom] legacy consumeForLoadout 失败:', e?.message)
+      }
+      if (loadout.loadout && typeof loadout.loadout === 'object') {
+        initialLoadout = {
+          probe:  loadout.loadout.probe  ?? initialLoadout.probe,
+          shield: loadout.loadout.shield ?? initialLoadout.shield,
+          weapon: loadout.loadout.weapon ?? initialLoadout.weapon,
+          comm:   loadout.loadout.comm   ?? initialLoadout.comm,
         }
       }
     }
@@ -2063,32 +2080,50 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     }
   }
 
-  // ── 转移背包道具到账户库（含 tech_fragment 计数） ──
-  const itemCounts = inventoryAfter.reduce((acc, name) => {
-    acc.set(name, (acc.get(name) || 0) + 1)
-    return acc
-  }, new Map())
-  const stashAdditions = Array.from(itemCounts, ([name, quantity]) => ({ name, quantity }))
-  if (stashAdditions.length > 0) {
-    await addItemsToStash(client, user.id, stashAdditions, { allowOverflow: true })
-  }
-
-  // ── 计算 tech_fragment 提取数量（用于结局判定） ──
-  const { data: poolItems } = await client.from('item_pool').select('name, kind').in('name', stashAdditions.map(s => s.name))
+  // ── Phase 24b: 装备+物品全部折算成点数（不再写 stash） ──
+  // 先统计 tech_fragment / omega_matter 数量给 endings.js 计数器（必须在 inventory 清空前算）
+  const { data: poolItems } = await client
+    .from('item_pool')
+    .select('name, kind')
+    .in('name', inventoryAfter.length > 0 ? [...new Set(inventoryAfter)] : ['__placeholder__'])
   const fragmentNames = new Set((poolItems || []).filter(i => i.kind === 'tech_fragment').map(i => i.name))
   const omegaNames    = new Set((poolItems || []).filter(i => i.kind === 'omega_matter').map(i => i.name))
-  const fragmentsExtracted = stashAdditions
-    .filter(s => fragmentNames.has(s.name))
-    .reduce((sum, s) => sum + s.quantity, 0)
-  const omegaExtracted = stashAdditions
-    .filter(s => omegaNames.has(s.name))
-    .reduce((sum, s) => sum + s.quantity, 0)
+  const fragmentsExtracted = inventoryAfter.filter(n => fragmentNames.has(n)).length
+  const omegaExtracted     = inventoryAfter.filter(n => omegaNames.has(n)).length
 
-  // ── 装备实例：room_id := NULL 等价于"放回库" ──
-  await client.from('equipment_instances')
-    .update({ room_id: null, is_equipped: false, equipped_slot: null })
-    .eq('owner_id', user.id)
-    .eq('room_id', room.id)
+  // 折算 → 点数
+  let pointsCredits = []
+  let pointsSummary = { equipCount: 0, itemCount: 0, perType: {} }
+  let destroyedEquipIds = []
+  try {
+    const conv = await convertExtractToPoints(client, user.id, room, player, inventoryAfter)
+    pointsCredits = conv.credits
+    pointsSummary = conv.summary
+    destroyedEquipIds = conv.destroyedEquipIds
+  } catch (e) {
+    console.error('[extractPlayer] convertExtractToPoints 失败:', e?.message)
+  }
+
+  // class_pt: 成功撤离里程碑 +1
+  pointsCredits.push({ type: 'class_pt', amount: classPtForExtract() })
+  pointsSummary.perType.class_pt = (pointsSummary.perType.class_pt || 0) + 1
+
+  try {
+    await creditPoints(client, user.id, pointsCredits)
+  } catch (e) {
+    console.error('[extractPlayer] creditPoints 失败:', e?.message)
+  }
+
+  // Phase 24b: equipment_instances 直接 DELETE（不再 SET room_id=NULL）
+  if (destroyedEquipIds.length > 0) {
+    await client.from('equipment_instances').delete().in('id', destroyedEquipIds)
+  } else {
+    // fallback：把本玩家在本 room 的 instance 全删（防 convert 失败时遗留）
+    await client.from('equipment_instances')
+      .delete()
+      .eq('owner_id', user.id)
+      .eq('room_id', room.id)
+  }
 
   // ── 更新玩家状态 + gamevars 累积统计 ──
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
@@ -2106,7 +2141,8 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     omegaMaterials: (player.omegaMaterials || 0) + omegaExtracted,
     extractedItems: [
       ...(player.extractedItems || []),
-      ...stashAdditions.map(s => ({ name: s.name, quantity: s.quantity, atMap: playerMapId })),
+      // 留个汇总条目以便 archive / 结局横幅展示
+      { name: '折算点数', quantity: pointsSummary.equipCount + pointsSummary.itemCount, atMap: playerMapId },
     ],
   })
   resolution.gamevars = {
@@ -2114,10 +2150,16 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     totalFragmentsExtracted: (resolution.gamevars.totalFragmentsExtracted || 0) + fragmentsExtracted,
   }
 
-  const totalCount = stashAdditions.reduce((s, it) => s + it.quantity, 0)
+  // 装备+道具数量汇总日志
+  const pointsLogParts = []
+  for (const [type, amt] of Object.entries(pointsSummary.perType)) {
+    if (amt > 0) pointsLogParts.push(`+${amt} ${POINT_LABEL[type] || type}`)
+  }
+  const pointsTail = pointsLogParts.length > 0 ? `（${pointsLogParts.join(' · ')}）` : ''
+  const totalCount = pointsSummary.equipCount + pointsSummary.itemCount
   const note = totalCount > 0
-    ? `${player.name} 从【${mapConfig.name}】完成结构退避（带回 ${totalCount} 件物资）`
-    : `${player.name} 从【${mapConfig.name}】完成结构退避`
+    ? `${player.name} 从【${mapConfig.name}】完成结构退避，折算 ${totalCount} 件物资${pointsTail}`
+    : `${player.name} 从【${mapConfig.name}】完成结构退避${pointsTail}`
   appendResolutionLog(resolution, note, 'system')
 
   // Phase 21.2: 留探针日志

@@ -17,6 +17,10 @@ const QUICK_QUERIES = [
   { label: '残片配方', sql: `SELECT fc.id, fa.name AS frag_a, fb.name AS frag_b, fu.name AS unlocks, fc.description, fc.enabled FROM fragment_combos fc LEFT JOIN fragment_pool fa ON fa.id = fc.fragment_id_a LEFT JOIN fragment_pool fb ON fb.id = fc.fragment_id_b LEFT JOIN fragment_pool fu ON fu.id = fc.unlocks_fragment ORDER BY fc.id` },
   { label: '异步探针', sql: `SELECT cp.id, p.username AS owner, cp.chamber_template_id, cp.hp, cp.atk, cp.def, cp.status, cp.found_count, cp.defeated_count, cp.created_at, cp.expires_at FROM cross_room_probes cp LEFT JOIN profiles p ON p.id = cp.owner_id ORDER BY cp.created_at DESC LIMIT 30` },
   { label: '对局统计', sql: `SELECT rs.id, rs.room_id, rs.gamenum, rs.duration_seconds, rs.player_count, rs.alive_count, rs.death_count, rs.extract_count, rs.fragments_extracted, rs.ending_key, rs.env_pollution_final FROM raid_stats rs ORDER BY rs.created_at DESC LIMIT 20` },
+  // Phase 24b
+  { label: '玩家点数', sql: `SELECT pp.user_id, p.username, pp.point_type, pp.balance, pp.updated_at FROM player_points pp LEFT JOIN profiles p ON p.id = pp.user_id ORDER BY pp.user_id, pp.point_type` },
+  { label: '商店目录', sql: `SELECT sc.id, sc.entry_kind, sc.point_type, sc.cost, COALESCE(et.name, sc.item_name) AS target, et.rarity, sc.enabled, sc.display_order FROM shop_catalog sc LEFT JOIN equipment_tiers et ON et.id = sc.tier_id ORDER BY sc.display_order LIMIT 100` },
+  { label: '兑换汇率', sql: `SELECT id, from_type, from_amount, to_type, to_amount, enabled, description FROM shop_exchange_rates ORDER BY from_type, to_type` },
 ]
 
 export default function DbConsoleTab({ toast }) {

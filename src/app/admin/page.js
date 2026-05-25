@@ -21,6 +21,8 @@ import FragmentsTab  from './_tabs/FragmentsTab'
 import FragmentCombosTab from './_tabs/FragmentCombosTab'
 import ChambersTab   from './_tabs/ChambersTab'
 import PlaytestTab   from './_tabs/PlaytestTab'
+import ShopTab       from './_tabs/ShopTab'
+import PointsConfigTab from './_tabs/PointsConfigTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
@@ -39,6 +41,8 @@ const TABS = [
   { key: 'fragments', label: '📡 残片' },
   { key: 'combos',    label: '🔗 残片合成' },
   { key: 'chambers',  label: '🌀 chamber' },
+  { key: 'shop',      label: '🛒 商店目录' },
+  { key: 'points',    label: '💱 点数 / 兑换' },
   { key: 'playtest',  label: '📈 Playtest 总览' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
@@ -137,6 +141,8 @@ export default function AdminPage() {
       {tab === 'fragments' && <FragmentsTab toast={toast} />}
       {tab === 'combos'    && <FragmentCombosTab toast={toast} />}
       {tab === 'chambers'  && <ChambersTab toast={toast} />}
+      {tab === 'shop'      && <ShopTab toast={toast} />}
+      {tab === 'points'    && <PointsConfigTab toast={toast} />}
       {tab === 'playtest'  && <PlaytestTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>

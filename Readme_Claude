@@ -1,9 +1,107 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 24a 残片 lore 重写 + per-player 可见性
-整理方式：基于全量源码交叉验证 + Phase 0-24a 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 24b 4 类点数经济（9 sub 全部落地）
+整理方式：基于全量源码交叉验证 + Phase 0-24b 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 24a）— 残片 lore 重写 + per-player 可见性（6 sub）
+## 最近变更（2026-05-12 / Phase 24b）— 4 类点数经济 + 商店 + 入场购买（9 sub）
+
+> 主题：玩家不再直接把装备/物品带出 raid，而是在撤离时折算为 4 类点数；入场前从 shop_catalog 购买初始 loadout；不同点数可在 shop_exchange_rates 互换。
+>
+> **破坏性变更**：存量 stash + equipment_instances 在 SQL 部署时硬迁移为点数后清空。老玩家的具体物品消失，但等价的点数余额被注入到 player_points。
+
+### Phase 24b 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 24b.1 | `scripts/phase-24b-points-economy.sql` — 三表(player_points / shop_catalog / shop_exchange_rates) + seed 7 条兑换汇率 + seed 装备/消耗品/剧情物品目录 + 硬迁移存量 stash + equipment_instances → 点数(已通过 postgres MCP 部署) |
+| 24b.2 | `src/lib/server/points.js` — `getBalances/creditPoints/debitPoints/convertExtractToPoints` 4 个 helper + `EQUIP_RARITY_VALUE` 折算表 + `ITEM_KIND_VALUE` 折算表 + `POINT_LABEL` 中文名 |
+| 24b.3 | `src/lib/server/shop.js` — `loadCatalog/purchaseFromCatalog/exchangePoints` 3 个 helper; purchaseFromCatalog 自动创建本 raid 的 equipment_instances(满耐久,is_equipped=true) |
+| 24b.4 | `extractPlayer` 重写: addItemsToStash → convertExtractToPoints + creditPoints; equipment_instances 直接 DELETE; 保留 tech_fragment/omega_matter 计数器(endings 触发不破); 撤离自动 +1 class_pt |
+| 24b.5 | `joinRoom` payload 改造: 从 `{loadout, items, equipmentInstanceIds}` → `{catalogPurchases:[{catalogId,qty}], exchanges:[{rateId,times}]}`; 旧 payload 形状走 legacy fallback(打 warn 日志) |
+| 24b.6 | `src/components/PrepareModal.jsx` 替代 `LoadoutModal.jsx` — 3 tab(装备购买/道具购买/商店兑换) + 持久 4 类点数余额栏 + cart 实时预览扣点 |
+| 24b.7 | admin 2 个新 tab: `ShopTab` (shop_catalog CRUD,分类筛选) + `PointsConfigTab` (汇率 CRUD + 玩家余额分布直方图 + 折算系数说明) |
+| 24b.8 | DbConsoleTab 加 3 个新表快捷查询(玩家点数/商店目录/兑换汇率); LoadoutModal.jsx 保留作 fallback 不删 |
+| 24b.9 | Readme 同步 Phase 24b |
+
+### 4 类点数定义
+
+| 类型 | 来源 | 出口 |
+|------|------|------|
+| `high_equip_pt` 高级装备点 | extract: rare/epic/legendary/mythic 装备折算 | shop: 购买高级装备 |
+| `low_equip_pt` 普通装备点 | extract: common/uncommon 装备 + bonus_atk/def 加成 | shop: 购买普通装备 |
+| `item_pt` 道具点 | extract: consumable + tech_fragment/platform_part/omega_matter 折算 | shop: 购买消耗品/剧情物品 |
+| `class_pt` 高级职业点 | raid 里程碑: 撤离 +1 / 解码 lv3 +2 / Ω 结局 +5 | 入场保底刷高级职业(Phase 24c) |
+
+### 折算表（硬编码 src/lib/server/points.js）
+
+```
+装备 (equipment_instances JOIN equipment_tiers):
+  common × 5  / uncommon × 12  → low_equip_pt
+  rare × 8 / epic × 18 / legendary × 35 / mythic × 60  → high_equip_pt
+  + bonus_atk × 2 + bonus_def × 2  → low_equip_pt
+  × clamp(durability_current / durability_max, 0.3, 1.0)
+
+物品 (item_pool by kind):
+  consumable    → item_pt × 3 per unit
+  tech_fragment → item_pt × 8 per unit
+  platform_part → item_pt × 4 per unit
+  omega_matter  → item_pt × 15 per unit
+
+class_pt 来源(不从 extract 折算):
+  撤离 +1 / 解码 lv3 +2(24c) / Ω 结局 +5(24c) / shop 兑换 50 high_equip_pt → 1 class_pt
+```
+
+### 默认 7 条兑换汇率
+
+| from | → | to | 备注 |
+|------|---|-----|------|
+| 10 low_equip_pt | → | 1 high_equip_pt | 升级，有溢价 |
+| 1 high_equip_pt | → | 8 low_equip_pt  | 降级，有损耗 |
+| 5 low_equip_pt  | → | 1 item_pt       | |
+| 5 item_pt       | → | 1 low_equip_pt  | 对称双向 |
+| 1 high_equip_pt | → | 6 item_pt       | |
+| 30 item_pt      | → | 1 high_equip_pt | 逆向有溢价 |
+| 50 high_equip_pt | → | 1 class_pt     | 单向，不可逆 |
+
+### 部署步骤
+
+```sql
+-- Supabase Studio SQL Editor 跑：
+scripts/phase-24b-points-economy.sql
+-- ↑ 已通过 postgres MCP 部署生产，含硬迁移
+```
+
+跑完验证：
+
+```sql
+SELECT count(*) FROM player_points;                  -- ≥1
+SELECT count(*) FROM shop_catalog;                   -- 21（8 装备 + 4 消耗品 + 9 剧情物品）
+SELECT count(*) FROM shop_exchange_rates WHERE enabled=true;  -- 7
+SELECT count(*) FROM player_stash;                   -- 1（保留"清算认证"等特殊物品）
+SELECT count(*) FROM equipment_instances WHERE room_id IS NULL;  -- 0
+```
+
+### 走查步骤（端到端测试）
+
+1. **admin → 🛒 商店目录**：看到 21 条目，按类型筛选；编辑某条 cost / display_order；切换 enabled
+2. **admin → 💱 点数 / 兑换**：顶部看到 4 类余额分布；编辑某条汇率 from_amount / to_amount；下方"折算系数"说明区准确
+3. **玩家入场**：进入 `/rooms` → 加入对局 → PrepareModal 弹出，4 类余额栏显示，3 tab 切换：
+   - 装备 tab：4 槽分组，每槽至多选 1 件，cost > 余额时变灰
+   - 道具 tab：±按钮调 qty，余额栏实时变化
+   - 兑换 tab：±按钮调 times，余额栏先扣 from 再加 to
+   - 余额任一类型变负 → "进入异常段"按钮禁用 + 红字提示
+4. **撤离测试**：选择 chamber 进去搜出几件物品 + 击杀 NPC 拿装备 → 撤离 → 日志显示"折算 N 件物资（+X 高级装备点 · +Y 道具点 · +1 高级职业点）"
+5. **验证持久化**：撤离后查 player_points 余额增加；equipment_instances 该 room 的全部 DELETE；class_pt 自增 1
+
+### Phase 24 路线图
+
+- ✅ Phase 24a — 残片 lore 重写 + per-player 可见性（commit `78a0fd9`）
+- ✅ Phase 24b — 4 类点数经济（本次）
+- **Phase 24c** 待启动 — 职业系统（入场 3 候选 + 10% legendary + class_pt 保底）
+
+---
+
+## 历史变更（2026-05-12 / Phase 24a）— 残片 lore 重写 + per-player 可见性（6 sub）
 
 > 主题：用六纪元设定文档（Ω-段诞生 / 伊甸港封锁 / D-8821 逃逸 / PI-1 探针 / Ω-段分类失败 / 共构本质 / 深界路径暴露）重写 Phase 23 凭空编造的 15 残片；并把 lore_chunk_pool 改成 per-player 可见——只有完全解码（lv3）该残片的玩家才能在 chamber 描述里看到对应暗示。
 >

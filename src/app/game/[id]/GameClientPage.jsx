@@ -14,7 +14,7 @@ import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
-import LoadoutModal from '@/components/LoadoutModal'
+import PrepareModal from '@/components/PrepareModal'
 import {
   Btn,
   BuffTag,
@@ -342,9 +342,9 @@ export default function GameClientPage() {
     await runGameAction('dismissLootPrompt')
   }
 
-  // Phase 16.1: 加入对局走 LoadoutModal — 玩家先选 4 装备 + 4 消耗品再 join
+  // Phase 24b: 加入对局走 PrepareModal — 4 类点数 + 商店购买 + 兑换
   async function handleJoinWithLoadout(payload) {
-    // payload = { loadout, consumables, items, equipmentInstanceIds } 由 LoadoutModal 给
+    // Phase 24b payload = { catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] }
     const next = await runGameAction('join', { loadout: payload }, { refreshEquipment: true })
     if (next) {
       toast('🎒 装载完成，已进入异常段', 'success')
@@ -518,7 +518,7 @@ export default function GameClientPage() {
           return (meBase?.inventory || []).filter(name => partNames.has(name)).length
         })()}
       />
-      <LoadoutModal
+      <PrepareModal
         open={joinLoadoutOpen}
         roomTitle={room ? `对局 #${room.gamenum || room.id}` : ''}
         onClose={() => setJoinLoadoutOpen(false)}
