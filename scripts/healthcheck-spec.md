@@ -116,14 +116,18 @@ WHERE ended_at > now() - INTERVAL '14 days';
 ```sql
 SELECT count(*) AS n,
        round(sum(extract_count)::numeric / NULLIF(sum(player_count), 0) * 100, 1) AS extract_rate_pct,
-       round(sum(death_count)::numeric / NULLIF(sum(player_count), 0) * 100, 1) AS death_rate_pct
+       round(sum(death_count)::numeric / NULLIF(sum(player_count), 0) * 100, 1) AS death_rate_pct,
+       round(abs(sum(extract_count)::numeric / NULLIF(sum(player_count), 0) * 100 - 50), 1) AS extract_deviation_from_target
 FROM raid_stats
 WHERE ended_at > now() - INTERVAL '14 days';
 ```
 
-阈值（健康肉鸽：撤离 30-50% / 死亡 20-40%）：
-- 🔴 critical：`extract_rate_pct < 10` 或 `death_rate_pct > 70`
-- 🟡 warn：撤离率超出 [25, 60] 或 死亡率超出 [15, 50]
+校准目标（来自 research-2026-05-27 主题 A）：**撤离成功率 = 50% ±10%**。50% 是 extraction shooter 行业默认基线（Tarkov / Arc Raiders 经济建模通用变量），偏离 ±10% 以上视为节奏失衡，是 Phase 24b 经济调参前置门槛。`extract_deviation_from_target` 给出与目标的绝对偏差(pp)，便于趋势观察。
+
+阈值（撤离率目标 50%，死亡率目标 30%）：
+- 🔴 critical：`extract_rate_pct < 20` 或 `extract_rate_pct > 80` 或 `death_rate_pct > 70`（节奏严重失衡）
+- 🟡 warn：`extract_rate_pct` 超出 [40, 60]（偏离目标 >10pp）或 死亡率超出 [15, 50]
+- 🟢 healthy：撤离率 ∈ [40, 60] 且 死亡率 ∈ [15, 50]
 
 #### M2.3 平均探索深度
 

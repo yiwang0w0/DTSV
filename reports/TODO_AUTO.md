@@ -50,7 +50,7 @@
 
 ## 2026-05-27 — research (主题 A + B)
 
-- [research-2026-05-27] **P0** — raid_stats 接 healthcheck，校准撤离成功率到 50% ±10%。Phase 24b 经济调参前置依赖。详见 [notes-2026-05-27.md](../research/notes-2026-05-27.md#主题-a--extraction-shooter-设计) [doing-2026-05-28T00:25]
+- [research-2026-05-27] **P0** — raid_stats 接 healthcheck，校准撤离成功率到 50% ±10%。Phase 24b 经济调参前置依赖。详见 [notes-2026-05-27.md](../research/notes-2026-05-27.md#主题-a--extraction-shooter-设计) → ✅ DONE 2026-05-28T00:25: healthcheck-spec.md M2.2 阈值收紧到 [40,60]，新增 extract_deviation_from_target 字段 + critical 边界 [<20, >80]
 - [research-2026-05-27] **P0** — Phase 24b `shop_exchange_rates` 建表加版本号，支持 wipe-equivalent（一次性按比例缩减所有玩家点数）。防止老玩家 runaway power。
 - [research-2026-05-27] **P1** — PrepareModal 必须明确"入场装备会被消耗" + class_pt 软保底显示计数（"距离必出 legendary 还剩 N 次"）。避免 gear fear 和黑箱反感。
 
