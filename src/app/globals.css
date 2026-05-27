@@ -46,3 +46,13 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 .toast-in { animation: slideIn 0.25s ease-out; }
+
+/* Ω-段倒计时分层预警 (research-2026-05-27-v2 P0) */
+@keyframes omega-pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@keyframes omega-pulse-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(1.07); }
+}

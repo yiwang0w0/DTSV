@@ -17,6 +17,7 @@ import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
 import PortraitDisplay from '@/components/PortraitDisplay'
 import PortraitSelectorModal from '@/components/PortraitSelectorModal'
+import OmegaCountdown from '@/components/OmegaCountdown'
 import {
   Btn,
   BuffTag,
@@ -638,16 +639,8 @@ export default function GameClientPage() {
             envP={gamevars?.envPollution || 0}
             personalP={meBase?.personalPollution || 0}
           />
-          {/* Ω 倒计时 */}
-          {meBase?.omegaCountdown !== null && meBase?.omegaCountdown !== undefined && (
-            <span style={{
-              fontSize: 11, padding: '2px 8px', borderRadius: 12,
-              background: `${T.purple}18`, color: T.purple, border: `1px solid ${T.purple}40`,
-              fontWeight: 700,
-            }}>
-              Ω {meBase.omegaCountdown}
-            </span>
-          )}
+          {/* Ω 倒计时 — 分层预警（research-2026-05-27-v2 P0） */}
+          <OmegaCountdown value={meBase?.omegaCountdown} />
 
           <span style={{ color: room.gamestate === 2 ? T.yellow : T.green, fontWeight: 700 }}>
             {room.gamestate === 2
