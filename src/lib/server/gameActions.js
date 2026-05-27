@@ -35,7 +35,7 @@ import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
 import { generateRaidPath, mergeUnlocksRules } from '@/lib/server/pathGenerator'
-import { leaveProbe, tryEncounterProbe, defeatProbe } from '@/lib/server/probes'
+import { leaveProbe, tryEncounterProbe, defeatProbe, recordProbeOutcome } from '@/lib/server/probes'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -1961,6 +1961,10 @@ async function actOnProbe(client, room, gamevars, user, action) {
   if (action === 'ignore') {
     setResolutionPlayer(resolution, user.id, { ...player, probeEncounter: null })
     appendResolutionLog(resolution, `${player.name} 选择避开探针，无声离开`, 'system')
+    // Phase 25d — 记录 spared outcome（不阻塞 resolution 持久化）
+    try {
+      await recordProbeOutcome(client, probeEnc.probeId, user.id, 'spared')
+    } catch (e) { console.error('[actOnProbe] recordProbeOutcome spared 失败:', e?.message) }
     return persistResolution(client, room, resolution)
   }
 
@@ -2027,6 +2031,10 @@ async function actOnProbe(client, room, gamevars, user, action) {
           context: { probeOwner: probeEnc.ownerId, envPollution: resolution.gamevars.envPollution || 0 },
         })
       } catch (e) { console.error('[actOnProbe] deathLog 失败:', e?.message) }
+      // Phase 25d — 记录 killed_attacker outcome（探针反杀玩家）
+      try {
+        await recordProbeOutcome(client, probeEnc.probeId, user.id, 'killed_attacker')
+      } catch (e) { console.error('[actOnProbe] recordProbeOutcome killed_attacker 失败:', e?.message) }
     }
   }
 

@@ -26,6 +26,7 @@ import PointsConfigTab from './_tabs/PointsConfigTab'
 import ClassesTab    from './_tabs/ClassesTab'
 import PortraitsTab  from './_tabs/PortraitsTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
+import ProbeTelemetryTab from './_tabs/ProbeTelemetryTab'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
@@ -48,6 +49,7 @@ const TABS = [
   { key: 'classes',   label: '✦ 职业' },
   { key: 'portraits', label: '🎴 立绘审核' },
   { key: 'playtest',  label: '📈 Playtest 总览' },
+  { key: 'probes',    label: '🛰️ 探针遥测' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
@@ -150,6 +152,7 @@ export default function AdminPage() {
       {tab === 'classes'   && <ClassesTab toast={toast} />}
       {tab === 'portraits' && <PortraitsTab toast={toast} />}
       {tab === 'playtest'  && <PlaytestTab toast={toast} />}
+      {tab === 'probes'    && <ProbeTelemetryTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )

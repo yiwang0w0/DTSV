@@ -8,6 +8,41 @@
 
 const PROBE_ENCOUNTER_CHANCE = 0.08 // 8% 进入 chamber 时遭遇探针
 const PROBE_FRAGMENTS_CARRY_LIMIT = 3 // 主人留下的可被夺残片最多 3 条
+const PROBE_ENCOUNTER_LOG_MAX = 50  // Phase 25d encounter_log 每条探针最多保留 50 条事件（防 JSONB 膨胀）
+
+/**
+ * Phase 25d — 通用 outcome 记录器，追加事件到 encounter_log 并递增对应计数列。
+ * outcome: 'spared' | 'defeated' | 'killed_attacker' | 'escaped'
+ * 不阻塞调用方（任何失败仅 console.error），不进入事务以避免拖慢战斗结算。
+ */
+export async function recordProbeOutcome(client, probeId, byUserId, outcome) {
+  if (!probeId || !outcome) return
+  try {
+    const { data: probe } = await client
+      .from('cross_room_probes')
+      .select('encounter_log, spared_count, killed_attacker_count')
+      .eq('id', probeId)
+      .maybeSingle()
+    if (!probe) return
+
+    const prevLog = Array.isArray(probe.encounter_log) ? probe.encounter_log : []
+    const nextLog = [
+      ...prevLog,
+      { ts: new Date().toISOString(), by: byUserId || null, outcome },
+    ].slice(-PROBE_ENCOUNTER_LOG_MAX)
+
+    const patch = { encounter_log: nextLog }
+    if (outcome === 'spared') {
+      patch.spared_count = (probe.spared_count || 0) + 1
+    } else if (outcome === 'killed_attacker') {
+      patch.killed_attacker_count = (probe.killed_attacker_count || 0) + 1
+    }
+
+    await client.from('cross_room_probes').update(patch).eq('id', probeId)
+  } catch (e) {
+    console.error('[recordProbeOutcome] 失败:', e?.message)
+  }
+}
 
 /**
  * 撤离时留探针：消耗 1 件 platform_part；写入 cross_room_probes。
@@ -88,10 +123,19 @@ export async function tryEncounterProbe(client, userId, chamberTemplateId) {
     }
     if (!data) return null
 
-    // 增加 found_count
+    // Phase 25d — found_count 自增 + encounter_log 追加 "encountered" 事件
+    const prevLog = Array.isArray(data.encounter_log) ? data.encounter_log : []
+    const nextLog = [
+      ...prevLog,
+      { ts: new Date().toISOString(), by: userId || null, outcome: 'encountered' },
+    ].slice(-PROBE_ENCOUNTER_LOG_MAX)
+
     await client
       .from('cross_room_probes')
-      .update({ found_count: (data.found_count || 0) + 1 })
+      .update({
+        found_count: (data.found_count || 0) + 1,
+        encounter_log: nextLog,
+      })
       .eq('id', data.id)
 
     return data
@@ -118,6 +162,13 @@ export async function defeatProbe(client, probeId, attackerId) {
       .maybeSingle()
     if (!probe || probe.status !== 'active') return null
 
+    // Phase 25d — 追加 "defeated" 事件到 encounter_log
+    const prevLog = Array.isArray(probe.encounter_log) ? probe.encounter_log : []
+    const nextLog = [
+      ...prevLog,
+      { ts: new Date().toISOString(), by: attackerId || null, outcome: 'defeated' },
+    ].slice(-PROBE_ENCOUNTER_LOG_MAX)
+
     await client
       .from('cross_room_probes')
       .update({
@@ -125,6 +176,7 @@ export async function defeatProbe(client, probeId, attackerId) {
         defeated_at: new Date().toISOString(),
         defeated_by: attackerId,
         defeated_count: (probe.defeated_count || 0) + 1,
+        encounter_log: nextLog,
         hp: 0,
       })
       .eq('id', probeId)

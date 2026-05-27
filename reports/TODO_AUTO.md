@@ -62,7 +62,7 @@
 
 ## 2026-05-27 — research (主题 E)
 
-- [research-2026-05-27-v3] **P0** — `cross_room_probes` 上线前先加遥测埋点（probes_left / encountered / outcome_breakdown）+ admin 视图。 [doing-2026-05-28T04:23]
+- [research-2026-05-27-v3] **P0** — `cross_room_probes` 上线前先加遥测埋点（probes_left / encountered / outcome_breakdown）+ admin 视图。 → ✅ DONE 2026-05-28T04:23: phase-25d SQL 加 `spared_count` / `killed_attacker_count` / `encounter_log JSONB` 列 + `v_probe_telemetry`（per-owner: probes_left / total_encountered / outcome_breakdown JSONB / avg_lifetime_hours）+ `v_probe_telemetry_by_chamber` 视图；probes.js 新 helper `recordProbeOutcome(client, probeId, byUserId, outcome)` 自动 append `encounter_log`（cap 50 防膨胀）+ 计数自增；gameActions.js ignore→`spared` / 反杀→`killed_attacker` / tryEncounterProbe→`encountered` / defeatProbe→`defeated` 四点埋桩；admin 新标签 🛰️ ProbeTelemetryTab 读双视图。
 - [research-2026-05-27-v3] **P0** — 探针被遭遇后给主人写"回信"到 `player_notifications`（被谁遇到 / 攻击 or 放过）。
 - [research-2026-05-27-v3] **P1** — 探针抽取加长尾衰减权重（剩余 TTL < 24h 加权）+ chamber 级密度上限。
 
