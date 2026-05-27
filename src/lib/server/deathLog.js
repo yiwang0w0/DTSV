@@ -15,26 +15,45 @@ const REASON_TEXTS = {
   other:               () => '未知原因致死',
 }
 
+// Phase 25c — reason → cause_category enum 同步（DB ENUM 只接受这 5 个值）
+const VALID_CAUSE_CATEGORIES = new Set([
+  'pvp', 'npc_counter', 'omega_timeout', 'pollution_meltdown', 'other',
+])
+
 /**
  * 写入一条死亡记录
  * @param {object} client supabase admin client
  * @param {string} userId 玩家 UUID
- * @param {object} payload { roomId, gamenum, mapId, reason, context }
+ * @param {object} payload { roomId, gamenum, mapId, reason, context, survivedSeconds, chamberDepth }
+ *   Phase 25c 新增可选字段:
+ *   - survivedSeconds: 该次 raid 存活秒数 (raid 开始 → 死亡)
+ *   - chamberDepth:    死亡时 chamber 深度 (1=cold ... 5=volatile, 0/未提供 → null)
  */
 export async function logPlayerDeath(client, userId, payload = {}) {
   const reason = payload.reason || 'other'
   const ctx = payload.context || {}
   const reasonText = (REASON_TEXTS[reason] || REASON_TEXTS.other)(ctx)
+  const causeCategory = VALID_CAUSE_CATEGORIES.has(reason) ? reason : 'other'
+
+  const survivedSeconds = Number.isFinite(payload.survivedSeconds) && payload.survivedSeconds >= 0
+    ? Math.floor(payload.survivedSeconds)
+    : null
+  const chamberDepth = Number.isFinite(payload.chamberDepth) && payload.chamberDepth >= 0 && payload.chamberDepth <= 10
+    ? Math.floor(payload.chamberDepth)
+    : null
 
   try {
     const { error } = await client.from('player_death_log').insert({
-      user_id:     userId,
-      room_id:     payload.roomId || null,
-      gamenum:     payload.gamenum || null,
-      map_id:      payload.mapId ?? null,
+      user_id:          userId,
+      room_id:          payload.roomId || null,
+      gamenum:          payload.gamenum || null,
+      map_id:           payload.mapId ?? null,
       reason,
-      reason_text: reasonText,
-      context:     ctx,
+      reason_text:      reasonText,
+      context:          ctx,
+      cause_category:   causeCategory,
+      survived_seconds: survivedSeconds,
+      chamber_depth:    chamberDepth,
     })
     if (error) console.error('[deathLog] insert 失败:', error.message)
   } catch (e) {
