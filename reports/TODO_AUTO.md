@@ -58,7 +58,7 @@
 
 - [research-2026-05-27-v2] **P0** — `player_death_log` 补字段（cause_category ENUM / survived_seconds INT / chamber_depth INT）。死亡因果可识别度的数据前置，同时是 A 主题"死亡黏度"埋点的依赖。 → ✅ DONE 2026-05-28T01:23: phase-25c SQL 新建 `death_cause_category` ENUM + 加 3 列（含 CHECK 约束 + 索引）+ 从 reason 回填 cause_category；deathLog.js 同步写入新字段（含 NaN/范围防御）；先补部署 base table（旧 schema 未上线）
 - [research-2026-05-27-v2] **P0** — Ω-段倒计时必须有 30s/10s/5s/2s 分层预警（视觉 + 音效）。若只在 0s 硬截止，违反"多层预警"反模式，立刻修正。 → ✅ DONE 2026-05-28T02:23: 新建 `src/components/OmegaCountdown.jsx`（回合制分层：≥4 normal / 3 caution / 2 warning / 1 critical）+ globals.css 加 `omega-pulse-slow|fast` keyframes + Web Audio API 程序化 beep（caution 单音 / warning 双音 / critical 三急音）；GameClientPage.jsx 替换原 inline span（保留 `meBase?.omegaCountdown` 取值）
-- [research-2026-05-27-v2] **P0** — 新建 `docs/narrative-vision.md` 独立定义六纪元情感主题，作为所有 lore 文本和系统命名的对照基准。
+- [research-2026-05-27-v2] **P0** — 新建 `docs/narrative-vision.md` 独立定义六纪元情感主题，作为所有 lore 文本和系统命名的对照基准。 [doing-2026-05-28T02:30]
 
 ## 2026-05-27 — research (主题 E)
 
