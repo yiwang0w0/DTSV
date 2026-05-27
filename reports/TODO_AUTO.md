@@ -62,7 +62,7 @@
 
 ## 2026-05-27 — research (主题 E)
 
-- [research-2026-05-27-v3] **P0** — `cross_room_probes` 上线前先加遥测埋点（probes_left / encountered / outcome_breakdown）+ admin 视图。
+- [research-2026-05-27-v3] **P0** — `cross_room_probes` 上线前先加遥测埋点（probes_left / encountered / outcome_breakdown）+ admin 视图。 [doing-2026-05-28T04:23]
 - [research-2026-05-27-v3] **P0** — 探针被遭遇后给主人写"回信"到 `player_notifications`（被谁遇到 / 攻击 or 放过）。
 - [research-2026-05-27-v3] **P1** — 探针抽取加长尾衰减权重（剩余 TTL < 24h 加权）+ chamber 级密度上限。
 
