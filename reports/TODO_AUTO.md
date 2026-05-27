@@ -48,4 +48,24 @@
 
 ---
 
+## 2026-05-27 — research (主题 A + B)
+
+- [research-2026-05-27] **P0** — raid_stats 接 healthcheck，校准撤离成功率到 50% ±10%。Phase 24b 经济调参前置依赖。详见 [notes-2026-05-27.md](../research/notes-2026-05-27.md#主题-a--extraction-shooter-设计) [doing-2026-05-28T00:25]
+- [research-2026-05-27] **P0** — Phase 24b `shop_exchange_rates` 建表加版本号，支持 wipe-equivalent（一次性按比例缩减所有玩家点数）。防止老玩家 runaway power。
+- [research-2026-05-27] **P1** — PrepareModal 必须明确"入场装备会被消耗" + class_pt 软保底显示计数（"距离必出 legendary 还剩 N 次"）。避免 gear fear 和黑箱反感。
+
+## 2026-05-27 — research (主题 C + D)
+
+- [research-2026-05-27-v2] **P0** — `player_death_log` 补字段（cause_category ENUM / survived_seconds INT / chamber_depth INT）。死亡因果可识别度的数据前置，同时是 A 主题"死亡黏度"埋点的依赖。
+- [research-2026-05-27-v2] **P0** — Ω-段倒计时必须有 30s/10s/5s/2s 分层预警（视觉 + 音效）。若只在 0s 硬截止，违反"多层预警"反模式，立刻修正。
+- [research-2026-05-27-v2] **P0** — 新建 `docs/narrative-vision.md` 独立定义六纪元情感主题，作为所有 lore 文本和系统命名的对照基准。
+
+## 2026-05-27 — research (主题 E)
+
+- [research-2026-05-27-v3] **P0** — `cross_room_probes` 上线前先加遥测埋点（probes_left / encountered / outcome_breakdown）+ admin 视图。
+- [research-2026-05-27-v3] **P0** — 探针被遭遇后给主人写"回信"到 `player_notifications`（被谁遇到 / 攻击 or 放过）。
+- [research-2026-05-27-v3] **P1** — 探针抽取加长尾衰减权重（剩余 TTL < 24h 加权）+ chamber 级密度上限。
+
+---
+
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
