@@ -27,7 +27,7 @@ import {
 } from '@/lib/equipmentEngine'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
-import { convertExtractToPoints, creditPoints, classPtForExtract, POINT_LABEL } from '@/lib/server/points'
+import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, POINT_LABEL } from '@/lib/server/points'
 import { purchaseFromCatalog } from '@/lib/server/shop'
 import { commitClassChoice, applyClassToPlayer } from '@/lib/server/classes'
 import { resolvePortraitUrl } from '@/lib/server/portraits'
@@ -426,6 +426,30 @@ async function writeRaidStats(client, finalRoom) {
     playerExtracts.push(p?.extracted ? 'extracted' : (p?.alive ? 'alive' : 'dead'))
   }
 
+  // Phase 25g (28-B P0): 经济埋点 — 取 stashSnapshotBefore + 查 player_points 算 stash_value_after
+  const econAcc = gv.economyAccumulator || {}
+  const pointsCredited = econAcc.pointsCredited || {}
+  const pointsSpent    = econAcc.pointsSpent || {}
+  const stashBefore    = gv.stashSnapshotBefore || {}
+  let stashAfter       = {}
+  // players keyed by user uuid in gamevars.players
+  const participantIds = Object.keys(gv.players || {}).filter(Boolean)
+  if (participantIds.length > 0) {
+    try {
+      const { data: pts } = await client
+        .from('player_points')
+        .select('user_id, point_type, balance')
+        .in('user_id', participantIds)
+      for (const row of (pts || [])) {
+        const t = row.point_type
+        if (!t) continue
+        stashAfter[t] = (stashAfter[t] || 0) + (Number(row.balance) || 0)
+      }
+    } catch (e) {
+      console.error('[raid_stats] stash_value_after 查询失败:', e?.message)
+    }
+  }
+
   await client.from('raid_stats').insert({
     room_id: finalRoom.id,
     gamenum: finalRoom.gamenum || 0,
@@ -440,6 +464,10 @@ async function writeRaidStats(client, finalRoom) {
     ending_key: gv.endingResult?.key || null,
     env_pollution_final: Math.floor(gv.envPollution || 0),
     raid_path_length: Array.isArray(gv.raidPath) ? gv.raidPath.length : 0,
+    points_credited: pointsCredited,
+    points_spent: pointsSpent,
+    stash_value_before: stashBefore,
+    stash_value_after: stashAfter,
     metadata: {
       chamber_counts: chamberCounts,
       type_counts: typeCounts,
@@ -1592,6 +1620,14 @@ export async function joinRoom(client, user, roomId, loadout = null) {
 
   const rules = await loadGameRules(client)
 
+  // ── Phase 25g (28-B P0): 入场前 snapshot 点数余额 (用于 raid_stats 通胀埋点) ──
+  let balanceBeforeEntry = {}
+  try {
+    balanceBeforeEntry = await getBalances(client, user.id)
+  } catch (e) {
+    console.warn('[joinRoom] balanceBeforeEntry 查询失败:', e?.message)
+  }
+
   // ── Phase 24b: 装载 — 从 player_points 扣点 + 按 shop_catalog 购买 ──
   // 新 payload 形状: loadout = { catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] }
   // 旧 payload(items + equipmentInstanceIds)走 legacy 分支以兼容未迁移的客户端
@@ -1725,12 +1761,40 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     }
   }
 
+  // ── Phase 25g (28-B P0): 入场后 snapshot + spent 累计 ──
+  // 入场后余额 = stashSnapshotBefore(raid 启动基线);spent = before - after(per-type, 截非负)
+  let balanceAfterEntry = {}
+  try {
+    balanceAfterEntry = await getBalances(client, user.id)
+  } catch (e) {
+    console.warn('[joinRoom] balanceAfterEntry 查询失败:', e?.message)
+  }
+  const prevStashSnap = gamevars.stashSnapshotBefore || {}
+  const nextStashSnap = { ...prevStashSnap }
+  for (const [t, v] of Object.entries(balanceAfterEntry)) {
+    nextStashSnap[t] = (nextStashSnap[t] || 0) + (Number(v) || 0)
+  }
+  const prevEcon = gamevars.economyAccumulator || { pointsCredited: {}, pointsSpent: {} }
+  const nextSpent = { ...(prevEcon.pointsSpent || {}) }
+  const seenTypes = new Set([...Object.keys(balanceBeforeEntry), ...Object.keys(balanceAfterEntry)])
+  for (const t of seenTypes) {
+    const before = Number(balanceBeforeEntry[t]) || 0
+    const after  = Number(balanceAfterEntry[t]) || 0
+    const spent  = Math.max(0, before - after)
+    if (spent > 0) nextSpent[t] = (nextSpent[t] || 0) + spent
+  }
+
   const nextGamevars = {
     ...gamevars,
     raidPath: nextRaidPath,
     players: {
       ...gamevars.players,
       [user.id]: player,
+    },
+    stashSnapshotBefore: nextStashSnap,
+    economyAccumulator: {
+      pointsCredited: prevEcon.pointsCredited || {},
+      pointsSpent: nextSpent,
     },
   }
 
@@ -2208,9 +2272,21 @@ async function extractPlayer(client, room, gamevars, user, payload) {
       { name: '折算点数', quantity: pointsSummary.equipCount + pointsSummary.itemCount, atMap: playerMapId },
     ],
   })
+  // Phase 25g (28-B P0): 累计 points_credited 到 gamevars,供 raid_stats 通胀埋点
+  const econAcc = resolution.gamevars.economyAccumulator || { pointsCredited: {}, pointsSpent: {} }
+  const accCredited = { ...(econAcc.pointsCredited || {}) }
+  for (const c of pointsCredits) {
+    if (c?.type && Number(c.amount) > 0) {
+      accCredited[c.type] = (accCredited[c.type] || 0) + Math.round(Number(c.amount))
+    }
+  }
   resolution.gamevars = {
     ...resolution.gamevars,
     totalFragmentsExtracted: (resolution.gamevars.totalFragmentsExtracted || 0) + fragmentsExtracted,
+    economyAccumulator: {
+      ...econAcc,
+      pointsCredited: accCredited,
+    },
   }
 
   // 装备+道具数量汇总日志

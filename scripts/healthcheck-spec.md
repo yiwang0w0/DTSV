@@ -93,6 +93,38 @@ FROM pairs;
 - 🔴 critical：`round_trip_ratio >= 1.0`（套利！）
 - 🟡 warn：`round_trip_ratio > 0.85`（损耗不足 15%）
 
+#### M1.4 周库存增长率（通胀监控）
+
+```sql
+-- Phase 25g (28-B P0): 用 v_weekly_stash_inflation 视图 + raid_stats 新四字段
+-- 取最近完整周(排除当周不完整数据)
+SELECT week_start,
+       raids_count,
+       total_value_before,
+       total_value_after,
+       total_credited,
+       total_spent,
+       CASE WHEN total_value_before > 0
+            THEN round((total_value_after - total_value_before)::numeric / total_value_before * 100, 2)
+            ELSE NULL END AS weekly_growth_pct,
+       CASE WHEN total_spent > 0
+            THEN round(total_credited::numeric / total_spent, 2)
+            ELSE NULL END AS credit_to_spent_ratio
+FROM v_weekly_stash_inflation
+WHERE week_start < date_trunc('week', NOW())
+ORDER BY week_start DESC
+LIMIT 4;
+```
+
+校准目标（来自 research-2026-05-28 主题 B 延伸）：**周库存增长率 ≤ 12%**。Arc Raiders / Tarkov economy modeling 普遍以 10-15% 周通胀作为经济失衡红线。`credit_to_spent_ratio > 1.0` 意味着 raid 内创造价值 > 入场消耗，长期会导致 stash bloat 与新人贬值压力。
+
+阈值：
+- 🔴 critical：`weekly_growth_pct > 25` 或 `credit_to_spent_ratio > 1.6`（通胀失控,考虑触发 economy wipe 经过 Phase 25b `apply_economy_wipe()`)
+- 🟡 warn：`weekly_growth_pct > 12` 或 `credit_to_spent_ratio > 1.2`（接近警戒,审查 catalog 折算系数 + 兑换汇率）
+- 🟢 healthy：`weekly_growth_pct ∈ [-5, 12]`
+
+注:窗口要求至少 2 周历史数据;首周 / 数据不足时报 `n/a`,不视为异常。
+
 ---
 
 ### 维度 2 — 节奏（Pacing）
@@ -347,6 +379,11 @@ HAVING (SELECT count(*) FROM player_class_runs WHERE class_id = c.id) = 0;
 
 ### M1.2 商店 cost vs 折算回收
 ...
+
+### M1.4 周库存增长率（通胀）
+- 最近完整周 `weekly_growth_pct = +x.x%`(红线 12%)
+- `credit_to_spent_ratio = x.xx`(红线 1.2)
+- 状态 🟢/🟡/🔴
 
 ## 2. 节奏（Pacing）
 ...
