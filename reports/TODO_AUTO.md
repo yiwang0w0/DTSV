@@ -68,4 +68,28 @@
 
 ---
 
+## 2026-05-28 — research (主题 B 延伸 — catch-up + 可选 wipe + 通胀控制)
+
+- [research-2026-05-28-B] **P0** — Phase 24b SQL 同步建 `seasonal_expeditions` + `player_expedition_opt_ins` 空表（不立即启用）。Arc Raiders Expedition 模式参考，避免半年后破坏性 schema 改动。详见 [notes-2026-05-28-B.md](../research/notes-2026-05-28-B.md) [doing-2026-05-28T06:23]
+- [research-2026-05-28-B] **P0** — `raid_stats` 加 `points_credited / points_spent / stash_value_before / stash_value_after` JSON 字段，Phase 26 healthcheck 加"周库存增长率"指标，对照 12% 通胀红线。
+- [research-2026-05-28-B] **P0** — 24b 启动前写 `docs/economy-canon.md` 明确"持久 vs 重置"边界（残片/chamber 历史/class 池 = 持久；点数/装备/stash = 可选赛季重置）。
+
+## 2026-05-28 — research (主题 C 延伸 — live-service additive + 音频日志 + 新玩家入口残片)
+
+- [research-2026-05-28-C] **P0** — `docs/narrative-vision.md`（27-v2 已提议）首章加"additive evergreen"宪法条款：F01-F15 永久可发现，未来 Phase 25+ 仅可加不可减、不得 FOMO 化。预防 Destiny 2 vaulting 灾难。详见 [notes-2026-05-28-C.md](../research/notes-2026-05-28-C.md)
+- [research-2026-05-28-C] **P0** — `src/lib/server/fragments.js` 的 `discoverFragment` 加首 3 次出勤的 F01-F03 权重 boost，确保 ≥80% 新玩家在第一周触达入口残片。配套 healthcheck spec 监测 F01 首达率。防止 Marathon "onboarding stingy + lore obscure" 双投诉。
+- [research-2026-05-28-C] **P1** — 大厅新增"档案"页面（`src/app/codex/page.js`），按六纪元分组展示玩家已解码 fragment + decode_level 摘要。Marathon Codex 等价物，casual catch-up + lore hunter 双服务。
+
+## 2026-05-28 — research (主题 D 延伸 — 保险 / 连败兜底 / 死亡复盘)
+
+- [research-2026-05-28-D] **P0** — 死亡复盘 UI：用 27-v2 提议的 `player_death_log.cause_category/survived_seconds/chamber_depth` 在 `src/app/game/[id]/page.js` 死亡分支弹"📜 死亡复盘"（死因/存活时间/chamber 路径/被销毁 fragment）。缺它则因果不可识别度退回 Returnal 反模式，Phase 22 数据白埋。详见 [notes-2026-05-28-D.md](../research/notes-2026-05-28-D.md)
+- [research-2026-05-28-D] **P0** — Phase 24b 同期建表加 `equipment_instances.insurance_tier ENUM('none','basic','premium')` + `insurance_premium_pt INT`，basic 30% / premium 60% 死亡返还概率。2026 extraction genre baseline（Tarkov / EVE Vanguard / Arc Raiders 都已迭代），拖到 Phase 25+ 会被新玩家流失数据反推回来。
+- [research-2026-05-28-D] **P0** — Streak-breaker：`failedRetreats >= 3` 触发下一局自动 buff（免费 basic 保险 + chamber NPC 密度 -20% + PI 引导者关怀对白）。**只降难度不加经济收益**，防 "故意送死刷 buff"。文件：`src/lib/server/raids.js` preRaidSetup + `src/lib/constants.js` 阈值常量。
+
+## 2026-05-28 — research (主题 E 延伸 — 持续痕迹 / 匿名化 / Nemesis / 滥用分流)
+
+- [research-2026-05-28-E] **P0** — 探针主人匿名化（Phase 21 上线前必锁）：`tryEncounterProbe` / `resolveProbeFight` / 遭遇 UI / `player_notifications` 回信文本全部禁止显示 probe-owner username/email，改为稳定 pseudonym（`观测者-<probe_id 后4位>` 或 `第N位幸存者` + 段位）。Ghost Player Effect 核心 anti-griefing 资产，事后改 = PR 灾难。详见 [notes-2026-05-28-E.md](../research/notes-2026-05-28-E.md)
+- [research-2026-05-28-E] **P0** — chamber 持续痕迹 v1：新建 `chamber_residue(owner_pseudonym, chamber_template_id, last_npc_killed, last_loot_taken, last_death_location, expires_at +72h)`。raid 结束 / 探针被遭遇时 snapshot，下位进场玩家 prefetch 最近 5 条作为环境信息（"💀 这里曾有人倒下"）。Hunt: Showdown 2.7 "the world remembers" 2026 extraction 标杆，DTSV chamber 失忆是异步层根性缺口。
+- [research-2026-05-28-E] **P1** — Nemesis 重复遭遇升级：新建 `probe_encounter_pairs(attacker_id, owner_id, encounter_count, last_outcome, nemesis_since)`，同对 30 日 ≥3 次遭遇 → 标记 nemesis，遭遇 UI 显示 banner + 双方"宿敌再次相遇"通知。USPTO 9539518 Nemesis 模式把重复噪声变 emergent narrative，与 v3 P1 aggression score 互补不冲突。
+
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
