@@ -10,6 +10,55 @@ const PROBE_ENCOUNTER_CHANCE = 0.08 // 8% 进入 chamber 时遭遇探针
 const PROBE_FRAGMENTS_CARRY_LIMIT = 3 // 主人留下的可被夺残片最多 3 条
 const PROBE_ENCOUNTER_LOG_MAX = 50  // Phase 25d encounter_log 每条探针最多保留 50 条事件（防 JSONB 膨胀）
 
+// Phase 25e — outcome → 收件箱文案 / kind 映射
+// 28-E P0 anonymization: 不存 attacker user_id，只存 pseudonym
+const PROBE_NOTIFY_META = {
+  spared:          { kind: 'probe_spared',          emoji: '🕊️', verb: '放过' },
+  defeated:        { kind: 'probe_defeated',        emoji: '💥', verb: '击败' },
+  killed_attacker: { kind: 'probe_killed_attacker', emoji: '⚔️', verb: '反杀' },
+}
+
+function buildProbePseudonym(byUserId) {
+  if (!byUserId) return '未知幸存者'
+  const short = String(byUserId).replace(/-/g, '').slice(0, 4).toUpperCase()
+  return `观测者-${short}`
+}
+
+/**
+ * Phase 25e — 给探针主人投递一条"回信"。
+ * 仅在最终 outcome (spared/defeated/killed_attacker) 时调用，encountered 中间态不发。
+ * 任何异常仅 console.error，不阻塞战斗结算。
+ */
+async function notifyProbeOwner(client, { ownerId, probeId, chamberTemplateId, byUserId, outcome }) {
+  if (!ownerId || !outcome) return
+  const meta = PROBE_NOTIFY_META[outcome]
+  if (!meta) return
+  try {
+    const pseudonym = buildProbePseudonym(byUserId)
+    const chamberLabel = chamberTemplateId ? `chamber #${chamberTemplateId}` : '某个 chamber'
+    const title = `${meta.emoji} 探针回信:${pseudonym}${meta.verb}了你的探针`
+    const bodyByOutcome = {
+      spared:          `${pseudonym} 在 ${chamberLabel} 选择避开你的探针,无声离开。探针仍在执勤。`,
+      defeated:        `${pseudonym} 在 ${chamberLabel} 击败了你的探针,可能夺走了你携带的残片。`,
+      killed_attacker: `你的探针在 ${chamberLabel} 反杀了 ${pseudonym}。chamber 仍在你的控制下。`,
+    }
+    await client.from('player_notifications').insert({
+      user_id: ownerId,
+      kind: meta.kind,
+      title,
+      body: bodyByOutcome[outcome] || '',
+      payload: {
+        probe_id: probeId || null,
+        chamber_template_id: chamberTemplateId || null,
+        by_pseudonym: pseudonym,
+        outcome,
+      },
+    })
+  } catch (e) {
+    console.error('[notifyProbeOwner] 失败:', e?.message)
+  }
+}
+
 /**
  * Phase 25d — 通用 outcome 记录器，追加事件到 encounter_log 并递增对应计数列。
  * outcome: 'spared' | 'defeated' | 'killed_attacker' | 'escaped'
@@ -20,7 +69,7 @@ export async function recordProbeOutcome(client, probeId, byUserId, outcome) {
   try {
     const { data: probe } = await client
       .from('cross_room_probes')
-      .select('encounter_log, spared_count, killed_attacker_count')
+      .select('encounter_log, spared_count, killed_attacker_count, owner_id, chamber_template_id')
       .eq('id', probeId)
       .maybeSingle()
     if (!probe) return
@@ -39,6 +88,17 @@ export async function recordProbeOutcome(client, probeId, byUserId, outcome) {
     }
 
     await client.from('cross_room_probes').update(patch).eq('id', probeId)
+
+    // Phase 25e — 给主人投递回信（spared / killed_attacker，defeated 在 defeatProbe 里自己投）
+    if (outcome === 'spared' || outcome === 'killed_attacker') {
+      await notifyProbeOwner(client, {
+        ownerId: probe.owner_id,
+        probeId,
+        chamberTemplateId: probe.chamber_template_id,
+        byUserId,
+        outcome,
+      })
+    }
   } catch (e) {
     console.error('[recordProbeOutcome] 失败:', e?.message)
   }
@@ -180,6 +240,15 @@ export async function defeatProbe(client, probeId, attackerId) {
         hp: 0,
       })
       .eq('id', probeId)
+
+    // Phase 25e — 给主人投递"被击败"回信（pseudonym，不泄漏 attacker uuid）
+    await notifyProbeOwner(client, {
+      ownerId: probe.owner_id,
+      probeId,
+      chamberTemplateId: probe.chamber_template_id,
+      byUserId: attackerId,
+      outcome: 'defeated',
+    })
 
     // 抢 1 条残片 — 从 fragments_carry 随机选一条让 attacker decode +1
     const carry = Array.isArray(probe.fragments_carry) ? probe.fragments_carry : []
