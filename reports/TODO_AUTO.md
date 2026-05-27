@@ -70,7 +70,7 @@
 
 ## 2026-05-28 — research (主题 B 延伸 — catch-up + 可选 wipe + 通胀控制)
 
-- [research-2026-05-28-B] **P0** — Phase 24b SQL 同步建 `seasonal_expeditions` + `player_expedition_opt_ins` 空表（不立即启用）。Arc Raiders Expedition 模式参考，避免半年后破坏性 schema 改动。详见 [notes-2026-05-28-B.md](../research/notes-2026-05-28-B.md) [doing-2026-05-28T06:23]
+- [research-2026-05-28-B] **P0** — Phase 24b SQL 同步建 `seasonal_expeditions` + `player_expedition_opt_ins` 空表（不立即启用）。Arc Raiders Expedition 模式参考，避免半年后破坏性 schema 改动。详见 [notes-2026-05-28-B.md](../research/notes-2026-05-28-B.md) → ✅ DONE 2026-05-28T06:23: phase-25f SQL 建 `seasonal_expeditions`(13 列) + `player_expedition_opt_ins`(7 列) 空表（IF NOT EXISTS + auth.users FK + status 5 态 CHECK + bonus_skill_points ≤ 5 + 5 个 JSONB 配置字段 + 全注释）；postgres MCP 部署验证；预埋不启用，等 Phase 24b 一起激活
 - [research-2026-05-28-B] **P0** — `raid_stats` 加 `points_credited / points_spent / stash_value_before / stash_value_after` JSON 字段，Phase 26 healthcheck 加"周库存增长率"指标，对照 12% 通胀红线。
 - [research-2026-05-28-B] **P0** — 24b 启动前写 `docs/economy-canon.md` 明确"持久 vs 重置"边界（残片/chamber 历史/class 池 = 持久；点数/装备/stash = 可选赛季重置）。
 
