@@ -30,6 +30,7 @@ import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, POINT_LABEL } from '@/lib/server/points'
 import { purchaseFromCatalog } from '@/lib/server/shop'
 import { commitClassChoice, applyClassToPlayer } from '@/lib/server/classes'
+import { resolvePortraitUrl } from '@/lib/server/portraits'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
@@ -1659,6 +1660,14 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     } catch (e) {
       console.error('[joinRoom] commitClassChoice 失败:', e?.message)
     }
+  }
+
+  // Phase 27: 读 profiles.selected_portrait_id 解析为 image_url 注入 player state
+  try {
+    const portraitUrl = await resolvePortraitUrl(client, user.id)
+    if (portraitUrl) player.portraitUrl = portraitUrl
+  } catch (e) {
+    console.warn('[joinRoom] portrait 解析失败:', e?.message)
   }
 
   // Phase 24a: 查询本玩家已完全解码（level 3）的残片 — 用于 lore 可见性过滤

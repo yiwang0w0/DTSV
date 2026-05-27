@@ -211,6 +211,8 @@ export function createPlayerState(user, stats = {}) {
     className: null,
     classRarity: null,        // 'normal' | 'legendary'
     classPerks: {},           // { search_bonus, pollution_resist, ... } 白名单 perk
+    // Phase 27: 角色立绘 URL（来源 profiles.selected_portrait_id JOIN portraits.image_url）
+    portraitUrl: null,
     lastPvpHit: null,        // Phase 16: { seq, fromName, damage, countered, counterDmg, at } 给被攻击方 toast
     lootPrompt: null,
     // ── 远星函馆：污染 + Ω + 结局判定字段 ──

@@ -15,6 +15,8 @@ import CraftModal from './CraftModal'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
+import PortraitDisplay from '@/components/PortraitDisplay'
+import PortraitSelectorModal from '@/components/PortraitSelectorModal'
 import {
   Btn,
   BuffTag,
@@ -73,6 +75,9 @@ export default function GameClientPage() {
   const [craftOpen, setCraftOpen] = useState(false)
   const [extractOpen, setExtractOpen] = useState(false)
   const [joinLoadoutOpen, setJoinLoadoutOpen] = useState(false)
+  const [portraitOpen, setPortraitOpen] = useState(false)
+  // Phase 27: 本地立绘 URL 状态(优先用 meBase.portraitUrl，覆盖时立即生效)
+  const [localPortraitUrl, setLocalPortraitUrl] = useState(null)
 
   const mapIdRef = useRef(0)
 
@@ -524,6 +529,11 @@ export default function GameClientPage() {
         onClose={() => setJoinLoadoutOpen(false)}
         onConfirm={handleJoinWithLoadout}
       />
+      <PortraitSelectorModal
+        open={portraitOpen}
+        onClose={() => setPortraitOpen(false)}
+        onSelected={(_pid, url) => setLocalPortraitUrl(url)}
+      />
 
       <style>{`
         *{box-sizing:border-box}
@@ -753,6 +763,13 @@ export default function GameClientPage() {
               <div style={{ textAlign: 'center', color: T.dim, fontSize: 12, padding: '12px 0' }}>加入游戏后会显示你的状态</div>
             )}
           </div>
+
+          {/* Phase 27: 角色立绘 */}
+          <PortraitDisplay
+            portraitUrl={localPortraitUrl ?? meBase?.portraitUrl ?? null}
+            onChangeClick={() => setPortraitOpen(true)}
+            dead={meBase && !meBase.alive}
+          />
 
           {/* Phase 18.5: 区域评估小卡 — 战斗强度 + 撤离成功率 */}
           {inGame && me?.alive && !meBase?.extracted && (

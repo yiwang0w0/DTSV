@@ -24,6 +24,7 @@ import PlaytestTab   from './_tabs/PlaytestTab'
 import ShopTab       from './_tabs/ShopTab'
 import PointsConfigTab from './_tabs/PointsConfigTab'
 import ClassesTab    from './_tabs/ClassesTab'
+import PortraitsTab  from './_tabs/PortraitsTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 
 const TABS = [
@@ -45,6 +46,7 @@ const TABS = [
   { key: 'shop',      label: '🛒 商店目录' },
   { key: 'points',    label: '💱 点数 / 兑换' },
   { key: 'classes',   label: '✦ 职业' },
+  { key: 'portraits', label: '🎴 立绘审核' },
   { key: 'playtest',  label: '📈 Playtest 总览' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
@@ -146,6 +148,7 @@ export default function AdminPage() {
       {tab === 'shop'      && <ShopTab toast={toast} />}
       {tab === 'points'    && <PointsConfigTab toast={toast} />}
       {tab === 'classes'   && <ClassesTab toast={toast} />}
+      {tab === 'portraits' && <PortraitsTab toast={toast} />}
       {tab === 'playtest'  && <PlaytestTab toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>

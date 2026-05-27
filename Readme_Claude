@@ -1,9 +1,93 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 26 自动化健康检查 + 外部调研基础设施
-整理方式：基于全量源码交叉验证 + Phase 0-26 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 27 角色立绘系统
+整理方式：基于全量源码交叉验证 + Phase 0-27 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 26）— 自动化测试 / 外部调研 / 定时任务
+## 最近变更（2026-05-12 / Phase 27）— 角色立绘系统（预设 + 玩家上传 + 管理员审核）
+
+> 主题：玩家在游戏左侧栏（HP 卡和"区域评估"之间）展示一张 3:5 比例的角色立绘。
+> 两个来源：(a) admin 添加的系统预设，可直接选；(b) 玩家上传，需 admin 审核后才能选。
+
+### Phase 27 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 27.1 | `scripts/phase-27-portraits.sql` — portraits 表(name/image_url/storage_path/kind/uploader_id/status/审核字段) + profiles.selected_portrait_id FK + 3 个 RLS policy + Storage public bucket `portraits` (5MB / png+jpeg+webp) + 3 个预设 seed |
+| 27.2 | `src/lib/server/portraits.js` — listVisiblePortraits / listPending / listAll / recordUserUpload / approveByAdmin / rejectByAdmin / createPreset / disablePortrait / selectPortrait / **resolvePortraitUrl** (给 joinRoom 用) |
+| 27.3 | `/api/portraits` GET(player/admin 双模式)+POST(select/record_upload/cancel_upload/approve/reject/create_preset/disable) |
+| 27.4 | admin `🎴 立绘审核` tab — 4 状态筛选(pending/approved/rejected/all)+审核卡片+拒绝原因 modal+ "+ 添加预设" 表单(支持外链 URL 或 storage_path) |
+| 27.5 | `PortraitDisplay` 组件 — 3:5 比例 aspect-ratio,死亡时灰度+✕ KIA 覆盖层,无立绘时显示"选择立绘"占位 |
+| 27.6 | `PortraitSelectorModal` — 网格展示 approved 立绘 + 自己的 pending(灰显+撤回按钮) + "📤 上传新立绘" 表单(supabase.storage 直传) |
+| 27.7 | `joinRoom` 调 `resolvePortraitUrl(client, user.id)` 解析 profiles.selected_portrait_id JOIN portraits.image_url → 注入 `player.portraitUrl`; roomState.createPlayerState 加默认 null |
+| 27.8 | Readme 同步 + commit + push |
+
+### 数据流
+
+```
+Admin 添加预设:        portraits INSERT(kind=preset, status=approved)
+                       ↓
+玩家在 PortraitSelectorModal 看到 → 选中 → POST /api/portraits {action:select}
+                       ↓
+                       profiles.selected_portrait_id 更新
+                       ↓
+玩家加入新 raid → joinRoom resolvePortraitUrl → player.portraitUrl
+                       ↓
+                       GameClientPage 左栏 PortraitDisplay 展示
+
+玩家上传:
+  Browser → supabase.storage.from('portraits').upload(`user/<uid>/<ts>.<ext>`)
+         → POST /api/portraits {action:record_upload, imageUrl, storagePath}
+         → portraits INSERT(kind=user_upload, status=pending)
+         → admin 在 🎴 立绘审核 tab 看到 → approve → status=approved → 玩家可选
+```
+
+### 容器尺寸
+
+- 红框 / PortraitDisplay：`aspect-ratio: 3/5`（如左栏 240px 宽则高 ≈ 400px）
+- 推荐图片：240×400 / 300×500 / 480×800（任何 3:5 比例都自适应 `object-fit: cover`）
+- 上限：5MB / PNG / JPEG / WebP
+
+### 部署步骤
+
+```sql
+-- 已通过 postgres MCP 部署 - 同时创建 storage bucket
+scripts/phase-27-portraits.sql
+```
+
+跑完验证：
+
+```sql
+SELECT count(*), status FROM portraits GROUP BY status;  -- 期望 3 approved (预设)
+SELECT id, name, public, file_size_limit FROM storage.buckets WHERE id='portraits';
+```
+
+### 走查步骤
+
+1. **admin → 🎴 立绘审核**：预设 tab 看到 3 个 placeholder 立绘；点击"+ 添加预设立绘"，填名称 + 图片 URL（任何外链），保存 → 出现在 approved 列表
+2. **玩家进 game 页**：左侧栏 HP 信息卡下方出现立绘卡（如未选则显示"选择角色立绘"占位）
+3. **点击立绘卡**：弹 PortraitSelectorModal → 选一个预设 → 立绘卡立即更新
+4. **上传**：modal 内点"📤 上传新立绘" → 选 PNG/JPEG/WebP 文件 → 上传完成后该立绘以 ⏳ 审核中徽章出现在 modal 内（自己可见）
+5. **审核**：admin → 🎴 立绘审核 → pending tab 看到玩家上传 → 点 ✓ 通过 → 玩家刷新 modal 后立绘转为 approved 可选
+6. **死亡变灰**：玩家阵亡（HP=0）后立绘自动灰度处理 + ✕ KIA 覆盖层
+
+### Phase 27 风险点
+
+- **Service role 缺失时 RLS 拦截**：portraits SELECT policy 是 `status=approved OR uploader_id=auth.uid()`，未登录用户拿不到列表 — 没问题，因为只在 game 页面（必登）显示
+- **Storage 5MB 上限**：高分辨率立绘建议 admin 在 Supabase Storage Dashboard 手动上传，cost 通过 `storage_path` 字段记录
+- **预设占位图**：3 个 seed 用的是 placehold.co URL，admin 应上线后先替换为真实美术资源
+
+### Phase 24-27 路线总结
+
+- ✅ Phase 24a 残片 lore 重写
+- ✅ Phase 24b 4 类点数经济
+- ✅ Phase 24c 职业系统
+- ✅ Phase 25 数据驱动平衡 + 专属 catalog
+- ✅ Phase 26 自动化健康检查 + 外部调研基础设施
+- ✅ Phase 27 角色立绘系统（本次）
+
+---
+
+## 历史变更（2026-05-12 / Phase 26）— 自动化测试 / 外部调研 / 定时任务
 
 > 主题：把"测试 + 完善度推进"也自动化。两个核心文件 + 两个定时任务 + 一个 TODO 入口。Claude 在没有用户输入时也会自主推进游戏制作。
 
