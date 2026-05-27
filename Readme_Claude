@@ -1,9 +1,67 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 25 数据驱动平衡 + 专属 catalog
-整理方式：基于全量源码交叉验证 + Phase 0-25 改造提交记录。
+更新时间：2026-05-12（Asia/Tokyo） · Phase 26 自动化健康检查 + 外部调研基础设施
+整理方式：基于全量源码交叉验证 + Phase 0-26 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 25）— 数据驱动平衡基础设施 + Legendary 专属装备
+## 最近变更（2026-05-12 / Phase 26）— 自动化测试 / 外部调研 / 定时任务
+
+> 主题：把"测试 + 完善度推进"也自动化。两个核心文件 + 两个定时任务 + 一个 TODO 入口。Claude 在没有用户输入时也会自主推进游戏制作。
+
+### Phase 26 一句话清单
+
+| Sub | 内容 |
+|-----|------|
+| 26.1 | `scripts/healthcheck-spec.md` — 5 维健康度规范(经济/节奏/多样性/完成度/异常),Shannon entropy 作趣味值代理,17 个 SQL 指标,带 🟢/🟡/🔴 阈值 |
+| 26.2 | `reports/baseline.md` — 首次手动基线:经济 🟢 / 节奏 n/a(0 局) / 完成度 🟢 / 异常 🟢;发现 1 个 🟡(low↔high round_trip 0.80 接近阈值) |
+| 26.3 | `scripts/research-spec.md` — 5 个调研主题(A Extraction / B 元进度 / C Lore / D 死亡惩罚 / E 异步 PvP)+ 关键词清单 + actionable findings 模板 |
+| 26.4 | `research/notes-2026-05-12.md` — 首次调研(A+C),11 个 actionable finding;Top-3 优先级:新手保护期 / Loadout preset / Archive codex 主线分类 |
+| 26.5 | 2 个 scheduled task: `dtsv-healthcheck-daily`(每天 03:22 自动跑健康检查)+ `dtsv-research-weekly`(每周日 09:32 自动跑调研) |
+| 26.6 | 更新 `~/.claude/skills/dtsv-dev/SKILL.md` 加 Phase 26 章节 + Readme 同步 |
+
+### 健康检查 5 维（baseline 抽样）
+
+```
+经济:    🟢 商店 spread 全正(3-5),无套利;round_trip 0.80(警戒值 0.85,接近)
+节奏:    n/a  (raid_stats 0 局)
+多样性:  n/a  (metadata 空)
+完成度:  🟢 残片池就绪(F01-F15);1 用户 2 条 lv3
+异常:    🟢 11 个 class / 25 chamber / 30 catalog 全部就绪
+```
+
+### 调研笔记 Top-3 actionable findings（来自首次跑）
+
+1. **🔥 高优 新手保护期** — 前 3 局 raid 撤离失败返还 50% 入场点数
+2. **🔥 高优 Loadout preset** — profiles 加 saved_loadouts JSONB + PrepareModal 加"加载预设"
+3. **⚡ 中优 Archive codex 升级** — F01→F15 主线链可视化(目前合成图谱没分主线/支线)
+
+### 定时任务管理
+
+```bash
+# 查看
+mcp__scheduled-tasks__list_scheduled_tasks
+
+# 文件位置(不通过 git 跟踪):
+C:\Users\29492\.claude\scheduled-tasks\dtsv-healthcheck-daily\SKILL.md
+C:\Users\29492\.claude\scheduled-tasks\dtsv-research-weekly\SKILL.md
+```
+
+scheduled tasks 在 Claude 应用打开时自动跑;关闭时积压的会在下次启动时补跑。
+
+### 接入 dtsv-dev skill
+
+`~/.claude/skills/dtsv-dev/SKILL.md` 加了"十一、Phase 26"章节,新 Claude 会话碰到 DTSV 关键词自动加载,知道:
+- 健康检查规范在哪
+- 报告目录在哪
+- 定时任务名字
+- TODO_AUTO.md 是高优入口
+
+### TODO_AUTO.md 流程
+
+每次健康检查/调研发现 critical/高优 finding → 追加到 `reports/TODO_AUTO.md`。下个 phase 启动前先 grep 这个文件,优先级 > Readme 路线图。
+
+---
+
+## 历史变更（2026-05-12 / Phase 25）— 数据驱动平衡基础设施 + Legendary 专属装备
 
 > 主题：为 3 个 legendary 职业各填 3 件 `required_class_ids` 锁定的专属装备；扩展 `raid_stats.metadata` 收集职业分布与玩家深度；admin 3 个 tab 加平衡 hint 徽章。
 
