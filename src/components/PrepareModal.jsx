@@ -454,6 +454,8 @@ const PERK_LABEL = {
 
 function ClassList({ candidates, selectedId, onSelect, classPtBalance, onForceLegendary, forcing, usedHighPt }) {
   const hasLegendaryInList = candidates.some(c => c.rarity === 'legendary')
+  // 软保底：1 职业点 = 1 次必出 legendary；每次成功撤离 +1 职业点
+  const pityRemaining = Math.max(0, 1 - (Number(classPtBalance) || 0))
 
   return (
     <div>
@@ -528,6 +530,11 @@ function ClassList({ candidates, selectedId, onSelect, classPtBalance, onForceLe
               {usedHighPt && <span style={{ color: C.green, marginLeft: 6 }}>✓ 已保底刷出</span>}
               {hasLegendaryInList && !usedHighPt && <span style={{ color: C.yellow, marginLeft: 6 }}>★ 自然 roll 已包含 legendary</span>}
             </div>
+            <div style={{ fontSize: 10, marginTop: 3, color: pityRemaining === 0 ? C.green : C.dim }}>
+              {pityRemaining === 0
+                ? '✓ 当前已可必出 legendary（点击右侧保底刷出）'
+                : `距离必出 legendary 还差 ${pityRemaining} 个职业点 · 每次成功撤离 +1`}
+            </div>
           </div>
           <button
             onClick={onForceLegendary}
@@ -568,7 +575,15 @@ function EquipmentList({ rows, selectedClassId, cart, slotsState, onToggle, prev
   if (rows.length === 0) return <div style={{ color: C.dim, textAlign: 'center', padding: 30 }}>商店暂无装备</div>
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+    <div>
+      <div style={{
+        marginBottom: 12, padding: '8px 12px', borderRadius: 6,
+        background: `${C.yellow}12`, border: `1px solid ${C.yellow}40`,
+        fontSize: 11, color: C.yellow, lineHeight: 1.5,
+      }}>
+        ⚠ 入场装备为本局一次性消耗：撤离成功按耐久折算返还点数，阵亡则永久销毁——装备不会保留到下一局。
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
       {['probe', 'shield', 'weapon', 'comm'].map(slot => (
         <div key={slot}>
           <div style={{ fontSize: 11, color: C.dim, fontWeight: 700, marginBottom: 6, letterSpacing: 1 }}>
@@ -607,6 +622,7 @@ function EquipmentList({ rows, selectedClassId, cart, slotsState, onToggle, prev
           </div>
         </div>
       ))}
+      </div>
     </div>
   )
 }
