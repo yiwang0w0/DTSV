@@ -3,6 +3,14 @@
  * 跨周目持久化的知识碎片管理
  */
 
+// 28-C P0: 新玩家入口残片权重加成
+// 玩家首 3 局 raid 内，F01/F02/F03（按名称前缀匹配，三链分别覆盖 search/search/combat）的
+// 抽中权重 ×NEWBIE_ENTRY_BOOST_MULTIPLIER。目标：≥80% 新玩家在第一周触达入口残片。
+// 触发口径：player_class_runs 行数 < NEWBIE_RAID_THRESHOLD（每 raid 提交职业写 1 行，可靠计数）。
+const NEWBIE_RAID_THRESHOLD = 3
+const NEWBIE_ENTRY_BOOST_MULTIPLIER = 5
+const ENTRY_FRAGMENT_NAME_PATTERN = /^F0[1-3]\s/
+
 /**
  * Phase 20.4: 残片合成解锁
  * 玩家在某个残片上达到 decode_level=3 时调用：扫 fragment_combos 表
@@ -131,6 +139,27 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
 
   if (eligible.length === 0) return null
 
+  // 28-C P0: 新玩家入口残片权重加成 — 查 player_class_runs 行数判定新手期
+  // 查询失败按非新手处理，不阻塞残片发现
+  let isNewbie = false
+  try {
+    const { count } = await client
+      .from('player_class_runs')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    isNewbie = (count || 0) < NEWBIE_RAID_THRESHOLD
+  } catch (e) {
+    console.warn('[discoverFragment] newbie boost 查询失败:', e?.message)
+  }
+
+  const weightFn = (frag) => {
+    const base = frag.weight || 1
+    if (isNewbie && ENTRY_FRAGMENT_NAME_PATTERN.test(frag.name || '')) {
+      return base * NEWBIE_ENTRY_BOOST_MULTIPLIER
+    }
+    return base
+  }
+
   // 4. 分流：未发现的新残片 vs 已发现但未完全解码的残片
   const undiscovered = eligible.filter(f => !ownedMap.has(f.id))
   const decodable = eligible.filter(f => ownedMap.has(f.id) && ownedMap.get(f.id) < 3)
@@ -142,13 +171,13 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
   let isNew = false
 
   if (preferNew && undiscovered.length > 0) {
-    target = weightedPick(undiscovered)
+    target = weightedPick(undiscovered, weightFn)
     isNew = true
   } else if (decodable.length > 0) {
-    target = weightedPick(decodable)
+    target = weightedPick(decodable, weightFn)
     isNew = false
   } else if (undiscovered.length > 0) {
-    target = weightedPick(undiscovered)
+    target = weightedPick(undiscovered, weightFn)
     isNew = true
   } else {
     // 所有残片都已发现且完全解码
@@ -204,12 +233,13 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
 
 /**
  * 按权重随机选取一个残片
+ * weightFn 可选：用于动态调整权重（例如新玩家入口残片 boost）
  */
-function weightedPick(fragments) {
-  const totalWeight = fragments.reduce((sum, f) => sum + (f.weight || 1), 0)
+function weightedPick(fragments, weightFn = (f) => f.weight || 1) {
+  const totalWeight = fragments.reduce((sum, f) => sum + weightFn(f), 0)
   let remain = Math.random() * totalWeight
   for (const frag of fragments) {
-    remain -= frag.weight || 1
+    remain -= weightFn(frag)
     if (remain <= 0) return frag
   }
   return fragments[fragments.length - 1]

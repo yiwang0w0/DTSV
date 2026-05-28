@@ -271,6 +271,43 @@ FROM counts, totals;
 
 理想 H(4 endings) 上限 = 2 bits。
 
+#### M3.5 F01 首达率（新玩家入口残片）
+
+> 28-C P0：discoverFragment 已对 F01/F02/F03 加新手期权重 boost（player_class_runs < 3）。
+> 这条 metric 监测 boost 是否生效 — 第一周内新玩家是否成功触达入口残片。
+
+```sql
+-- 过去 14 天注册的玩家，至少打过 1 局 raid 的，是否已发现 F01
+WITH new_players AS (
+  SELECT p.id AS user_id, p.created_at,
+         (SELECT count(*) FROM player_class_runs r WHERE r.user_id = p.id) AS raids_played
+  FROM profiles p
+  WHERE p.created_at > now() - INTERVAL '14 days'
+),
+cohort AS (
+  SELECT user_id FROM new_players WHERE raids_played >= 1
+),
+f01_id AS (SELECT id FROM fragment_pool WHERE name LIKE 'F01 %' LIMIT 1),
+touched AS (
+  SELECT DISTINCT pf.user_id
+  FROM player_fragments pf, f01_id
+  WHERE pf.fragment_id = f01_id.id
+    AND pf.user_id IN (SELECT user_id FROM cohort)
+)
+SELECT
+  (SELECT count(*) FROM cohort) AS new_player_cohort,
+  (SELECT count(*) FROM touched) AS f01_touched,
+  CASE WHEN (SELECT count(*) FROM cohort) > 0
+       THEN round((SELECT count(*) FROM touched)::numeric * 100 / (SELECT count(*) FROM cohort), 1)
+       ELSE NULL
+  END AS f01_touch_rate_pct;
+```
+
+阈值：
+- 🔴 critical：`f01_touch_rate_pct < 60`（boost 失效，新玩家叙事入口断层）
+- 🟡 warn：`f01_touch_rate_pct < 80`（未达 28-C P0 目标 80%）
+- cohort < 5 时跳过判定（样本不足）
+
 ---
 
 ### 维度 4 — 完成度（Completion）
