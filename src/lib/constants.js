@@ -110,3 +110,20 @@ export const ENDING_KEYS = {
   MERGE:    'merge',     // 合流
   EXPLORE:  'explore',   // 探索
 }
+
+// ── Streak-breaker 连败兜底（research 2026-05-28-D P0） ──────────────
+// 玩家连续撤离失败局数 ≥ THRESHOLD 时，下一局自动施加"只降难度、不加经济收益"
+// 的兜底 buff。设计红线：严禁任何点数 / 掉落 / stash 净收益，防"故意送死刷 buff"套利。
+// 本块为阈值 + buff 配置 single source of truth；由 src/lib/server/raids.js 消费，
+// Phase 24b raid 入场流程接入（预埋不启用）。
+export const STREAK_BREAKER = {
+  THRESHOLD: 3,                  // 连续撤离失败局数达此值触发
+  NPC_DENSITY_MULTIPLIER: 0.8,  // 下一局 chamber maxNpcs ×0.8（-20% 密度）
+  FREE_INSURANCE_TIER: 'basic', // 免费授予的保险档（对应 equipment_insurance_tier，仅返还消耗装备、非净新经济）
+  // PI 引导者关怀对白池（触发时随机取一条；纯叙事安抚，不承诺任何机制收益）
+  GUIDE_DIALOGUE: [
+    '引导者，连续的失联不是你的终点。这一程，缝隙会替你多扛一些。',
+    '主控路径记得每一次坠落。下潜前，我已为你校准了更柔和的回廊。',
+    '别急着证明什么。这一局，让护壳替你呼吸一会儿——风险我替你压低了。',
+  ],
+}
