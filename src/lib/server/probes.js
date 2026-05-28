@@ -10,12 +10,84 @@ const PROBE_ENCOUNTER_CHANCE = 0.08 // 8% 进入 chamber 时遭遇探针
 const PROBE_FRAGMENTS_CARRY_LIMIT = 3 // 主人留下的可被夺残片最多 3 条
 const PROBE_ENCOUNTER_LOG_MAX = 50  // Phase 25d encounter_log 每条探针最多保留 50 条事件（防 JSONB 膨胀）
 
+// research-2026-05-27-v3 P1 — 抽取长尾衰减权重 + chamber 级密度上限
+const PROBE_TTL_BOOST_HOURS = 24    // 剩余 TTL 低于此值开始加权（给临近过期探针"最后一次被遇到"的机会）
+const PROBE_TTL_BOOST_MULT = 4      // remaining TTL → 0 时的最大权重倍数（长尾上限）
+const PROBE_DRAW_CANDIDATE_LIMIT = 20 // 单次抽取纳入加权的候选探针上限（兼作抽样密度上限，防大池全量加载）
+const CHAMBER_PROBE_DENSITY_CAP = 8 // 单 chamber 同时存活探针上限；超出时 FIFO 逐出最旧
+
 // Phase 25e — outcome → 收件箱文案 / kind 映射
 // 28-E P0 anonymization: 不存 attacker user_id，只存 pseudonym
 const PROBE_NOTIFY_META = {
   spared:          { kind: 'probe_spared',          emoji: '🕊️', verb: '放过' },
   defeated:        { kind: 'probe_defeated',        emoji: '💥', verb: '击败' },
   killed_attacker: { kind: 'probe_killed_attacker', emoji: '⚔️', verb: '反杀' },
+}
+
+/**
+ * research-2026-05-27-v3 P1 — 长尾衰减抽取权重。
+ * 剩余 TTL 越接近 0，权重越高（线性升到 PROBE_TTL_BOOST_MULT），
+ * 让快过期的探针在消失前更可能被遇到，减少"留了探针却从没被遇到就过期"的失落感。
+ *  - remaining >= PROBE_TTL_BOOST_HOURS → 基准权重 1
+ *  - 0 < remaining < PROBE_TTL_BOOST_HOURS → 1 → PROBE_TTL_BOOST_MULT 线性
+ *  - remaining <= 0 或时间无法解析 → 兜底权重 1
+ */
+function probeDrawWeight(probe, nowMs) {
+  const exp = probe?.expires_at ? Date.parse(probe.expires_at) : NaN
+  if (!Number.isFinite(exp)) return 1
+  const remainingHours = (exp - nowMs) / 3600000
+  if (!(remainingHours > 0) || remainingHours >= PROBE_TTL_BOOST_HOURS) return 1
+  const closeness = (PROBE_TTL_BOOST_HOURS - remainingHours) / PROBE_TTL_BOOST_HOURS // 0..1
+  return 1 + closeness * (PROBE_TTL_BOOST_MULT - 1)
+}
+
+/**
+ * 按长尾衰减权重从候选探针里抽一个。candidates 为空返回 null。
+ */
+function weightedPickProbe(candidates, nowMs) {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null
+  const weights = candidates.map((p) => probeDrawWeight(p, nowMs))
+  const total = weights.reduce((a, b) => a + b, 0)
+  if (!(total > 0)) return candidates[0]
+  let r = Math.random() * total
+  for (let i = 0; i < candidates.length; i++) {
+    r -= weights[i]
+    if (r <= 0) return candidates[i]
+  }
+  return candidates[candidates.length - 1]
+}
+
+/**
+ * research-2026-05-27-v3 P1 — chamber 级密度上限。
+ * leaveProbe 写入前调用：若该 chamber 存活探针数已接近 CAP，把最旧的若干条
+ * 提前过期（expires_at = now，复用既有时间过期过滤，不引入新 status / 不删行），
+ * 给即将插入的新探针腾出位置，使存活数稳定在 CHAMBER_PROBE_DENSITY_CAP 以内。
+ * 任何异常仅 console.error，不阻塞新探针写入（玩家已为此消耗了部件）。
+ */
+async function enforceChamberProbeDensity(client, chamberTemplateId) {
+  if (!chamberTemplateId) return
+  try {
+    const now = new Date().toISOString()
+    const { data: actives, error } = await client
+      .from('cross_room_probes')
+      .select('id')
+      .eq('chamber_template_id', chamberTemplateId)
+      .eq('status', 'active')
+      .gt('expires_at', now)
+      .order('created_at', { ascending: true })
+    if (error || !Array.isArray(actives)) return
+    // 即将再插入 1 条 → 逐出到 CAP - 1，保证插入后 <= CAP
+    const overflow = actives.length - (CHAMBER_PROBE_DENSITY_CAP - 1)
+    if (overflow <= 0) return
+    const evictIds = actives.slice(0, overflow).map((r) => r.id)
+    if (evictIds.length === 0) return
+    await client
+      .from('cross_room_probes')
+      .update({ expires_at: now })
+      .in('id', evictIds)
+  } catch (e) {
+    console.error('[enforceChamberProbeDensity] 失败:', e?.message)
+  }
 }
 
 function buildProbePseudonym(byUserId) {
@@ -136,6 +208,9 @@ export async function leaveProbe(client, opts) {
   if (!ownerId || !chamberTemplateId) return null
 
   try {
+    // research-2026-05-27-v3 P1 — 写入前先收敛该 chamber 的探针密度
+    await enforceChamberProbeDensity(client, chamberTemplateId)
+
     const { data, error } = await client
       .from('cross_room_probes')
       .insert({
@@ -177,7 +252,9 @@ export async function tryEncounterProbe(client, userId, chamberTemplateId) {
 
   try {
     const now = new Date().toISOString()
-    const { data, error } = await client
+    // research-2026-05-27-v3 P1 — 取一批候选（最旧优先,兼作密度抽样上限）后按长尾衰减权重抽一个,
+    // 而非固定取最旧的一条;让临近过期的探针更可能在消失前被遇到。
+    const { data: candidates, error } = await client
       .from('cross_room_probes')
       .select('*')
       .eq('chamber_template_id', chamberTemplateId)
@@ -185,13 +262,15 @@ export async function tryEncounterProbe(client, userId, chamberTemplateId) {
       .neq('owner_id', userId)
       .gt('expires_at', now)
       .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+      .limit(PROBE_DRAW_CANDIDATE_LIMIT)
 
     if (error) {
       // 不是真错误 — 单纯没找到
       return null
     }
+    if (!Array.isArray(candidates) || candidates.length === 0) return null
+
+    const data = weightedPickProbe(candidates, Date.now())
     if (!data) return null
 
     // Phase 25d — found_count 自增 + encounter_log 追加 "encountered" 事件
