@@ -1,9 +1,40 @@
 # Readme_Claude
 
-更新时间：2026-05-12（Asia/Tokyo） · Phase 27 角色立绘系统
-整理方式：基于全量源码交叉验证 + Phase 0-27 改造提交记录。
+更新时间：2026-05-28（Asia/Tokyo） · Phase 28-profile 个人主页（立绘/账户配置集中化）
+整理方式：基于全量源码交叉验证 + Phase 0-28 改造提交记录。
 
-## 最近变更（2026-05-12 / Phase 27）— 角色立绘系统（预设 + 玩家上传 + 管理员审核）
+## 最近变更（2026-05-28 / Phase 28-profile）— 个人主页 /profile
+
+> 用户反馈：立绘选择不该塞在游戏内左侧栏，应做独立"个人主页"集中配置账户情报 + 立绘。
+
+### 改动清单
+
+| 文件 | 改动 |
+|------|------|
+| `src/app/api/profile/route.js`（新） | GET 拉 profile + 统计 + 当前立绘；POST `update_info` 更新 username(写 auth user_metadata + profiles 镜像) / motto / killmsg / lastword / gender（白名单 + 长度裁剪，service-role 绕 RLS）|
+| `src/app/profile/page.js`（新） | 个人主页三块：① 立绘大预览(3:5) + "🎴 选择/上传立绘"按钮(复用 PortraitSelectorModal) ② 账户情报表单(5 字段含字数计) ③ 战绩统计只读卡(validgames/wingames/elo/credits/gold) |
+| `src/app/layout.js` | nav 加 `/profile`「个人主页」入口(user-only) |
+| `src/components/PortraitDisplay.jsx` | **改为纯展示** — 移除 onChangeClick + 游戏内 modal；未设置时显示"前往个人主页设置 →"链接(新标签开 /profile)；已设置纯展示 + 阵亡灰度 KIA |
+| `src/app/game/[id]/GameClientPage.jsx` | 移除 PortraitSelectorModal import + mount + portraitOpen/localPortraitUrl state；PortraitDisplay 只传 portraitUrl + dead |
+
+### 设计
+
+- **立绘的选择/上传/审核全部集中在 /profile**，游戏内只读展示（来自 joinRoom 注入的 `player.portraitUrl`）
+- 立绘上传 → pending → admin 🎴 立绘审核 tab 审核（Phase 27 流程不变）
+- 账户情报：username 权威源是 auth `user_metadata`，profiles.username 是镜像；motto/killmsg/lastword/gender 直接写 profiles
+- PortraitSelectorModal 组件保留（被 /profile 复用），只是游戏内不再挂载
+
+### 走查
+
+1. nav 点「个人主页」→ `/profile`
+2. 改个性签名 / 击杀宣言 → 保存 → "✓ 已保存"
+3. 点立绘预览或"🎴 选择/上传立绘" → 弹 PortraitSelectorModal → 选预设/上传 → 预览即时更新
+4. 进游戏 → 左栏立绘卡纯展示（未设置则显示"前往个人主页设置 →"，点击新标签开 /profile）
+5. 阵亡 → 立绘灰度 + ✕ KIA
+
+---
+
+## 历史变更（2026-05-12 / Phase 27）— 角色立绘系统（预设 + 玩家上传 + 管理员审核）
 
 > 主题：玩家在游戏左侧栏（HP 卡和"区域评估"之间）展示一张 3:5 比例的角色立绘。
 > 两个来源：(a) admin 添加的系统预设，可直接选；(b) 玩家上传，需 admin 审核后才能选。

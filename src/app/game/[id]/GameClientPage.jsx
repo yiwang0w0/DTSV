@@ -16,7 +16,6 @@ import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
 import PortraitDisplay from '@/components/PortraitDisplay'
-import PortraitSelectorModal from '@/components/PortraitSelectorModal'
 import OmegaCountdown from '@/components/OmegaCountdown'
 import DeathReviewModal from '@/components/DeathReviewModal'
 import {
@@ -77,9 +76,6 @@ export default function GameClientPage() {
   const [craftOpen, setCraftOpen] = useState(false)
   const [extractOpen, setExtractOpen] = useState(false)
   const [joinLoadoutOpen, setJoinLoadoutOpen] = useState(false)
-  const [portraitOpen, setPortraitOpen] = useState(false)
-  // Phase 27: 本地立绘 URL 状态(优先用 meBase.portraitUrl，覆盖时立即生效)
-  const [localPortraitUrl, setLocalPortraitUrl] = useState(null)
   // Phase 22: 死亡复盘 — alive→false 时拉 player_death_log 弹一次
   const [deathReview, setDeathReview] = useState(null)
   const deathHandledRef = useRef(false)
@@ -595,11 +591,6 @@ export default function GameClientPage() {
         onClose={() => setJoinLoadoutOpen(false)}
         onConfirm={handleJoinWithLoadout}
       />
-      <PortraitSelectorModal
-        open={portraitOpen}
-        onClose={() => setPortraitOpen(false)}
-        onSelected={(_pid, url) => setLocalPortraitUrl(url)}
-      />
       <DeathReviewModal
         review={deathReview}
         onClose={() => setDeathReview(null)}
@@ -826,10 +817,9 @@ export default function GameClientPage() {
             )}
           </div>
 
-          {/* Phase 27: 角色立绘 */}
+          {/* Phase 27/28: 角色立绘（纯展示，设置入口在 /profile 个人主页） */}
           <PortraitDisplay
-            portraitUrl={localPortraitUrl ?? meBase?.portraitUrl ?? null}
-            onChangeClick={() => setPortraitOpen(true)}
+            portraitUrl={meBase?.portraitUrl ?? null}
             dead={meBase && !meBase.alive}
           />
 

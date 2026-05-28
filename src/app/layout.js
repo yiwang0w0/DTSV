@@ -44,6 +44,7 @@ function Nav({ user, onLogout }) {
     ...(user ? [{ href: '/archive', label: '档案库' }] : []),
     ...(user ? [{ href: '/codex', label: '纪元档案' }] : []),
     ...(user ? [{ href: '/contracts', label: '合同' }] : []),
+    ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
   ]
 

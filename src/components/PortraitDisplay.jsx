@@ -1,14 +1,16 @@
 'use client'
 
 /**
- * Phase 27 — PortraitDisplay
+ * Phase 27 / 28 — PortraitDisplay
  *
- * 在游戏左侧栏展示玩家当前选定的立绘。3:5 比例容器。
- * 点击立绘 / "换立绘"按钮 → 弹出 PortraitSelectorModal。
+ * 游戏左侧栏展示玩家立绘（3:5 比例）。**纯展示**：
+ *   - 立绘的选择 / 上传 / 审核全部移到 /profile 个人主页（Phase 28）
+ *   - 已设置 → 展示立绘；阵亡时灰度 + ✕ KIA
+ *   - 未设置 → 占位提示 + "前往个人主页设置"链接（新标签打开 /profile）
  *
  * Props:
- *   portraitUrl: string | null - 立绘 URL（来自 meBase.portraitUrl）
- *   onChangeClick(): 点击触发(打开 selector)
+ *   portraitUrl: string | null
+ *   dead: boolean
  */
 
 const C = {
@@ -17,7 +19,7 @@ const C = {
   cyan: '#00d4ff', purple: '#b47dff',
 }
 
-export default function PortraitDisplay({ portraitUrl, onChangeClick, dead = false }) {
+export default function PortraitDisplay({ portraitUrl, dead = false }) {
   return (
     <div style={{
       position: 'relative',
@@ -29,13 +31,7 @@ export default function PortraitDisplay({ portraitUrl, onChangeClick, dead = fal
         : `linear-gradient(135deg, ${C.bg2} 0%, ${C.bg1} 60%, ${C.bg0} 100%)`,
       border: `1px solid ${C.border}`,
       overflow: 'hidden',
-      cursor: 'pointer',
-      transition: 'border-color 0.2s, box-shadow 0.2s',
-    }}
-      onClick={onChangeClick}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.boxShadow = `0 0 12px ${C.cyan}30` }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none' }}
-    >
+    }}>
       {portraitUrl ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -59,28 +55,28 @@ export default function PortraitDisplay({ portraitUrl, onChangeClick, dead = fal
               ✕ KIA
             </div>
           )}
-          {/* hover overlay 提示换立绘 */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '6px 10px',
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)',
-            fontSize: 10, color: C.dimB, textAlign: 'center',
-            pointerEvents: 'none',
-          }}>
-            点击更换
-          </div>
         </>
       ) : (
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 8, color: C.dim,
+          gap: 8, color: C.dim, padding: '0 14px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 56, opacity: 0.4 }}>👤</div>
-          <div style={{ fontSize: 12, fontWeight: 600 }}>选择角色立绘</div>
-          <div style={{ fontSize: 10, color: C.dim, padding: '0 14px', textAlign: 'center', lineHeight: 1.5 }}>
-            可从预设选取，或上传后由管理员审核
-          </div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>未设置角色立绘</div>
+          <a
+            href="/profile"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 11, color: C.cyan, textDecoration: 'none',
+              padding: '4px 10px', borderRadius: 6,
+              background: `${C.cyan}18`, border: `1px solid ${C.cyan}40`,
+              marginTop: 2,
+            }}
+          >
+            前往个人主页设置 →
+          </a>
         </div>
       )}
     </div>
