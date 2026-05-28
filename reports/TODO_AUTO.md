@@ -19,7 +19,7 @@
 
 ### ⚡ 中优 Narrative（来自 research 主题 C）
 
-- [research-2026-05-12] **P1** — Archive codex 主线/支线分类：fragment_pool 加 `is_main_story BOOLEAN` + archive/codex 加"📜 主线"折叠卡按 F01→F15 顺序展示。⚠ /codex 页面已由 28-C 建（六纪元分组），但主线 vs 支线 combo 的区分仍未做。
+- [research-2026-05-12] **P1** — Archive codex 主线/支线分类：fragment_pool 加 `is_main_story BOOLEAN` + archive/codex 加"📜 主线"折叠卡按 F01→F15 顺序展示。⚠ /codex 页面已由 28-C 建（六纪元分组），但主线 vs 支线 combo 的区分仍未做。 [doing-2026-05-29T07:23]
 - [research-2026-05-12] **P1** — 残片 lv 升级 toast 动画：discoverFragment 返回 newLevel > oldLevel 时，客户端弹 200ms 闪光 toast（升级反馈当前只在日志里不够突出）。
 
 ### 💡 低优
