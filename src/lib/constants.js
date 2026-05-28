@@ -127,3 +127,20 @@ export const STREAK_BREAKER = {
     '别急着证明什么。这一局，让护壳替你呼吸一会儿——风险我替你压低了。',
   ],
 }
+
+// ── 撤离信号锁定窗口（research 2026-05-29-A P0） ─────────────────────
+// 把撤离从"即时安全按钮"改成"N 回合承诺"：点撤离 → 发出撤离信号进入脆弱态，
+// 必须再坚持 WINDOW_TURNS 个回合才真正完成结构退避。锁定期内只放大异步压力：
+//   - 环境/个人污染加速 tick（pollution.js: tickEnvPollution + applySignalLockPollution）
+//   - 该玩家遭遇异步探针的概率提升（signalLockProbeEncounterMult，Phase 21 tryEncounterProbe 读取）
+// 设计红线（notes-2026-05-29-A 发现 7）：保留异步优势 —— 张力来自环境压力，
+//   绝不召唤同屏真人对手（no synchronous camper）。
+// 本块为 single source of truth；由 src/lib/server/signalLock.js + pollution.js 消费。
+// 预埋不启用（ENABLED=false），等 Phase 21/24b 接 extractPlayer 控制流 + 回合 tick 循环 + 倒计时 UI 后翻 true。
+export const SIGNAL_LOCK = {
+  ENABLED: false,            // 预埋开关：true 后 extractPlayer 首次点撤离改为发信号
+  WINDOW_TURNS: 2,           // 信号锁定持续回合数（脆弱态时长）
+  ENV_ACCEL_BONUS: 3,        // 锁定期每回合额外环境污染（叠加在 tickEnvPollution 之上，每个锁定玩家计一份）
+  PERSONAL_ACCEL: 4,         // 锁定期发出信号玩家每回合额外个人污染
+  PROBE_ENCOUNTER_MULT: 1.5, // 锁定期该玩家遭遇异步探针的概率倍率
+}

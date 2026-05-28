@@ -22,6 +22,7 @@
 import dynamic from 'next/dynamic'
 import { useState } from 'react'
 import { T } from './gameUi'
+import { SIGNAL_LOCK } from '@/lib/constants'
 
 // 远星函馆 FX：撤离面板顶部 Ω 接口效果（仅打开时按需加载）
 const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
@@ -160,6 +161,24 @@ export default function ExtractionModal({
             </div>
           </label>
 
+          {/* 29-A P0: 撤离信号锁定窗口 — 撤离不是安全按钮而是承诺（预埋，SIGNAL_LOCK.ENABLED 后显示） */}
+          {SIGNAL_LOCK.ENABLED && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+              background: `${T.yellow}12`, border: `1px solid ${T.yellow}55`,
+              borderLeft: `3px solid ${T.yellow}`,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.yellow, marginBottom: 4 }}>
+                🛰 撤离不是安全按钮，是一次承诺
+              </div>
+              <div style={{ fontSize: 10.5, color: T.dimB, lineHeight: 1.5 }}>
+                发出撤离信号后进入 <strong style={{ color: T.yellow }}>{SIGNAL_LOCK.WINDOW_TURNS}</strong> 回合脆弱态：
+                环境与个人污染加速、异步探针遭遇概率提升。坚持到信号锁定完成才能结构退避 ——
+                压力来自环境，不会有真人蹲点。
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => canExtract && onExtract({ leaveProbe: leaveProbe && platformPartCount > 0 })}
             disabled={!canExtract}
@@ -173,7 +192,7 @@ export default function ExtractionModal({
               opacity: canExtract ? 1 : 0.6,
             }}
           >
-            {busy ? '撤离中…' : !costMet ? '消耗不足' : '🚪 完成结构退避'}
+            {busy ? '撤离中…' : !costMet ? '消耗不足' : (SIGNAL_LOCK.ENABLED ? '🛰 发出撤离信号' : '🚪 完成结构退避')}
           </button>
         </div>
       </div>

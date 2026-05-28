@@ -58,7 +58,8 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK } from '@/lib/constants'
+import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
 import {
   appendGameLog,
   applyRoomLifecycle,
@@ -2156,6 +2157,24 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   }
   const playerMapId = mapConfig.map_id   // 实际是 chamber.templateId（兼容旧代码引用）
 
+  // ── research 2026-05-29-A P0: 撤离信号锁定窗口（预埋，SIGNAL_LOCK.ENABLED=false 时整段跳过） ──
+  // 把撤离从即时安全按钮改成承诺：首次点撤离不立即退避，而是发出撤离信号进入
+  // SIGNAL_LOCK.WINDOW_TURNS 回合脆弱态（环境/个人污染加速 + 探针遭遇概率提升，详见 signalLock.js）。
+  // 回合循环 tick 到 signalLock 归零（tickSignalLock ready）后，玩家再次进入本函数走下方完成分支。
+  // 红线（notes-2026-05-29-A 发现 7）：纯异步压力，绝不召唤同屏真人对手。
+  // 启用需 Phase 21/24b 同步接：回合 tick 调 tickSignalLock + applySignalLockPollution、
+  //   tryEncounterProbe 读 signalLockProbeEncounterMult、倒计时 UI。
+  if (SIGNAL_LOCK.ENABLED && !isSignalLockActive(player)) {
+    const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+    setResolutionPlayer(resolution, user.id, beginSignalLock(player))
+    appendResolutionLog(
+      resolution,
+      `🛰 ${player.name} 发出撤离信号 — 进入 ${SIGNAL_LOCK.WINDOW_TURNS} 回合脆弱态（污染加速 · 探针遭遇概率提升），坚持到信号锁定完成方可结构退避`,
+      'system',
+    )
+    return await persistResolutionWithPollution(client, room, resolution, user.id)
+  }
+
   // ── exit_cost 校验与扣除 ──
   let inventoryAfter = [...(player.inventory || [])]
   const cost = mapConfig.exit_cost
@@ -2288,6 +2307,7 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     alive: true,
     lootPrompt: null,
     omegaCountdown: null,
+    signalLock: null,   // 29-A: 信号锁定完成，清理脆弱态
     omegaMaterials: (player.omegaMaterials || 0) + omegaExtracted,
     extractedItems: [
       ...(player.extractedItems || []),

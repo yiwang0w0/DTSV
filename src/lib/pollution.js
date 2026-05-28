@@ -17,7 +17,7 @@
  *   4. 应用 search / combat 修正：apply*Modifier(baseValue, effectivePollution)
  */
 
-import { POLLUTION_CONFIG } from './constants'
+import { POLLUTION_CONFIG, SIGNAL_LOCK } from './constants'
 
 // ── 默认权重，可通过参数覆盖 ──────────────────────────
 export const POLLUTION_WEIGHTS = {
@@ -109,6 +109,16 @@ export function applyMeltdownTraversePollution(player) {
   return bumpPersonal(player, Math.round(POLLUTION_CONFIG.MELTDOWN_COST * factor))
 }
 
+/**
+ * 29-A P0: 撤离信号锁定期 — 发出信号玩家个人污染额外加速（每回合调用一次）。
+ * 非锁定期原样返回。SIGNAL_LOCK.ENABLED=false 时玩家不会有 signalLock 状态，故等价 no-op。
+ */
+export function applySignalLockPollution(player) {
+  const t = player?.signalLock?.turnsLeft
+  if (!(Number.isFinite(t) && t > 0)) return player
+  return bumpPersonal(player, Math.round(Number(SIGNAL_LOCK.PERSONAL_ACCEL) || 0))
+}
+
 /** 在低污染区(envPollution≤20%) + 个人污染 > 0 时自然衰减/回合 */
 export function applyRetreatDecay(player, envPollution) {
   if ((envPollution || 0) > 20) return player
@@ -145,12 +155,17 @@ export function tickEnvPollution(gv, mapAccelById) {
   let maxAccel = 0
   let weaponHolders = 0
   let maxChamberProgress = 0
+  // 29-A P0: 撤离信号锁定期 — 每个处于脆弱态的玩家额外加速环境污染（仅 SIGNAL_LOCK.ENABLED 后才会有锁定玩家）
+  let signalLockAccel = 0
   for (const p of players) {
     if (!p?.alive || p?.extracted) continue
     const mapId = p.map ?? 0
     const accel = mapAccelLookup(mapAccelById, mapId)
     if (accel > maxAccel) maxAccel = accel
     if (p.loadout?.weapon) weaponHolders++
+    if (Number.isFinite(p?.signalLock?.turnsLeft) && p.signalLock.turnsLeft > 0) {
+      signalLockAccel += Number(SIGNAL_LOCK.ENV_ACCEL_BONUS) || 0
+    }
     // 取所有玩家最深进度（chamberIndex / raidPath 长度）
     const pathLen = Array.isArray(gv.raidPath) ? gv.raidPath.length : 0
     const progress = pathLen > 0 ? ((p.chamberIndex || 0) / pathLen) : 0
@@ -164,7 +179,7 @@ export function tickEnvPollution(gv, mapAccelById) {
 
   // 武器装载者每人额外 +1 环境污染/回合（spec §6.3 weapon 副作用）
   const baseInc = POLLUTION_CONFIG.BASE_GROWTH * stageMultiplier
-  const inc = baseInc + maxAccel + weaponHolders
+  const inc = baseInc + maxAccel + weaponHolders + signalLockAccel
   return {
     ...gv,
     envPollution: clamp((gv.envPollution || 0) + inc, 0, 100),
