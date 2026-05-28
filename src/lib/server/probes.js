@@ -25,6 +25,17 @@ function buildProbePseudonym(byUserId) {
 }
 
 /**
+ * 28-E P0 — 探针主人匿名化：从 probe id（BIGSERIAL）派生稳定 pseudonym。
+ * 遭遇方只能看到这个代号，绝不暴露主人的 owner_id / username / email。
+ * 同一探针每次遭遇得到相同代号 → 支持 Nemesis / Ghost Player 叙事识别。
+ */
+export function buildOwnerPseudonym(probeId) {
+  if (probeId == null || probeId === '') return '匿名观测者'
+  const s = String(probeId).replace(/-/g, '')
+  return `观测者-${s.slice(-4).padStart(4, '0').toUpperCase()}`
+}
+
+/**
  * Phase 25e — 给探针主人投递一条"回信"。
  * 仅在最终 outcome (spared/defeated/killed_attacker) 时调用，encountered 中间态不发。
  * 任何异常仅 console.error，不阻塞战斗结算。

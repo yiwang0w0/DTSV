@@ -35,7 +35,7 @@ import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
 import { generateRaidPath, mergeUnlocksRules } from '@/lib/server/pathGenerator'
-import { leaveProbe, tryEncounterProbe, defeatProbe, recordProbeOutcome } from '@/lib/server/probes'
+import { leaveProbe, tryEncounterProbe, defeatProbe, recordProbeOutcome, buildOwnerPseudonym } from '@/lib/server/probes'
 import { processEventTrigger } from '@/lib/server/events'
 import {
   evaluateBranchNodes,
@@ -2010,7 +2010,8 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
         ...nextPlayer,
         probeEncounter: {
           probeId: probe.id,
-          ownerId: probe.owner_id,
+          // 28-E P0: 只下发稳定 pseudonym，绝不把 owner_id 暴露给遭遇方
+          ownerPseudonym: buildOwnerPseudonym(probe.id),
           hp: probe.hp,
           maxHp: probe.max_hp,
           atk: probe.atk,

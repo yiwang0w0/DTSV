@@ -1036,7 +1036,7 @@ export default function GameClientPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>未知探针（来自其他玩家）</div>
+                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>未知探针 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>📡 异步探针</div>
                       </div>
                       <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
