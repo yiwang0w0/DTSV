@@ -167,6 +167,20 @@ function buildChamberAccelTable(gamevars) {
   return table
 }
 
+/** Phase 22: 死亡复盘埋点 — 从 room.started_at 算本局存活秒数（无 started_at → null） */
+function raidSurvivedSeconds(room) {
+  const startedAt = room?.started_at ? new Date(room.started_at).getTime() : null
+  if (startedAt == null || Number.isNaN(startedAt)) return null
+  const sec = Math.floor((Date.now() - startedAt) / 1000)
+  return sec >= 0 ? sec : null
+}
+
+/** Phase 22: 死亡时 chamber 深度（1-based）— player.chamberIndex + 1（无效 → null，由 deathLog 兜底） */
+function chamberDepthOf(player) {
+  const idx = player?.chamberIndex
+  return Number.isFinite(idx) && idx >= 0 ? idx + 1 : null
+}
+
 // ── 全局道具/NPC 池缓存（按 chamber_template_ids 过滤） ──
 let _allItemsCache = null
 let _allNpcsCache = null
@@ -1231,6 +1245,8 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
               mapId: player.map ?? 0,
               reason: 'npc_counter',
               context: { npcName: instance.npc.name, envPollution: resolution.gamevars.envPollution || 0 },
+              survivedSeconds: raidSurvivedSeconds(room),
+              chamberDepth: chamberDepthOf(cur),
             })
           } catch (e) { console.error('[attackNpc] deathLog 失败:', e?.message) }
         }
@@ -1356,6 +1372,8 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
         mapId: attackerAfterTurn.map ?? 0,
         reason: 'pvp',
         context: { attacker: target.name, role: 'attacker_killed_by_counter' },
+        survivedSeconds: raidSurvivedSeconds(room),
+        chamberDepth: chamberDepthOf(attackerAfterTurn),
       })
     } catch (e) { console.error('[attackPlayer] deathLog 失败:', e?.message) }
   }
@@ -1380,6 +1398,8 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
         mapId: defenderAfterTurn.map ?? 0,
         reason: 'pvp',
         context: { attacker: attacker.name, role: 'defender_killed' },
+        survivedSeconds: raidSurvivedSeconds(room),
+        chamberDepth: chamberDepthOf(defenderAfterTurn),
       })
     } catch (e) { console.error('[attackPlayer] defender deathLog 失败:', e?.message) }
 
@@ -2093,6 +2113,8 @@ async function actOnProbe(client, room, gamevars, user, action) {
           mapId: player.map ?? 0,
           reason: 'npc_counter',
           context: { probeOwner: probeEnc.ownerId, envPollution: resolution.gamevars.envPollution || 0 },
+          survivedSeconds: raidSurvivedSeconds(room),
+          chamberDepth: chamberDepthOf(player),
         })
       } catch (e) { console.error('[actOnProbe] deathLog 失败:', e?.message) }
       // Phase 25d — 记录 killed_attacker outcome（探针反杀玩家）

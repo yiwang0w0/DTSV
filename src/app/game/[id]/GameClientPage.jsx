@@ -18,6 +18,7 @@ import PrepareModal from '@/components/PrepareModal'
 import PortraitDisplay from '@/components/PortraitDisplay'
 import PortraitSelectorModal from '@/components/PortraitSelectorModal'
 import OmegaCountdown from '@/components/OmegaCountdown'
+import DeathReviewModal from '@/components/DeathReviewModal'
 import {
   Btn,
   BuffTag,
@@ -79,6 +80,9 @@ export default function GameClientPage() {
   const [portraitOpen, setPortraitOpen] = useState(false)
   // Phase 27: 本地立绘 URL 状态(优先用 meBase.portraitUrl，覆盖时立即生效)
   const [localPortraitUrl, setLocalPortraitUrl] = useState(null)
+  // Phase 22: 死亡复盘 — alive→false 时拉 player_death_log 弹一次
+  const [deathReview, setDeathReview] = useState(null)
+  const deathHandledRef = useRef(false)
 
   const mapIdRef = useRef(0)
 
@@ -471,6 +475,67 @@ export default function GameClientPage() {
     }
   }
 
+  // Phase 22: 死亡复盘 — 检测 alive→false，拉 player_death_log 最新一行组装 review（缺字段用客户端快照兜底）
+  useEffect(() => {
+    if (!inGame || !meBase || meBase.alive !== false) {
+      deathHandledRef.current = false
+      return undefined
+    }
+    if (deathHandledRef.current) return undefined
+    deathHandledRef.current = true
+
+    // 死亡当刻的客户端快照（DB 行缺字段时兜底）
+    const startedAt = room?.started_at ? new Date(room.started_at).getTime() : null
+    const fallbackSurvived = startedAt && !Number.isNaN(startedAt)
+      ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : null
+    const idx = meBase.chamberIndex ?? 0
+    const fallbackDepth = Number.isFinite(idx) && idx >= 0 ? idx + 1 : null
+    const fallbackChamberName = raidPath[idx]?.name || null
+
+    let cancelled = false
+    const assemble = (row) => {
+      if (cancelled) return
+      const ctx = row?.context || {}
+      const lost = Array.isArray(ctx.lostFragments) ? ctx.lostFragments
+        : Array.isArray(ctx.destroyedFragments) ? ctx.destroyedFragments : []
+      setDeathReview({
+        causeCategory: row?.cause_category || 'other',
+        causeText: row?.reason_text || null,
+        survivedSeconds: row?.survived_seconds ?? fallbackSurvived,
+        chamberDepth: row?.chamber_depth ?? fallbackDepth,
+        chamberName: fallbackChamberName,
+        lostFragments: lost,
+      })
+    }
+    const fetchRow = async () => {
+      try {
+        const { data } = await supabase
+          .from('player_death_log')
+          .select('reason_text, cause_category, survived_seconds, chamber_depth, context')
+          .eq('user_id', user.id)
+          .eq('room_id', Number(roomId))
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        return data || null
+      } catch {
+        return null
+      }
+    }
+    ;(async () => {
+      let row = await fetchRow()
+      // 极少数情况下 realtime 早于 death_log commit 到达 → 600ms 后重试一次
+      if (!row && !cancelled) {
+        await new Promise(r => setTimeout(r, 600))
+        if (!cancelled) row = await fetchRow()
+      }
+      assemble(row)
+    })()
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inGame, meBase?.alive, roomId, user?.id])
+
   if (authLoading || loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
@@ -534,6 +599,10 @@ export default function GameClientPage() {
         open={portraitOpen}
         onClose={() => setPortraitOpen(false)}
         onSelected={(_pid, url) => setLocalPortraitUrl(url)}
+      />
+      <DeathReviewModal
+        review={deathReview}
+        onClose={() => setDeathReview(null)}
       />
 
       <style>{`
