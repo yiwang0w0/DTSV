@@ -82,7 +82,7 @@
 
 ## 2026-05-28 — research (主题 D 延伸 — 保险 / 连败兜底 / 死亡复盘)
 
-- [research-2026-05-28-D] **P0** — 死亡复盘 UI：用 27-v2 提议的 `player_death_log.cause_category/survived_seconds/chamber_depth` 在 `src/app/game/[id]/page.js` 死亡分支弹"📜 死亡复盘"（死因/存活时间/chamber 路径/被销毁 fragment）。缺它则因果不可识别度退回 Returnal 反模式，Phase 22 数据白埋。详见 [notes-2026-05-28-D.md](../research/notes-2026-05-28-D.md)
+- [research-2026-05-28-D] **P0** — 死亡复盘 UI：用 27-v2 提议的 `player_death_log.cause_category/survived_seconds/chamber_depth` 在 `src/app/game/[id]/page.js` 死亡分支弹"📜 死亡复盘"（死因/存活时间/chamber 路径/被销毁 fragment）。缺它则因果不可识别度退回 Returnal 反模式，Phase 22 数据白埋。详见 [notes-2026-05-28-D.md](../research/notes-2026-05-28-D.md) [doing-2026-05-28T11:23]
 - [research-2026-05-28-D] **P0** — Phase 24b 同期建表加 `equipment_instances.insurance_tier ENUM('none','basic','premium')` + `insurance_premium_pt INT`，basic 30% / premium 60% 死亡返还概率。2026 extraction genre baseline（Tarkov / EVE Vanguard / Arc Raiders 都已迭代），拖到 Phase 25+ 会被新玩家流失数据反推回来。
 - [research-2026-05-28-D] **P0** — Streak-breaker：`failedRetreats >= 3` 触发下一局自动 buff（免费 basic 保险 + chamber NPC 密度 -20% + PI 引导者关怀对白）。**只降难度不加经济收益**，防 "故意送死刷 buff"。文件：`src/lib/server/raids.js` preRaidSetup + `src/lib/constants.js` 阈值常量。
 
