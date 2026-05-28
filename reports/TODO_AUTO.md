@@ -14,7 +14,7 @@
 
 ### 🔥 高优 Retention（来自 research 主题 A）
 
-- [research-2026-05-12] **P1** — 新手保护期机制：前 3 局 raid 撤离失败返还 50% 入场购买点数。涉及 `profiles.first_raids_count` 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"。⚠ 部分被 28-D Streak-breaker（连败兜底=免费 basic 保险 + NPC 密度 -20%）覆盖，但"撤离失败返还点数"分支仍未做，二者可叠加。
+- [research-2026-05-12] **P1** — 新手保护期机制：前 3 局 raid 撤离失败返还 50% 入场购买点数。涉及 `profiles.first_raids_count` 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"。⚠ 部分被 28-D Streak-breaker（连败兜底=免费 basic 保险 + NPC 密度 -20%）覆盖，但"撤离失败返还点数"分支仍未做，二者可叠加。 [doing-2026-05-29T04:23]
 - [research-2026-05-12] **P1** — Loadout preset 节省入场摩擦：profiles 加 `saved_loadouts JSONB`(3-5 slot) + PrepareModal 顶部"📋 预设"下拉。
 
 ### ⚡ 中优 Narrative（来自 research 主题 C）
