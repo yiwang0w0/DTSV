@@ -89,7 +89,7 @@
 ## 2026-05-28 — research (主题 E 延伸 — 持续痕迹 / 匿名化 / Nemesis / 滥用分流)
 
 - [research-2026-05-28-E] **P0** — 探针主人匿名化（Phase 21 上线前必锁）：`tryEncounterProbe` / `resolveProbeFight` / 遭遇 UI / `player_notifications` 回信文本全部禁止显示 probe-owner username/email，改为稳定 pseudonym（`观测者-<probe_id 后4位>` 或 `第N位幸存者` + 段位）。Ghost Player Effect 核心 anti-griefing 资产，事后改 = PR 灾难。详见 [notes-2026-05-28-E.md](../research/notes-2026-05-28-E.md) → ✅ DONE 2026-05-28T14:23 commit 7975241: 遭遇方 payload 不再含 probe owner_id（gameActions movePlayer），改下发 buildOwnerPseudonym(probe.id) 派生的稳定代号 `观测者-XXXX`（新 helper，从 BIGSERIAL id 末 4 位）；遭遇 UI 卡展示该代号替代 owner。actOnProbe 不读 ownerId 故移除安全；notifyProbeOwner 回信早已用 attacker pseudonym。无 resolveProbeFight 函数（实际为 actOnProbe）。next lint 通过
-- [research-2026-05-28-E] **P0** — chamber 持续痕迹 v1：新建 `chamber_residue(owner_pseudonym, chamber_template_id, last_npc_killed, last_loot_taken, last_death_location, expires_at +72h)`。raid 结束 / 探针被遭遇时 snapshot，下位进场玩家 prefetch 最近 5 条作为环境信息（"💀 这里曾有人倒下"）。Hunt: Showdown 2.7 "the world remembers" 2026 extraction 标杆，DTSV chamber 失忆是异步层根性缺口。
+- [research-2026-05-28-E] **P0** — chamber 持续痕迹 v1：新建 `chamber_residue(owner_pseudonym, chamber_template_id, last_npc_killed, last_loot_taken, last_death_location, expires_at +72h)`。raid 结束 / 探针被遭遇时 snapshot，下位进场玩家 prefetch 最近 5 条作为环境信息（"💀 这里曾有人倒下"）。Hunt: Showdown 2.7 "the world remembers" 2026 extraction 标杆，DTSV chamber 失忆是异步层根性缺口。 [doing-2026-05-28T15:23]
 - [research-2026-05-28-E] **P1** — Nemesis 重复遭遇升级：新建 `probe_encounter_pairs(attacker_id, owner_id, encounter_count, last_outcome, nemesis_since)`，同对 30 日 ≥3 次遭遇 → 标记 nemesis，遭遇 UI 显示 banner + 双方"宿敌再次相遇"通知。USPTO 9539518 Nemesis 模式把重复噪声变 emergent narrative，与 v3 P1 aggression score 互补不冲突。
 
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
