@@ -145,9 +145,63 @@
 
 > 以下章节标题已预留，对应 TODO_AUTO.md 中尚未完成的延伸任务。请勿调整章节编号，后续提交会按号填充。
 
-### 6.1 Additive Evergreen 条款（待填 — research-2026-05-28-C P0）
+### 6.1 Additive Evergreen 条款（research-2026-05-28-C P0）
 
-预留位置：F01-F15 永久可发现 / 不删 / 不 FOMO 化的宪法表述。详见 [reports/TODO_AUTO.md](../reports/TODO_AUTO.md) 中 `research-2026-05-28-C` 条目。
+> **宪法级别条款。** 本节是 DTSV 叙事系统的不可妥协承诺，PR review 时对照执行。
+> 直接对 Destiny 2 内容 vaulting 灾难的预防性回应，参考 Marathon（Bungie）"additive evergreen" 与 Warframe 反 FOMO 哲学。
+
+#### 6.1.1 永久可发现承诺
+
+- **F01-F15 是永久可发现的**。任何注册账号、任何赛季、任何时间加入 DTSV 的玩家，都能在游戏内通过常规玩法（raid 拾取 + 三链合成 + 解码）触达全部 15 个残片。
+- 这是**对玩家的承诺**，不是"目前的默认行为"。`fragment_pool` 表里的 F01-F15 行不得被删、不得被打标为"已 retire"、不得被赛季配置覆盖为不可拾取。
+- 老残片（"结构稳定性年报-第 5 纪元"等历史文本资产）同样适用：写出来过的 lore 永不撤回。
+
+#### 6.1.2 仅可加不可减（additive only）
+
+- Phase 25+ 任何叙事新增内容（F16+ 残片 / 新纪元 / 新合成图谱 / 新音频日志）**只能扩张总集合**，不得替换或移除已有元素。
+- 残片合成图谱（discoverFragment 三链）的边只能加，不能删。若发现某条三链设计失败，**修文案 / 调权重**，不删边。
+- 新增内容不得通过改写老残片文本"挪用"已有 F01-F15 编号。新内容用新编号。
+
+#### 6.1.3 反 FOMO 红线
+
+> "Warframe has a more approachable philosophy — they do not reset power every season and do not instill FOMO with raid races or anything with arbitrary timers." — Lords of Gaming 2026-05
+
+- **禁止"限时残片"**：不允许"本周末前才能拾取的残片"、"赛季独占叙事章节"、"raid race 限定 lore drop"等任何带 deadline 的叙事资产。
+- **禁止 fragment cadence 倒计时 UI**：大厅 / archive / chamber 内不得出现"距离 F0X 下架还剩 N 天"或同类倒计时元素。
+- **赛季回归玩家不补偿叙事进度**：与 [economy-canon.md §3.1](./economy-canon.md) 的持久层定义一致，残片解码进度不参与 wipe；不需要给"回归玩家"任何"补领赛季叙事"的机制——他们的叙事进度本来就在。
+- **限时活动不得绑残片解锁**：若未来引入限时活动（例如"伊甸纪回响周"），活动可以**增加** F01-F15 的相遇概率，但**不得**将任何残片首发设定为"仅活动期间可发现"。
+
+#### 6.1.4 与经济边界的关系
+
+本条款是 [§6.2 经济与持久边界](#62-经济与持久边界research-2026-05-28-b-p0) 在叙事层的延续：
+
+- 残片 = 持久层资产（economy-canon §3.1）。残片的赛季处理规则 = 永不 wipe + 永不 vault + 永不 FOMO。
+- 即使未来引入"赛季 wipe"机制（economy-canon §3.2 允许点数 / 装备 / stash 重置），残片进度、解码等级、archive 揭示状态**绝对不重置**。
+- 跨季奖励不得包含"独占残片"。若赛季回归奖励要叙事化，使用结构性身份（"重返函馆者"）而非内容独占。
+
+#### 6.1.5 例外与变更治理
+
+- **唯一例外**：发现残片文本有事实性 lore 矛盾、违反纪元一览表第二章定义、或包含敏感内容时，可以**修文不删片**。残片编号、解码等级、玩家解码记录保留，仅替换 `description` / `lore_full` 字段。修订需在 commit message 标 `lore-revision`，并在 Readme_Claude 记录。
+- 本条款的任何放宽（例如未来真的想做季度独占内容）必须：
+  1. 单开 issue 并 @ narrative owner，
+  2. 同步修改本节，
+  3. 同步修改 [economy-canon.md §8 反模式清单](./economy-canon.md)，
+  4. 公开 changelog 通告玩家。
+- **未通过上述流程的任何"事实上 vault"**（例如悄悄把某残片权重设为 0）= 违宪行为，PR 必须 block。
+
+#### 6.1.6 监测与执行
+
+- **healthcheck M3 残片健康度**应包含 F01-F15 全量首达率监测（discoverFragment 三链断点检查），任何残片连续 14 日 0 玩家首达需触发 🟡 告警（不是"残片要下架"信号，而是"权重 / 三链需要调"信号）。
+- **F01 首达率红线**：与 research-2026-05-28-C 第二条 P0（fragments.js 新手 boost）配套，新玩家首周 F01 触达率应 ≥80%。低于 70% 触发 🔴。
+- **PR 审查清单**：任何修改 `fragment_pool` / `fragment_recipes` / `discoverFragment` / `loreInjections` 的 PR 必须在描述里勾选"未删除任何 F01-F15 行 / 未减少任何合成边 / 未引入限时机制"。
+
+#### 6.1.7 引用与来源
+
+- Marathon (Bungie) Creative Director Julia Nardin 原文："We want Marathon to be an additive experience in the sense that all priority contracts and story content aims to be evergreen." → [Space.com 访谈](https://www.space.com/entertainment/space-games/bungie-explains-marathons-graphic-retro-futurism-aesthetic-and-the-live-narrative-lessons-it-learned-from-destiny-interview)
+- Destiny 2 Beyond Light Content Vault 灾难（2020-2024）→ 资深玩家弃坑，2026-06-09 live service 终止。
+- Warframe 反 FOMO 哲学 → [Lords of Gaming 2026-05 评论](https://lordsofgaming.net/2026/05/moving-to-warframe-from-destiny-2-here-is-what-you-can-expect-from-its-endgame/)
+- DTSV 调研来源：[research/notes-2026-05-28-C.md](../research/notes-2026-05-28-C.md) §"关键发现 1 / 4 / Actionable P0"
+- 经济层联动：[docs/economy-canon.md](./economy-canon.md) §3.1 持久层 / §5.2 赛季奖励边界 / §8 反模式
 
 ### 6.2 经济与持久边界（research-2026-05-28-B P0）
 
