@@ -71,6 +71,12 @@ function epochIdOf(fragment) {
   return 0
 }
 
+// 残片所属纪元的主题色（主线卡每行保留各自纪元色，呼应时间轴）
+const EPOCH_COLOR_BY_ID = Object.fromEntries([...EPOCHS, OTHER_EPOCH].map(e => [e.id, e.color]))
+function epochColorOf(fragment) {
+  return EPOCH_COLOR_BY_ID[epochIdOf(fragment)] || C.accent
+}
+
 /** 当前 decode_level 应展示的文本（用于摘要预览） */
 function fragmentText(fragment, level) {
   switch (level) {
@@ -154,6 +160,7 @@ export default function CodexPage() {
   const [fragments, setFragments] = useState([])
   const [playerFragments, setPlayerFragments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [mainOpen, setMainOpen] = useState(true)
 
   useEffect(() => {
     if (!user) return
@@ -196,6 +203,21 @@ export default function CodexPage() {
       })
     }
     return buckets
+  }, [fragments, playerFragments])
+
+  // 主线故事链残片（is_main_story），按 F01→F15 编码顺序；未发现的占位为 decode_level 0
+  const mainStory = useMemo(() => {
+    const playerMap = new Map(playerFragments.map(pf => [pf.fragment_id, pf]))
+    const list = fragments
+      .filter(f => f.is_main_story)
+      .sort((a, b) => (codeOf(a.name) || 'ZZ').localeCompare(codeOf(b.name) || 'ZZ'))
+      .map(f => {
+        const pd = playerMap.get(f.id)
+        return { fragment: f, playerData: pd || { decode_level: 0 }, discovered: !!pd }
+      })
+    const discovered = list.filter(e => e.discovered).length
+    const fullyDecoded = list.filter(e => e.discovered && e.playerData.decode_level >= 3).length
+    return { list, discovered, fullyDecoded, total: list.length }
   }, [fragments, playerFragments])
 
   const stats = useMemo(() => {
@@ -266,6 +288,56 @@ export default function CodexPage() {
           </div>
         )}
       </div>
+
+      {/* 主线时间轴折叠卡 — F01→F15 编码顺序，支线背景残片仅在下方各纪元分组里出现 */}
+      {mainStory.total > 0 && (
+        <section style={{
+          border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg2,
+          overflow: 'hidden', marginBottom: 18,
+        }}>
+          <button
+            onClick={() => setMainOpen(o => !o)}
+            style={{
+              width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit',
+              padding: '12px 18px', border: 'none',
+              background: `linear-gradient(90deg, ${C.purple}1c, transparent)`,
+              borderBottom: mainOpen ? `1px solid ${C.border}` : 'none',
+              borderLeft: `4px solid ${C.purple}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>📜 主线时间轴</span>
+              <span style={{ fontSize: 11, color: C.purple, opacity: 0.85 }}>F01 → F15 主故事链</span>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: C.dim, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                {mainStory.discovered}/{mainStory.total} 发现
+                {mainStory.fullyDecoded > 0 && <span style={{ color: C.green, marginLeft: 8 }}>· 全解 {mainStory.fullyDecoded}</span>}
+              </span>
+              <span style={{
+                fontSize: 11, color: C.dim,
+                transform: mainOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
+              }}>▶</span>
+            </span>
+          </button>
+          {mainOpen && (
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6, padding: '0 2px 4px' }}>
+                构成核心叙事的主线残片，按编号顺序排列。支线背景残片（修复规程 / 调度令）见下方各纪元分组。
+              </div>
+              {mainStory.list.map(({ fragment, playerData }) => (
+                <FragmentRow
+                  key={fragment.id}
+                  fragment={fragment}
+                  playerData={playerData}
+                  epochColor={epochColorOf(fragment)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 六纪元时间轴 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
