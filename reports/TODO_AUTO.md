@@ -6,45 +6,26 @@
 
 ---
 
-## 2026-05-12 baseline + 首次调研
+## 2026-05-12 baseline + 首次调研（已 review 2026-05-28，转 P0/P1 格式让自动推进接管）
 
 ### 🟡 经济（来自 healthcheck baseline）
 
-- [ ] **兑换汇率调整 round_trip 0.80 → ~0.70**
-  - 现状：`high_equip_pt → low_equip_pt` 是 1:8，round_trip = 0.80（接近 0.85 警戒）
-  - 建议：改为 1:7，让 round-trip 损耗 30%
-  - 改动：admin → 💱 点数 / 兑换 → 编辑这一条
-  - 优先级：🟡 中（数据增长后再观察是否套利）
+- [research-2026-05-12] **P1** — 兑换汇率调整 round_trip 0.80 → ~0.70：`high_equip_pt → low_equip_pt` 当前 1:8（round_trip 0.80 接近 0.85 警戒），改为 1:7 让损耗提到 ~30%。改 `shop_exchange_rates` 该行（economy_version 保持 1）。改动极小，可顺手做。
 
 ### 🔥 高优 Retention（来自 research 主题 A）
 
-- [ ] **新手保护期机制**
-  - 痛点：玩家前几局必死 + 全失，挫败感导致弃坑（extraction 通病）
-  - 设计：前 3 局 raid 撤离失败返还 50% 入场购买点数
-  - 涉及：profiles.first_raids_count 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"
-  - 预估工作量：M
-
-- [ ] **Loadout preset 节省入场摩擦**
-  - 痛点：老玩家每次都重复点装备/道具/兑换组合
-  - 设计：profiles 加 `saved_loadouts JSONB` (3-5 个 slot) + PrepareModal 顶部加"📋 预设"下拉
-  - 预估工作量：S
+- [research-2026-05-12] **P1** — 新手保护期机制：前 3 局 raid 撤离失败返还 50% 入场购买点数。涉及 `profiles.first_raids_count` 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"。⚠ 部分被 28-D Streak-breaker（连败兜底=免费 basic 保险 + NPC 密度 -20%）覆盖，但"撤离失败返还点数"分支仍未做，二者可叠加。
+- [research-2026-05-12] **P1** — Loadout preset 节省入场摩擦：profiles 加 `saved_loadouts JSONB`(3-5 slot) + PrepareModal 顶部"📋 预设"下拉。
 
 ### ⚡ 中优 Narrative（来自 research 主题 C）
 
-- [ ] **Archive codex 主线/支线分类**
-  - 现状：合成图谱有，但没区分"叙事主线 F01→...→F15"和"支线" combo
-  - 设计：fragment_pool 加 `is_main_story BOOLEAN`；archive 加"📜 主线"折叠卡按顺序展示
-  - 预估工作量：S
-
-- [ ] **残片 lv 升级 toast 动画**
-  - 痛点：升级反馈藏在日志里不够突出
-  - 设计：discoverFragment 返回 newLevel > oldLevel 时，客户端弹一个 200ms 闪光 toast
-  - 预估工作量：S
+- [research-2026-05-12] **P1** — Archive codex 主线/支线分类：fragment_pool 加 `is_main_story BOOLEAN` + archive/codex 加"📜 主线"折叠卡按 F01→F15 顺序展示。⚠ /codex 页面已由 28-C 建（六纪元分组），但主线 vs 支线 combo 的区分仍未做。
+- [research-2026-05-12] **P1** — 残片 lv 升级 toast 动画：discoverFragment 返回 newLevel > oldLevel 时，客户端弹 200ms 闪光 toast（升级反馈当前只在日志里不够突出）。
 
 ### 💡 低优
 
-- [ ] **死亡保险**：extract 时多花 5 item_pt 买保险 → 死亡返还 30% 点数
-- [ ] **Starter contract 链**：4 个新手 quest（首撤离/首击杀/首购买/首探针）
+- [research-2026-05-12] **P0** — 死亡保险（extract 花 5 item_pt 买保险 → 死亡返还 30% 点数）。 → ✅ DONE 2026-05-28（被 28-D phase-25h 等价覆盖）: `equipment_insurance_tier` ENUM(none/basic/premium) + `insurance_premium_pt` schema 已预埋，basic 30% / premium 60% 返还概率作应用层常量留 Phase 24b 接入购买入口 + 死亡返还分支。本条无需独立实现。
+- [research-2026-05-12] **P1** — Starter contract 链：4 个新手 quest（首撤离 / 首击杀 / 首购买 / 首探针），复用现有 contracts 系统。
 
 ---
 
@@ -91,5 +72,11 @@
 - [research-2026-05-28-E] **P0** — 探针主人匿名化（Phase 21 上线前必锁）：`tryEncounterProbe` / `resolveProbeFight` / 遭遇 UI / `player_notifications` 回信文本全部禁止显示 probe-owner username/email，改为稳定 pseudonym（`观测者-<probe_id 后4位>` 或 `第N位幸存者` + 段位）。Ghost Player Effect 核心 anti-griefing 资产，事后改 = PR 灾难。详见 [notes-2026-05-28-E.md](../research/notes-2026-05-28-E.md) → ✅ DONE 2026-05-28T14:23 commit 7975241: 遭遇方 payload 不再含 probe owner_id（gameActions movePlayer），改下发 buildOwnerPseudonym(probe.id) 派生的稳定代号 `观测者-XXXX`（新 helper，从 BIGSERIAL id 末 4 位）；遭遇 UI 卡展示该代号替代 owner。actOnProbe 不读 ownerId 故移除安全；notifyProbeOwner 回信早已用 attacker pseudonym。无 resolveProbeFight 函数（实际为 actOnProbe）。next lint 通过
 - [research-2026-05-28-E] **P0** — chamber 持续痕迹 v1：新建 `chamber_residue(owner_pseudonym, chamber_template_id, last_npc_killed, last_loot_taken, last_death_location, expires_at +72h)`。raid 结束 / 探针被遭遇时 snapshot，下位进场玩家 prefetch 最近 5 条作为环境信息（"💀 这里曾有人倒下"）。Hunt: Showdown 2.7 "the world remembers" 2026 extraction 标杆，DTSV chamber 失忆是异步层根性缺口。 → ✅ DONE 2026-05-28T15:30: phase-25i SQL 新建 `chamber_residue` 表（chamber_template_id + owner_pseudonym 匿名默认 / last_npc_killed / last_loot_taken / last_death_location / source CHECK(raid_end|probe_encounter) / created_at / expires_at 默认 +72h + 2 索引（chamber_template_id,created_at DESC / expires_at）+ 全注释）;postgres MCP 部署验证 9 列;新建 `src/lib/server/chamberResidue.js`（`snapshotChamberResidue`（至少一条痕迹才写,source 白名单兜底）+ `prefetchChamberResidue`（仅未过期,最近优先,limit 1-20 钳制）两个 exception-safe 纯 helper,复用 probes.js `buildOwnerPseudonym` 28-E 匿名,预埋不启用等 Phase 21/24b 接入）;next lint 通过
 - [research-2026-05-28-E] **P1** — Nemesis 重复遭遇升级：新建 `probe_encounter_pairs(attacker_id, owner_id, encounter_count, last_outcome, nemesis_since)`，同对 30 日 ≥3 次遭遇 → 标记 nemesis，遭遇 UI 显示 banner + 双方"宿敌再次相遇"通知。USPTO 9539518 Nemesis 模式把重复噪声变 emergent narrative，与 v3 P1 aggression score 互补不冲突。 → ✅ DONE 2026-05-28T19:23 commit b99c303: phase-25j SQL 新建 `probe_encounter_pairs`（UNIQUE(attacker_id,owner_id) + CHECK 不能自己当宿敌 + 30 天窗口锚点 window_started_at + nemesis_since + 3 索引含 nemesis 部分索引 + 全注释）；postgres MCP 部署验证 10 列；新建 `src/lib/server/nemesis.js`（`recordEncounterPair` upsert+计数自增、窗口过期归 1、跨阈值写 nemesis_since 且不清空 + `getNemesisStatus` 兜底查询，全 exception-safe，复用 probes.js outcome 词表，预埋不启用等 Phase 21/24b 接 UI banner+宿敌通知，匿名口径走 buildOwnerPseudonym）；next lint 通过
+
+## 2026-05-29 — research (主题 A 延伸 — 胜利条件/叙事结局 + 撤离瞬间张力)
+
+- [research-2026-05-29-A] **P0** — 审计 `src/lib/server/endings.js` 结局语义：确认 4 结局是单局/房间级叙事兑现（结束房间 + 反哺下一局 meta-progress），**不是账号级一次性通关墙**。体裁明确警告"有限目标达成即流失"，4 结局应作为"收集所有结局"的 replay 钩子，结局后玩家须能立即再出勤。详见 [notes-2026-05-29-A.md](../research/notes-2026-05-29-A.md)
+- [research-2026-05-29-A] **P0** — ExtractionModal 加"撤离信号锁定窗口"：点撤离 → N 回合脆弱态（污染加速 tick + 探针遭遇概率临时提升 + "🛰 撤离信号已发出"高张力 UI），把撤离从安全按钮改成承诺（Arc Raiders flare beacon before/after 翻转）。**保留异步优势，不引入同屏 camper**。文件：`src/app/game/[id]/ExtractionModal.jsx` + `gameActions.js` extractPlayer + `pollution.js`。
+- [research-2026-05-29-A] **P1** — PrepareModal（24b）加"本局目标"选择 + 结算横幅"本局评级"，操作化体裁"个人化胜利"（解码 F0X / 凑 N 点数 / 击杀 boss / 留探针 → 达成度显示）。文件：`src/components/PrepareModal.jsx` + gamevars `runGoal` 字段 + 结局横幅渲染。
 
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
