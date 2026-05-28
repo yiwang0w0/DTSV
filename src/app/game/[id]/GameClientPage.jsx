@@ -1038,8 +1038,8 @@ export default function GameClientPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>未知探针 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>📡 异步探针</div>
+                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>另一位 PI 引导者留下 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>📡 异步探针 · 携 {meBase.probeEncounter.fragmentCount} 残片</div>
                       </div>
                       <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
                         #{String(meBase.probeEncounter.probeId).slice(-6)}
@@ -1053,6 +1053,9 @@ export default function GameClientPage() {
                       <span style={{ color: T.dim }}>
                         ATK {meBase.probeEncounter.atk} · DEF {meBase.probeEncounter.def}
                       </span>
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 10, color: T.dim2 }}>
+                      真实玩家的异步留痕 · 非系统刷怪 · 属性已按你的实力校准
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
                       🎁 携带 {meBase.probeEncounter.fragmentCount} 条残片碎片 — 击败后可夺取 1 条

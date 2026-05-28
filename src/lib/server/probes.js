@@ -16,6 +16,58 @@ const PROBE_TTL_BOOST_MULT = 4      // remaining TTL → 0 时的最大权重倍
 const PROBE_DRAW_CANDIDATE_LIMIT = 20 // 单次抽取纳入加权的候选探针上限（兼作抽样密度上限，防大池全量加载）
 const CHAMBER_PROBE_DENSITY_CAP = 8 // 单 chamber 同时存活探针上限；超出时 FIFO 逐出最旧
 
+// research-2026-05-29-E P0 — 探针遭遇属性按遭遇者实力相对缩放 + 硬封顶。
+// 治两个体裁失败模式：① whale 探针（高配 equipment_snapshot）单方面碾压新人；
+// ② 刻意构造的"毒包"探针。缩放只钳制 instance 战斗属性（落在 player.probeEncounter），
+// 绝不回写 DB（owner 真实 snapshot 保留，对每个遭遇者各自相对缩放）。
+// 语义：只向下钳制，永不向上 buff —— 弱探针对强玩家保持弱，强探针对弱玩家被压到上限。
+//   ceil   = min(硬封顶, max(地板, round(遭遇者对应属性 × 倍率)))
+//   scaled = min(原始值, ceil)
+const PROBE_HP_CAP_MULT = 1.0    // 探针 HP ≤ 遭遇者 maxHp × 此倍率（相对）
+const PROBE_ATK_CAP_MULT = 1.1   // 探针 ATK ≤ 遭遇者 atk × 此倍率（防爆发秒杀）
+const PROBE_DEF_CAP_MULT = 1.5   // 探针 DEF ≤ 遭遇者 def × 此倍率（防玩家攻击被完全抵消、探针变不可杀）
+const PROBE_HP_HARD_CAP = 150    // 绝对 HP 上限（防遭遇者属性异常被注水）
+const PROBE_ATK_HARD_CAP = 40    // 绝对 ATK 上限
+const PROBE_DEF_HARD_CAP = 30    // 绝对 DEF 上限
+const PROBE_HP_FLOOR = 20        // 相对上限不因弱玩家而塌到 0：探针 ceil 不低于此（仍受 min(原始值) 约束，不会上 buff）
+const PROBE_ATK_FLOOR = 6
+const PROBE_DEF_FLOOR = 4
+
+/** 单值钳制：非有限输入兜底取地板；只向下钳制到 ceil，永不超过原始值。 */
+function clampProbeStat(raw, floor, ceil) {
+  const r = Number(raw)
+  const lo = Number.isFinite(floor) ? floor : 0
+  const hi = Math.max(lo, Number.isFinite(ceil) ? ceil : lo)
+  if (!Number.isFinite(r)) return lo
+  return Math.min(Math.round(r), hi)
+}
+
+/**
+ * research-2026-05-29-E P0 — 按遭遇者实力对探针战斗属性做相对缩放 + 硬封顶。
+ * @param {object} probe - 探针 DB 行（含 hp/max_hp/atk/def）
+ * @param {object} encounterStats - 遭遇者 { hp, maxHp, atk, def }
+ * @returns {{hp,max_hp,atk,def}|null} 缩放后属性；遭遇者属性无效时返回 null（调用方回退原始值，保持旧行为）
+ */
+export function scaleProbeToEncounter(probe, encounterStats) {
+  const pHp = Number(encounterStats?.maxHp ?? encounterStats?.hp)
+  const pAtk = Number(encounterStats?.atk)
+  const pDef = Number(encounterStats?.def)
+  if (!Number.isFinite(pHp) || !Number.isFinite(pAtk) || !Number.isFinite(pDef)) return null
+
+  const ceilHp = Math.min(PROBE_HP_HARD_CAP, Math.max(PROBE_HP_FLOOR, Math.round(pHp * PROBE_HP_CAP_MULT)))
+  const ceilAtk = Math.min(PROBE_ATK_HARD_CAP, Math.max(PROBE_ATK_FLOOR, Math.round(pAtk * PROBE_ATK_CAP_MULT)))
+  const ceilDef = Math.min(PROBE_DEF_HARD_CAP, Math.max(PROBE_DEF_FLOOR, Math.round(pDef * PROBE_DEF_CAP_MULT)))
+
+  const maxHp = clampProbeStat(probe?.max_hp, PROBE_HP_FLOOR, ceilHp)
+  const hp = Math.min(clampProbeStat(probe?.hp, PROBE_HP_FLOOR, ceilHp), maxHp)
+  return {
+    hp,
+    max_hp: maxHp,
+    atk: clampProbeStat(probe?.atk, PROBE_ATK_FLOOR, ceilAtk),
+    def: clampProbeStat(probe?.def, PROBE_DEF_FLOOR, ceilDef),
+  }
+}
+
 // Phase 25e — outcome → 收件箱文案 / kind 映射
 // 28-E P0 anonymization: 不存 attacker user_id，只存 pseudonym
 const PROBE_NOTIFY_META = {
@@ -244,9 +296,10 @@ export async function leaveProbe(client, opts) {
  * @param {object} client
  * @param {string} userId - 当前玩家（不能遇到自己的探针）
  * @param {number} chamberTemplateId
- * @returns {object|null} 探针记录 或 null
+ * @param {object} [encounterStats] - 遭遇者 { hp, maxHp, atk, def }；提供时按其实力相对缩放探针属性（research-2026-05-29-E P0）
+ * @returns {object|null} 探针记录（战斗属性已相对缩放）或 null
  */
-export async function tryEncounterProbe(client, userId, chamberTemplateId) {
+export async function tryEncounterProbe(client, userId, chamberTemplateId, encounterStats) {
   if (!chamberTemplateId) return null
   if (Math.random() >= PROBE_ENCOUNTER_CHANCE) return null
 
@@ -288,6 +341,12 @@ export async function tryEncounterProbe(client, userId, chamberTemplateId) {
       })
       .eq('id', data.id)
 
+    // research-2026-05-29-E P0 — 生成遭遇实例时按遭遇者实力相对缩放 + 硬封顶。
+    // 只钳制返回给战斗的属性，不回写 DB（owner 真实 snapshot 保留）。encounterStats 缺省时返回 null → 沿用原始值（旧行为）。
+    const scaled = scaleProbeToEncounter(data, encounterStats)
+    if (scaled) {
+      return { ...data, hp: scaled.hp, max_hp: scaled.max_hp, atk: scaled.atk, def: scaled.def }
+    }
     return data
   } catch (e) {
     console.error('[tryEncounterProbe] 异常:', e?.message)

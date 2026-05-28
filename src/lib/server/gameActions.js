@@ -2004,7 +2004,13 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
 
   // Phase 21.3: 进入 chamber 时 8% 概率遭遇异步探针
   try {
-    const probe = await tryEncounterProbe(client, user.id, nextChamber.templateId)
+    // research-2026-05-29-E P0 — 传遭遇者实力，探针属性按其相对缩放 + 硬封顶（防 whale 探针碾压 / 毒包构造）
+    const probe = await tryEncounterProbe(client, user.id, nextChamber.templateId, {
+      hp: nextPlayer.hp,
+      maxHp: nextPlayer.maxHp,
+      atk: nextPlayer.atk,
+      def: nextPlayer.def,
+    })
     if (probe) {
       // 把 probe 信息挂到玩家身上作为 encounter（特殊类型）
       const playerWithProbe = {
