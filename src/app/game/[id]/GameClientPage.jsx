@@ -768,7 +768,8 @@ export default function GameClientPage() {
             )}
 
             {/* Phase 18.2: 引导玩家去 Archive 查看本局贡献 */}
-            <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+            {/* research-2026-05-29-A: 结局=房间级兑现，4 结局为"收集所有结局"replay 钩子，外显再出勤动机 */}
+            <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <a
                 href="/archive"
                 target="_blank"
@@ -781,6 +782,17 @@ export default function GameClientPage() {
                 }}
               >
                 📡 在档案库查看本局贡献的残片 →
+              </a>
+              <a
+                href="/rooms"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, color: T.purple, textDecoration: 'none',
+                  padding: '4px 10px', borderRadius: 6,
+                  background: `${T.purple}18`, border: `1px solid ${T.purple}40`,
+                }}
+              >
+                🔁 返回大厅 · 收集其它结局 →
               </a>
             </div>
           </div>
