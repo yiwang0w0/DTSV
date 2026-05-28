@@ -76,7 +76,7 @@
 ## 2026-05-29 — research (主题 A 延伸 — 胜利条件/叙事结局 + 撤离瞬间张力)
 
 - [research-2026-05-29-A] **P0** — 审计 `src/lib/server/endings.js` 结局语义：确认 4 结局是单局/房间级叙事兑现（结束房间 + 反哺下一局 meta-progress），**不是账号级一次性通关墙**。体裁明确警告"有限目标达成即流失"，4 结局应作为"收集所有结局"的 replay 钩子，结局后玩家须能立即再出勤。详见 [notes-2026-05-29-A.md](../research/notes-2026-05-29-A.md) → ✅ DONE 2026-05-29T01:26 commit 6f1fa3c: 审计判定 PASS — 结局为房间级兑现非账号级通关墙（endingResult 存 room gamevars / endings 表无 per-player 完成列 / 全仓 0 命中账号级结局收集 / 奖励走 addItemsToStash 反哺下一局 / ending_key 仅 raid_stats 遥测 / 无账号锁可立即再出勤）；产出 docs/endings-audit-2026-05-29.md；唯一缺口=结局横幅缺再出勤 CTA 已补（GameClientPage 追加 /rooms「🔁 返回大厅·收集其它结局」additive 链接，无 schema）
-- [research-2026-05-29-A] **P0** — ExtractionModal 加"撤离信号锁定窗口"：点撤离 → N 回合脆弱态（污染加速 tick + 探针遭遇概率临时提升 + "🛰 撤离信号已发出"高张力 UI），把撤离从安全按钮改成承诺（Arc Raiders flare beacon before/after 翻转）。**保留异步优势，不引入同屏 camper**。文件：`src/app/game/[id]/ExtractionModal.jsx` + `gameActions.js` extractPlayer + `pollution.js`。
+- [research-2026-05-29-A] **P0** — ExtractionModal 加"撤离信号锁定窗口"：点撤离 → N 回合脆弱态（污染加速 tick + 探针遭遇概率临时提升 + "🛰 撤离信号已发出"高张力 UI），把撤离从安全按钮改成承诺（Arc Raiders flare beacon before/after 翻转）。**保留异步优势，不引入同屏 camper**。文件：`src/app/game/[id]/ExtractionModal.jsx` + `gameActions.js` extractPlayer + `pollution.js`。 [doing-2026-05-29T02:25]
 - [research-2026-05-29-A] **P1** — PrepareModal（24b）加"本局目标"选择 + 结算横幅"本局评级"，操作化体裁"个人化胜利"（解码 F0X / 凑 N 点数 / 击杀 boss / 留探针 → 达成度显示）。文件：`src/components/PrepareModal.jsx` + gamevars `runGoal` 字段 + 结局横幅渲染。
 
 ## 2026-05-29 — research (主题 B 延伸 — 元进度节奏甜区 + 自适应难度 + 数值 vs 技能)
