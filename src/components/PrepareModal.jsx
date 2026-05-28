@@ -22,6 +22,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
+import { NEWBIE_PROTECTION } from '@/lib/constants'
 
 const C = {
   bg0:    '#0e1117',
@@ -66,6 +67,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const [balances, setBalances] = useState({ high_equip_pt: 0, low_equip_pt: 0, item_pt: 0, class_pt: 0 })
   const [catalog, setCatalog] = useState({ equipment: [], consumables: [], storyItems: [] })
   const [rates, setRates] = useState([])
+  const [firstRaidsCount, setFirstRaidsCount] = useState(null) // phase-25l 新手保护期计数
 
   // Phase 24c 职业状态
   const [classCandidates, setClassCandidates] = useState([])
@@ -109,11 +111,15 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
       supabase.from('shop_exchange_rates').select('*').eq('enabled', true),
       // Phase 24c: 拉职业候选
       getGameApi('/api/classes').catch(() => ({ candidates: [], canForceHigh: false, classPtBalance: 0 })),
-    ]).then(([balRes, catRes, ratesRes, classRes]) => {
+      // phase-25l: 新手保护期计数（列缺失/查询失败容错为 null → 不显示标识）
+      supabase.from('profiles').select('first_raids_count').eq('id', user.id).maybeSingle().then(r => r).catch(() => null),
+    ]).then(([balRes, catRes, ratesRes, classRes, profRes]) => {
       if (cancelled) return
       const b = { high_equip_pt: 0, low_equip_pt: 0, item_pt: 0, class_pt: 0 }
       for (const row of (balRes?.data || [])) b[row.point_type] = Number(row.balance) || 0
       setBalances(b)
+      const frc = profRes?.data?.first_raids_count
+      setFirstRaidsCount(Number.isFinite(Number(frc)) ? Number(frc) : null)
 
       const cat = catRes?.data || []
       setCatalog({
@@ -311,7 +317,21 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
           padding: '14px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>🎒 入场准备</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+              🎒 入场准备
+              {NEWBIE_PROTECTION.ENABLED && firstRaidsCount != null && firstRaidsCount < NEWBIE_PROTECTION.FIRST_RAIDS && (
+                <span
+                  title={`前 ${NEWBIE_PROTECTION.FIRST_RAIDS} 局撤离失败返还 ${Math.round(NEWBIE_PROTECTION.REFUND_RATE * 100)}% 入场购买点数（已出勤 ${firstRaidsCount}/${NEWBIE_PROTECTION.FIRST_RAIDS}）`}
+                  style={{
+                    fontSize: 11, fontWeight: 600, color: C.green,
+                    background: `${C.green}1a`, border: `1px solid ${C.green}55`,
+                    borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap',
+                  }}
+                >
+                  🛡 新手 raid · 失败返还 {Math.round(NEWBIE_PROTECTION.REFUND_RATE * 100)}%
+                </span>
+              )}
+            </div>
             {roomTitle && <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{roomTitle}</div>}
           </div>
           <button onClick={onClose} style={{

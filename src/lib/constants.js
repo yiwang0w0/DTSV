@@ -144,3 +144,19 @@ export const SIGNAL_LOCK = {
   PERSONAL_ACCEL: 4,         // 锁定期发出信号玩家每回合额外个人污染
   PROBE_ENCOUNTER_MULT: 1.5, // 锁定期该玩家遭遇异步探针的概率倍率
 }
+
+// ── 新手保护期（research 2026-05-12 主题 A） ─────────────────────────
+// 前 FIRST_RAIDS 局 raid 撤离失败（阵亡 / Ω-段未撤离）返还 REFUND_RATE 比例的入场购买点数，
+// 降低新玩家 gear fear、平滑前期挫败。判定依据 profiles.first_raids_count（phase-25l 预埋）。
+// 只返还"可购买"点数类型（high_equip_pt / low_equip_pt / item_pt）；class_pt 是 raid 里程碑
+// 奖励、非入场购买物，不在返还范畴。
+// 设计红线（economy-canon §3）：返还上限 = 玩家本局入场实际花费 × REFUND_RATE，
+//   绝不超过实际花费 → 补偿摩擦而非净新经济注水。可与 28-D Streak-breaker 叠加（降难度，互不冲突）。
+// 本块为 single source of truth；由 src/lib/server/newbieProtection.js 消费。
+// 预埋不启用（ENABLED=false），等 Phase 24b 接入入场计数自增 + 失败返还分支 + PrepareModal 新手 raid 标识后翻 true。
+export const NEWBIE_PROTECTION = {
+  ENABLED: false,                                                  // 预埋开关
+  FIRST_RAIDS: 3,                                                  // 前 N 局算新手保护期
+  REFUND_RATE: 0.5,                                                // 撤离失败返还入场购买点数的比例
+  REFUNDABLE_POINT_TYPES: ['high_equip_pt', 'low_equip_pt', 'item_pt'], // class_pt 不返还
+}
