@@ -102,7 +102,7 @@ export async function evaluateFragmentCombos(client, userId, triggeredFragmentId
  * @param {number} pollution - 当前有效污染度（0-100）
  * @param {number} gamenum - 当前周目编号
  * @param {object} opts - { chain: 'search' | 'combat' | 'extract' }，默认 'search'
- * @returns {object|null} { fragment_id, decode_level, isNew, chain } 或 null（无可发现残片）
+ * @returns {object|null} { fragment_id, decode_level, isNew, chain, oldLevel?, leveledUp? } 或 null（无可发现残片）
  */
 export async function discoverFragment(client, userId, mapId, pollution, gamenum, opts = {}) {
   const chain = opts.chain || 'search'
@@ -223,6 +223,8 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
     return {
       fragment_id: target.id,
       decode_level: newLevel,
+      oldLevel: currentLevel,
+      leveledUp: newLevel > currentLevel,
       isNew: false,
       chain,
       name: target.name,

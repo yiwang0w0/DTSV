@@ -333,6 +333,16 @@ export default function GameClientPage() {
     }
   }, [pvpHit, toast])
 
+  // 残片解码升级闪光 toast — 检测 lastFragmentLevelUp.seq 变化（升级反馈此前只在日志里不够突出）
+  const lastFragSeqRef = useRef(0)
+  const fragLevelUp = meBase?.lastFragmentLevelUp
+  useEffect(() => {
+    if (!fragLevelUp?.seq) return
+    if (fragLevelUp.seq <= lastFragSeqRef.current) return
+    lastFragSeqRef.current = fragLevelUp.seq
+    toast(`🧬 残片【${fragLevelUp.name}】解码度提升至 ${fragLevelUp.level}/3`, 'levelup')
+  }, [fragLevelUp, toast])
+
   async function handleTakeLoot(option) {
     const nextRoom = await runGameAction('lootCorpse', {
       corpseId: lootPrompt?.corpseId,

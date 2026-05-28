@@ -126,11 +126,13 @@ export function useToast() {
         {toasts.map(t => (
           <div key={t.id} style={{
             padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-            background: t.type === 'error' ? '#f85149' : '#3fb950', color: '#fff',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.4)', animation: 'fadeInToast .2s ease',
+            background: t.type === 'error' ? '#f85149' : t.type === 'levelup' ? 'linear-gradient(90deg,#8957e5,#a371f7)' : '#3fb950',
+            color: '#fff',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            animation: t.type === 'levelup' ? 'fadeInToast .2s ease, flashToast .2s ease' : 'fadeInToast .2s ease',
           }}>{t.msg}</div>
         ))}
-        <style>{`@keyframes fadeInToast{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}`}</style>
+        <style>{`@keyframes fadeInToast{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes flashToast{0%{filter:brightness(2.4);box-shadow:0 0 26px 5px rgba(163,113,247,.9)}100%{filter:brightness(1);box-shadow:0 4px 20px rgba(0,0,0,0.4)}}`}</style>
       </div>
     )
   }

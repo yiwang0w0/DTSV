@@ -182,6 +182,26 @@ function chamberDepthOf(player) {
   return Number.isFinite(idx) && idx >= 0 ? idx + 1 : null
 }
 
+/**
+ * 残片解码升级 toast 信号：当 discoverFragment 返回 leveledUp（newLevel > oldLevel）时，
+ * 在 actor 的玩家状态写一个带自增 seq 的 lastFragmentLevelUp，客户端检测 seq 变化弹闪光 toast。
+ * 升级反馈此前只在日志流里不够突出（沿用 Phase 16 lastPvpHit 的 seq 模式）。
+ */
+function markFragmentLevelUp(resolution, userId, fragment) {
+  if (!fragment?.leveledUp) return
+  const cur = getResolutionPlayer(resolution, userId)
+  if (!cur) return
+  setResolutionPlayer(resolution, userId, {
+    ...cur,
+    lastFragmentLevelUp: {
+      seq: ((cur.lastFragmentLevelUp?.seq) || 0) + 1,
+      name: fragment.name,
+      level: fragment.decode_level,
+      at: new Date().toISOString(),
+    },
+  })
+}
+
 // ── 全局道具/NPC 池缓存（按 chamber_template_ids 过滤） ──
 let _allItemsCache = null
 let _allNpcsCache = null
@@ -1030,6 +1050,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
           ? `发现了一段损坏的数据残片【${fragment.name}】`
           : `对【${fragment.name}】进行了进一步解码（解码度 ${fragment.decode_level}/3）`
         appendResolutionLog(resolution, `${player.name} ${levelText}`, 'system')
+        markFragmentLevelUp(resolution, user.id, fragment)
         // Phase 20.4: 合成解锁日志
         for (const u of (fragment.comboUnlocks || [])) {
           appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
@@ -1185,6 +1206,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
             ? `${verb}数据残片【${fragment.name}】`
             : `${verb}【${fragment.name}】的更深一层解码（${fragment.decode_level}/3）`
           appendResolutionLog(resolution, `${player.name}（击杀 ${instance.npc.name}）${note}`, npcLvl === 'boss' ? 'crit' : 'system')
+          markFragmentLevelUp(resolution, user.id, fragment)
           // Phase 20.4: 合成解锁日志
           for (const u of (fragment.comboUnlocks || [])) {
             appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
@@ -2370,6 +2392,7 @@ async function extractPlayer(client, room, gamevars, user, payload) {
           ? `撤离后在归档中析出残片【${fragment.name}】`
           : `撤离归档过程中推进了【${fragment.name}】的解码（${fragment.decode_level}/3）`
         appendResolutionLog(resolution, `${player.name} ${note2}`, 'system')
+        markFragmentLevelUp(resolution, user.id, fragment)
         // Phase 20.4: 合成解锁日志
         for (const u of (fragment.comboUnlocks || [])) {
           appendResolutionLog(resolution, `🔗 解码完成，合成新残片【${u.name}】 ${u.comboDescription ? '— ' + u.comboDescription : ''}`, 'system')
