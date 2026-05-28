@@ -19,7 +19,7 @@
 
 ### ⚡ 中优 Narrative（来自 research 主题 C）
 
-- [research-2026-05-12] **P1** — Archive codex 主线/支线分类：fragment_pool 加 `is_main_story BOOLEAN` + archive/codex 加"📜 主线"折叠卡按 F01→F15 顺序展示。⚠ /codex 页面已由 28-C 建（六纪元分组），但主线 vs 支线 combo 的区分仍未做。 [doing-2026-05-29T07:23]
+- [research-2026-05-12] **P1** — Archive codex 主线/支线分类：fragment_pool 加 `is_main_story BOOLEAN` + archive/codex 加"📜 主线"折叠卡按 F01→F15 顺序展示。⚠ /codex 页面已由 28-C 建（六纪元分组），但主线 vs 支线 combo 的区分仍未做。 → ✅ DONE 2026-05-29T07:27 commit 16d7232: phase-25n SQL 加 `fragment_pool.is_main_story BOOLEAN NOT NULL DEFAULT false`（幂等 ADD COLUMN IF NOT EXISTS + COMMENT + 按 `substring(name,'^F\d{2}')` UPDATE）；按六纪元主时间轴 canon 标 13 主线（F01/F02/F05-F15）、F03 修复规程 / F04 调度令为支线；postgres MCP 部署+验证 15 行（13 true / 2 false）。/codex 顶部加「📜 主线时间轴」可折叠 `<button>` 卡（`mainOpen` state，默认展开 + ▶ 旋转指示），`mainStory` memo 过滤 `is_main_story` 按 F01→F15 编码排序、未发现残片占位 decode_level 0（复用 FragmentRow 显 ████），每行左边框保留各自纪元色（新 `epochColorOf`/`EPOCH_COLOR_BY_ID`）呼应时间轴；卡头显 发现/全解 计数；支线残片仍仅在下方六纪元分组出现。/archive 暂未改（codex 是主线/时间轴自然归属，最小实现）；next lint 通过。
 - [research-2026-05-12] **P1** — 残片 lv 升级 toast 动画：discoverFragment 返回 newLevel > oldLevel 时，客户端弹 200ms 闪光 toast（升级反馈当前只在日志里不够突出）。
 
 ### 💡 低优
