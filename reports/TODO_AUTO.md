@@ -76,7 +76,7 @@
 
 ## 2026-05-28 — research (主题 C 延伸 — live-service additive + 音频日志 + 新玩家入口残片)
 
-- [research-2026-05-28-C] **P0** — `docs/narrative-vision.md`（27-v2 已提议）首章加"additive evergreen"宪法条款：F01-F15 永久可发现，未来 Phase 25+ 仅可加不可减、不得 FOMO 化。预防 Destiny 2 vaulting 灾难。详见 [notes-2026-05-28-C.md](../research/notes-2026-05-28-C.md)
+- [research-2026-05-28-C] **P0** — `docs/narrative-vision.md`（27-v2 已提议）首章加"additive evergreen"宪法条款：F01-F15 永久可发现，未来 Phase 25+ 仅可加不可减、不得 FOMO 化。预防 Destiny 2 vaulting 灾难。详见 [notes-2026-05-28-C.md](../research/notes-2026-05-28-C.md) [doing-2026-05-28T01:30]
 - [research-2026-05-28-C] **P0** — `src/lib/server/fragments.js` 的 `discoverFragment` 加首 3 次出勤的 F01-F03 权重 boost，确保 ≥80% 新玩家在第一周触达入口残片。配套 healthcheck spec 监测 F01 首达率。防止 Marathon "onboarding stingy + lore obscure" 双投诉。
 - [research-2026-05-28-C] **P1** — 大厅新增"档案"页面（`src/app/codex/page.js`），按六纪元分组展示玩家已解码 fragment + decode_level 摘要。Marathon Codex 等价物，casual catch-up + lore hunter 双服务。
 
