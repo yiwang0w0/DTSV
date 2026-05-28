@@ -10,7 +10,7 @@
 
 ### 🟡 经济（来自 healthcheck baseline）
 
-- [research-2026-05-12] **P1** — 兑换汇率调整 round_trip 0.80 → ~0.70：`high_equip_pt → low_equip_pt` 当前 1:8（round_trip 0.80 接近 0.85 警戒），改为 1:7 让损耗提到 ~30%。改 `shop_exchange_rates` 该行（economy_version 保持 1）。改动极小，可顺手做。 [doing-2026-05-29T03:24]
+- [research-2026-05-12] **P1** — 兑换汇率调整 round_trip 0.80 → ~0.70：`high_equip_pt → low_equip_pt` 当前 1:8（round_trip 0.80 接近 0.85 警戒），改为 1:7 让损耗提到 ~30%。改 `shop_exchange_rates` 该行（economy_version 保持 1）。改动极小，可顺手做。 → ✅ DONE 2026-05-29T03:24 commit c3fc6bf: phase-25k SQL 幂等 UPDATE 把 high_equip_pt→low_equip_pt 的 to_amount 8→7（round_trip 10→1→7 = 0.70，损耗 ~30%），economy_version 保持 1；postgres MCP 部署验证 1 行(id=2 to_amount=7)；汇率全 DB 驱动(PrepareModal/shop.js/PointsConfigTab)无硬编码镜像需改。
 
 ### 🔥 高优 Retention（来自 research 主题 A）
 
