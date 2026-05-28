@@ -22,7 +22,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
-import { NEWBIE_PROTECTION } from '@/lib/constants'
+import { NEWBIE_PROTECTION, LOADOUT_PRESETS } from '@/lib/constants'
+import {
+  sanitizeLoadoutPresets,
+  applyPresetToCart,
+  buildPresetFromCart,
+  upsertLoadoutPresets,
+  removeLoadoutPreset,
+} from '@/lib/server/loadoutPresets'
 
 const C = {
   bg0:    '#0e1117',
@@ -68,6 +75,9 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const [catalog, setCatalog] = useState({ equipment: [], consumables: [], storyItems: [] })
   const [rates, setRates] = useState([])
   const [firstRaidsCount, setFirstRaidsCount] = useState(null) // phase-25l 新手保护期计数
+  const [presets, setPresets] = useState([])        // phase-25m profiles.saved_loadouts
+  const [presetMsg, setPresetMsg] = useState('')     // 套用/保存反馈
+  const [presetSaving, setPresetSaving] = useState(false)
 
   // Phase 24c 职业状态
   const [classCandidates, setClassCandidates] = useState([])
@@ -89,6 +99,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
     setEquipCart({})
     setItemCart({})
     setExchangeCart({})
+    setPresetMsg('')
     setClassCandidates([])
     setSelectedClassId(null)
     setUsedHighPt(false)
@@ -111,8 +122,8 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
       supabase.from('shop_exchange_rates').select('*').eq('enabled', true),
       // Phase 24c: 拉职业候选
       getGameApi('/api/classes').catch(() => ({ candidates: [], canForceHigh: false, classPtBalance: 0 })),
-      // phase-25l: 新手保护期计数（列缺失/查询失败容错为 null → 不显示标识）
-      supabase.from('profiles').select('first_raids_count').eq('id', user.id).maybeSingle().then(r => r).catch(() => null),
+      // phase-25l 新手保护期计数 + phase-25m 装配预设（列缺失/查询失败容错 → 不显示）
+      supabase.from('profiles').select('first_raids_count, saved_loadouts').eq('id', user.id).maybeSingle().then(r => r).catch(() => null),
     ]).then(([balRes, catRes, ratesRes, classRes, profRes]) => {
       if (cancelled) return
       const b = { high_equip_pt: 0, low_equip_pt: 0, item_pt: 0, class_pt: 0 }
@@ -120,6 +131,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
       setBalances(b)
       const frc = profRes?.data?.first_raids_count
       setFirstRaidsCount(Number.isFinite(Number(frc)) ? Number(frc) : null)
+      setPresets(sanitizeLoadoutPresets(profRes?.data?.saved_loadouts))
 
       const cat = catRes?.data || []
       setCatalog({
@@ -155,6 +167,63 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
       setError(`保底刷出失败：${e?.message || e}`)
     } finally {
       setClassForcing(false)
+    }
+  }
+
+  // ── phase-25m 装配预设：套用 / 保存 / 删除 ──
+  function handleApplyPreset(preset) {
+    if (!preset) return
+    const res = applyPresetToCart(preset, {
+      equipment: catalog.equipment,
+      consumables: catalog.consumables,
+      storyItems: catalog.storyItems,
+      rates,
+    })
+    // 职业有效性校验：仅当候选当前仍存在时才选中（候选每次重 roll，旧 id 可能已失效）
+    if (res.classId != null && classCandidates.some(c => c.id === res.classId)) {
+      setSelectedClassId(res.classId)
+    }
+    setEquipCart(res.equipCart)
+    setItemCart(res.itemCart)
+    setExchangeCart(res.exchangeCart)
+    const dropped = res.dropped.equip + res.dropped.items + res.dropped.exchanges
+    setPresetMsg(dropped > 0 ? `已套用「${preset.name}」（${dropped} 项已失效已跳过）` : `已套用「${preset.name}」`)
+  }
+
+  async function handleSavePreset(rawName) {
+    if (presetSaving || !user?.id) return
+    const preset = buildPresetFromCart({ name: rawName, classId: selectedClassId, equipCart, itemCart, exchangeCart })
+    const { ok, presets: next, reason } = upsertLoadoutPresets(presets, preset, LOADOUT_PRESETS.MAX_SLOTS)
+    if (!ok) {
+      setPresetMsg(reason === 'slots-full' ? `预设已满（最多 ${LOADOUT_PRESETS.MAX_SLOTS} 套），请先删除一套` : '保存失败：预设无效')
+      return
+    }
+    setPresetSaving(true)
+    try {
+      const { error: upErr } = await supabase.from('profiles').update({ saved_loadouts: next }).eq('id', user.id)
+      if (upErr) throw upErr
+      setPresets(next)
+      setPresetMsg(`已保存「${preset.name}」`)
+    } catch (e) {
+      setPresetMsg(`保存失败：${e?.message || e}`)
+    } finally {
+      setPresetSaving(false)
+    }
+  }
+
+  async function handleDeletePreset(name) {
+    if (presetSaving || !user?.id) return
+    const next = removeLoadoutPreset(presets, name)
+    setPresetSaving(true)
+    try {
+      const { error: upErr } = await supabase.from('profiles').update({ saved_loadouts: next }).eq('id', user.id)
+      if (upErr) throw upErr
+      setPresets(next)
+      setPresetMsg(`已删除「${name}」`)
+    } catch (e) {
+      setPresetMsg(`删除失败：${e?.message || e}`)
+    } finally {
+      setPresetSaving(false)
     }
   }
 
@@ -373,6 +442,19 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
           })}
         </div>
 
+        {/* phase-25m 装配预设栏（LOADOUT_PRESETS.ENABLED 门控，预埋不启用） */}
+        {LOADOUT_PRESETS.ENABLED && (
+          <PresetBar
+            presets={presets}
+            onApply={handleApplyPreset}
+            onSave={handleSavePreset}
+            onDelete={handleDeletePreset}
+            saving={presetSaving}
+            msg={presetMsg}
+            maxSlots={LOADOUT_PRESETS.MAX_SLOTS}
+          />
+        )}
+
         {/* tab 切换 */}
         <div style={{
           display: 'flex', gap: 0, borderBottom: `1px solid ${C.border}`, flexShrink: 0,
@@ -461,6 +543,77 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 }
 
 // ───────────────────────────── 子组件 ─────────────────────────────
+
+// phase-25m 装配预设栏：芯片式预设列表（点名套用 / ✕ 删除）+ 内联命名保存
+function PresetBar({ presets, onApply, onSave, onDelete, saving, msg, maxSlots }) {
+  const [name, setName] = useState('')
+  const full = presets.length >= maxSlots
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+      padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg2, flexShrink: 0,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, whiteSpace: 'nowrap' }}>📋 预设</span>
+      {presets.length === 0 && (
+        <span style={{ fontSize: 11, color: C.dim2 }}>暂无保存的装配</span>
+      )}
+      {presets.map(p => (
+        <span key={p.name} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 2,
+          borderRadius: 6, border: `1px solid ${C.border}`, background: C.bg0,
+        }}>
+          <button
+            onClick={() => onApply(p)}
+            disabled={saving}
+            title="套用此预设"
+            style={{
+              background: 'transparent', border: 'none', color: C.accent,
+              padding: '3px 8px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600,
+            }}
+          >
+            {p.name}
+          </button>
+          <button
+            onClick={() => onDelete(p.name)}
+            disabled={saving}
+            title="删除此预设"
+            style={{
+              background: 'transparent', border: 'none', borderLeft: `1px solid ${C.border}`,
+              color: C.dim2, padding: '3px 6px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 10,
+            }}
+          >
+            ✕
+          </button>
+        </span>
+      ))}
+      <span style={{ flex: 1 }} />
+      <input
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="预设名"
+        maxLength={24}
+        style={{
+          width: 96, fontSize: 11, padding: '4px 8px', borderRadius: 6,
+          background: C.bg0, border: `1px solid ${C.border}`, color: C.text,
+        }}
+      />
+      <button
+        onClick={() => { onSave(name); setName('') }}
+        disabled={saving || full}
+        title={full ? `预设已满（最多 ${maxSlots} 套）` : '将当前装配存为预设'}
+        style={{
+          padding: '4px 12px', borderRadius: 6, border: 'none',
+          background: saving || full ? C.bg0 : C.accent,
+          color: saving || full ? C.dim2 : '#fff',
+          cursor: saving || full ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600,
+        }}
+      >
+        💾 存为预设
+      </button>
+      {msg && <span style={{ fontSize: 10, color: C.dim, width: '100%' }}>{msg}</span>}
+    </div>
+  )
+}
 
 const PERK_LABEL = {
   search_bonus:         { label: '搜索成功率', icon: '🔍', formatter: v => `+${Math.round(v * 100)}%` },

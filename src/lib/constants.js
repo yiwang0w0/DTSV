@@ -160,3 +160,16 @@ export const NEWBIE_PROTECTION = {
   REFUND_RATE: 0.5,                                                // 撤离失败返还入场购买点数的比例
   REFUNDABLE_POINT_TYPES: ['high_equip_pt', 'low_equip_pt', 'item_pt'], // class_pt 不返还
 }
+
+// ── 入场装配预设 / Loadout presets（research 2026-05-12 主题 A） ───────
+// 玩家可保存最多 MAX_SLOTS 套常用装配（职业 + 装备 + 道具 + 兑换），下次入场一键复用，
+// 降低 PrepareModal 重复选择摩擦。纯装配复用：保存预设不预扣任何点数，应用预设仍走正常
+// onConfirm 扣点流程，商店改版后失效 id 由 applyPresetToCart 静默过滤（不报错）。
+// 持久载体 = profiles.saved_loadouts JSONB（phase-25m 预埋，CHECK 限 <= MAX_SLOTS 槽）。
+// 本块为 single source of truth；由 src/lib/server/loadoutPresets.js 消费。
+// 预埋不启用（ENABLED=false），等 Phase 24b 接入 PrepareModal 预设下拉 + 保存入口后翻 true。
+export const LOADOUT_PRESETS = {
+  ENABLED: false,       // 预埋开关：true 后 PrepareModal 顶部显示「📋 预设」下拉 + 保存按钮
+  MAX_SLOTS: 5,         // 单玩家可保存的预设槽位上限（与 phase-25m CHECK 约束一致）
+  NAME_MAX_LEN: 24,     // 预设名最大字符数（sanitize 时截断）
+}
