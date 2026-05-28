@@ -99,7 +99,7 @@
 
 ## 2026-05-29 — research (主题 E 延伸 — 真人感/反碾压缩放 + 死亡留痕接线 + 正和留言)
 
-- [research-2026-05-29-E] **P0** — 探针遭遇属性按遭遇者实力相对缩放 + 硬封顶，并在遭遇 UI 显式标"另一位 PI 引导者留下的探针 · 携 N 残片"。治两个体裁失败模式：①Watch Dogs"不被相信是真人"→ 异步 PvP 社交价值归零（配合 28-E pseudonym 强化真人感而非刷怪）；②whale 探针碾压新人 / 毒包构造（equipment_snapshot 直接转 hp/atk/def 未缩放）。tryEncounterProbe 生成实例时按遭遇者属性做相对缩放 + 上限钳制。文件 `src/lib/server/probes.js` tryEncounterProbe + `src/app/game/[id]/GameClientPage.jsx` probeEncounter 卡。详见 [notes-2026-05-29-E.md](../research/notes-2026-05-29-E.md)
+- [research-2026-05-29-E] **P0** — 探针遭遇属性按遭遇者实力相对缩放 + 硬封顶，并在遭遇 UI 显式标"另一位 PI 引导者留下的探针 · 携 N 残片"。治两个体裁失败模式：①Watch Dogs"不被相信是真人"→ 异步 PvP 社交价值归零（配合 28-E pseudonym 强化真人感而非刷怪）；②whale 探针碾压新人 / 毒包构造（equipment_snapshot 直接转 hp/atk/def 未缩放）。tryEncounterProbe 生成实例时按遭遇者属性做相对缩放 + 上限钳制。文件 `src/lib/server/probes.js` tryEncounterProbe + `src/app/game/[id]/GameClientPage.jsx` probeEncounter 卡。详见 [notes-2026-05-29-E.md](../research/notes-2026-05-29-E.md) [doing-2026-05-29T05:23]
 - [research-2026-05-29-E] **P1** — 接线已建 `chamber_residue`(25i 已预埋 last_death_location/snapshotChamberResidue/prefetchChamberResidue) 到进场渲染：玩家进 chamber 时 prefetch 最近残骸，GameClientPage 显示六纪元短句风只读卡（"⟨此段检出一具未撤离的 PI 残骸 · 终因 Ω 倒计时归零⟩"），既加叙事密度又给威胁预警。把 25i 的预埋 helper 真正接到 UI（无新表，复用 player_death_log/chamber_residue）。文件 `chamberResidue.js` 调用点 + `GameClientPage.jsx` 渲染。
 - [research-2026-05-29-E] **P1** — 正和留痕（DS 留言等价物，补 DTSV 纯零和探针缺的正和社交层）：撤离可留一条 lore 风格短讯息绑定到当前 chamber，**模板词条拼装防滥用**（六纪元术语库，零审核 + 强制"不解释只描述"风格）；后续玩家评 Good/Poor，Good 反哺作者少量 item_pt/声望（DS Good 评价 +50%HP 的 DTSV 化）。文件 新表 `chamber_messages`(chamber_template_id, author_id, template_tokens, good_count) + `ExtractionModal.jsx` 留言入口 + `GameClientPage.jsx` 留言展示。匿名口径走 `buildOwnerPseudonym`(28-E)。
 
