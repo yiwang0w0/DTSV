@@ -91,4 +91,10 @@
 - [research-2026-05-29-C] **P1** — 首次接触"自我筛选框架"（Pathologic 2 范式）：首局出勤插入轻量 PI 引导者元叙事框架（"你不会立刻看懂——残片只描述不解释，拼齐它们是你的工作"），把困惑从"游戏没做完"重构成"设计意图"。复用 28-D 已建 `src/lib/server/raids.js` preRaidSetup 关怀对白系统挂首局触发 + `constants.js` 首局框架文案常量 + 首局 UI 卡。给劝退峰玩家自我筛选信号、留存峰玩家使命感。
 - [research-2026-05-29-C] **P1** — 断链残片改"开放循环"（Disco Elysium Thought Cabinet 范式）：把"……（断链中）……"死胡同改成被追踪的"悬案/推测"条目（显示已知碎片 + 缺失锚点提示但不剧透），后续发现前置残片时回溯点亮 + 小奖励（item_pt 或一次 decode 加速）。困惑→悬念→延迟奖励，匹配 Cultist"再玩就 click"牵引。文件 `src/lib/server/fragments.js` discoverFragment 断链分支 + `player_fragments` 悬案态 + /codex 或 /archive 渲染悬案列表。
 
+## 2026-05-29 — research (主题 D 延伸 — 非二元死亡状态 + 死亡→宿敌复仇闭环 + 死亡作为元叙事节拍)
+
+- [research-2026-05-29-D] **P1** — 死亡 PvP → 宿敌复仇闭环接线（连接两个**已建**系统）：当 `player_death_log.cause_category='pvp'` 且 `defeated_by` 非空时，把"被终结"喂进 `probe_encounter_pairs`(25j) nemesis 计数（或并行 `death_rival`），被同一玩家击败显著加权宿敌升级；下次遭遇该 owner 探针时遭遇 UI 顶"⚔ 你的终结者"复仇横幅。把 Nemesis"死亡→具名仇敌→复仇动机"落到已有数据。文件 `src/lib/server/nemesis.js`(`recordEncounterPair` 加 weight/source='pvp_death') + `deathLog.js` 回调 + Phase 21 遭遇 UI。红线：匿名走 `buildOwnerPseudonym` 不渲染真实 id（沿用 28-E P0）。详见 [notes-2026-05-29-D.md](../research/notes-2026-05-29-D.md)
+- [research-2026-05-29-D] **P1** — 死亡 recap 文案随上下文变体防死亡疲劳（additive 增强已建 DeathReviewModal）：Dwarf Fortress 铁律"重复同一失败屏=疲劳"，让文案 branch on `cause_category × chamber_depth × 当前纪元`，每组合配一条 PI 引导者旁白（死在 volatile 层 vs 进场即死 vs PvP 被终结 语气不同），把"被记住"从静默遥测变成会变化的叙事。文件 `src/components/DeathReviewModal.jsx` + `src/lib/constants.js` 死亡旁白文案表（无 schema 改动，复用现有 3 字段）。
+- [research-2026-05-29-D] **P1** — 死亡推进 lore 元叙事节拍（Hades 抗挫核心，把 28-D 点出的 gap 落成机制）：按**累计死亡次数**(`player_death_log` count by user) gate 一条 PI 引导者对白阶梯，第 N 次累计阵亡解锁下一段 beat，使死亡本身成为 lore 揭示 pacing key，**与点数/power 完全解耦**（死多只解叙事不给数值）。文件 新建轻量 `pi_guide_death_beats`(threshold/era/dialogue) + `deathLog.js` 写入后查 death_count 命中阈值 → push `player_notifications` 或下局 preRaidSetup 关怀对白（复用 28-D 已建 `raids.js` 对白系统）。
+
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
