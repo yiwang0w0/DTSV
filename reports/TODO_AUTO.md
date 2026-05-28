@@ -14,7 +14,7 @@
 
 ### 🔥 高优 Retention（来自 research 主题 A）
 
-- [research-2026-05-12] **P1** — 新手保护期机制：前 3 局 raid 撤离失败返还 50% 入场购买点数。涉及 `profiles.first_raids_count` 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"。⚠ 部分被 28-D Streak-breaker（连败兜底=免费 basic 保险 + NPC 密度 -20%）覆盖，但"撤离失败返还点数"分支仍未做，二者可叠加。 [doing-2026-05-29T04:23]
+- [research-2026-05-12] **P1** — 新手保护期机制：前 3 局 raid 撤离失败返还 50% 入场购买点数。涉及 `profiles.first_raids_count` 新字段 / extractPlayer 失败分支 / PrepareModal 标"新手 raid"。⚠ 部分被 28-D Streak-breaker（连败兜底=免费 basic 保险 + NPC 密度 -20%）覆盖，但"撤离失败返还点数"分支仍未做，二者可叠加。 → ✅ DONE 2026-05-29T04:28 commit b1e0dc6: phase-25l SQL 加 `profiles.first_raids_count INT DEFAULT 0 CHECK≥0`（postgres MCP 部署+验证 4 行全 in_protection / 0 nulls）；constants.js 加 `NEWBIE_PROTECTION` 块（ENABLED=false 预埋 / FIRST_RAIDS 3 / REFUND_RATE 0.5 / REFUNDABLE_POINT_TYPES=high+low+item，class_pt 不返还）；新建 `src/lib/server/newbieProtection.js` 三个纯函数（`isNewbieRaid` 未知计数保守视为新手 / `nextFirstRaidsCount` 完成局即自增 / `computeNewbieRefund` 按花费×rate 向下取整、绝不超实际花费防注水，红线 economy-canon §3）；PrepareModal 顶部加绿色「🛡 新手 raid·失败返还 50%」标识（NEWBIE_PROTECTION.ENABLED 门控 + first_raids_count 容错查询）。预埋不启用，等 Phase 24b 接入入场计数自增 + extractPlayer/Ω-段失败返还分支（与 28-D Streak-breaker 可叠加）；next lint 通过。
 - [research-2026-05-12] **P1** — Loadout preset 节省入场摩擦：profiles 加 `saved_loadouts JSONB`(3-5 slot) + PrepareModal 顶部"📋 预设"下拉。
 
 ### ⚡ 中优 Narrative（来自 research 主题 C）
