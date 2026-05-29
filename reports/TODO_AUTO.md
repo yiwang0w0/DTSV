@@ -87,7 +87,7 @@
 
 ## 2026-05-29 — research (主题 C 延伸 — "不解释只描述"容忍上限 + 渐进揭示反挫败)
 
-- [research-2026-05-29-C] **P1** — 机制/叙事双频道隔离：审计 `src/lib/server/fragments.js` 残片文本 + `GameClientPage.jsx` loreInjection 渲染，确保 lore 永不承载机制指令（"该往哪走/该用什么/目标是什么"走清晰机制频道，残片只描述世界）；`docs/narrative-vision.md` 写硬规则"叙事可晦涩、机制必清晰"。Cultist Simulator 证据：晦涩游戏劝退主因是机制晦涩而非叙事晦涩，改动小、防最大流失旋钮。详见 [notes-2026-05-29-C.md](../research/notes-2026-05-29-C.md)
+- [research-2026-05-29-C] **P1** — 机制/叙事双频道隔离：审计 `src/lib/server/fragments.js` 残片文本 + `GameClientPage.jsx` loreInjection 渲染，确保 lore 永不承载机制指令（"该往哪走/该用什么/目标是什么"走清晰机制频道，残片只描述世界）；`docs/narrative-vision.md` 写硬规则"叙事可晦涩、机制必清晰"。Cultist Simulator 证据：晦涩游戏劝退主因是机制晦涩而非叙事晦涩，改动小、防最大流失旋钮。详见 [notes-2026-05-29-C.md](../research/notes-2026-05-29-C.md) [doing-2026-05-29T18:23]
 - [research-2026-05-29-C] **P1** — 首次接触"自我筛选框架"（Pathologic 2 范式）：首局出勤插入轻量 PI 引导者元叙事框架（"你不会立刻看懂——残片只描述不解释，拼齐它们是你的工作"），把困惑从"游戏没做完"重构成"设计意图"。复用 28-D 已建 `src/lib/server/raids.js` preRaidSetup 关怀对白系统挂首局触发 + `constants.js` 首局框架文案常量 + 首局 UI 卡。给劝退峰玩家自我筛选信号、留存峰玩家使命感。
 - [research-2026-05-29-C] **P1** — 断链残片改"开放循环"（Disco Elysium Thought Cabinet 范式）：把"……（断链中）……"死胡同改成被追踪的"悬案/推测"条目（显示已知碎片 + 缺失锚点提示但不剧透），后续发现前置残片时回溯点亮 + 小奖励（item_pt 或一次 decode 加速）。困惑→悬念→延迟奖励，匹配 Cultist"再玩就 click"牵引。文件 `src/lib/server/fragments.js` discoverFragment 断链分支 + `player_fragments` 悬案态 + /codex 或 /archive 渲染悬案列表。
 
