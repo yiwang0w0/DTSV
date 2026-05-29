@@ -263,3 +263,32 @@ export const FIRST_CONTACT_FRAMING = {
   ],
   SIGNATURE: '——PI 引导者',
 }
+
+// ── 断链残片"开放循环" / Fragment cold cases（research 2026-05-29-C P1） ──
+// Disco Elysium Thought Cabinet + Cultist Simulator "再玩就 click" 范式：
+// 把"持有某残片却缺其前置锚点"的断链态从死胡同（"……（断链中）……"）改成被追踪的
+// "悬案/推测"条目 —— 显示已知碎片 + 缺失锚点提示但不剧透，补齐前置锚点时回溯点亮 +
+// 小奖励。困惑→悬念→延迟奖励，匹配"渐进揭示的健康形态是系统化、不是死胡同"。
+//
+// 断链态来源：discoverFragment 对缺前置的残片静默过滤（fragments.js），而 combo 解锁
+// （evaluateFragmentCombos）会绕过 requires 把 C 残片直接给玩家 → "持有 F13 却缺 F12"。
+//
+// 回溯奖励（economy-canon §3 / §6.1 12% 周通胀红线）：
+//   - REWARD_KIND='decode_accel'（默认）：给"刚补齐的锚点"一次解码加速（+N decode_level，
+//     钳制 ≤3）。纯叙事进度·非经济 faucet，最安全。
+//   - REWARD_KIND='item_pt'：发 ITEM_PT_AMOUNT 道具点（极小额）。选它则 Phase 24b 必须
+//     纳入 v_weekly_stash_inflation 监测。
+//   - class_pt 永不作为本奖励（不加速 legendary 软保底跳关）。
+//   - reward_granted/reward_amount（DB）防重复发放注水。
+//
+// 本块为 single source of truth；由 src/lib/server/coldCases.js（detect/resolve/list）消费，
+// /codex 悬案区渲染。全部受 ENABLED 门控（默认 false）+ exception-safe，绝不阻塞残片发现。
+// 预埋不启用，等 Phase 24b 接 discoverFragment detect/resolve 钩子 + /codex 悬案卡 + 升级
+// toast，并确认回溯奖励 EV 落在通胀预算内后翻 true。
+export const COLD_CASES = {
+  ENABLED: false,            // 预埋开关：true 后登记/回溯断链悬案 + /codex 显示悬案区
+  REWARD_KIND: 'decode_accel', // 'decode_accel'（默认·纯叙事）| 'item_pt'（经济·需监测）
+  DECODE_ACCEL_LEVELS: 1,    // decode_accel 时给补齐的锚点 +N decode_level（最终钳制 ≤3）
+  ITEM_PT_AMOUNT: 3,         // item_pt 时发放的道具点（极小额，仅 REWARD_KIND='item_pt' 生效）
+  MAX_OPEN_PER_USER: 50,     // 单玩家 open 悬案上限（detect 超限不再新登记，防 UI 膨胀）
+}

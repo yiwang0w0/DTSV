@@ -3,6 +3,8 @@
  * 跨周目持久化的知识碎片管理
  */
 
+import { detectColdCases, resolveColdCasesForFragment } from './coldCases'
+
 // 28-C P0: 新玩家入口残片权重加成
 // 玩家首 3 局 raid 内，F01/F02/F03（按名称前缀匹配，三链分别覆盖 search/search/combat）的
 // 抽中权重 ×NEWBIE_ENTRY_BOOST_MULTIPLIER。目标：≥80% 新玩家在第一周触达入口残片。
@@ -198,7 +200,14 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
       }, { onConflict: 'user_id,fragment_id' })
 
     if (error) throw error
-    return { fragment_id: target.id, decode_level: 0, isNew: true, chain, name: target.name }
+
+    // 断链悬案（COLD_CASES.ENABLED 门控 + exception-safe，关闭时 0 查询）：
+    // 新发现的残片可能正是某些 open 悬案缺失的前置锚点 → 回溯点亮 + 小奖励；
+    // 随后 detect 一次（理论上 search-discovery 已过滤缺前置者，此处为兜底幂等）。
+    const coldCaseResolved = await resolveColdCasesForFragment(client, userId, target.id)
+    await detectColdCases(client, userId)
+
+    return { fragment_id: target.id, decode_level: 0, isNew: true, chain, name: target.name, coldCaseResolved }
   } else {
     const currentLevel = ownedMap.get(target.id)
     const newLevel = Math.min(3, currentLevel + 1)
@@ -218,6 +227,16 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
     let comboUnlocks = []
     if (newLevel === 3 && currentLevel < 3) {
       comboUnlocks = await evaluateFragmentCombos(client, userId, target.id)
+    }
+
+    // 断链悬案：combo 解锁会绕过 requires 把 C 残片直接给玩家 → 既可能登记新断链
+    // （C 缺前置），也可能 C 本身是某 open 悬案缺的锚点 → 回溯点亮。COLD_CASES.ENABLED
+    // 门控 + exception-safe，关闭时 0 查询。
+    if (comboUnlocks.length > 0) {
+      for (const u of comboUnlocks) {
+        await resolveColdCasesForFragment(client, userId, u.fragmentId)
+      }
+      await detectColdCases(client, userId)
     }
 
     return {

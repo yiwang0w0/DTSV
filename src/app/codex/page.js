@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { COLD_CASES } from '@/lib/constants'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
 
@@ -73,6 +74,7 @@ function epochIdOf(fragment) {
 
 // 残片所属纪元的主题色（主线卡每行保留各自纪元色，呼应时间轴）
 const EPOCH_COLOR_BY_ID = Object.fromEntries([...EPOCHS, OTHER_EPOCH].map(e => [e.id, e.color]))
+const EPOCH_NAME_BY_ID = Object.fromEntries([...EPOCHS, OTHER_EPOCH].map(e => [e.id, e.name]))
 function epochColorOf(fragment) {
   return EPOCH_COLOR_BY_ID[epochIdOf(fragment)] || C.accent
 }
@@ -159,18 +161,32 @@ export default function CodexPage() {
   const { user, loading: authLoading } = useAuth()
   const [fragments, setFragments] = useState([])
   const [playerFragments, setPlayerFragments] = useState([])
+  const [coldCases, setColdCases] = useState([])
   const [loading, setLoading] = useState(true)
   const [mainOpen, setMainOpen] = useState(true)
+  const [coldOpen, setColdOpen] = useState(true)
 
   useEffect(() => {
     if (!user) return
     async function load() {
-      const [poolRes, playerRes] = await Promise.all([
+      const reqs = [
         supabase.from('fragment_pool').select('*').eq('enabled', true),
         supabase.from('player_fragments').select('*').eq('user_id', user.id),
-      ])
+      ]
+      // 断链悬案区受 COLD_CASES.ENABLED 门控（关闭时不查询）
+      if (COLD_CASES.ENABLED) {
+        reqs.push(
+          supabase.from('fragment_cold_cases')
+            .select('id, fragment_id, missing_anchor_id, opened_at')
+            .eq('user_id', user.id)
+            .eq('status', 'open')
+            .order('opened_at', { ascending: true }),
+        )
+      }
+      const [poolRes, playerRes, coldRes] = await Promise.all(reqs)
       setFragments(poolRes.data || [])
       setPlayerFragments(playerRes.data || [])
+      setColdCases((coldRes && coldRes.data) || [])
       setLoading(false)
     }
     load()
@@ -219,6 +235,27 @@ export default function CodexPage() {
     const fullyDecoded = list.filter(e => e.discovered && e.playerData.decode_level >= 3).length
     return { list, discovered, fullyDecoded, total: list.length }
   }, [fragments, playerFragments])
+
+  // 断链悬案视图：把 cold_cases 行 join 到 fragment_pool 取名/编码/纪元。
+  // 已知碎片（fragment_id）= 玩家持有，显名；缺失锚点（missing_anchor_id）= 未持有，
+  // 仅显编码作"开放循环"线索，名/内容保持遮蔽（不剧透，与主线时间轴未发现残片一致）。
+  const coldCaseView = useMemo(() => {
+    if (!COLD_CASES.ENABLED || coldCases.length === 0) return []
+    const poolMap = new Map(fragments.map(f => [f.id, f]))
+    return coldCases
+      .map(cc => {
+        const known = poolMap.get(cc.fragment_id)
+        const anchor = poolMap.get(cc.missing_anchor_id)
+        if (!known || !anchor) return null
+        return {
+          id: cc.id,
+          known: { code: codeOf(known.name), name: displayName(known.name), epochColor: epochColorOf(known) },
+          anchor: { code: codeOf(anchor.name), epochId: epochIdOf(anchor), epochColor: epochColorOf(anchor) },
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.known.code || 'ZZ').localeCompare(b.known.code || 'ZZ'))
+  }, [coldCases, fragments])
 
   const stats = useMemo(() => {
     const total = fragments.length
@@ -333,6 +370,99 @@ export default function CodexPage() {
                   playerData={playerData}
                   epochColor={epochColorOf(fragment)}
                 />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 断链悬案折叠卡 — 持有残片却缺前置锚点时登记的"开放循环"，补齐锚点后回溯点亮 */}
+      {COLD_CASES.ENABLED && coldCaseView.length > 0 && (
+        <section style={{
+          border: `1px solid ${C.border}`, borderRadius: 12, background: C.bg2,
+          overflow: 'hidden', marginBottom: 18,
+        }}>
+          <button
+            onClick={() => setColdOpen(o => !o)}
+            style={{
+              width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit',
+              padding: '12px 18px', border: 'none',
+              background: `linear-gradient(90deg, ${C.yellow}1c, transparent)`,
+              borderBottom: coldOpen ? `1px solid ${C.border}` : 'none',
+              borderLeft: `4px solid ${C.yellow}`,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>🔍 待解悬案</span>
+              <span style={{ fontSize: 11, color: C.yellow, opacity: 0.85 }}>已知碎片指向尚未寻得的前置</span>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: C.dim, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                {coldCaseView.length} 条未解
+              </span>
+              <span style={{
+                fontSize: 11, color: C.dim,
+                transform: coldOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
+              }}>▶</span>
+            </span>
+          </button>
+          {coldOpen && (
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6, padding: '0 2px 4px' }}>
+                这些残片提到了你尚未寻得的前置记录。寻得缺失的锚点残片后，悬案会自动回溯点亮。
+              </div>
+              {coldCaseView.map(cc => (
+                <div key={cc.id} style={{
+                  background: C.bg2,
+                  border: `1px solid ${C.border}`,
+                  borderLeft: `3px solid ${C.yellow}`,
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                }}>
+                  {/* 已知碎片（持有，显名） */}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    {cc.known.code && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                        background: `${cc.known.epochColor}1c`, color: cc.known.epochColor,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace', flexShrink: 0,
+                      }}>
+                        {cc.known.code}
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: 13, fontWeight: 700, color: C.text,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {cc.known.name}
+                    </span>
+                  </span>
+                  {/* 断链指向 */}
+                  <span style={{ fontSize: 12, color: C.dim2, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>……（断链）⟶</span>
+                  {/* 缺失锚点（未持有，仅显编码 + 纪元，名/内容遮蔽） */}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {cc.anchor.code && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                        background: `${cc.anchor.epochColor}1c`, color: cc.anchor.epochColor,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace', flexShrink: 0,
+                      }}>
+                        {cc.anchor.code}
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: 12, color: C.dim,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: 2,
+                    }}>
+                      ████
+                    </span>
+                    <span style={{ fontSize: 11, color: C.dim2 }}>
+                      缺失锚点 · {EPOCH_NAME_BY_ID[cc.anchor.epochId] || '未编年档案'}
+                    </span>
+                  </span>
+                </div>
               ))}
             </div>
           )}
