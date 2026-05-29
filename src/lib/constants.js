@@ -173,3 +173,28 @@ export const LOADOUT_PRESETS = {
   MAX_SLOTS: 5,         // 单玩家可保存的预设槽位上限（与 phase-25m CHECK 约束一致）
   NAME_MAX_LEN: 24,     // 预设名最大字符数（sanitize 时截断）
 }
+
+// ── 本局目标 / Run goals（research 2026-05-29-A P1） ──────────────────
+// 操作化体裁"个人化胜利"：出勤前可自选一个本局目标，结算结局横幅显示达成度 + 本局评级。
+// 把"赢"从单一"成功撤离"扩展成玩家自定义的多元成就锚点（解码残片 / 凑够点数 /
+// 击杀首领 / 部署探针），缓解体裁"有限目标达成即流失"，给每局一个个人化叙事收束。
+// 设计红线（economy-canon §3 / narrative-vision §6.1）：目标只驱动"评级展示"叙事兑现，
+//   严禁附带任何点数 / 掉落 / power 净收益 —— 评级是叙事兑现，不是经济水龙头。
+// 本块为 single source of truth；由 src/lib/server/runGoals.js 消费。
+// 预埋不启用（ENABLED=false），等 Phase 24b 接 join 存 per-player gamevars.runGoal +
+//   extract/结局评估写 meBase.runGoalResult + 结局横幅评级渲染后翻 true。
+export const RUN_GOALS = {
+  ENABLED: false,          // 预埋开关：true 后 PrepareModal 顶部显示「🎯 本局目标」选择条
+  DEFAULT_TYPE: 'none',    // 默认不设目标（成功撤离即胜利）
+  // 可选目标类型：metric = 评估时读取的 outcome 字段名（none 无度量）；target = 达成阈值
+  TYPES: [
+    { type: 'none',            label: '自由探索', icon: '🧭', desc: '不设目标，成功撤离即胜利',   metric: null,               target: 0 },
+    { type: 'decode_fragment', label: '解码残片', icon: '📡', desc: '本局解码任意一枚新残片',     metric: 'fragmentsDecoded', target: 1 },
+    { type: 'collect_points',  label: '凑够点数', icon: '💠', desc: '本局累计赚取目标数量的点数', metric: 'pointsEarned',     target: 50, targetEditable: true },
+    { type: 'kill_boss',       label: '击杀首领', icon: '⚔',  desc: '本局击杀任意 boss 级 NPC',   metric: 'bossKilled',       target: 1 },
+    { type: 'leave_probe',     label: '部署探针', icon: '🛰', desc: '撤离时留下一枚异步探针',     metric: 'probeLeft',        target: 1 },
+  ],
+  POINTS_TARGET_MIN: 10,   // collect_points 可调目标下限
+  POINTS_TARGET_MAX: 500,  // collect_points 可调目标上限
+  POINTS_TARGET_STEP: 10,  // collect_points 步进
+}

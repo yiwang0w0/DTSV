@@ -22,7 +22,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
-import { NEWBIE_PROTECTION, LOADOUT_PRESETS } from '@/lib/constants'
+import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS } from '@/lib/constants'
 import {
   sanitizeLoadoutPresets,
   applyPresetToCart,
@@ -30,6 +30,10 @@ import {
   upsertLoadoutPresets,
   removeLoadoutPreset,
 } from '@/lib/server/loadoutPresets'
+import { sanitizeRunGoal, runGoalDef } from '@/lib/server/runGoals'
+
+// collect_points 默认目标（从 RUN_GOALS 定义派生，避免硬编码漂移）
+const DEFAULT_POINTS_TARGET = runGoalDef('collect_points')?.target ?? 50
 
 const C = {
   bg0:    '#0e1117',
@@ -79,6 +83,10 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const [presetMsg, setPresetMsg] = useState('')     // 套用/保存反馈
   const [presetSaving, setPresetSaving] = useState(false)
 
+  // 本局目标（research 2026-05-29-A，RUN_GOALS.ENABLED 门控，预埋不启用）
+  const [runGoalType, setRunGoalType] = useState(RUN_GOALS.DEFAULT_TYPE)
+  const [runGoalTarget, setRunGoalTarget] = useState(DEFAULT_POINTS_TARGET)
+
   // Phase 24c 职业状态
   const [classCandidates, setClassCandidates] = useState([])
   const [selectedClassId, setSelectedClassId] = useState(null)
@@ -103,6 +111,8 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
     setClassCandidates([])
     setSelectedClassId(null)
     setUsedHighPt(false)
+    setRunGoalType(RUN_GOALS.DEFAULT_TYPE)
+    setRunGoalTarget(DEFAULT_POINTS_TARGET)
     setTab('class')
 
     Promise.all([
@@ -349,11 +359,14 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
         const T = Number(times) || 0
         if (T > 0) exchanges.push({ rateId: Number(rid), times: T })
       }
+      // 本局目标：sanitizeRunGoal 在未启用 / 选 none 时返回 null，仅有效时附带（additive，旧 join 流程忽略未知字段）
+      const runGoal = sanitizeRunGoal({ type: runGoalType, target: runGoalTarget })
       await onConfirm({
         classId: selectedClassId,
         usedHighPt,
         catalogPurchases,
         exchanges,
+        ...(runGoal ? { runGoal } : {}),
       })
     } catch (e) {
       setError(e?.message || '提交失败')
@@ -452,6 +465,16 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
             saving={presetSaving}
             msg={presetMsg}
             maxSlots={LOADOUT_PRESETS.MAX_SLOTS}
+          />
+        )}
+
+        {/* 本局目标选择条（research 2026-05-29-A，RUN_GOALS.ENABLED 门控，预埋不启用） */}
+        {RUN_GOALS.ENABLED && (
+          <RunGoalBar
+            selectedType={runGoalType}
+            pointsTarget={runGoalTarget}
+            onSelect={setRunGoalType}
+            onChangeTarget={setRunGoalTarget}
           />
         )}
 
@@ -611,6 +634,58 @@ function PresetBar({ presets, onApply, onSave, onDelete, saving, msg, maxSlots }
         💾 存为预设
       </button>
       {msg && <span style={{ fontSize: 10, color: C.dim, width: '100%' }}>{msg}</span>}
+    </div>
+  )
+}
+
+// 本局目标选择条（research 2026-05-29-A）：芯片单选 + collect_points 目标步进。
+// 红线提示文案显式声明评级不附带任何经济收益（economy-canon §3 / narrative-vision §6.1）。
+function RunGoalBar({ selectedType, pointsTarget, onSelect, onChangeTarget }) {
+  const selectedDef = RUN_GOALS.TYPES.find(t => t.type === selectedType) || null
+  const showStepper = !!selectedDef?.targetEditable
+  function stepTarget(delta) {
+    const cur = Number(pointsTarget) || RUN_GOALS.POINTS_TARGET_MIN
+    const next = cur + delta * RUN_GOALS.POINTS_TARGET_STEP
+    onChangeTarget(Math.max(RUN_GOALS.POINTS_TARGET_MIN, Math.min(RUN_GOALS.POINTS_TARGET_MAX, next)))
+  }
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+      padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg2, flexShrink: 0,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, whiteSpace: 'nowrap' }}>🎯 本局目标</span>
+      {RUN_GOALS.TYPES.map(g => {
+        const active = g.type === selectedType
+        return (
+          <button
+            key={g.type}
+            onClick={() => onSelect(g.type)}
+            title={g.desc}
+            style={{
+              borderRadius: 6, border: `1px solid ${active ? C.accent : C.border}`,
+              background: active ? `${C.accent}1a` : C.bg0,
+              color: active ? C.accent : C.dim,
+              padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+            }}
+          >
+            {g.icon} {g.label}
+          </button>
+        )
+      })}
+      {showStepper && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+          <button onClick={() => stepTarget(-1)} disabled={pointsTarget <= RUN_GOALS.POINTS_TARGET_MIN} style={btn(pointsTarget <= RUN_GOALS.POINTS_TARGET_MIN)}>-</button>
+          <span style={{ minWidth: 48, textAlign: 'center', fontWeight: 700, color: C.accent, fontFamily: 'monospace' }}>{pointsTarget} 点</span>
+          <button onClick={() => stepTarget(1)} disabled={pointsTarget >= RUN_GOALS.POINTS_TARGET_MAX} style={btn(pointsTarget >= RUN_GOALS.POINTS_TARGET_MAX)}>+</button>
+        </span>
+      )}
+      <span style={{ flex: 1 }} />
+      {selectedDef && (
+        <span style={{ fontSize: 10, color: C.dim2, width: '100%' }}>
+          {selectedDef.desc}
+          {selectedDef.type !== RUN_GOALS.DEFAULT_TYPE && ' · 仅影响结算评级展示，不附带任何点数 / 掉落收益'}
+        </span>
+      )}
     </div>
   )
 }

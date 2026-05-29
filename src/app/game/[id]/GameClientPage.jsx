@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../layout'
-import { ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META } from '@/lib/constants'
+import { ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS } from '@/lib/constants'
+import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
 import { calcEquippedStats, RARITY_META } from '@/lib/equipmentEngine'
@@ -360,7 +361,9 @@ export default function GameClientPage() {
 
   // Phase 24b: 加入对局走 PrepareModal — 4 类点数 + 商店购买 + 兑换
   async function handleJoinWithLoadout(payload) {
-    // Phase 24b payload = { catalogPurchases: [{catalogId, qty}], exchanges: [{rateId, times}] }
+    // Phase 24b payload = { classId, usedHighPt, catalogPurchases:[{catalogId,qty}], exchanges:[{rateId,times}] }
+    //   research-2026-05-29-A: 当 RUN_GOALS.ENABLED 时 payload 还含 runGoal:{type,target}，
+    //   join 控制流将其存 per-player gamevars.runGoal（Phase 24b 接入），结算时评估写 runGoalResult。
     const next = await runGameAction('join', { loadout: payload }, { refreshEquipment: true })
     if (next) {
       toast('🎒 装载完成，已进入异常段', 'success')
@@ -776,6 +779,40 @@ export default function GameClientPage() {
                 </div>
               </div>
             )}
+
+            {/* research-2026-05-29-A: 本局目标 · 个人评级（个人化胜利）。RUN_GOALS.ENABLED 门控，
+                meBase.runGoalResult 由 Phase 24b extract/结局评估（evaluateRunGoal 产物）写入。
+                红线：评级仅叙事兑现，不附带任何点数 / 掉落 / power 收益。预埋不启用时不渲染。 */}
+            {RUN_GOALS.ENABLED && meBase?.runGoalResult && (() => {
+              const r = meBase.runGoalResult
+              const rating = runGoalRating(r)
+              if (!rating) return null
+              const gradeColor = rating.grade === 'S' ? T.yellow
+                : rating.grade === 'A' ? T.green
+                : rating.grade === 'B' ? T.cyan : T.dim
+              return (
+                <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                  <div style={{ fontSize: 10, color: T.dim, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>
+                    🎯 本局目标 · 个人评级
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: 22, fontWeight: 900, color: gradeColor,
+                      width: 38, height: 38, lineHeight: '38px', textAlign: 'center',
+                      borderRadius: 8, border: `2px solid ${gradeColor}`, background: `${gradeColor}1a`,
+                    }}>{rating.grade}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
+                        {r.icon} {r.label} — {rating.text}
+                      </div>
+                      <div style={{ fontSize: 11, color: r.achieved ? T.green : T.dim, fontFamily: 'monospace', marginTop: 2 }}>
+                        进度 {r.progress} / {r.target} {r.achieved ? '✓' : ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Phase 18.2: 引导玩家去 Archive 查看本局贡献 */}
             {/* research-2026-05-29-A: 结局=房间级兑现，4 结局为"收集所有结局"replay 钩子，外显再出勤动机 */}
