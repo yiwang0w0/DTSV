@@ -66,11 +66,41 @@ Phase 24b 后玩家会持续积累 4 类点数 + 装备实例 + stash。没有�
 
 下列项目本文档**暂不下结论**，待 Phase 24b 实装时按本表格式补充：
 
-- `class_pt` 余额：偏持久（横向代币），但若做赛季可考虑保留 50%
+- `class_pt` 余额：偏持久（横向代币），但若做赛季可考虑保留 50%。**注意 §3.4：class_pt 是保底地板而非可囤跳关券，余额须封顶**
 - 已购买的 cosmetic 蓝图：偏持久
 - 解锁的特殊技能 / 永久 buff（若 Phase 24c 引入）：必须持久，否则等同战斗优势重置
 
 每次新增可累积资产时，作者必须在 PR 中明确填入 §3.1 或 §3.2，**不允许悬空**。
+
+---
+
+## 三·补 — Legendary = 横向 build-enabler，class_pt = 保底地板（§3.4）
+
+> 起草依据：[research-2026-05-29-B P1](../research/notes-2026-05-29-B.md) + 审计 [legendary-horizontal-audit-2026-05-29.md](./legendary-horizontal-audit-2026-05-29.md)
+> 与 §3.2「点数/装备是数值层」、§8 反模式 #1（power creep）/ #4（可囤硬保底）联动。
+
+### 3.4.1 Legendary 必须是横向（horizontal），不是 stat-stick
+
+**条款**：legendary（及未来 mythic）装备 / 职业的区分点必须是**新机制 / build-enabler**（开一种新玩法、新交互、新解锁路径），**不得是纯数值堆叠**（ATK/DEF/HP/乘子单调拉高）。
+
+判据：
+
+- **装备**：legendary `equipment_tiers` 至少接 1 个 `passive_skill_id`（横向机制载体已建于 schema + admin `EquipmentPassivesSection`）。纯 base_atk/def/hp 提升不能是 legendary 的唯一区别——那只是 epic 的延长线，撞「grind until strong」trivialize 技能反模式。
+- **职业**：legendary `classes` 须以横向 perk（`search_bonus` / `pollution_resist` / `omega_window_bonus` / `fragment_drop_bonus` / `catalog_unlock_tag`）为主导。垂直 perk（`combat_dmg_mult` / `combat_def_mult`）允许出现，但**必须带下行对价**（如污染加速 / 撤离窗口缩短）且乘子设硬上限，不得成为 legendary 的主卖点。
+
+**审计现状（2026-05-29）**：装备层 0/17 tier 接 passive（全是 flavor 文本），2 把 legendary 武器是纯 ATK stat-stick → 🔴 待 24c 修正；职业层 2/3 legendary 合格横向，伊甸协议执行者偏垂直但有下行对价 → 🟠 边界可接受。详见审计文档。
+
+### 3.4.2 class_pt = 封顶 floor（保底地板），不是可囤 stockpile（跳关券）
+
+**条款**：`class_pt` 是「坏运气保护地板」——自然 roll 不出 legendary 时托底用，**余额必须封顶**，到顶不再累积；自然 roll 出 legendary 时应衰减计数。**禁止**让 class_pt 无限累积成「攒够 N 个就连刷 N 次 legendary」的跳关券。
+
+**审计现状（2026-05-29）**：`points.js` `creditPoints` 对 class_pt 无上限累加，`forceRollLegendary` 每次扣 1 → 当前是无封顶 stockpile，命中 §8 反模式 #4 → 🔴 待 24c 加 cap + 衰减 + PrepareModal 显示「距保底上限 N」。
+
+### 3.4.3 §3.1 / §3.2 归属
+
+- legendary 装备 / 职业的**解锁状态**（拥有该 build）= §3.1 持久层（横向解锁 ≠ 强度，与 §3.1 职业池一致）。
+- legendary 装备**实例**（具体 equipment_instances）= §3.2 可重置层（数值层资产）。
+- `class_pt` **余额** = 灰色地带（见 §3.3），但无论是否赛季重置，运行期都受 §3.4.2 封顶约束。
 
 ---
 
@@ -251,3 +281,4 @@ PR review 时拿这个字段对照 §3.1 / §3.2，**任何「reset」里出现 
 | `raid_stats.points_credited / points_spent / stash_value_before / stash_value_after` | [phase-25g-raid-stats-economy.sql](../scripts/phase-25g-raid-stats-economy.sql) | 25g |
 | `v_weekly_stash_inflation` 视图 | 同上 | 25g |
 | Healthcheck M1.4 周库存增长率 | [scripts/healthcheck-spec.md](../scripts/healthcheck-spec.md) | 26 |
+| §3.4 Legendary 横向 / class_pt 保底地板条款 + 审计 | [legendary-horizontal-audit-2026-05-29.md](./legendary-horizontal-audit-2026-05-29.md) | 24c（待实装） |
