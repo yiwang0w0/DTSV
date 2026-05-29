@@ -238,3 +238,28 @@ export const HIGH_RISK = {
     { level: 3, label: '高危·叁', icon: '🔥🔥🔥', desc: '污染剧增 · NPC +50% · Ω 窗口 -1 · 残片/点数 +50~60%', envAccelBonus: 3, npcDensityMult: 1.5, omegaWindowDelta: -1, fragmentDropMult: 1.5, pointsMult: 1.6 },
   ],
 }
+
+// ── 首次接触自我筛选框架 / First-contact self-selection framing（research 2026-05-29-C P1） ──
+// Pathologic 2 范式：玩家第一局出勤前插入一段轻量 PI 引导者元叙事框架，把"你不会立刻看懂"
+// 从"游戏没做完 / 缺陷"诚实重构为"设计意图"。明确告知玩家：残片只描述、不解释，
+// 拼齐它们、还原这段历史是玩家自己的工作 —— 给劝退峰玩家一个诚实的自我筛选信号
+// （"这不是给所有人的游戏"），同时把困惑转译成留存峰玩家的使命感（呼应 narrative-vision §6.4
+// "叙事可晦涩、机制必清晰"：框架本身是清晰机制频道里对叙事晦涩的预告，不让困惑外溢成劝退）。
+//
+// 仅在玩家"第一局"触发（first_raids_count === 0 / 等价累计出勤计数 === 0），纯叙事，
+// 严禁任何点数 / 掉落 / power / 难度收益（与 economy-canon §3 一致）。
+// 复用 src/lib/server/raids.js preRaidSetup（与 28-D Streak-breaker 关怀对白同一注入管道）判定。
+// 本块为文案 single source of truth；由 raids.js firstContactFraming 消费 + PrepareModal 首局 UI 卡渲染。
+// 预埋不启用（ENABLED=false），等 Phase 24b 接 join 读 first_raids_count / 出勤计数 + 首局卡 UI 后翻 true。
+export const FIRST_CONTACT_FRAMING = {
+  ENABLED: false,                          // 预埋开关：true 后 PrepareModal 首局顶部显示元叙事框架卡
+  TITLE: '⟨ 首次接触 · 主控路径留言 ⟩',
+  // PI 引导者元叙事框架（自我筛选范式：诚实预告"晦涩 = 设计意图"，把困惑前置成选择）
+  LINES: [
+    '引导者，欢迎来到伊甸港的缝隙。在你第一次下潜之前，我必须先把话说清楚。',
+    '你不会立刻看懂这里。残片只描述，不解释——它们记录世界曾经的样子，却从不告诉你该怎么做。',
+    '拼齐它们、还原这段被封存的历史，是你的工作，不是我的。我只在你坠落时陪你校准下一程。',
+    '若"不被立刻告知答案"让你却步，这或许不是给你的旅程；若它让你着迷，那么——开始吧。',
+  ],
+  SIGNATURE: '——PI 引导者',
+}

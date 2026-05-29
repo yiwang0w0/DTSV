@@ -20,7 +20,7 @@
  * 调用，把返回的 modifier 应用到 raidPath + 玩家入场状态。
  */
 
-import { STREAK_BREAKER } from '../constants'
+import { STREAK_BREAKER, FIRST_CONTACT_FRAMING } from '../constants'
 
 /**
  * 把连败局数换算为减负等级：0 = 未触发；触发后每多连败一局 +1，封顶 MAX_RELIEF_LEVEL。
@@ -88,18 +88,47 @@ export function applyNpcDensityMultiplier(raidPath, multiplier) {
 }
 
 /**
- * raid 准备 — 组合 streak-breaker 判定 + 路径密度修正。
- * Phase 24b 入场流程调用：传入玩家连续失败计数 + 已生成的 raidPath，
- * 取回兜底 buff 包与（可能已降密度的）路径。
+ * 首次接触自我筛选框架（research 2026-05-29-C P1，Pathologic 2 范式）。
+ * 仅在玩家"第一局"出勤（totalRaidsCompleted === 0）返回元叙事框架文案；否则 inactive。
+ * 把"你不会立刻看懂"诚实预告为设计意图而非缺陷 —— 给劝退峰玩家自我筛选信号、
+ * 给留存峰玩家使命感。纯叙事，严禁任何点数 / 掉落 / power / 难度收益。
+ *
+ * 计数语义（与 newbieProtection 保守方向相反）：未知 / 非有限 / null / undefined 一律
+ * 视为"非首局"——宁可对加载失败的玩家漏弹框架卡，也绝不对已上手老玩家误弹元叙事说明。
+ * 只有显式的 0（或负）计数才判定为首局。预埋期 ENABLED=false 时恒 inactive。
+ * @param {number} totalRaidsCompleted — 玩家累计完成 raid 局数（profiles.first_raids_count 或等价计数）
+ * @returns {{ active: boolean, title: (string|null), lines: string[], signature: (string|null) }}
+ */
+export function firstContactFraming(totalRaidsCompleted) {
+  const inactive = { active: false, title: null, lines: [], signature: null }
+  if (!FIRST_CONTACT_FRAMING.ENABLED) return inactive
+  if (totalRaidsCompleted === null || totalRaidsCompleted === undefined) return inactive
+  const n = Number(totalRaidsCompleted)
+  if (!Number.isFinite(n) || n > 0) return inactive
+  const lines = Array.isArray(FIRST_CONTACT_FRAMING.LINES) ? FIRST_CONTACT_FRAMING.LINES.slice() : []
+  return {
+    active: true,
+    title: FIRST_CONTACT_FRAMING.TITLE || null,
+    lines,
+    signature: FIRST_CONTACT_FRAMING.SIGNATURE || null,
+  }
+}
+
+/**
+ * raid 准备 — 组合 streak-breaker 判定 + 路径密度修正 + 首局自我筛选框架。
+ * Phase 24b 入场流程调用：传入玩家连续失败计数 + 累计出勤计数 + 已生成的 raidPath，
+ * 取回兜底 buff 包、首局框架包与（可能已降密度的）路径。
  * @param {object} args
  * @param {number} [args.consecutiveFailedRaids=0]
  * @param {Array}  [args.raidPath=[]] — generateRaidPath 产物
- * @returns {{ streakBreaker: object, raidPath: Array }}
+ * @param {number} [args.totalRaidsCompleted=null] — 玩家累计完成 raid 局数（null = 未知，不弹框架）
+ * @returns {{ streakBreaker: object, firstContact: object, raidPath: Array }}
  */
-export function preRaidSetup({ consecutiveFailedRaids = 0, raidPath = [] } = {}) {
+export function preRaidSetup({ consecutiveFailedRaids = 0, raidPath = [], totalRaidsCompleted = null } = {}) {
   const streakBreaker = computeStreakBreaker(consecutiveFailedRaids)
   const adjustedPath = streakBreaker.active
     ? applyNpcDensityMultiplier(raidPath, streakBreaker.npcDensityMultiplier)
     : (Array.isArray(raidPath) ? raidPath : [])
-  return { streakBreaker, raidPath: adjustedPath }
+  const firstContact = firstContactFraming(totalRaidsCompleted)
+  return { streakBreaker, firstContact, raidPath: adjustedPath }
 }

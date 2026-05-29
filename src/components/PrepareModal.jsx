@@ -24,6 +24,7 @@ import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
 import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS, HIGH_RISK } from '@/lib/constants'
 import { sanitizeHeatLevel } from '@/lib/server/heat'
+import { firstContactFraming } from '@/lib/server/raids'
 import {
   sanitizeLoadoutPresets,
   applyPresetToCart,
@@ -385,6 +386,9 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 
   if (!open) return null
 
+  // 首局自我筛选框架（research 2026-05-29-C，FIRST_CONTACT_FRAMING.ENABLED 门控 + 仅 first_raids_count===0）
+  const firstContact = firstContactFraming(firstRaidsCount)
+
   return (
     <div
       style={{
@@ -462,6 +466,32 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
             )
           })}
         </div>
+
+        {/* 首次接触自我筛选框架卡（research 2026-05-29-C，FIRST_CONTACT_FRAMING.ENABLED 门控 + 仅玩家首局，预埋不启用） */}
+        {firstContact.active && (
+          <div style={{
+            margin: '12px 20px 0', padding: '14px 16px', flexShrink: 0,
+            background: `linear-gradient(180deg, ${C.purple}14, ${C.bg2})`,
+            border: `1px solid ${C.purple}55`, borderLeft: `3px solid ${C.purple}`,
+            borderRadius: 10,
+          }}>
+            {firstContact.title && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.purple, letterSpacing: 1, marginBottom: 8 }}>
+                {firstContact.title}
+              </div>
+            )}
+            {firstContact.lines.map((ln, i) => (
+              <p key={i} style={{ fontSize: 12.5, lineHeight: 1.7, color: C.text, margin: i === 0 ? 0 : '6px 0 0' }}>
+                {ln}
+              </p>
+            ))}
+            {firstContact.signature && (
+              <div style={{ fontSize: 11, color: C.dim, marginTop: 8, textAlign: 'right', fontStyle: 'italic' }}>
+                {firstContact.signature}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* phase-25m 装配预设栏（LOADOUT_PRESETS.ENABLED 门控，预埋不启用） */}
         {LOADOUT_PRESETS.ENABLED && (
