@@ -81,7 +81,7 @@
 
 ## 2026-05-29 — research (主题 B 延伸 — 元进度节奏甜区 + 自适应难度 + 数值 vs 技能)
 
-- [research-2026-05-29-B] **P1** — Streak-breaker 从"一次性二元触发"升级为 Hades God Mode 式渐进自平衡：`failedRetreats` 越多减负越强（NPC 密度按连败线性递减、封顶 -40%），**成功撤离即衰减归零**永不永久 trivialize，并改 opt-in 可见（出勤前显示"引导减负 LvN"非静默）。红线不变：只降难度不加经济收益。文件 `src/lib/server/raids.js` `computeStreakBreaker`（已有二元版）+ `constants.js` `STREAK_BREAKER`。详见 [notes-2026-05-29-B.md](../research/notes-2026-05-29-B.md)
+- [research-2026-05-29-B] **P1** — Streak-breaker 从"一次性二元触发"升级为 Hades God Mode 式渐进自平衡：`failedRetreats` 越多减负越强（NPC 密度按连败线性递减、封顶 -40%），**成功撤离即衰减归零**永不永久 trivialize，并改 opt-in 可见（出勤前显示"引导减负 LvN"非静默）。红线不变：只降难度不加经济收益。文件 `src/lib/server/raids.js` `computeStreakBreaker`（已有二元版）+ `constants.js` `STREAK_BREAKER`。详见 [notes-2026-05-29-B.md](../research/notes-2026-05-29-B.md) [doing-2026-05-29T15:24]
 - [research-2026-05-29-B] **P1** — 新增"高危出勤"自愿上行难度阀门（Heat/Ascension 等价）：出勤前可选 +污染加速/+NPC 密度/-撤离窗口/Ω-段提前 换 fragment 掉率+点数倍率，给数值饱和老玩家"再挑战换奖励"出口，与 Streak-breaker（下行）构成双向自适应。文件 `PrepareModal.jsx`(24b) + gamevars `heatLevel` + `pollution.js`/`pathGenerator.js` 读 heat + `gameActions.js` extract 奖励乘子。
 - [research-2026-05-29-B] **P1** — Phase 24c legendary 必须是 horizontal build-enabler（新机制/perk）非纯数值 stat-stick，否则撞"grind until strong"trivialize 技能反模式；class_pt 设计成**封顶 floor（保底地板）而非可囤 stockpile（跳关券）**，余额到顶不再累积。审计 `EquipmentTab.jsx` 现有 legendary 是否纯数值堆叠 + `docs/economy-canon.md` 加"legendary=横向"条款 + Phase 24c perks 白名单复核。
 
