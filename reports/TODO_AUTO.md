@@ -25,7 +25,7 @@
 ### 💡 低优
 
 - [research-2026-05-12] **P0** — 死亡保险（extract 花 5 item_pt 买保险 → 死亡返还 30% 点数）。 → ✅ DONE 2026-05-28（被 28-D phase-25h 等价覆盖）: `equipment_insurance_tier` ENUM(none/basic/premium) + `insurance_premium_pt` schema 已预埋，basic 30% / premium 60% 返还概率作应用层常量留 Phase 24b 接入购买入口 + 死亡返还分支。本条无需独立实现。
-- [research-2026-05-12] **P1** — Starter contract 链：4 个新手 quest（首撤离 / 首击杀 / 首购买 / 首探针），复用现有 contracts 系统。 [doing-2026-05-29T12:24]
+- [research-2026-05-12] **P1** — Starter contract 链：4 个新手 quest（首撤离 / 首击杀 / 首购买 / 首探针），复用现有 contracts 系统。 → ✅ DONE 2026-05-29T12:30 commit 1d9575a: 新建 `scripts/phase-25o-starter-contracts.sql` 幂等 INSERT（WHERE NOT EXISTS by name，非破坏不 DELETE）4 个「新手契约」(ids 7-10，postgres MCP 部署+二次执行 0 行验证幂等)：首撤离=`extract`/首击杀=新增 `kill_any`(任意击杀)/首购买=新增 `purchase`/首探针=新增 `leave_probe`，奖励用 item_pool 现存基础材料(环段部件/结构碎片 各 1，小额不超既有 onboarding 量级)；contracts.js `matchObjective` 加 3 类型(kill_any 复用既有 npc_killed 事件、purchase 配 'purchased' 事件、leave_probe 配 'probe_left' 事件)+ 头注释同步；gameActions.js 加 2 个 additive 埋点(joinRoom purchaseFromCatalog 成功后发 'purchased' / extractPlayer leftProbe 成功后发 'probe_left'，均 try/catch 不阻塞主流程；extract 沿用 line 2413 'extracted'、kill 沿用 line 1220 'npc_killed')；contracts/page.js + admin ContractsTab.jsx 加 3 类型的展示标签/作者下拉(防 raw JSON 兜底)。next lint 通过。
 
 ---
 
