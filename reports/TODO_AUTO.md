@@ -25,7 +25,7 @@
 ### 💡 低优
 
 - [research-2026-05-12] **P0** — 死亡保险（extract 花 5 item_pt 买保险 → 死亡返还 30% 点数）。 → ✅ DONE 2026-05-28（被 28-D phase-25h 等价覆盖）: `equipment_insurance_tier` ENUM(none/basic/premium) + `insurance_premium_pt` schema 已预埋，basic 30% / premium 60% 返还概率作应用层常量留 Phase 24b 接入购买入口 + 死亡返还分支。本条无需独立实现。
-- [research-2026-05-12] **P1** — Starter contract 链：4 个新手 quest（首撤离 / 首击杀 / 首购买 / 首探针），复用现有 contracts 系统。
+- [research-2026-05-12] **P1** — Starter contract 链：4 个新手 quest（首撤离 / 首击杀 / 首购买 / 首探针），复用现有 contracts 系统。 [doing-2026-05-29T12:24]
 
 ---
 
