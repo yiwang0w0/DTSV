@@ -111,15 +111,25 @@ export const ENDING_KEYS = {
   EXPLORE:  'explore',   // 探索
 }
 
-// ── Streak-breaker 连败兜底（research 2026-05-28-D P0） ──────────────
+// ── Streak-breaker 连败兜底（research 2026-05-28-D P0 → 2026-05-29-B P1 升级） ──
 // 玩家连续撤离失败局数 ≥ THRESHOLD 时，下一局自动施加"只降难度、不加经济收益"
 // 的兜底 buff。设计红线：严禁任何点数 / 掉落 / stash 净收益，防"故意送死刷 buff"套利。
+//
+// 05-29-B 升级：从"一次性二元触发（固定 -20%）"改为 Hades God Mode 式渐进自平衡：
+//   - 减负等级 = clamp(失败局数 - THRESHOLD + 1, 0, MAX_RELIEF_LEVEL)，触发后每多连败一局 +1 级
+//   - NPC 密度按等级线性递减 REDUCTION_PER_LEVEL（-10%/级），封顶 MAX_RELIEF_LEVEL 级（-40%）
+//   - 成功撤离即衰减归零：消费方在玩家撤离成功后把连败计数清 0 → 下一局等级回 0、密度回满，
+//     永不永久 trivialize（呼应 God Mode "够强就被请回更高难度"）。
+//   - opt-in 可见：computeStreakBreaker 返回 reliefLevel + reliefLabel（"引导减负 LvN"），
+//     出勤前由 PrepareModal 显式展示而非静默施加（呼应 God Mode "不锁内容 + 不剥夺成就感"）。
 // 本块为阈值 + buff 配置 single source of truth；由 src/lib/server/raids.js 消费，
 // Phase 24b raid 入场流程接入（预埋不启用）。
 export const STREAK_BREAKER = {
-  THRESHOLD: 3,                  // 连续撤离失败局数达此值触发
-  NPC_DENSITY_MULTIPLIER: 0.8,  // 下一局 chamber maxNpcs ×0.8（-20% 密度）
-  FREE_INSURANCE_TIER: 'basic', // 免费授予的保险档（对应 equipment_insurance_tier，仅返还消耗装备、非净新经济）
+  THRESHOLD: 3,                     // 连续撤离失败局数达此值触发减负 Lv1
+  REDUCTION_PER_LEVEL: 0.1,         // 每级 NPC 密度递减比例（-10%/级，线性）
+  MAX_RELIEF_LEVEL: 4,             // 减负等级上限（4 级 → 密度封顶 -40%，永不更低）
+  LABEL_PREFIX: '引导减负',         // opt-in 可见标签前缀，渲染为"引导减负 LvN"
+  FREE_INSURANCE_TIER: 'basic',     // 免费授予的保险档（对应 equipment_insurance_tier，仅返还消耗装备、非净新经济）
   // PI 引导者关怀对白池（触发时随机取一条；纯叙事安抚，不承诺任何机制收益）
   GUIDE_DIALOGUE: [
     '引导者，连续的失联不是你的终点。这一程，缝隙会替你多扛一些。',

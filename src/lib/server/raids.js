@@ -1,12 +1,19 @@
 /**
  * raids.js — Raid 准备阶段 helper（Phase 24b 预埋）
  *
- * research 2026-05-28-D P0 — Streak-breaker 连败兜底。
+ * research 2026-05-28-D P0 → 2026-05-29-B P1 升级 — Streak-breaker 连败兜底。
  * 玩家连续撤离失败局数 ≥ STREAK_BREAKER.THRESHOLD 时，下一局自动施加
  * "只降难度、不加经济收益"的兜底 buff：
  *   - 免费 basic 保险（死亡返还消耗装备的概率，非净新经济）
- *   - chamber NPC 密度 ×0.8（-20%）
+ *   - chamber NPC 密度按减负等级线性递减（-10%/级，封顶 -40%）
  *   - PI 引导者关怀对白（纯叙事安抚）
+ *
+ * 05-29-B 升级为 Hades God Mode 式渐进自平衡（替代旧的固定 -20% 二元触发）：
+ *   - 减负等级 reliefLevel = clamp(fails - THRESHOLD + 1, 0, MAX_RELIEF_LEVEL)，连败越多减负越强；
+ *   - 成功撤离即衰减归零：消费方在撤离成功后把 consecutiveFailedRaids 清 0，
+ *     下一局本函数自然返回 reliefLevel=0、密度回满，永不永久 trivialize；
+ *   - opt-in 可见：返回 reliefLevel + reliefLabel（"引导减负 LvN"），由 PrepareModal 出勤前显式展示，
+ *     而非静默施加（呼应 God Mode "不锁内容 + 不剥夺成就感"）。
  *
  * 红线：本模块严禁产出任何点数 / 掉落 / stash 加成，防"故意送死刷 buff"套利。
  * 全部为纯函数、无 DB 副作用 — Phase 24b raid 入场流程（generateRaidPath 之后）
@@ -16,21 +23,48 @@
 import { STREAK_BREAKER } from '../constants'
 
 /**
- * 判定是否触发 streak-breaker，并给出 buff 包。
- * @param {number} consecutiveFailedRaids — 玩家连续撤离失败局数
- * @returns {{ active: boolean, npcDensityMultiplier: number, grantInsuranceTier: (string|null), guideDialogue: (string|null) }}
+ * 把连败局数换算为减负等级：0 = 未触发；触发后每多连败一局 +1，封顶 MAX_RELIEF_LEVEL。
+ * @param {number} fails — 已校验为有限数的连续撤离失败局数
+ * @returns {number} 0..MAX_RELIEF_LEVEL
+ */
+function reliefLevelFromFails(fails) {
+  if (!(fails >= STREAK_BREAKER.THRESHOLD)) return 0
+  const raw = fails - STREAK_BREAKER.THRESHOLD + 1
+  return Math.min(STREAK_BREAKER.MAX_RELIEF_LEVEL, Math.max(0, raw))
+}
+
+/**
+ * 判定是否触发 streak-breaker，并给出渐进 buff 包。
+ * @param {number} consecutiveFailedRaids — 玩家连续撤离失败局数（撤离成功后消费方应清 0）
+ * @returns {{ active: boolean, reliefLevel: number, maxReliefLevel: number, reliefLabel: (string|null), npcDensityMultiplier: number, grantInsuranceTier: (string|null), guideDialogue: (string|null) }}
  */
 export function computeStreakBreaker(consecutiveFailedRaids) {
   const fails = Number(consecutiveFailedRaids)
-  const active = Number.isFinite(fails) && fails >= STREAK_BREAKER.THRESHOLD
+  const reliefLevel = Number.isFinite(fails) ? reliefLevelFromFails(fails) : 0
+  const active = reliefLevel > 0
   if (!active) {
-    return { active: false, npcDensityMultiplier: 1, grantInsuranceTier: null, guideDialogue: null }
+    return {
+      active: false,
+      reliefLevel: 0,
+      maxReliefLevel: STREAK_BREAKER.MAX_RELIEF_LEVEL,
+      reliefLabel: null,
+      npcDensityMultiplier: 1,
+      grantInsuranceTier: null,
+      guideDialogue: null,
+    }
   }
+  // 线性递减并钳制在 [1 - MAX_RELIEF_LEVEL*REDUCTION_PER_LEVEL, 1]，浮点round 防累积误差
+  const floor = 1 - STREAK_BREAKER.MAX_RELIEF_LEVEL * STREAK_BREAKER.REDUCTION_PER_LEVEL
+  const rawMult = 1 - reliefLevel * STREAK_BREAKER.REDUCTION_PER_LEVEL
+  const npcDensityMultiplier = Math.round(Math.max(floor, rawMult) * 100) / 100
   const pool = Array.isArray(STREAK_BREAKER.GUIDE_DIALOGUE) ? STREAK_BREAKER.GUIDE_DIALOGUE : []
   const guideDialogue = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null
   return {
     active: true,
-    npcDensityMultiplier: STREAK_BREAKER.NPC_DENSITY_MULTIPLIER,
+    reliefLevel,
+    maxReliefLevel: STREAK_BREAKER.MAX_RELIEF_LEVEL,
+    reliefLabel: `${STREAK_BREAKER.LABEL_PREFIX} Lv${reliefLevel}`,
+    npcDensityMultiplier,
     grantInsuranceTier: STREAK_BREAKER.FREE_INSURANCE_TIER,
     guideDialogue,
   }
