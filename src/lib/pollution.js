@@ -17,7 +17,7 @@
  *   4. 应用 search / combat 修正：apply*Modifier(baseValue, effectivePollution)
  */
 
-import { POLLUTION_CONFIG, SIGNAL_LOCK } from './constants'
+import { POLLUTION_CONFIG, SIGNAL_LOCK, HIGH_RISK } from './constants'
 
 // ── 默认权重，可通过参数覆盖 ──────────────────────────
 export const POLLUTION_WEIGHTS = {
@@ -177,9 +177,17 @@ export function tickEnvPollution(gv, mapAccelById) {
   if (maxChamberProgress < 0.25) stageMultiplier = 0.5
   else if (maxChamberProgress >= 0.75) stageMultiplier = 1.6
 
+  // 29-B P1: 高危出勤 — 整局环境污染额外加速（room 级 gv.heatLevel；HIGH_RISK.ENABLED=false 时
+  //   下方钳制恒回 0，自然 no-op）。下标即等级，O(1) 查表，与 heat.js 同一 LEVELS 来源。
+  let heatAccel = 0
+  if (HIGH_RISK.ENABLED) {
+    const lv = Math.max(0, Math.min(HIGH_RISK.LEVELS.length - 1, Math.floor(Number(gv?.heatLevel)) || 0))
+    heatAccel = Number(HIGH_RISK.LEVELS[lv]?.envAccelBonus) || 0
+  }
+
   // 武器装载者每人额外 +1 环境污染/回合（spec §6.3 weapon 副作用）
   const baseInc = POLLUTION_CONFIG.BASE_GROWTH * stageMultiplier
-  const inc = baseInc + maxAccel + weaponHolders + signalLockAccel
+  const inc = baseInc + maxAccel + weaponHolders + signalLockAccel + heatAccel
   return {
     ...gv,
     envPollution: clamp((gv.envPollution || 0) + inc, 0, 100),

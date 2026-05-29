@@ -22,7 +22,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
-import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS } from '@/lib/constants'
+import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS, HIGH_RISK } from '@/lib/constants'
+import { sanitizeHeatLevel } from '@/lib/server/heat'
 import {
   sanitizeLoadoutPresets,
   applyPresetToCart,
@@ -87,6 +88,9 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const [runGoalType, setRunGoalType] = useState(RUN_GOALS.DEFAULT_TYPE)
   const [runGoalTarget, setRunGoalTarget] = useState(DEFAULT_POINTS_TARGET)
 
+  // 高危出勤等级（research 2026-05-29-B，HIGH_RISK.ENABLED 门控，预埋不启用）
+  const [heatLevel, setHeatLevel] = useState(HIGH_RISK.DEFAULT_LEVEL)
+
   // Phase 24c 职业状态
   const [classCandidates, setClassCandidates] = useState([])
   const [selectedClassId, setSelectedClassId] = useState(null)
@@ -113,6 +117,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
     setUsedHighPt(false)
     setRunGoalType(RUN_GOALS.DEFAULT_TYPE)
     setRunGoalTarget(DEFAULT_POINTS_TARGET)
+    setHeatLevel(HIGH_RISK.DEFAULT_LEVEL)
     setTab('class')
 
     Promise.all([
@@ -361,12 +366,15 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
       }
       // 本局目标：sanitizeRunGoal 在未启用 / 选 none 时返回 null，仅有效时附带（additive，旧 join 流程忽略未知字段）
       const runGoal = sanitizeRunGoal({ type: runGoalType, target: runGoalTarget })
+      // 高危出勤：sanitizeHeatLevel 在未启用时恒返回 0，仅 > 0 时附带（additive，旧 join 流程忽略未知字段）
+      const safeHeat = sanitizeHeatLevel(heatLevel)
       await onConfirm({
         classId: selectedClassId,
         usedHighPt,
         catalogPurchases,
         exchanges,
         ...(runGoal ? { runGoal } : {}),
+        ...(safeHeat > 0 ? { heatLevel: safeHeat } : {}),
       })
     } catch (e) {
       setError(e?.message || '提交失败')
@@ -476,6 +484,11 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
             onSelect={setRunGoalType}
             onChangeTarget={setRunGoalTarget}
           />
+        )}
+
+        {/* 高危出勤选择条（research 2026-05-29-B，HIGH_RISK.ENABLED 门控，预埋不启用） */}
+        {HIGH_RISK.ENABLED && (
+          <HighRiskBar selectedLevel={heatLevel} onSelect={setHeatLevel} />
         )}
 
         {/* tab 切换 */}
@@ -686,6 +699,45 @@ function RunGoalBar({ selectedType, pointsTarget, onSelect, onChangeTarget }) {
           {selectedDef.type !== RUN_GOALS.DEFAULT_TYPE && ' · 仅影响结算评级展示，不附带任何点数 / 掉落收益'}
         </span>
       )}
+    </div>
+  )
+}
+
+// 高危出勤选择条（research 2026-05-29-B）：芯片单选 heatLevel，与 Streak-breaker（下行）对称的上行阀门。
+// 红线提示文案显式声明这是"承担更高死亡风险换奖励"的对价、非免费收益（economy-canon §6.1）。
+function HighRiskBar({ selectedLevel, onSelect }) {
+  const selectedDef = HIGH_RISK.LEVELS.find(l => l.level === selectedLevel) || HIGH_RISK.LEVELS[0]
+  const risky = selectedDef.level > 0
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+      padding: '8px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg2, flexShrink: 0,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: C.dim, whiteSpace: 'nowrap' }}>🔥 高危出勤</span>
+      {HIGH_RISK.LEVELS.map(l => {
+        const active = l.level === selectedLevel
+        const tone = l.level === 0 ? C.accent : C.orange
+        return (
+          <button
+            key={l.level}
+            onClick={() => onSelect(l.level)}
+            title={l.desc}
+            style={{
+              borderRadius: 6, border: `1px solid ${active ? tone : C.border}`,
+              background: active ? `${tone}1a` : C.bg0,
+              color: active ? tone : C.dim,
+              padding: '3px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+            }}
+          >
+            {l.icon} {l.label}
+          </button>
+        )
+      })}
+      <span style={{ flex: 1 }} />
+      <span style={{ fontSize: 10, color: risky ? C.orange : C.dim2, width: '100%' }}>
+        {selectedDef.desc}
+        {risky && ' · 奖励是承担更高死亡风险的对价，非免费收益（阵亡损失同步放大）'}
+      </span>
     </div>
   )
 }

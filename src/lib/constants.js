@@ -208,3 +208,33 @@ export const RUN_GOALS = {
   POINTS_TARGET_MAX: 500,  // collect_points 可调目标上限
   POINTS_TARGET_STEP: 10,  // collect_points 步进
 }
+
+// ── 高危出勤 / High-risk deployment（research 2026-05-29-B P1） ────────
+// 自愿"上行难度阀门"（Hades Heat / Risk of Rain / Deep Rock Hazard / Roguelike Ascension 等价），
+// 与 Streak-breaker（下行减负）构成双向自适应难度：给数值饱和的老玩家一个"再挑战换奖励"出口，
+// 缓解 grind-until-trivial 倦怠。出勤前自选 heatLevel（0 = 标准出勤）：等级越高，
+//   - envAccelBonus：整局环境污染额外加速（pollution.js tickEnvPollution 读 gv.heatLevel）
+//   - npcDensityMult：chamber NPC 密度上调（pathGenerator.js generateRaidPath 上调 maxNpcs）
+//   - omegaWindowDelta：Ω-段窗口收紧（撤离窗口更短，pathGenerator 上调）
+// 作为交换提升结算奖励：
+//   - fragmentDropMult：撤离链残片发现概率倍率（gameActions.js extractPlayer 读）
+//   - pointsMult：可购买点数（high/low/item）结算倍率（gameActions.js extractPlayer 读）
+//
+// 设计红线（economy-canon §6.1 12% 周库存增长红线）：奖励倍率是"承担更高死亡风险"的对价，
+//   不是免费 faucet —— Phase 24b 必须把 pointsMult 调到"扣除高危死亡损失后的 EV"仍落在通胀预算内，
+//   并纳入 healthcheck v_weekly_stash_inflation 监测；`class_pt`（保底里程碑·非经济）永不被倍率放大，
+//   防加速 legendary 软保底跳关。LEVELS 数组下标 === level，便于 O(1) 查表。
+// 本块为 single source of truth；由 src/lib/server/heat.js + pollution.js + pathGenerator.js 消费。
+// 预埋不启用（ENABLED=false），等 Phase 24b 接 PrepareModal heat 选择 → join 存 gamevars.heatLevel +
+//   pathGenerator/pollution 读 heat + extract 奖励倍率 + 可选倒计时 / 高危横幅 UI 后翻 true。
+export const HIGH_RISK = {
+  ENABLED: false,        // 预埋开关：true 后 PrepareModal 顶部显示「🔥 高危出勤」选择条
+  DEFAULT_LEVEL: 0,      // 默认标准出勤（无加压）
+  // 下标即等级：0 标准 / 1-3 渐进上行。density/window 是难度旋钮，frag/points 是奖励对价。
+  LEVELS: [
+    { level: 0, label: '标准出勤', icon: '○', desc: '常规难度，无额外压力与奖励',           envAccelBonus: 0, npcDensityMult: 1.0, omegaWindowDelta: 0,  fragmentDropMult: 1.0, pointsMult: 1.0 },
+    { level: 1, label: '高危·壹', icon: '🔥', desc: '污染微升 · NPC +15% · 残片/点数 +15%',  envAccelBonus: 1, npcDensityMult: 1.15, omegaWindowDelta: 0,  fragmentDropMult: 1.1, pointsMult: 1.15 },
+    { level: 2, label: '高危·贰', icon: '🔥🔥', desc: '污染加速 · NPC +30% · Ω 窗口 -1 · 残片/点数 +25~35%', envAccelBonus: 2, npcDensityMult: 1.3, omegaWindowDelta: -1, fragmentDropMult: 1.25, pointsMult: 1.35 },
+    { level: 3, label: '高危·叁', icon: '🔥🔥🔥', desc: '污染剧增 · NPC +50% · Ω 窗口 -1 · 残片/点数 +50~60%', envAccelBonus: 3, npcDensityMult: 1.5, omegaWindowDelta: -1, fragmentDropMult: 1.5, pointsMult: 1.6 },
+  ],
+}

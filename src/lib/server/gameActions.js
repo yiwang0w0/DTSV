@@ -58,7 +58,8 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK } from '@/lib/constants'
+import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
 import {
   appendGameLog,
@@ -1775,6 +1776,9 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   // Phase 20.2 / 24a: 用首位玩家的 decode_level=3 残片 unlocks_rules 合并进入路径生成（带 fragmentId）
   let nextRaidPath = gamevars.raidPath
   let unlocksContributed = []
+  // research 2026-05-29-B P1: 高危出勤 — 首位玩家的 heat 选择决定整局难度（raidPath 共享）。
+  // sanitizeHeatLevel 在 HIGH_RISK.ENABLED=false 时恒返回 0，故预埋阶段恒为标准出勤。
+  const heatLevel = sanitizeHeatLevel(loadout?.heatLevel)
   if (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0) {
     try {
       const { data: chambers } = await client
@@ -1796,7 +1800,7 @@ export async function joinRoom(client, user, roomId, loadout = null) {
       }
 
       if (chambers && chambers.length > 0) {
-        nextRaidPath = generateRaidPath(chambers, mergedRules)
+        nextRaidPath = generateRaidPath(chambers, mergedRules, { heatLevel })
       } else {
         nextRaidPath = []
       }
@@ -1836,6 +1840,9 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   const nextGamevars = {
     ...gamevars,
     raidPath: nextRaidPath,
+    // 29-B P1: 整局高危等级（首位玩家锁定后保留；预埋阶段恒 0）。供 pollution.tickEnvPollution
+    //   + extractPlayer 奖励倍率读取。已存在则不覆盖，避免后加入玩家篡改难度。
+    heatLevel: Number.isFinite(gamevars.heatLevel) ? gamevars.heatLevel : heatLevel,
     players: {
       ...gamevars.players,
       [user.id]: player,
@@ -2317,6 +2324,12 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   pointsCredits.push({ type: 'class_pt', amount: classPtForExtract() })
   pointsSummary.perType.class_pt = (pointsSummary.perType.class_pt || 0) + 1
 
+  // research 2026-05-29-B P1: 高危出勤奖励对价 — 按 gamevars.heatLevel 放大可购买点数
+  //   （class_pt 保底里程碑不放大，见 heat.js 红线 + economy-canon §6.1）。
+  //   HIGH_RISK.ENABLED=false 时 heatLevel 恒被 sanitize 为 0 → no-op。下方 econ 累加器与
+  //   creditPoints 都基于这份已放大的数组，保证通胀埋点口径一致。
+  pointsCredits = applyHeatPointsMultiplier(pointsCredits, gamevars.heatLevel)
+
   try {
     await creditPoints(client, user.id, pointsCredits)
   } catch (e) {
@@ -2391,8 +2404,9 @@ async function extractPlayer(client, room, gamevars, user, payload) {
 
   // Phase 18.1: 撤离链残片发现（extract chain）— 撤离成功 35% 概率
   // 撤离链残片往往是"深界时代撤离日志"类，写在玩家成功带回物资时
+  // research 2026-05-29-B P1: 高危出勤按 fragmentDropMult 放大该概率（HIGH_RISK.ENABLED=false → 恒 0.35）
   try {
-    if (Math.random() < 0.35) {
+    if (Math.random() < heatFragmentDropChance(0.35, gamevars.heatLevel)) {
       const fragment = await discoverFragment(
         client, user.id, playerMapId,
         gamevars.envPollution || 0,

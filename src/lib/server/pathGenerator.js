@@ -18,7 +18,12 @@
  * Phase 20.2: 接入 unlocks_rules — 玩家已完全解码（decode_level=3）的残片可影响
  *   chamber 抽取权重 + lore 短句注入 + item amount delta。规则在 joinRoom 时
  *   预合并，作为 generateRaidPath 的第二参数传入。
+ *
+ * research 2026-05-29-B P1: 高危出勤 — 第三参 options.heatLevel 在路径生成末尾上调
+ *   每个 chamber 的 maxNpcs + 收紧 omegaWindow（applyHeatToRaidPath，HIGH_RISK.ENABLED 门控）。
  */
+
+import { applyHeatToRaidPath } from './heat'
 
 const PATH_LENGTH_MIN = 20
 const PATH_LENGTH_MAX = 25
@@ -139,9 +144,10 @@ export function mergeUnlocksRules(rulesList) {
  * @param {Array} allChambers — chamber_templates 全表
  * @param {object} [unlocksMerged] — Phase 20.2: 玩家解锁规则合并结果（可选）
  *        { chamberWeight: { template_id: delta }, loreChunkPool: [text], ... }
+ * @param {object} [options] — research 2026-05-29-B P1: { heatLevel } 高危出勤难度修正（可选）
  * @returns {Array} raidPath — chamber 实例化记录数组
  */
-export function generateRaidPath(allChambers, unlocksMerged = null) {
+export function generateRaidPath(allChambers, unlocksMerged = null, options = {}) {
   if (!allChambers || allChambers.length === 0) return []
 
   const chamberWeightDelta = unlocksMerged?.chamberWeight || {}
@@ -198,7 +204,8 @@ export function generateRaidPath(allChambers, unlocksMerged = null) {
     })
   }
 
-  return path
+  // research 2026-05-29-B P1: 高危出勤难度修正（HIGH_RISK.ENABLED + heatLevel>0 才生效，否则原样返回）
+  return applyHeatToRaidPath(path, options?.heatLevel)
 }
 
 /**
