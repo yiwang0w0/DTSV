@@ -28,10 +28,13 @@ const STATUS_META = {
 }
 
 const OBJECTIVE_TEXT = {
-  find_item:  obj => `搜集 ${obj.itemName || '?'} ×${obj.count || 1}`,
-  kill_npc:   obj => `击杀 ${obj.npcName || '?'} ×${obj.count || 1}`,
-  extract:    obj => `成功撤离 ×${obj.count || 1}`,
-  extract_at: obj => `从【${obj.extractionPointId || '?'}】撤离`,
+  find_item:   obj => `搜集 ${obj.itemName || '?'} ×${obj.count || 1}`,
+  kill_npc:    obj => `击杀 ${obj.npcName || '?'} ×${obj.count || 1}`,
+  kill_any:    obj => `击杀任意实体 ×${obj.count || 1}`,
+  extract:     obj => `成功撤离 ×${obj.count || 1}`,
+  extract_at:  obj => `从【${obj.extractionPointId || '?'}】撤离`,
+  purchase:    obj => `出勤准备界面购买装备/物资 ×${obj.count || 1}`,
+  leave_probe: obj => `撤离时留下异步探针 ×${obj.count || 1}`,
 }
 
 export default function ContractsPage() {

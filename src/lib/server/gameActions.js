@@ -1695,6 +1695,12 @@ export async function joinRoom(client, user, roomId, loadout = null) {
       const result = await purchaseFromCatalog(client, user.id, roomId, catalogPurchases)
       initialInventory = result.inventory
       initialLoadout = result.loadout
+      // 合同进度：首购买新手契约（purchase 目标）
+      try {
+        await updateContractProgress(client, user.id, { type: 'purchased' })
+      } catch (e) {
+        console.error('[joinRoom] contract progress 失败:', e?.message)
+      }
     }
 
     // ── Legacy fallback：旧客户端传的 items + equipmentInstanceIds（Phase 24b 前）──
@@ -2274,6 +2280,12 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     })
     if (leftProbe) {
       probeLeftLog = `${player.name} 用【${partName}】留下了一座探针（HP ${probeHp}, ATK ${probeAtk}）— 7 天内其他玩家可能遭遇`
+      // 合同进度：首探针新手契约（leave_probe 目标）
+      try {
+        await updateContractProgress(client, user.id, { type: 'probe_left' })
+      } catch (e) {
+        console.error('[extractPlayer] contract progress 失败:', e?.message)
+      }
     }
   }
 

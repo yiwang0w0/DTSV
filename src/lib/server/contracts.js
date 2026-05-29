@@ -18,8 +18,13 @@
  *
  * 支持的事件：
  *   { type: 'item_acquired', itemName }  — 玩家获得道具（搜索/拾取/合成等）
- *   { type: 'npc_killed',    npcName }   — 玩家击杀实体
+ *   { type: 'npc_killed',    npcName }   — 玩家击杀实体（match find_item / kill_npc / kill_any）
  *   { type: 'extracted',     extractionPointId }
+ *   { type: 'purchased' }                — 玩家在出勤准备界面用点数购买（首购买新手契约）
+ *   { type: 'probe_left' }               — 玩家撤离时留下异步探针（首探针新手契约）
+ *
+ * 支持的目标类型 (objective.type)：
+ *   find_item / kill_npc / kill_any（任意击杀）/ extract / extract_at / purchase / leave_probe
  */
 
 import { addItemsToStash } from './stash'
@@ -148,10 +153,16 @@ function matchObjective(obj, event) {
       return event.type === 'item_acquired' && event.itemName === obj.itemName ? 1 : 0
     case 'kill_npc':
       return event.type === 'npc_killed' && event.npcName === obj.npcName ? 1 : 0
+    case 'kill_any':
+      return event.type === 'npc_killed' ? 1 : 0
     case 'extract':
       return event.type === 'extracted' ? 1 : 0
     case 'extract_at':
       return event.type === 'extracted' && event.extractionPointId === obj.extractionPointId ? 1 : 0
+    case 'purchase':
+      return event.type === 'purchased' ? 1 : 0
+    case 'leave_probe':
+      return event.type === 'probe_left' ? 1 : 0
     default:
       return 0
   }

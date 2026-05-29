@@ -13,10 +13,13 @@ const C = {
 }
 
 const OBJECTIVE_TYPES = [
-  { value: 'find_item',  label: '搜集道具',          fields: ['itemName', 'count'] },
-  { value: 'kill_npc',   label: '击杀实体',          fields: ['npcName', 'count'] },
-  { value: 'extract',    label: '成功撤离 N 次',     fields: ['count'] },
-  { value: 'extract_at', label: '从指定撤离点撤离', fields: ['extractionPointId'] },
+  { value: 'find_item',   label: '搜集道具',          fields: ['itemName', 'count'] },
+  { value: 'kill_npc',    label: '击杀指定实体',      fields: ['npcName', 'count'] },
+  { value: 'kill_any',    label: '击杀任意实体 N 次', fields: ['count'] },
+  { value: 'extract',     label: '成功撤离 N 次',     fields: ['count'] },
+  { value: 'extract_at',  label: '从指定撤离点撤离', fields: ['extractionPointId'] },
+  { value: 'purchase',    label: '购买装备/物资 N 次', fields: ['count'] },
+  { value: 'leave_probe', label: '留下异步探针 N 次', fields: ['count'] },
 ]
 
 export default function ContractsTab({ toast }) {
