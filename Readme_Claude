@@ -44,6 +44,8 @@
 
 验证：自跑 `next lint` ✔ 0 error/warning；match.js 查询列对齐 phase-30 schema；joinMatch upsert onConflict 对齐复合 PK；requireRequestUser 确认存在。全部加性，未动现有 live game。
 
+**31b 走查修正（2026-06-03）**：① `scripts/phase-31b-concentric-contraction.sql` 把缩圈从"顺序分桶"改为**同心圆**（按离中心距离排名分桶，外圈先收缩、中心最后存活；开放数仍 100/80/60/40/20，postgres MCP 部署+验证）。② `src/app/br/[matchId]/page.js` 着色改为**本地时钟瞬时推算**（修复变红 ~6s 轮询延迟）+ 新增**预警黄**（`warnWindowSeconds` 窗口内把"下阶段将收缩"扇区标黄·脉冲，窗口随 phase_seconds 缩放：满阶段=3min，短局按 25%）。`next lint` ✔。
+
 ### 走查（Phase 31）
 
 1. 登录 → 顶部导航点「虚拟空间」→ /br 大厅

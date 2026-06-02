@@ -66,6 +66,25 @@ function fmtCountdown(secs) {
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
 }
 
+// 预警窗口：缩圈前若干秒把"下阶段将收缩"的扇区标黄。
+// 规则书"缩圈前 3 分钟"：满阶段(900s)→180s；短 dev 局按 25% 比例缩放、下限 5s。
+function warnWindowSeconds(phaseSeconds) {
+  const ps = Number.isFinite(phaseSeconds) && phaseSeconds > 0 ? phaseSeconds : 900
+  return Math.min(180, Math.max(5, Math.round(ps * 0.25)))
+}
+
+// 扇区显示态（本地时钟瞬时推算，不等 4s 轮询 → 修复变红延迟 + 提供预警黄）：
+//   forbidden = 已收缩（realPhase >= closePhase）
+//   warning   = 下一阶段将收缩（closePhase === realPhase+1）且已进入预警窗口
+//   open      = 其余
+function cellStateFor(room, realPhase, secondsToNext, warnSecs) {
+  if (!room) return 'open'
+  const cp = Number.isFinite(room.closePhase) ? room.closePhase : 5
+  if (realPhase >= cp) return 'forbidden'
+  if (cp === realPhase + 1 && secondsToNext != null && secondsToNext <= warnSecs) return 'warning'
+  return 'open'
+}
+
 const STATUS_META = {
   lobby: { label: '集结中', color: T.yellow },
   active: { label: '进行中', color: T.green },
@@ -85,13 +104,15 @@ function lootTierColor(tier) {
   )
 }
 
-// ── 单个扇区格子 ───────────────────────────────────────────────────────────
-function ZoneCell({ room, isMine, hasPlayers }) {
-  const open = !!room?.open
-  const base = open ? T.green : T.red
-  const tierColor = open ? lootTierColor(room.lootTier) : T.red
+// ── 单个扇区格子（显示态由本地时钟驱动：open / warning / forbidden）──────────
+function ZoneCell({ room, cellState = 'open', isMine, hasPlayers }) {
+  const forbidden = cellState === 'forbidden'
+  const warning = cellState === 'warning'
+  const accent = forbidden ? T.red : warning ? T.yellow : T.green
+  const tierColor = forbidden ? `${T.red}cc` : warning ? T.yellow : lootTierColor(room?.lootTier)
+  const stateLabel = forbidden ? '禁区' : warning ? '预警 · 下阶段收缩' : `开放 · 物资档 T${room?.lootTier ?? '-'}`
   const tip = room
-    ? `${room.label}（${room.region}）\n${open ? `开放 · 物资档 T${room.lootTier}` : '禁区'}\n收缩于阶段 ${room.closePhase}`
+    ? `${room.label}（${room.region}）\n${stateLabel}\n收缩于阶段 ${room.closePhase}`
     : ''
 
   return (
@@ -101,25 +122,26 @@ function ZoneCell({ room, isMine, hasPlayers }) {
         position: 'relative',
         aspectRatio: '1 / 1',
         borderRadius: 4,
-        background: open ? `${base}14` : `${base}10`,
-        border: isMine ? `2px solid ${T.cyan}` : `1px solid ${base}40`,
-        boxShadow: isMine ? `0 0 8px ${T.cyan}80` : 'none',
+        background: forbidden ? `${T.red}10` : warning ? `${T.yellow}1c` : `${T.green}14`,
+        border: isMine ? `2px solid ${T.cyan}` : `1px solid ${accent}${warning ? '66' : '40'}`,
+        boxShadow: isMine ? `0 0 8px ${T.cyan}80` : warning ? `0 0 6px ${T.yellow}55` : 'none',
+        animation: warning && !isMine ? 'brPulse 1.2s ease-in-out infinite' : 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: 9,
         fontFamily: 'var(--font-jetbrains-mono), monospace',
-        color: open ? tierColor : `${T.red}cc`,
+        color: tierColor,
         cursor: 'default',
         transition: 'background .25s, border-color .25s, box-shadow .25s',
         overflow: 'hidden',
       }}
     >
-      {open ? (
-        <span style={{ fontWeight: 700, lineHeight: 1 }}>T{room?.lootTier ?? '-'}</span>
-      ) : (
+      {forbidden ? (
         <span style={{ opacity: 0.65, fontSize: 11, lineHeight: 1 }}>✕</span>
+      ) : (
+        <span style={{ fontWeight: 700, lineHeight: 1 }}>{warning ? '⚠' : `T${room?.lootTier ?? '-'}`}</span>
       )}
       {/* 该格有玩家：右上角圆点；我所在格用 cyan，他人用 dimB */}
       {hasPlayers && (
@@ -274,10 +296,28 @@ export default function BRMatchPage() {
     [grid, myRoomId],
   )
 
-  // 开放/禁区计数：优先用 server counts，否则本地从 grid 推
-  const openCount = counts?.open ?? grid.filter(r => r.open).length
-  const forbiddenCount = counts?.forbidden ?? grid.filter(r => !r.open).length
+  // 预警窗口（随 phase_seconds 缩放；满阶段=3min，短 dev 局按比例）
+  const warningSeconds = useMemo(() => warnWindowSeconds(match?.phaseSeconds), [match?.phaseSeconds])
+
+  // 扇区显示态全部由"本地时钟"瞬时推算（不等 4s 轮询）→ 修复变红延迟 + 提供预警黄。
+  const localZone = useMemo(() => {
+    let forbidden = 0
+    let warning = 0
+    for (const r of grid) {
+      const st = cellStateFor(r, clock.realPhase, clock.secondsToNextPhase, warningSeconds)
+      if (st === 'forbidden') forbidden++
+      else if (st === 'warning') warning++
+    }
+    return { open: grid.length - forbidden, forbidden, warning }
+  }, [grid, clock.realPhase, clock.secondsToNextPhase, warningSeconds])
+
+  const openCount = localZone.open
+  const forbiddenCount = localZone.forbidden
+  const warningCount = localZone.warning
   const aliveCount = counts?.alive ?? players.filter(p => p.alive !== false).length
+
+  // 我所在扇区的本地显示态（侧栏用）
+  const myRoomState = myRoom ? cellStateFor(myRoom, clock.realPhase, clock.secondsToNextPhase, warningSeconds) : null
 
   // ── 渲染分支 ───────────────────────────────────────────────────────────
   if (!authLoading && !user) {
@@ -401,15 +441,15 @@ export default function BRMatchPage() {
                     fontWeight: 800,
                     lineHeight: 1,
                     fontFamily: 'var(--font-jetbrains-mono), monospace',
-                    color: (clock.secondsToNextPhase ?? 999) <= 180 ? T.yellow : T.text,
-                    textShadow: (clock.secondsToNextPhase ?? 999) <= 180 ? `0 0 14px ${T.yellow}44` : 'none',
+                    color: (clock.secondsToNextPhase ?? 999) <= warningSeconds ? T.yellow : T.text,
+                    textShadow: (clock.secondsToNextPhase ?? 999) <= warningSeconds ? `0 0 14px ${T.yellow}44` : 'none',
                   }}
                 >
                   {fmtCountdown(clock.secondsToNextPhase)}
                 </div>
-                {(clock.secondsToNextPhase ?? 999) <= 180 && (
+                {(clock.secondsToNextPhase ?? 999) <= warningSeconds && (
                   <div style={{ fontSize: 11, color: T.yellow, marginTop: 4 }}>
-                    ⚠ 收缩警报 · 边界即将推进至阶段 {Math.min(maxPhase, clock.realPhase + 1)}
+                    ⚠ 收缩警报 · {warningCount} 个扇区即将收缩（推进至阶段 {Math.min(maxPhase, clock.realPhase + 1)}）
                   </div>
                 )}
               </div>
@@ -419,6 +459,7 @@ export default function BRMatchPage() {
           {/* 扇区/玩家计数 */}
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <Stat label="开放" value={openCount} color={T.green} />
+            {warningCount > 0 && <Stat label="预警" value={warningCount} color={T.yellow} />}
             <Stat label="禁区" value={forbiddenCount} color={T.red} />
             <div style={{ width: 1, height: 36, background: T.border }} />
             <Stat label="存活" value={aliveCount} color={T.cyan} />
@@ -447,10 +488,12 @@ export default function BRMatchPage() {
                   const room = cellByXY.get(`${x},${y}`)
                   const isMine = room != null && room.roomId === myRoomId
                   const hasPlayers = room != null && roomHasPlayer.has(room.roomId)
+                  const cellState = cellStateFor(room, clock.realPhase, clock.secondsToNextPhase, warningSeconds)
                   return (
                     <ZoneCell
                       key={`${x},${y}`}
                       room={room}
+                      cellState={cellState}
                       isMine={isMine}
                       hasPlayers={hasPlayers}
                     />
@@ -462,6 +505,9 @@ export default function BRMatchPage() {
             <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap', fontSize: 10, color: T.dim }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.green}20`, border: `1px solid ${T.green}40` }} /> 开放（标 T 档）
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.yellow}1c`, border: `1px solid ${T.yellow}66` }} /> 预警（下阶段收缩）
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.red}14`, border: `1px solid ${T.red}40` }} /> 禁区
@@ -498,8 +544,8 @@ export default function BRMatchPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ fontSize: 12, color: T.dim }}>当前扇区状态</span>
                     {myRoom ? (
-                      <span style={{ fontSize: 12, fontWeight: 700, color: myRoom.open ? T.green : T.red }}>
-                        {myRoom.open ? `开放 · T${myRoom.lootTier}` : '禁区'}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: myRoomState === 'forbidden' ? T.red : myRoomState === 'warning' ? T.yellow : T.green }}>
+                        {myRoomState === 'forbidden' ? '禁区' : myRoomState === 'warning' ? `预警 · T${myRoom.lootTier}` : `开放 · T${myRoom.lootTier}`}
                       </span>
                     ) : (
                       <span style={{ fontSize: 12, color: T.dim }}>—</span>
