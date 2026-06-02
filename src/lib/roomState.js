@@ -158,20 +158,28 @@ export function normalizeGamevars(gamevars = {}) {
 }
 
 /**
- * 归一化 BR 对局块（gamevars.br）。所有 BR 对局态（房位映射 / 禁区表 / 拓扑 / 邻接 / 大时钟配置）
- * 落 rooms.gamevars，不新增 br_match* 对局表。默认值保证旧存档向后兼容（enabled:false）。
+ * 归一化 BR 对局块（gamevars.br）。BR 对局态落 rooms.gamevars，不新增 br_match* 对局表。
+ * 默认值保证旧存档向后兼容（enabled:false）。
  *
- * 字段：
+ * ── gamevars 瘦身（slim 形状）──
+ * 此前内嵌的三个大块已移出 gamevars（每动作整段写 rooms 表 + realtime 广播 ~40-50KB → 拖慢免费服务器）：
+ *   - rooms（18.7KB 静态拓扑）：所有对局相同 → 客户端从 /api/br/topology 拉一次永久缓存；
+ *                              服务端从 getRaidLayout(seed).rooms 派生。
+ *   - adj（邻接图）：可由 br_rooms.neighbor_ids 派生 → getRaidLayout(seed).adj。
+ *   - templateMeta（10.9KB 伪 chamber 表）：可由 sampleRoomTemplates(seed) 重算 → getRaidLayout(seed).templateMeta。
+ * 三者全部从 seed 确定性重算（同 seed 同结果），故移出零信息损失。
+ *
+ * 向后兼容：旧 fat 存档若仍含 b.rooms/b.adj/b.templateMeta，本函数**直接丢弃**（不再透传）→
+ *   normalize 后新旧房同形（slim），下次写库即收敛。绝不 require 被删字段（缺失走默认，不抛错）。
+ *
+ * 保留字段（slim ≈ 5KB）：
  *   enabled       该局是否 BR（joinRoom 首玩家按 room.gametype===20 置 true）
- *   seed          per-raid 确定性种子（首玩家生成，永不变）
+ *   seed          per-raid 确定性种子（首玩家生成，永不变；派生 rooms/adj/templateMeta 的唯一输入）
  *   phaseSeconds  每阶段秒数（钳到 [MIN_PHASE_SECONDS=5, ∞)，默认 900）
  *   maxPhase      末路阶段编号（钳到 [0, ∞)，默认 4）
- *   roomTemplates { [roomId]: templateId } 100 项（采样结果，永不重算）
- *   templateMeta  { [templateId]: 伪 chamber 字段子集 }（≤模板数，供 getChamberForPlayer 拼伪 chamber）
  *   startRoomId   该局中心起始房（spawnRoom 结果，供日志/兜底）
- *   closePhases   { [roomId]: closePhase } 公开禁区表（客户端着色用，不下发 seed）
- *   rooms         静态拓扑数组 [{ roomId, label, region, gridX, gridY, neighborIds }]（客户端网格渲染）
- *   adj           { [roomId]: [neighborIds] } 邻接图（moveToRoom 校验，避免每次查 DB）
+ *   roomTemplates { [roomId]: templateId } 100 项 ~1KB —— 保留：getCurrentChamberTemplateId 纯函数依赖它
+ *   closePhases   { [roomId]: closePhase } 100 项 ~1KB —— 保留：客户端着色（公开禁区表，不下发 seed）
  */
 export function normalizeBrBlock(br) {
   const b = br && typeof br === 'object' ? br : {}
@@ -185,12 +193,10 @@ export function normalizeBrBlock(br) {
     seed,
     phaseSeconds,
     maxPhase,
-    roomTemplates: b.roomTemplates && typeof b.roomTemplates === 'object' ? b.roomTemplates : {},
-    templateMeta: b.templateMeta && typeof b.templateMeta === 'object' ? b.templateMeta : {},
     startRoomId: b.startRoomId ?? null,
+    roomTemplates: b.roomTemplates && typeof b.roomTemplates === 'object' ? b.roomTemplates : {},
     closePhases: b.closePhases && typeof b.closePhases === 'object' ? b.closePhases : {},
-    rooms: Array.isArray(b.rooms) ? b.rooms : [],
-    adj: b.adj && typeof b.adj === 'object' ? b.adj : {},
+    // rooms / adj / templateMeta 已移出（getRaidLayout(seed) 派生）：旧 fat 存档的这些字段在此被丢弃。
   }
 }
 

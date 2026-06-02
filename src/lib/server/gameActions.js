@@ -63,8 +63,7 @@ import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamin
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
 import { makeRaidSeed, forbidden, closePhasesObject } from '@/lib/server/br/forbidden'
-import { sampleRoomTemplates } from '@/lib/server/br/roomTemplates'
-import { loadRooms as loadBrRooms } from '@/lib/server/br/zones'
+import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
 import {
@@ -142,26 +141,35 @@ async function fetchRoom(client, roomId) {
  * Phase 31 re-home: 把 BR 当前房的 templateMeta 拼成「伪 chamber 对象」，
  * 字段名对齐旧 pathGenerator 实例化形状（templateId/name/type/isExit/exitCost/pollutionBase/...），
  * 让 getChamberForPlayer / getChamberAsMapConfig / buildChamberAccelTable 的 BR 分支零成本复用现有逻辑。
- * 返回 null 表示无映射（防御：roomId 越界 / templateMeta 缺失）。
+ * 返回 null 表示无映射（防御：roomId 越界 / roomTemplates 缺失）。
+ *
+ * gamevars 瘦身：templateMeta 已移出 gamevars.br，改由调用方传入 layout（getRaidLayout(seed) 派生）。
+ *   roomTemplates[player.roomId] 仍读 gamevars.br.roomTemplates（保留字段）；仅 templateMeta 查找走 layout。
+ *   layout 缺省（null）或缺该 tid 时给最小可用字段兜底（理论不该发生）。
+ *
+ * @param {object} gamevars
+ * @param {object} player
+ * @param {object|null} layout getRaidLayout(client, seed) 结果（含 templateMeta）；非 BR / seed 缺失时可 null
  */
-function getBrChamberForPlayer(gamevars, player) {
+function getBrChamberForPlayer(gamevars, player, layout = null) {
   if (!gamevars?.br?.enabled || player?.roomId == null) return null
   const tid = gamevars.br.roomTemplates?.[player.roomId]
   if (tid == null) return null
-  const meta = gamevars.br.templateMeta?.[tid]
+  const meta = layout?.templateMeta?.[tid]
   if (!meta) {
-    // 兜底：只有 templateId、无 meta（理论不该发生）；给最小可用字段
+    // 兜底：只有 templateId、无 meta（layout 缺省或 tid 越界，理论不该发生）；给最小可用字段
     return { templateId: tid, name: `扇区模板 ${tid}`, type: 'scan_dense', isExit: false }
   }
   // 已是伪 chamber 形状（roomTemplates.js toTemplateMeta 字段名即对齐）
   return { ...meta }
 }
 
-/** 取玩家当前所在 chamber（BR 房用 templateMeta 伪 chamber；否则 raidPath[chamberIndex]） */
-function getChamberForPlayer(gamevars, player) {
+/** 取玩家当前所在 chamber（BR 房用 layout.templateMeta 拼伪 chamber；否则 raidPath[chamberIndex]）
+ *  gamevars 瘦身：BR 分支的 templateMeta 改由 layout 传入（getRaidLayout(seed) 派生）。 */
+function getChamberForPlayer(gamevars, player, layout = null) {
   // ── BR 分支：当前房 → 伪 chamber 对象 ──
   if (gamevars?.br?.enabled && player?.roomId != null) {
-    return getBrChamberForPlayer(gamevars, player)
+    return getBrChamberForPlayer(gamevars, player, layout)
   }
   // ── 旧 chamber 模式（不变） ──
   const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
@@ -169,9 +177,10 @@ function getChamberForPlayer(gamevars, player) {
   return path[idx] || null
 }
 
-/** 兼容旧 fetchMapConfig 调用 — 把 chamber 对象伪装成 map_config 形状 */
-function getChamberAsMapConfig(gamevars, player) {
-  const ch = getChamberForPlayer(gamevars, player)
+/** 兼容旧 fetchMapConfig 调用 — 把 chamber 对象伪装成 map_config 形状
+ *  gamevars 瘦身：BR 分支需 layout 取 templateMeta（getRaidLayout(seed) 派生）。 */
+function getChamberAsMapConfig(gamevars, player, layout = null) {
+  const ch = getChamberForPlayer(gamevars, player, layout)
   if (!ch) return null
   return {
     map_id:          ch.templateId,          // 把 templateId 当 mapId
@@ -191,12 +200,15 @@ function getChamberAsMapConfig(gamevars, player) {
 }
 
 /** Phase 19.5: 从 gamevars.raidPath 构建 chamber accel 表（key = templateId → pollutionAccel）
- *  Phase 31 re-home: BR 房改从 gamevars.br.templateMeta 建表（raidPath 为空，全部采样模板的 accel） */
-function buildChamberAccelTable(gamevars) {
+ *  Phase 31 re-home: BR 房从采样模板子集建表（raidPath 为空，全部采样模板的 accel）
+ *  gamevars 瘦身：templateMeta 已移出 gamevars.br，BR 分支改读 layout.templateMeta（getRaidLayout(seed) 派生）。
+ *  @param {object} gamevars
+ *  @param {object|null} layout getRaidLayout 结果；非 BR / seed 缺失时可 null（BR 分支退化为空表，不影响污染 tick） */
+function buildChamberAccelTable(gamevars, layout = null) {
   const table = new Map()
-  // ── BR 分支：用采样模板子集的 pollutionAccel ──
+  // ── BR 分支：用采样模板子集的 pollutionAccel（来自 layout，非 gamevars） ──
   if (gamevars?.br?.enabled) {
-    const meta = gamevars.br.templateMeta || {}
+    const meta = layout?.templateMeta || {}
     for (const [tid, m] of Object.entries(meta)) {
       table.set(Number(tid), Number(m?.pollutionAccel) || 0)
     }
@@ -394,8 +406,14 @@ async function persistResolution(client, room, resolution, options = {}) {
 //   6. persistResolution — 写入数据库
 async function persistResolutionWithPollution(client, room, resolution, userId, options = {}) {
   try {
-    // Phase 19.5: 从 gamevars.raidPath 算 accel 表（替代 DB 查询）
-    const accelTable = buildChamberAccelTable(resolution.gamevars)
+    // gamevars 瘦身：BR 房的 templateMeta 已移出 gamevars → 此处按 seed 取 layout（memo 命中无额外 IO），
+    //   非 BR 房或 seed 缺失（旧 enabled:false 房）→ layout=null，buildChamberAccelTable 走非 BR 分支。
+    const gvBr = resolution.gamevars?.br
+    const layout = gvBr?.enabled && gvBr.seed != null
+      ? await getRaidLayout(client, gvBr.seed)
+      : null
+    // Phase 19.5: 从 gamevars.raidPath / layout.templateMeta 算 accel 表（替代 DB 查询）
+    const accelTable = buildChamberAccelTable(resolution.gamevars, layout)
     resolution.gamevars = tickEnvPollution(resolution.gamevars, accelTable)
 
     // Phase 31 re-home: BR 下大时钟（缩圈）成为唯一时间压力 → Ω-段倒计时 dormant（不 tick）。
@@ -1815,12 +1833,15 @@ export async function createRoom(client, user, payload = {}) {
  * 幂等：若 gamevars.br.enabled 已为 true（已初始化）则原样返回（后加入玩家不重算）。
  *
  * 步骤：
- *   ① 读 br_rooms 全表静态拓扑（复用 zones.loadRooms）+ chamber_templates(enabled) 全表
- *   ② 生成 per-raid seed（makeRaidSeed(room.id,gamenum,created_at)）
- *   ③ 采样 sampleRoomTemplates → { roomTemplates, templateMeta }
- *   ④ 算 closePhases（seed 洗牌的公开禁区表，客户端着色用，不下发 seed）
- *   ⑤ 选起始房 startRoomId（seed-phase0 下最靠中心的开放房；本期所有人同起点）
- *   ⑥ 组装 gamevars.br 配置（含 rooms 静态拓扑 + adj 邻接图，避免 moveToRoom 每次查 DB）
+ *   ① 生成 per-raid seed（makeRaidSeed(room.id,gamenum,created_at)）
+ *   ② getRaidLayout(client, seed) → { rooms, adj, templateMeta, roomTemplates }（按 seed 进程级 memo）
+ *   ③ 算 closePhases（seed 洗牌的公开禁区表，客户端着色用，不下发 seed）
+ *   ④ 选起始房 startRoomId（seed-phase0 下最靠中心的开放房；本期所有人同起点）
+ *   ⑤ 组装 **slim** gamevars.br（仅写 enabled/seed/phaseSeconds/maxPhase/startRoomId/roomTemplates/closePhases）
+ *
+ * gamevars 瘦身：rooms（18.7KB）/adj/templateMeta（10.9KB）不再写进 gamevars.br ——
+ *   它们全部从 seed 确定性派生（getRaidLayout(seed)），消费点按需取，从而把每动作 ~40-50KB 负载降到 ~5KB。
+ *   roomTemplates 从 layout 取（与旧 sampleRoomTemplates 结果同值），仍写进 gamevars.br（getCurrentChamberTemplateId 纯函数依赖）。
  *
  * phaseSeconds/maxPhase 来源：已存在的 gamevars.br（建房时塞的 dev 短值）优先，否则 BR_CONFIG 默认。
  *
@@ -1833,38 +1854,21 @@ async function initBrRoomLayer(client, room, gamevars) {
   }
 
   try {
-    const [brRooms, chamberRes] = await Promise.all([
-      loadBrRooms(client), // [{ roomId, label, region, neighborIds, gridX, gridY, closePhase, enabled }]
-      client.from('chamber_templates').select('*').eq('enabled', true),
-    ])
-    const templates = chamberRes.data || []
-    if (!Array.isArray(brRooms) || brRooms.length === 0 || templates.length === 0) {
-      console.error('[joinRoom][BR] 拓扑或模板为空，BR 初始化跳过（br_rooms=%d templates=%d）', brRooms?.length || 0, templates.length)
-      return { br: { ...normalizeGamevars({}).br, enabled: false }, startRoomId: null }
-    }
-
-    // ② seed（建房时若已塞 br.seed 则沿用，否则按对局生成）
+    // ① seed（建房时若已塞 br.seed 则沿用，否则按对局生成）
     const seed = Number.isFinite(gamevars?.br?.seed) ? gamevars.br.seed : makeRaidSeed(room)
 
-    // ③ 采样 100 房 → templateId + templateMeta
-    const { roomTemplates, templateMeta } = sampleRoomTemplates(brRooms, templates, seed)
+    // ② 按 seed 派生布局（首动作付一次 DB 读，之后 memo）：rooms/adj/templateMeta/roomTemplates
+    const layout = await getRaidLayout(client, seed)
+    if (!Array.isArray(layout.rooms) || layout.rooms.length === 0 || Object.keys(layout.templateMeta).length === 0) {
+      console.error('[joinRoom][BR] 拓扑或模板为空，BR 初始化跳过（rooms=%d templates=%d）', layout.rooms?.length || 0, Object.keys(layout.templateMeta || {}).length)
+      return { br: { ...normalizeGamevars({}).br, enabled: false }, startRoomId: null }
+    }
+    const { rooms: roomsTopo, roomTemplates } = layout
 
-    // ④ 公开禁区表（seed 派生，只读）
+    // ③ 公开禁区表（seed 派生，只读）
     const closePhases = closePhasesObject(seed)
 
-    // ⑤ 静态拓扑数组 + 邻接图（客户端网格渲染 + moveToRoom 校验缓存）
-    const roomsTopo = brRooms.map(r => ({
-      roomId: r.roomId,
-      label: r.label,
-      region: r.region,
-      gridX: r.gridX,
-      gridY: r.gridY,
-      neighborIds: Array.isArray(r.neighborIds) ? r.neighborIds : [],
-    }))
-    const adj = {}
-    for (const r of roomsTopo) adj[r.roomId] = r.neighborIds
-
-    // ⑥ 起始房：seed-phase0（开局全开放）下最靠网格中心的房
+    // ④ 起始房：seed-phase0（开局全开放）下最靠网格中心的房
     const phase0Open = roomsTopo.filter(r => !forbidden(seed, 0, r.roomId))
     const startPool = phase0Open.length > 0 ? phase0Open : roomsTopo
     const CX = 4.5
@@ -1886,19 +1890,17 @@ async function initBrRoomLayer(client, room, gamevars) {
       ? clampMaxPhase(gamevars.br.maxPhase)
       : clampMaxPhase(BR_CONFIG.MAX_PHASE)
 
+    // ⑤ slim br：rooms/adj/templateMeta 移出（getRaidLayout(seed) 派生），仅写 7 个轻量字段
     const br = {
       enabled: true,
       seed,
       phaseSeconds,
       maxPhase,
-      roomTemplates,
-      templateMeta,
       startRoomId,
+      roomTemplates,
       closePhases,
-      rooms: roomsTopo,
-      adj,
     }
-    console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} templates=${Object.keys(templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
+    console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} templates=${Object.keys(layout.templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
     return { br, startRoomId }
   } catch (e) {
     console.error('[joinRoom][BR] 初始化失败:', e?.message)
@@ -2382,6 +2384,10 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
   if (!br?.enabled) throw new Error('该对局未启用网格移动')
   if (br.seed == null) throw new Error('BR 对局未初始化（缺少 seed）')
 
+  // gamevars 瘦身：rooms/adj/templateMeta 已移出 gamevars.br → 按 seed 取 layout（首动作付一次 DB 读，
+  //   之后 memo 命中无 IO）。邻接/标签/伪 chamber meta 全部从 layout 读，roomTemplates 仍读 gamevars.br（保留）。
+  const layout = await getRaidLayout(client, br.seed)
+
   const fromRoomId = player.roomId
   if (fromRoomId == null) throw new Error('你当前不在任何扇区')
 
@@ -2389,8 +2395,8 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
   if (!Number.isFinite(target)) throw new Error('目标扇区无效')
   if (target === fromRoomId) throw new Error('你已在该扇区')
 
-  // ② 邻接校验（优先用 gamevars.br.adj 缓存，避免每次查 DB）
-  const neighbors = Array.isArray(br.adj?.[fromRoomId]) ? br.adj[fromRoomId] : []
+  // ② 邻接校验（用 layout.adj 派生邻接图，避免每次查 DB）
+  const neighbors = Array.isArray(layout.adj?.[fromRoomId]) ? layout.adj[fromRoomId] : []
   if (!neighbors.includes(target)) throw new Error('目标扇区不相邻')
 
   // ③ 开放校验：forbidden(seed, effectivePhase, target)===false（禁区即拒）
@@ -2413,9 +2419,10 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
   const staminaCost = staminaResult.cost
 
   // ④ 通过：镜像 templateId 喂旧逻辑 + 清 encounter
+  //   roomTemplates 仍读 gamevars.br（保留字段）；templateMeta / rooms 标签改读 layout（已移出 gamevars）。
   const targetTid = br.roomTemplates?.[target] ?? player.map ?? 0
-  const targetMeta = br.templateMeta?.[targetTid] || null
-  const roomLabel = (br.rooms || []).find(r => r.roomId === target)?.label || `扇区 #${target}`
+  const targetMeta = layout.templateMeta?.[targetTid] || null
+  const roomLabel = layout.rooms.find(r => r.roomId === target)?.label || `扇区 #${target}`
   const chamberName = targetMeta?.name || roomLabel
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
@@ -2621,7 +2628,11 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   if (player.extracted) throw new Error('已经撤离')
 
   // Phase 19.5: 从 gamevars.raidPath 取当前 chamber（不查 map_config）
-  const mapConfig = getChamberAsMapConfig(gamevars, player)
+  // gamevars 瘦身：BR 房的 is_exit/exit_cost 等来自 templateMeta（已移出 gamevars）→ 取 layout 传入。
+  //   非 BR 房（raidPath 模式）layout=null，getChamberAsMapConfig 走旧分支不受影响。
+  const br = gamevars?.br
+  const layout = br?.enabled && br.seed != null ? await getRaidLayout(client, br.seed) : null
+  const mapConfig = getChamberAsMapConfig(gamevars, player, layout)
   if (!mapConfig) throw new Error('chamber 数据不存在（raidPath 未初始化？）')
   if (!mapConfig.is_exit) {
     throw new Error(`【${mapConfig.name}】不是撤离点`)

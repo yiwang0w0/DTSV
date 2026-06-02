@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · BR 体力经济深化（搜索/攻击耗体力 + 可搜刮回复道具）
+更新时间：2026-06-03（Asia/Tokyo） · BR 性能修复（gamevars.br 39KB→~5KB）+ 浏览器走查
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
@@ -139,6 +139,25 @@
 1. 搜索 -5 / 攻击 -8；狂搜狂打 → 体力耗尽 → 被拦「体力不足」
 2. 搜到**机能恢复剂**（一次得 6 个）→ 背包用一个 +50 体力
 3. 自然回复很慢（0.5/s）→ 主要靠搜刮回复道具续航
+
+### 性能修复：gamevars.br 瘦身（39KB→~5KB）+ 浏览器走查 — Workflow 产出
+
+> 浏览器走查 dtsv.vercel.app/game/22 实测：一次搜索动作 **6.9s** / 响应 26.6KB；DB 实测 gamevars.br **39KB**（整张 100 房静态布局），每动作整段写库 + realtime 广播 = 自身逻辑导致的卡顿（叠加 Vercel 冷启动）。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/server/br/raidLayout.js`（新） | `getRaidLayout(client, seed)`：按 seed 进程级 memo 派生 {rooms, adj, templateMeta, roomTemplates}（首动作一次 DB 读，命中 O(1)） |
+| `src/lib/roomState.js` | normalizeBrBlock **删 rooms/adj/templateMeta**（slim br 仅 7 字段）→ **旧 fat 房下次动作自动瘦身** |
+| `src/lib/server/gameActions.js` | initBrRoomLayer 写 slim br；getChamberForPlayer/getChamberAsMapConfig/buildChamberAccelTable/moveToRoom/extractPlayer 的 templateMeta 改从 layout 派生；热路径 search/combat layout=null 仍靠保留的 roomTemplates 拿 templateId |
+| `src/app/api/br/topology/route.js`（新） | GET 静态房拓扑(rooms+templateMeta)，immutable 缓存 |
+| `src/app/game/[id]/GameClientPage.jsx` | 网格拓扑改从 `/api/br/topology` 一次拉取 + 模块/localStorage 缓存；着色/档位仍读 gamevars.br.{closePhases,roomTemplates} |
+
+效果：gamevars.br 39KB→~5KB（**-87%**），每动作写库/广播负载大降。验证：next lint ✔ 0；layout 派生与旧 gamevars 同值；向后兼容（旧房经 normalize 自动收敛）。**待部署后复测动作耗时。**
+
+### 走查发现（待办）
+
+- 🔴 **缩圈无致死**：玩家活在禁区扇区无惩罚——基础大逃杀"圈到你就掉血/驱离/致死"未做（"踩未来禁区即死"是深度层）。待用户定处理方式。
+- ✅ 体力 / 移动惩罚 / 左栏压缩修复 / 100 房网格 / 搜索攻击消耗 全部走查在线可用。
 
 ---
 

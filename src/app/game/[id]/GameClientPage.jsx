@@ -10,7 +10,7 @@ import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
 import { calcEquippedStats, RARITY_META } from '@/lib/equipmentEngine'
 import { normalizeGamevars } from '@/lib/roomState'
-import { postGameApi } from '@/lib/gameApi'
+import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import LootModal from './LootModal'
@@ -38,6 +38,58 @@ import {
 // Phase 31 BR：体力系统纯函数（前后端共用同一份算法，客户端仅做 UX 预览，
 //   真正扣除/拦截以服务端 moveToRoom 为准 → 防本地时钟漂移作弊）。
 import { dtSecSince, effectiveStamina, movePenaltyMultiplier, moveStaminaCost } from '@/lib/stamina'
+
+// ════════════════════════════════════════════════════════════════════════
+// BR 静态拓扑（网格房间布局 + chamber 模板元）—— 一次拉取 + 跨对局缓存
+//   契约 clientStrategy：拓扑/模板纯静态、所有对局相同（不随对局变、不含 seed），
+//   故从 gamevars.br 解耦，改 GET /api/br/topology 拉一次永久缓存 → 不再每动作经
+//   Supabase realtime 广播 18.7KB 拓扑 + 10.9KB templateMeta（收益所在）。
+//   端点返回 { rooms:[{roomId,label,region,gridX,gridY,neighborIds}], templateMeta:{[tid]:行} }。
+//   _brTopologyCache = 模块级（跨组件实例 / 跨对局复用）；localStorage 作冷启动持久层
+//   （静态可长缓存，端点已 Cache-Control immutable）。in-flight Promise 去重并发拉取。
+// ════════════════════════════════════════════════════════════════════════
+const BR_TOPOLOGY_LS_KEY = 'br_topology_v1'
+let _brTopologyCache = null
+let _brTopologyInFlight = null
+
+function readBrTopologyFromLS() {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(BR_TOPOLOGY_LS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // 结构性最小校验：rooms 必须为非空数组，否则当作未命中重新拉。
+    if (parsed && Array.isArray(parsed.rooms) && parsed.rooms.length > 0) return parsed
+  } catch {
+    /* 损坏的缓存当作未命中 */
+  }
+  return null
+}
+
+async function loadBrTopology() {
+  if (_brTopologyCache) return _brTopologyCache
+  // 冷启动：先吃 localStorage（命中即填模块缓存，免一次网络）。
+  const fromLs = readBrTopologyFromLS()
+  if (fromLs) {
+    _brTopologyCache = fromLs
+    return _brTopologyCache
+  }
+  if (_brTopologyInFlight) return _brTopologyInFlight
+  _brTopologyInFlight = (async () => {
+    try {
+      const data = await getGameApi('/api/br/topology')
+      const topo = { rooms: Array.isArray(data?.rooms) ? data.rooms : [], templateMeta: data?.templateMeta || {} }
+      _brTopologyCache = topo
+      if (typeof window !== 'undefined') {
+        try { window.localStorage.setItem(BR_TOPOLOGY_LS_KEY, JSON.stringify(topo)) } catch { /* 配额/隐私模式：忽略 */ }
+      }
+      return topo
+    } finally {
+      _brTopologyInFlight = null
+    }
+  })()
+  return _brTopologyInFlight
+}
 
 // Phase 19.7: chamber 类型元数据（路径前进面板用）
 const CHAMBER_TYPE_META = {
@@ -289,6 +341,21 @@ export default function GameClientPage() {
   // 我的当前房（BR）
   const myRoomId = brEnabled ? (meBase?.roomId ?? null) : null
 
+  // ── BR 静态拓扑：一次拉 /api/br/topology → 模块缓存（跨对局）+ state（触发重渲）──
+  //   契约 clientStrategy：网格「房间拓扑来源」从 gamevars.br.rooms 换成此静态拓扑。
+  //   gamevars.br 仅保留 { closePhases, roomTemplates } 供着色/档位（仍随对局走 realtime）。
+  //   state 初值吃模块缓存 ⇒ 同会话内换房/重挂载立即有拓扑、无闪烁；未命中则 effect 拉一次。
+  const [brTopology, setBrTopology] = useState(() => _brTopologyCache)
+  useEffect(() => {
+    if (!brEnabled) return undefined
+    if (brTopology) return undefined          // 已有拓扑（模块缓存或上次拉取）→ 不重复请求
+    let cancelled = false
+    loadBrTopology()
+      .then(topo => { if (!cancelled) setBrTopology(topo) })
+      .catch(() => { /* 拉取失败：网格优雅占位（loading），下次 brEnabled 变化再试 */ })
+    return () => { cancelled = true }
+  }, [brEnabled, brTopology])
+
   // ── Phase 31 BR：体力 + 移动惩罚倍率（客户端 UX 派生，服务端 moveToRoom 权威）──
   //   依赖 nowMs（BR 1s tick L194-198）⇒ 每秒重算，体力条平滑增长、消耗预览随等待时间下降。
   //   注意：刻意不放进 me useMemo（me 只依赖 [equipped, meBase]，不随 nowMs 变 ⇒ 放进去不会每秒刷新）。
@@ -323,12 +390,13 @@ export default function GameClientPage() {
 
   const brWarnSecs = useMemo(() => warnWindowSeconds(br?.phaseSeconds), [br?.phaseSeconds])
 
-  // brGrid：每房显示态数据（静态拓扑 br.rooms + 派生 closePhase/lootTier/templateId）
-  //   br.rooms（契约 stateShape 选项A）：[{ roomId, label, region, gridX, gridY, neighborIds }]
-  //   br.closePhases：{ [roomId]: closePhase 1..5 }（per-raid seed 派生，公开）
+  // brGrid：每房显示态数据（静态拓扑 brTopology.rooms + 派生 closePhase/lootTier/templateId）
+  //   brTopology.rooms（一次拉的静态端点）：[{ roomId, label, region, gridX, gridY, neighborIds }]
+  //   br.closePhases / br.roomTemplates：仍读 gamevars.br（per-raid seed 派生·公开·随对局走 realtime）
+  //   拓扑未加载（brTopology=null）⇒ rooms 空 ⇒ brGrid 空 ⇒ 网格优雅占位（loading）。
   const brGrid = useMemo(() => {
     if (!brEnabled) return []
-    const rooms = Array.isArray(br?.rooms) ? br.rooms : []
+    const rooms = brTopology?.rooms ?? []
     const closePhases = br?.closePhases || {}
     const realPhase = brClock?.realPhase ?? 0
     return rooms.map(r => ({
@@ -337,7 +405,7 @@ export default function GameClientPage() {
       lootTier: Math.max(1, Math.min(5, realPhase + 1)),
       templateId: br?.roomTemplates?.[r.roomId] ?? null,
     }))
-  }, [brEnabled, br?.rooms, br?.closePhases, br?.roomTemplates, brClock?.realPhase])
+  }, [brEnabled, brTopology, br?.closePhases, br?.roomTemplates, brClock?.realPhase])
 
   // 网格按 gridX/gridY 摆位（10×10）
   const brCellByXY = useMemo(() => {
@@ -399,12 +467,14 @@ export default function GameClientPage() {
 
   const inGame = !!meBase
   // Phase 30 BR：当前房模板 id（roomTemplates[myRoomId]，与 meBase.map 镜像）+ templateMeta 行
+  //   roomTemplates 仍读 gamevars.br（保留字段）；templateMeta 改查一次拉的静态 brTopology
+  //   （拓扑未加载时为 null ⇒ effectiveMapConfig 回退 currentChamber/mapConfig，UX 不退化）。
   const brCurrentTemplateId = brEnabled && myRoomId != null
     ? (br?.roomTemplates?.[myRoomId] ?? meBase?.map ?? null)
     : null
-  const brTemplateMeta = brCurrentTemplateId != null ? (br?.templateMeta?.[brCurrentTemplateId] || null) : null
+  const brTemplateMeta = brCurrentTemplateId != null ? (brTopology?.templateMeta?.[brCurrentTemplateId] || null) : null
   // Phase 19.7: 用 currentChamber 替代 mapConfig（保留 mapConfig 变量名兼容旧引用）。
-  // Phase 30 BR：currentChamber 为空（raidPath 空），改从 br.templateMeta[当前房模板] 派生 mapConfig，
+  // Phase 30 BR：currentChamber 为空（raidPath 空），改从 brTopology.templateMeta[当前房模板] 派生 mapConfig，
   //   驱动头部区域名 / 区域评估 is_exit / 「结构退避」撤离消耗。字段名对齐旧 chamber（snake_case）。
   const effectiveMapConfig = currentChamber ? {
     name: currentChamber.name,
@@ -789,6 +859,7 @@ export default function GameClientPage() {
         }
         .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
         @keyframes brPulse{0%,100%{opacity:1}50%{opacity:.45}}
+        @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
 
       {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒） */}
@@ -1590,6 +1661,20 @@ export default function GameClientPage() {
                 aliveCount={aliveCount}
                 playerCount={allPlayers.length}
               />
+
+              {/* 拓扑加载占位：一次拉的静态拓扑（brTopology）未到 ⇒ 网格无房可摆，提示加载中。
+                  到达后 brGrid 填充、占位消失；着色/大时钟此刻已可正常工作（不依赖拓扑）。 */}
+              {!brTopology && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  padding: '14px 12px', borderRadius: 10,
+                  background: T.bg2, border: `1px solid ${T.border}`,
+                  fontSize: 11, color: T.dim,
+                }}>
+                  <span style={{ width: 14, height: 14, border: `2px solid ${T.border}`, borderTopColor: T.cyan, borderRadius: '50%', display: 'inline-block', animation: 'spin .7s linear infinite' }} />
+                  <span style={{ fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: 1 }}>扇区拓扑加载中…</span>
+                </div>
+              )}
 
               {/* 100 房网格（点相邻开放房移动）*/}
               <BrGridPanel

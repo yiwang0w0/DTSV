@@ -39,8 +39,11 @@ const GRID_CY = 4.5
  * 把一行 chamber_template 折算成 templateMeta 子集（伪 chamber 对象的字段源）。
  * 字段名对齐旧 pathGenerator 实例化形状（templateId/name/type/isExit/exitCost/...），
  * 让 getChamberForPlayer 的 BR 分支能零成本拼出「伪 chamber」喂现有逻辑。
+ *
+ * 导出（gamevars 瘦身）：raidLayout.getRaidLayout 与 /api/br/topology 端点复用同一折算，
+ *   保证服务端派生表与客户端拉取表字段完全一致（同一函数源 → 无分叉）。
  */
-function toTemplateMeta(t) {
+export function toTemplateMeta(t) {
   return {
     templateId: t.id,
     templateKey: t.template_key,
