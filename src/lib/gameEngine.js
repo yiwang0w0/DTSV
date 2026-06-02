@@ -139,7 +139,7 @@ export function calcDamage(attacker, defender, rules, weaponSubKind = '') {
  * @returns {{ hpDelta, atkDelta, defDelta, newBuffIds, log }}
  */
 export function calcItemEffect(item, player, rules) {
-  const result = { hpDelta: 0, atkDelta: 0, defDelta: 0, newBuffIds: [], log: '' }
+  const result = { hpDelta: 0, atkDelta: 0, defDelta: 0, staminaDelta: 0, newBuffIds: [], log: '' }
 
   if (item.kind === 'consumable') {
     // 治疗公式
@@ -150,6 +150,8 @@ export function calcItemEffect(item, player, rules) {
       maxHp: player.maxHp,
       effect: item.effect || 0,
     })
+    // ── 体力回复（防御式读 item_pool.stamina_restore 新列；老库/老道具该列默认 0 ⇒ staminaDelta=0，零破坏） ──
+    result.staminaDelta = Number(item.stamina_restore) || 0
   }
 
   if (item.kind === 'weapon') {

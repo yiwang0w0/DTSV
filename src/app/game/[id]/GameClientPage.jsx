@@ -301,6 +301,15 @@ export default function GameClientPage() {
   // 本地预判：体力不足以再走一步（与服务端 no_stamina 双保险，仅做点击短路 + 着色，非安全边界）。
   const moveBlocked = staminaNow != null && staminaNow < moveCostPreview
 
+  // ── Phase 31 BR：搜索 / 攻击「平消耗」预判（仅 UX 提示，服务端权威拦截 no_stamina）──
+  //   平消耗 = 固定单价、不走移动惩罚倍率（与 move 的关键区别）。数值读 STAMINA_CONFIG，
+  //   缺字段时退化到任务给定默认（搜索 5 / 攻击 8）⇒ 后端未上线该常量也不报错，纯加提示。
+  const searchCost = Number.isFinite(STAMINA_CONFIG.SEARCH_COST) ? STAMINA_CONFIG.SEARCH_COST : 5
+  const attackCost = Number.isFinite(STAMINA_CONFIG.ATTACK_COST) ? STAMINA_CONFIG.ATTACK_COST : 8
+  // 体力不足以搜索 / 攻击（本地短路 + 灰显；非安全边界，服务端仍以 no_stamina 为准）。
+  const searchBlocked = staminaNow != null && staminaNow < searchCost
+  const attackBlocked = staminaNow != null && staminaNow < attackCost
+
   // 大时钟（本地推算，server started_at 为锚点；nowMs 每秒 tick 细化倒计时）
   const brClock = useMemo(() => {
     if (!brEnabled) return null
@@ -1043,6 +1052,10 @@ export default function GameClientPage() {
                         <span style={{ color: T.red, marginLeft: 6 }}>· 体力不足，需等待回复</span>
                       )}
                     </div>
+                    {/* 消耗速查（小字）：搜索/攻击为平消耗（固定单价），移动随快速移动惩罚倍率浮动。 */}
+                    <div style={{ marginTop: 4, fontSize: 9, color: T.dim2, lineHeight: 1.5 }}>
+                      消耗：搜索 -{searchCost} · 攻击 -{attackCost} · 移动 -{STAMINA_CONFIG.MOVE_COST ?? 10}×倍率
+                    </div>
                   </div>
                 )}
 
@@ -1137,8 +1150,26 @@ export default function GameClientPage() {
                           HP {target.hp}/{target.maxHp || 100} · 击杀 {target.kills || 0}
                         </div>
                       </div>
-                      <Btn variant="danger" size="sm" disabled={busy || !me?.alive || room.gamestate === 2} onClick={() => runGameAction('attackPlayer', { targetUid: target.id || target.uid })}>
+                      <Btn
+                        variant="danger"
+                        size="sm"
+                        disabled={busy || !me?.alive || room.gamestate === 2 || (brEnabled && attackBlocked)}
+                        onClick={() => {
+                          // 体力不足本地短路（服务端 no_stamina 权威拦截）。仅 BR 模式有体力。
+                          if (brEnabled && attackBlocked) {
+                            toast(`体力不足，无法攻击（需 ${attackCost} 体力）`, 'error')
+                            return
+                          }
+                          runGameAction('attackPlayer', { targetUid: target.id || target.uid })
+                        }}
+                        sx={{ flexDirection: 'column', gap: 1 }}
+                      >
                         攻击
+                        {brEnabled && staminaNow != null && (
+                          <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.85 }}>
+                            {attackBlocked ? '体力不足' : `-${attackCost}`}
+                          </span>
+                        )}
                       </Btn>
                     </div>
                   </div>
@@ -1225,6 +1256,13 @@ export default function GameClientPage() {
                             </div>
                             {itemDef?.description && (
                               <div style={{ fontSize: 10, color: T.dimB, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemDef.description}</div>
+                            )}
+                            {/* 体力回复道具提示（绿字）：读后端 stamina_restore 字段，>0 才显示；
+                                一份 = N 个同名道具，每次用 1 个 ⇒ count = 剩余可用次数（服务端权威结算）。 */}
+                            {itemDef?.stamina_restore > 0 && (
+                              <div style={{ fontSize: 10, color: T.green, marginTop: 2, fontWeight: 600 }}>
+                                +{itemDef.stamina_restore} 体力 · 剩 {count} 次
+                              </div>
                             )}
                           </div>
                           {me?.alive && room.gamestate !== 2 && (
@@ -1341,8 +1379,27 @@ export default function GameClientPage() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                      <Btn variant="danger" loading={busyAction === 'attackNpc'} loadingText="袭击中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('attackNpc')} disabled={!me?.alive || room.gamestate === 2}>
+                      <Btn
+                        variant="danger"
+                        loading={busyAction === 'attackNpc'}
+                        loadingText="袭击中..."
+                        sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700, flexDirection: 'column', gap: 2 }}
+                        onClick={() => {
+                          // 体力不足本地短路（服务端 no_stamina 权威拦截）。仅 BR 模式有体力。
+                          if (brEnabled && attackBlocked) {
+                            toast(`体力不足，无法攻击（需 ${attackCost} 体力）`, 'error')
+                            return
+                          }
+                          runGameAction('attackNpc')
+                        }}
+                        disabled={!me?.alive || room.gamestate === 2 || (brEnabled && attackBlocked)}
+                      >
                         ⚔️ 袭击（一次性）
+                        {brEnabled && staminaNow != null && (
+                          <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
+                            {attackBlocked ? '体力不足' : `体力 -${attackCost}`}
+                          </span>
+                        )}
                       </Btn>
                       <Btn variant="ghost" sx={{ flex: 1, padding: '10px 0' }} onClick={() => runGameAction('releaseEncounter')} disabled={busy || !me?.alive || room.gamestate === 2}>
                         放过
@@ -1354,8 +1411,27 @@ export default function GameClientPage() {
                   </div>
                 )}
 
-                <Btn variant="primary" loading={busyAction === 'search'} loadingText="搜索中..." sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700 }} onClick={() => runGameAction('search')} disabled={!me?.alive || room.gamestate === 2}>
+                <Btn
+                  variant="primary"
+                  loading={busyAction === 'search'}
+                  loadingText="搜索中..."
+                  sx={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '12px 0', fontWeight: 700, flexDirection: 'column', gap: 2 }}
+                  onClick={() => {
+                    // 体力不足本地短路（省一次往返；服务端 no_stamina 仍是权威拦截）。仅 BR 模式有体力。
+                    if (brEnabled && searchBlocked) {
+                      toast(`体力不足，无法搜索（需 ${searchCost} 体力）`, 'error')
+                      return
+                    }
+                    runGameAction('search')
+                  }}
+                  disabled={!me?.alive || room.gamestate === 2 || (brEnabled && searchBlocked)}
+                >
                   搜索区域
+                  {brEnabled && staminaNow != null && (
+                    <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>
+                      {searchBlocked ? '体力不足' : `体力 -${searchCost}`}
+                    </span>
+                  )}
                 </Btn>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                   <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2}>

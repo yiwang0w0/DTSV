@@ -1,11 +1,18 @@
 /**
- * stamina.js — BR 体力系统纯计算（移动经济）
+ * stamina.js — BR 体力系统纯计算（行动经济）
  *
- * 设计：体力是「只由移动消耗」的资源，配合移动惩罚倍率（短间隔连续移动单步更贵）双层耦合，
- *   把「瞬移刷图」逼成「走两步歇一下」。详见 constants.js 的 STAMINA_CONFIG 注释（数值 single source of truth）。
+ * 设计：体力由三个主动作消耗 —— move（走惩罚倍率 + 刷 lastMoveAt）、search/attack（平消耗、不刷 lastMoveAt），
+ *   自然回复刻意压低，主回复源是可搜刮的体力回复道具（restoreStamina）。把「瞬移刷图 / 无脑连搜连打」
+ *   逼成「有节奏地行动 + 靠搜刮回血」。详见 constants.js 的 STAMINA_CONFIG 注释（数值 single source of truth）。
  *
- * 本模块**完全无副作用**：所有函数为纯计算，不修改入参、返回新对象，`now` 可注入（默认 Date.now()）。
- *   被 moveToRoom（服务端权威扣除/拦截）与客户端预览（UX 推算）共享同一份算法，保证前后端不漂移。
+ * 本模块**完全无副作用**：所有函数为纯计算，不修改入参、返回新对象，`now` 可注入（默认调用方传 nowMs）。
+ *   被服务端权威扣除/拦截（moveToRoom / searchArea / attackNpc / attackPlayer / useItem）与客户端预览
+ *   （UX 推算）共享同一份算法，保证前后端不漂移。
+ *
+ * 平消耗 vs 移动消耗的关键区别（applyStaminaCost vs applyMoveStamina）：
+ *   - applyMoveStamina：走惩罚倍率（cost = ceil(MOVE_COST × mult)），通过时刷 staminaAt **且** lastMoveAt。
+ *   - applyStaminaCost：固定 cost（调用方传 SEARCH_COST / ATTACK_COST），无惩罚倍率，通过时**只刷 staminaAt**，
+ *     绝不刷 lastMoveAt（否则污染下一次 move 的 dt 锚点，把「搜完就走」误判成快速移动 → 多收惩罚）。
  *
  * 用相对路径 import constants.js（而非 @/ 别名）：与 pollution.js / roomState.js 同样照顾
  *   scripts/smoke-check.mjs 以原生 Node ESM 直接 import（Node 不解析 webpack @/ 别名；constants.js 自身零 import 可被解析）。
@@ -20,8 +27,16 @@
  *   movePenaltyMultiplier: 4 锚点精确命中 0s→6 / 5s→5 / 15s→3 / 30s→1；中间值 2.5s→5.5 / 10s→4 / 22.5s→2；
  *     首次(null→+Infinity) / dt≥30 / 负值 / NaN / Infinity ⇒ 1（按 1× 不冤枉）。
  *   moveStaminaCost: ceil(10×mult) ⇒ dt=29s→ceil(11.33)=12，dt≥30→10，dt=2.5s→55。
- *   effectiveStamina: clamp(stamina + 4×Δs, 0, max)，Δs<0 钳到 0、上溢钳到 max。
+ *   effectiveStamina: clamp(stamina + REGEN×Δs, 0, max)，Δs<0 钳到 0、上溢钳到 max。
  *   applyMoveStamina: 不足时 blocked=true 且不改体力字段；通过时 stamina=回复后−cost、staminaAt=now、lastMoveAt=now。
+ *   applyStaminaCost（cost=5, REGEN=0.5, max=100，lastMoveAt=12345 固定锚点）：
+ *     before=8（stamina=8,staminaAt=now）→ 扣后 stamina=3、staminaAt=now、**lastMoveAt 仍=12345（未动）**、blocked=false。
+ *     before=4 < cost=5 ⇒ blocked=true，player 体力字段与 lastMoveAt 全不变（零副作用）。
+ *     懒回复参与判定：stamina=2,staminaAt=now−6000ms ⇒ before=2+0.5×6=5 ≥5 ⇒ 通过，扣后=0。
+ *   restoreStamina（amount=50, REGEN=0.5, max=100，lastMoveAt=12345）：
+ *     stamina=30,staminaAt=now ⇒ cur=30 → +50=80 ≤100 → stamina=80、staminaAt=now、lastMoveAt 仍=12345。
+ *     stamina=70 → +50=120 → clamp 100。stamina=20,staminaAt=now−10000 ⇒ cur=20+0.5×10=25 → +50=75。
+ *     amount=0 / 负 / NaN ⇒ 安全（NaN 经 clamp 落 0）；老存档缺字段先 backfill 不崩。
  */
 
 import { STAMINA_CONFIG } from './constants.js'
@@ -168,4 +183,69 @@ export function applyMoveStamina(player, nowMs, cfg = STAMINA_CONFIG) {
     lastMoveAt: nowMs,
   }
   return { player: next, cost, multiplier, blocked: false, before }
+}
+
+/**
+ * 平消耗体力结算（search / attack 等「固定单价」动作；与 applyMoveStamina 并列、语义不同）。
+ * 与移动消耗的两点关键区别：
+ *   1. cost 由调用方传入（固定 SEARCH_COST / ATTACK_COST），**不乘**移动惩罚倍率。
+ *   2. 通过时**只刷 staminaAt**，绝不刷 lastMoveAt —— 否则污染下一次 move 的 dt 锚点，
+ *      把「搜完/打完就走」误判成快速移动而多收惩罚。
+ *
+ * 时序（同一 now 下原子结算）：
+ *   1. backfill 兜底老玩家无字段
+ *   2. before = effectiveStamina(now)（懒回复到 now）
+ *   3. before < cost ⇒ blocked=true，**不改任何体力字段**（拦截零副作用，调用方据此抛 no_stamina）
+ *   4. 通过 ⇒ stamina = clamp(before − cost, 0, max)、staminaAt = now（lastMoveAt 原样保留）
+ *
+ * @param {object} player
+ * @param {number} nowMs
+ * @param {number} cost  本次消耗（平价，由调用方传 SEARCH_COST / ATTACK_COST）
+ * @param {object} [cfg=STAMINA_CONFIG]
+ * @returns {{ player:object, blocked:boolean, before:number, cost:number }}
+ *   player：blocked 时为 backfill 后的原玩家（体力字段不变）；通过时为已扣体力 + 刷 staminaAt 的新玩家。
+ *   before：本次结算前懒回复到 now 的有效体力（用于日志/调试）。
+ */
+export function applyStaminaCost(player, nowMs, cost, cfg = STAMINA_CONFIG) {
+  const ensured = ensureStaminaFields(player, nowMs, cfg)
+  const need = Number.isFinite(cost) ? cost : 0
+  const before = effectiveStamina(ensured, nowMs, cfg)
+  if (before < need) {
+    return { player: ensured, blocked: true, before, cost: need }
+  }
+  const max = Number.isFinite(ensured.maxStamina) ? ensured.maxStamina : cfg.MAX_STAMINA
+  const next = {
+    ...ensured,
+    stamina:   clamp(before - need, 0, max),
+    staminaAt: nowMs,
+    // lastMoveAt 故意不动：平消耗动作不重置移动惩罚锚点
+  }
+  return { player: next, blocked: false, before, cost: need }
+}
+
+/**
+ * 恢复体力（体力回复道具用；纯计算、不修改入参、返回新对象）。
+ * 懒回复到 now 后再 +amount，clamp 到 [0, max]，刷 staminaAt（lastMoveAt 原样保留 —— 用道具不是移动）。
+ * amount 非有限 / 负值经 clamp 安全收敛（NaN → 落 0）。老存档缺字段先 backfill 不崩。
+ *
+ * @param {object} player
+ * @param {number} nowMs
+ * @param {number} amount  恢复量（如 RECOVERY_ITEM.RESTORE）
+ * @param {object} [cfg=STAMINA_CONFIG]
+ * @returns {{ player:object, restored:number, before:number, after:number }}
+ *   player：已加体力 + 刷 staminaAt 的新玩家；restored：实际增加量（受上限钳制后 after−before）。
+ */
+export function restoreStamina(player, nowMs, amount, cfg = STAMINA_CONFIG) {
+  const ensured = ensureStaminaFields(player, nowMs, cfg)
+  const max = Number.isFinite(ensured.maxStamina) ? ensured.maxStamina : cfg.MAX_STAMINA
+  const before = effectiveStamina(ensured, nowMs, cfg)
+  const add = Number.isFinite(amount) ? amount : 0
+  const after = clamp(before + add, 0, max)
+  const next = {
+    ...ensured,
+    stamina:   after,
+    staminaAt: nowMs,
+    // lastMoveAt 故意不动：用道具不重置移动惩罚锚点
+  }
+  return { player: next, restored: after - before, before, after }
 }

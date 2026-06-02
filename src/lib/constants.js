@@ -40,27 +40,41 @@ export const BR_CONFIG = {
   WARN_MIN: 5,          // 预警黄窗下限（秒）
 }
 
-// ── 体力系统配置（BR 移动经济 · single source of truth） ──────────
-// 把「瞬移刷图」逼成「走两步歇一下」：体力是只由移动消耗的资源，配合移动惩罚倍率
-// （短间隔连续移动单步更贵）双层耦合。数值集中此处，stamina.js 不重复定义任何数字
-// （前后端 import 同一份），调参只改这一处。
+// ── 体力系统配置（BR 行动经济 · single source of truth） ──────────
+// 把「瞬移刷图 / 无脑连搜连打」逼成「有节奏地行动 + 靠搜刮回血」：体力由三个主动作消耗，
+// 自然回复仅作兜底，主回复源是可搜刮的体力回复道具。数值集中此处，stamina.js 不重复定义
+// 任何数字（前后端 import 同一份），调参只改这一处。
+//
+// 体力消耗源（三动作，正交于 pollution 各动作扣污染模型，互不影响）：
+//   - move：实际消耗 = ceil(MOVE_COST × 移动惩罚倍率)（唯一走惩罚倍率 + 唯一刷 lastMoveAt 的动作）。
+//   - search：平消耗 SEARCH_COST（固定单价，无惩罚倍率，不刷 lastMoveAt）。
+//   - attack：平消耗 ATTACK_COST（**只主动攻击耗体力**；被动反击 / 被攻击不耗）。
+//   其余动作（撤离 / 交互 / 放过 / 拾取 / 用道具 / PvE 反击）不动体力。
 //
 // 派生公式（实现见 src/lib/stamina.js，全部纯函数、now 可注入）：
 //   懒回复：effectiveStamina = clamp(stamina + REGEN_PER_SEC × max(0, now−staminaAt)/1000, 0, MAX_STAMINA)
 //   移动惩罚倍率：以 PENALTY_ANCHORS 对「总消耗倍率」分段线性插值（自变量 dt = (now−lastMoveAt)/1000 秒）
-//   实际消耗 = ceil(MOVE_COST × movePenaltyMultiplier(dt))
+//   move 实际消耗 = ceil(MOVE_COST × movePenaltyMultiplier(dt))
+//   平消耗（search/attack）= 固定 cost，懒回复到 now → 判够 → 扣除（只刷 staminaAt，绝不刷 lastMoveAt，
+//     否则污染下一次 move 的 dt 锚点，把「搜完就走」误判成快速移动）。
 //
-// 调参红线 / 设计张力（务必理解再改）：
-//   - 等待 dt≥30s ⇒ 倍率 1× ⇒ 每步仅花 MOVE_COST(10)；30s 回复 30×4=120>100 ⇒ 耐心玩家恒满血、可连走 10 步。
-//   - 快速移动 dt<30s ⇒ 倍率 1×→6× 攀升，叠加「只回了一点体力」⇒ 强反刷：dt=2.5s 仅回 10 体力却要花 55，几步见底被拦截。
-//   - 体力**只由移动消耗**：搜索/战斗/PvP/交互/用道具/撤离全不动体力（与 pollution 各动作扣污染模型正交，互不影响）。
+// 调参红线 / 设计张力（务必理解再改 · 数值标「可调」者最终以 playtest 为准）：
+//   - 自然回复刻意压低（REGEN_PER_SEC=0.5）：回满 1 次 move(10)≈站 20s、search(5)≈10s、attack(8)≈16s。
+//     站桩 900s 仅被动回 450，看似可观，但活跃搜刮/移动的边际消耗远超被动 → 经济实际倾向道具。
+//   - 目标配比 ≈ 90% 体力靠搜刮回复道具（RECOVERY_ITEM）、~10% 靠自然回复兜底。
+//     该配比仅在动作 cadence 高时成立；若 playtest 发现站桩 trivialize，可进一步降 REGEN（如 0.3）
+//     或加「移动后 N 秒不回复」冷却（本期不做，预留）。
+//   - 快速移动 dt<30s ⇒ 倍率 1×→6× 攀升，叠加「只回了一点体力」⇒ 强反刷瞬移。
 //
 // PENALTY_ANCHORS：[dtSec, 总消耗倍率] 锚点，必须按 dtSec 升序；锚点间线性插值，dt≥最后锚点 dtSec ⇒ 取末锚倍率（恒 1×）。
 //   node 实算已校验 4 锚点精确命中(0s→6×/5s→5×/15s→3×/30s→1×)，中间值合理(2.5s→5.5×, 10s→4×, 22.5s→2×)。
 export const STAMINA_CONFIG = {
-  MAX_STAMINA:   100,   // 体力上限（满血可在 dt≥30s 节奏下连走 10 步）
-  MOVE_COST:     10,    // 基础移动消耗（实际消耗 = MOVE_COST × 移动惩罚倍率，向上取整）
-  REGEN_PER_SEC: 4,     // 实时（wall-clock）每秒回复体力；懒回复，不落库 tick、不新增服务端定时器
+  MAX_STAMINA:   100,   // 体力上限
+  MOVE_COST:     10,    // 基础移动消耗（move 实际消耗 = MOVE_COST × 移动惩罚倍率，向上取整）
+  SEARCH_COST:   5,     // 搜索平消耗（固定单价，无惩罚倍率；不足拦截，零副作用）
+  ATTACK_COST:   8,     // 攻击平消耗（可调；仅主动攻击扣，被动反击/被攻击不扣）
+  REGEN_PER_SEC: 0.5,   // 实时（wall-clock）每秒回复体力；懒回复，不落库 tick、不新增服务端定时器。
+                        //   刻意压低（旧值 4），让回复道具成为主回复源（90/10 目标，可调）。
   // 移动惩罚倍率锚点（总消耗倍率，非「额外加成」）：(0s,6×) → (5s,5×) → (15s,3×) → (30s+,1×)
   PENALTY_ANCHORS: [
     [0,  6],
@@ -68,6 +82,16 @@ export const STAMINA_CONFIG = {
     [15, 3],
     [30, 1],
   ],
+  // 体力回复道具「机能恢复剂」配置（主回复源 · 可搜刮）：
+  //   - 一份 = BUNDLE_COUNT 个同名条目（搜索抽中时一次性 push 这么多进 inventory，库存无 per-instance charges 概念）。
+  //   - useItem 每次消费 1 个，restoreStamina(+RESTORE) clamp 到 MAX_STAMINA。
+  //   - DB 侧由 item_pool.stamina_restore 列承载实际回复量（见 scripts/phase-25r-stamina-economy.sql）；
+  //     此处 RESTORE/NAME/BUNDLE_COUNT 为应用层落地（搜索产出特判 + 客户端提示）single source of truth。
+  RECOVERY_ITEM: {
+    NAME:         '机能恢复剂',  // 与 item_pool 行 name 严格一致（搜索产出特判 found.name 比对）
+    RESTORE:      50,           // 每次使用恢复体力（与 item_pool.stamina_restore 对齐）
+    BUNDLE_COUNT: 6,            // 一份产出的同名条目数（= 可用次数）
+  },
 }
 
 // ── 物品分类（远星函馆 5 kinds） ──────────────────────────

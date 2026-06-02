@@ -59,7 +59,7 @@ import {
   getLoadoutEffects,
 } from '@/lib/pollution'
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG } from '@/lib/constants'
-import { applyMoveStamina } from '@/lib/stamina'
+import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
 import { makeRaidSeed, forbidden, closePhasesObject } from '@/lib/server/br/forbidden'
@@ -1003,6 +1003,15 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法搜索')
 
+  // ── 体力结算（平消耗 · additive）：必须在任何 await / 产出 loot/污染 等副作用之前，保证拦截零副作用。 ──
+  //   nowMs 取一次；applyStaminaCost 内部 backfill→懒回复→判够→扣除（只刷 staminaAt，不刷 lastMoveAt，避免污染 move 的 dt 锚点）。
+  //   扣后体力字段（staminaResult.player）随后并入 polluted，整条产出链沿用含新体力的玩家对象。
+  const nowMs = Date.now()
+  const staminaResult = applyStaminaCost(player, nowMs, STAMINA_CONFIG.SEARCH_COST)
+  if (staminaResult.blocked) {
+    throw Object.assign(new Error('体力不足，无法搜索'), { code: 'no_stamina' })
+  }
+
   // ── 并行：规则/Buff缓存 + chamber 数据 + 尸体数据 一次性全拉 ──
   // Phase 19.5: 用 chamber.templateId 作为 mapId（兼容旧 corpse.mapId 匹配）
   const currentChamber = getChamberForPlayer(gamevars, player)
@@ -1029,7 +1038,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const { itemChance: rawItemChance, npcChance: rawNpcChance, fragmentChance: rawFragmentChance } = getSearchChances(rules)
 
   // ── 远星函馆：搜索动作触发个人污染 + 受有效污染影响 ──
-  const polluted = applySearchPollution(nextPlayer)
+  //   体力：把开头平消耗扣后的字段（staminaResult.player）并入 polluted，使后续所有产出分支（spread polluted）携带新体力。
+  const polluted = {
+    ...applySearchPollution(nextPlayer),
+    stamina:    staminaResult.player.stamina,
+    staminaAt:  staminaResult.player.staminaAt,
+    maxStamina: staminaResult.player.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA,
+    // lastMoveAt 不并入：平消耗不触碰移动锚点（nextPlayer 原值即 staminaResult.player.lastMoveAt，保持一致）
+  }
   setResolutionPlayer(resolution, user.id, polluted)
 
   const eff = calcEffectivePollution(
@@ -1112,11 +1128,20 @@ async function resolveSearchAction(client, room, gamevars, user) {
       }
     }
 
+    // ── 体力回复道具特判：一份 = BUNDLE_COUNT 个同名条目（库存无 per-instance charges，用「一次产出 N 个」实现「可用 N 次」） ──
+    const recovery = STAMINA_CONFIG.RECOVERY_ITEM
+    const bundleCount = (recovery && found.name === recovery.NAME)
+      ? Math.max(1, Number(recovery.BUNDLE_COUNT) || 1)
+      : 1
+    const foundEntries = Array(bundleCount).fill(found.name)
     setResolutionPlayer(resolution, user.id, {
       ...polluted,
-      inventory: [...(polluted.inventory || []), found.name],
+      inventory: [...(polluted.inventory || []), ...foundEntries],
     })
-    appendResolutionLog(resolution, `${player.name} 找到了 ${found.name}`, 'heal')
+    const foundLog = bundleCount > 1
+      ? `${player.name} 找到了 ${found.name} ×${bundleCount}`
+      : `${player.name} 找到了 ${found.name}`
+    appendResolutionLog(resolution, foundLog, 'heal')
     const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
     try {
       await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: found.name })
@@ -1163,6 +1188,14 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   const instanceId = player?.encounter?.instanceId
   if (!instanceId) throw new Error('当前没有袭击目标')
 
+  // ── 体力结算（平消耗 · additive · 仅主动攻击扣）：在结算伤害 / 任何 await 之前，拦截零副作用。 ──
+  //   被动反击（NPC 反击玩家）不走此处，不耗体力。扣后体力字段随后并入 polluted（combat pollution 基）。
+  const nowMs = Date.now()
+  const staminaResult = applyStaminaCost(player, nowMs, STAMINA_CONFIG.ATTACK_COST)
+  if (staminaResult.blocked) {
+    throw Object.assign(new Error('体力不足，无法攻击'), { code: 'no_stamina' })
+  }
+
   const instance = findNpcInstance(gamevars, instanceId)
   if (!instance) {
     // 实例已被消灭（其他玩家先击杀）/ 已不在池
@@ -1188,7 +1221,14 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   const playerHit = Math.random() < playerAccuracy
 
   // ── 2. 战斗个人污染（无论命中都扣，反映"动手"成本） ──
-  const polluted = applyCombatPollution(player, instance.npc)
+  //   体力：把开头平消耗扣后的字段并入 polluted（实际发起攻击才扣；前面 instance 缺失早返回分支不走到这里，不扣）。
+  const polluted = {
+    ...applyCombatPollution(player, instance.npc),
+    stamina:    staminaResult.player.stamina,
+    staminaAt:  staminaResult.player.staminaAt,
+    maxStamina: staminaResult.player.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA,
+    // lastMoveAt 不并入：平消耗不触碰移动锚点
+  }
 
   let killed = false
   let instanceHpAfter = instance.hp
@@ -1391,6 +1431,15 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
     throw new Error('目标不在同一地图')
   }
 
+  // ── 体力结算（平消耗 · additive · 仅主动攻击者扣 · 可调）：在结算伤害 / 任何 await 之前，拦截零副作用。 ──
+  //   与 attackNpc 对称（统一「动手即耗体力」）。被攻击方 / 被动反击不耗。
+  //   若只想约束 PvE，可删此块（仅 attackNpc 接体力）。扣后字段并入末尾 attacker 的 setResolutionPlayer。
+  const nowMs = Date.now()
+  const staminaResult = applyStaminaCost(attacker, nowMs, STAMINA_CONFIG.ATTACK_COST)
+  if (staminaResult.blocked) {
+    throw Object.assign(new Error('体力不足，无法攻击'), { code: 'no_stamina' })
+  }
+
   const [rules, buffPool, equippedInstances] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
@@ -1457,6 +1506,10 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
     alive: attackerHpAfter > 0,
     buffs: me.buffs || [],
     passiveCooldowns: me.passiveCooldowns || {},
+    // 体力：并入开头平消耗扣后的字段（仅攻击者；lastMoveAt 不动）。后续击杀分支 updateResolutionPlayer 透传 current 会保留。
+    stamina:    staminaResult.player.stamina,
+    staminaAt:  staminaResult.player.staminaAt,
+    maxStamina: staminaResult.player.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA,
   })
   setResolutionPlayer(resolution, targetUid, {
     ...defenderAfterTurn,
@@ -1591,6 +1644,21 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
       resolution,
       `${player.name} 使用 ${itemName}，HP ${result.hpDelta > 0 ? '+' : ''}${result.hpDelta}`,
       result.hpDelta > 0 ? 'heal' : 'damage',
+    )
+  }
+
+  // ── 体力回复道具（机能恢复剂等 item_pool.stamina_restore>0）：+amount clamp 到 max，刷 staminaAt（不刷 lastMoveAt） ──
+  //   nowMs 取一次；restoreStamina 内部 backfill→懒回复→+amount→clamp。非 BR 旧房用此道具安静 +体力无害。
+  if (result.staminaDelta) {
+    const nowMs = Date.now()
+    const r = restoreStamina(nextPlayer, nowMs, result.staminaDelta)
+    nextPlayer.stamina    = r.player.stamina
+    nextPlayer.staminaAt  = r.player.staminaAt
+    nextPlayer.maxStamina = r.player.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA
+    appendResolutionLog(
+      resolution,
+      `${player.name} 使用 ${itemName}，体力 +${result.staminaDelta}`,
+      'heal',
     )
   }
 
