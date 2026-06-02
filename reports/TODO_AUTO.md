@@ -140,3 +140,9 @@
 - [research-2026-06-02-A] **P1** — 武器 power-gap 审计：拉 `item_pool` 全部 weapon 的 `atk` 分布，确认 legendary vs basic 对**玩家**(PvP/探针抢残片)伤害差是否构成 Arc Raiders 所说的"insurmountable rift"。借鉴：高级装备主要给 PvE/handling，PvP 伤害区间压缩，避免破产方零翻盘。纯数据审计零代码，先出结论再定是否调表。
 - [research-2026-06-02-A] **P1** — "永远买得起的地板 kit" 保障：核查 catalog 是否存在一套任何点数余额都买得起的最低可用 loadout（破产也能进场），缺失则死亡螺旋风险。可把 28-D Streak-breaker 的免费 basic 保险逻辑常态化为"地板 kit"。
 - [research-2026-06-02-A] **P1** — gear-fear 校准写入 BR 设计宪法 review 清单：研究指出撤离/对局成功的多巴胺峰值来自真实 loss 风险，BR 重建(timejump-br-design)切勿把损失清零，须保留"本局高价值掉落有真实丢失风险"的紧张感。与当前北极星直接相关，仅文档 review 项不触代码。
+
+## 2026-06-03 — research infra（rotation 卡死 · 第 4 次重复 A · 升级为 P0）
+
+> 本 run（第 4 个今日 hourly）再次复现 Glob 误报：`Glob research/notes-2026-06-03*.md` 返回空（实为 `.claude/worktrees/` 点目录路径下 Glob 持续误报），导致 step 2「抽取今日已跑主题」误判今日无 note → 重选 A → 3 search/2 fetch 预算又全耗在已被 4 个 A note + 上方整段 TODO 完整覆盖的内容上，转 B 无预算。**今日 B/C/D/E 至今 0 覆盖，纯因 rotation 卡 A。** 本 run 不伪造、不写 A-v4 duplicate、不重复任何 A finding，仅升级根因。
+
+- [research-infra-2026-06-03] **P0** — 修 `dtsv-research-weekly` SKILL.md step 2 的今日主题检测：用 `Bash: ls research/ | grep notes-<date>` 或 `git log` 替代 Glob（本仓 `.claude/worktrees/.../research/` 已连续 4+ run 误报空）。当前每 run 在 Glob 之后、读 TODO 之前就把 web 预算花在 A 上，等到 dedup 读 TODO 才发现重复，预算已无法转 B。**修复前每个 hourly run 都在烧 3 search/2 fetch 重复跑 A，且 B/C/D/E 永远跑不到。** 这是 research 基础设施缺陷，超出 research agent 写作用域（只能改 research//TODO），需人工或 healthcheck task 改任务定义。⚠ 与 L132 软提醒不同：此为 tracked P0，要求改 step 2 顺序/工具，不只是"跑前 ls"。
