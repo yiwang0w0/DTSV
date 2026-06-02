@@ -6,6 +6,15 @@
 
 ---
 
+## ⛔ GATE：时间跳跃BR 重建（Phase 31+）不自动推进
+
+> 2026-06-03 起，DTSV 方向转向「虚拟空间·时间跳跃BR 全力重建」，北极星 = `docs/timejump-br-design.md`。
+> **BR Phase 31-37 是实时架构核心改动，必须人工走查后逐阶段启动，严禁 scheduled task 自动推进。**
+> 每小时自动任务遇到 BR 相关条目应跳过；继续只推进下方常规 P0/P1（健康检查 / 调研 finding）。
+> Phase 30（设计宪法 + 加性 schema）已完成，等用户走查后再开 Phase 31（世界 + 大时钟骨架）。
+
+---
+
 ## 2026-05-12 baseline + 首次调研（已 review 2026-05-28，转 P0/P1 格式让自动推进接管）
 
 ### 🟡 经济（来自 healthcheck baseline）

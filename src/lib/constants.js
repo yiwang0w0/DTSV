@@ -20,7 +20,11 @@ export const GAME_TYPES = {
   12: '3v3',
   13: '4v4',
   14: '自由团战',
+  20: '虚拟空间·时间跳跃',   // Phase 30 — 时间跳跃BR（build-alongside，见 docs/timejump-br-design.md）
 }
+
+// Phase 30 — 虚拟空间·时间跳跃BR 模式标识（与现有 chamber-raid 并存，证明可玩后再切默认）
+export const BR_GAME_TYPE = 20
 
 // ── 物品分类（远星函馆 5 kinds） ──────────────────────────
 export const ITEM_KIND_META = {

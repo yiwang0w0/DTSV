@@ -1,9 +1,36 @@
 # Readme_Claude
 
-更新时间：2026-05-28（Asia/Tokyo） · Phase 28-profile 个人主页（立绘/账户配置集中化）
-整理方式：基于全量源码交叉验证 + Phase 0-28 改造提交记录。
+更新时间：2026-06-03（Asia/Tokyo） · Phase 30 虚拟空间·时间跳跃BR 重建启动（设计宪法 + 加性 schema）
+整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
-## 最近变更（2026-05-28 / Phase 28-profile）— 个人主页 /profile
+## 最近变更（2026-06-03 / Phase 30）— 虚拟空间·时间跳跃BR 重建启动
+
+> 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。
+> 北极星文档：`docs/timejump-br-design.md`。之后规划：直播间联动 + VTB 联动（Phase 37+）。
+
+### 关键工程判断
+
+时间跳跃BR 是**慢节拍策略大逃杀**（15min/阶段 + 3min 警报，非 twitch FPS），可在现有 Next.js + Supabase 栈以**事件溯源 + 服务器权威**重建，复用现有动作分发模型，无需迁 Unreal / 写实时网络引擎。
+
+### Phase 30 改动清单（加性·不动现有 live game）
+
+| 文件 / 对象 | 改动 |
+|------|------|
+| `docs/timejump-br-design.md`（新） | 整合设计宪法：双属性→表映射 + 验毒针不变量 + 大时钟/有效阶段/可见性公式 + §10 旋钮决定 + 虚拟空间叙事重构边界（守 narrative-vision §6.1 残片不删）+ 30→37 路线图 |
+| `scripts/phase-30-timejump-br-schema.sql`（新） | 6 张 `br_*` 表（幂等）：`br_rooms`(拓扑·只读) / `br_zone_tables`(禁区表+物资档·只读·按深度) / `br_matches`(大时钟锚点) / `br_match_events`(事件日志·可写·全局·唯一定序) / `br_match_players` / `br_match_room_state`(派生缓存)。结构上让"可写×按深度"那一格不存在 → 悖论消失 |
+| 种子（postgres MCP 部署+验证） | 100 房 10×10 网格拓扑（中性命名「扇区 A-01」）+ 500 行禁区表（开放房数 phase 100/80/60/40/20，loot_tier T1-T5） |
+| `src/lib/constants.js` | 加 `GAME_TYPES[20]='虚拟空间·时间跳跃'` + `BR_GAME_TYPE=20`（build-alongside 标识） |
+
+### 走查
+
+1. `br_rooms` 100 行 / `br_zone_tables` 500 行 / 开放房数 100·80·60·40·20（已验证 ✓）
+2. 现有 chamber-raid 游戏不受影响（全加性新表 + 新 gametype）
+3. 残片 F01-F15 仍全量可发现（弱化只动前台，未删任何残片）
+4. 读 `docs/timejump-br-design.md` 确认方向/架构/路线图无误 → 走查通过后启动 Phase 31
+
+---
+
+## 历史变更（2026-05-28 / Phase 28-profile）— 个人主页 /profile
 
 > 用户反馈：立绘选择不该塞在游戏内左侧栏，应做独立"个人主页"集中配置账户情报 + 立绘。
 
