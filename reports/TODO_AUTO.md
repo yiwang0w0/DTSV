@@ -127,3 +127,9 @@
 - [research-2026-06-03-A-v2] **P1** — 死亡惩罚"双向校准"护栏(防滑向 DMZ 无聊端):GAMES.GG 明确惩罚**过低(DMZ"死了只丢一把枪"→无聊)和过重(Tarkov→劝退)两端都失败**。DTSV 减负 finding 已堆 ≥6 条(25l/28-D/25h 保险/soft-floor/本批破产地板),缺一个"loss 仍 matter"量化护栏。建议 healthcheck 加 **M_death EV 指标**:算"成功撤离 EV − 阵亡 EV"差值,叠加所有减负机制后若跌破阈值(死亡几乎无损)→ critical 告警;并把"减负不能减到死亡无意义"写进 `docs/economy-canon.md`。这是对整条减负 finding 链的安全带,无 schema 改动。
 
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
+
+### 🔥 高优 Retention（来自 research 主题 A · 2026-06-02 · power-gap / 兜底 / gear-fear 校准）
+
+- [research-2026-06-02-A] **P1** — 武器 power-gap 审计：拉 `item_pool` 全部 weapon 的 `atk` 分布，确认 legendary vs basic 对**玩家**(PvP/探针抢残片)伤害差是否构成 Arc Raiders 所说的"insurmountable rift"。借鉴：高级装备主要给 PvE/handling，PvP 伤害区间压缩，避免破产方零翻盘。纯数据审计零代码，先出结论再定是否调表。
+- [research-2026-06-02-A] **P1** — "永远买得起的地板 kit" 保障：核查 catalog 是否存在一套任何点数余额都买得起的最低可用 loadout（破产也能进场），缺失则死亡螺旋风险。可把 28-D Streak-breaker 的免费 basic 保险逻辑常态化为"地板 kit"。
+- [research-2026-06-02-A] **P1** — gear-fear 校准写入 BR 设计宪法 review 清单：研究指出撤离/对局成功的多巴胺峰值来自真实 loss 风险，BR 重建(timejump-br-design)切勿把损失清零，须保留"本局高价值掉落有真实丢失风险"的紧张感。与当前北极星直接相关，仅文档 review 项不触代码。
