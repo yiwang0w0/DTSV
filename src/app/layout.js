@@ -40,6 +40,7 @@ function Nav({ user, onLogout }) {
   const links = [
     { href: '/', label: '首页' },
     { href: '/rooms', label: '周目记录' },
+    ...(user ? [{ href: '/br', label: '虚拟空间' }] : []),
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
     ...(user ? [{ href: '/archive', label: '档案库' }] : []),
     ...(user ? [{ href: '/codex', label: '纪元档案' }] : []),

@@ -1,9 +1,9 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · Phase 30 虚拟空间·时间跳跃BR 重建启动（设计宪法 + 加性 schema）
+更新时间：2026-06-03（Asia/Tokyo） · Phase 31 虚拟空间BR 世界+大时钟骨架（Workflow 多智能体产出）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
-## 最近变更（2026-06-03 / Phase 30）— 虚拟空间·时间跳跃BR 重建启动
+## 最近变更（2026-06-03 / Phase 30-31）— 虚拟空间·时间跳跃BR 重建启动 + 世界/大时钟骨架
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。
 > 北极星文档：`docs/timejump-br-design.md`。之后规划：直播间联动 + VTB 联动（Phase 37+）。
@@ -27,6 +27,30 @@
 2. 现有 chamber-raid 游戏不受影响（全加性新表 + 新 gametype）
 3. 残片 F01-F15 仍全量可发现（弱化只动前台，未删任何残片）
 4. 读 `docs/timejump-br-design.md` 确认方向/架构/路线图无误 → 走查通过后启动 Phase 31
+
+### Phase 31（世界 + 大时钟骨架）— Workflow 多智能体编排产出
+
+> 用户指定用 Dynamic Workflows 推进：契约先行 → 3 agent 并行实现 → 集成+lint 验证（5 agent / ~403K tok）。我独立复跑 lint + 审查后端/路由/nav diff 再提交。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/server/br/clock.js`（新） | 大时钟纯函数：`computeClock(match,nowMs)`→realPhase/phaseEndsAtMs/secondsToNextPhase；`effectivePhase(real,depth,max)`；wall-clock 推算、可注入 now 测试 |
+| `src/lib/server/br/zones.js`（新） | 禁区表只读层：`loadGridForPhase(client,phase)` 合并 br_rooms 拓扑 + br_zone_tables 该相位 → GridRoom[]（open/lootTier/坐标） |
+| `src/lib/server/br/match.js`（新） | 对局生命周期 + state 组装：createMatch（可传短 phase_seconds·autoStart）/ joinMatch（幂等·落 open 起始房·depth0）/ getMatchState / listMatches。所有 br_* 写集中此处 |
+| `src/app/api/br/route.js`（新） | 单端点 action 分发：POST create/join、GET state/list；鉴权复用 `requireRequestUser`（service-role）；not_found→404 / ended→400 |
+| `src/app/br/page.js`（新） | 大厅：列 open 局 + 建房（可设短 phase_seconds）+ 入局；轮询 5s + 本地倒计时；中性虚拟空间术语 |
+| `src/app/br/[matchId]/page.js`（新） | 对局视图：大时钟 HUD（阶段 N/4 + 收缩倒计时 + 末路脉冲）+ 100 房 10×10 网格（open/禁区/lootTier 着色）+ 我的房高亮/depth + 玩家计数；轮询 4s + 本地推算时钟，不接 Realtime |
+| `src/app/layout.js` | nav 加 user-only「虚拟空间」入口 → /br（加性 1 行） |
+
+验证：自跑 `next lint` ✔ 0 error/warning；match.js 查询列对齐 phase-30 schema；joinMatch upsert onConflict 对齐复合 PK；requireRequestUser 确认存在。全部加性，未动现有 live game。
+
+### 走查（Phase 31）
+
+1. 登录 → 顶部导航点「虚拟空间」→ /br 大厅
+2. 建局把「阶段时长」改 30 秒（下限 5s）→ 建房并进入（autoStart 立即开钟）
+3. 对局页大时钟每秒走倒计时，每 30s 跳一阶段（0→4）
+4. 100 房网格按相位逐步变禁区：phase0=100 开放 → phase4=20 开放（其余红 ✕），到末路显红脉冲
+5. 自己起始房 cyan 高亮，侧栏显「跳跃深度=0」（Phase 31 恒 0）
 
 ---
 
