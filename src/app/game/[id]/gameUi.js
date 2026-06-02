@@ -49,6 +49,36 @@ export function HpBar({ hp, max, h = 6 }) {
   )
 }
 
+// ── 体力条（BR 移动经济）─────────────────────────────────────────────
+//   HpBar 同款无副作用纯组件，但配色走 cyan→teal 体系（与 HP 红/黄/绿区分）。
+//   value/max 由 GameClientPage 用 stamina.js 的 effectiveStamina(nowMs)/maxStamina 派生，
+//   依赖已有 nowMs 1s tick ⇒ transition:'width .4s' 让每秒 +REGEN_PER_SEC 平滑增长。
+//   nextCost：下一次移动的预估消耗（moveStaminaCost）；value<nextCost ⇒ 体力不足，转黄/红警示。
+export function staminaColor(value, max, nextCost) {
+  if (Number.isFinite(nextCost) && value < nextCost) return T.red       // 不足以再走一步：红
+  const ratio = max > 0 ? value / max : 0
+  return ratio > 0.5 ? T.cyan : ratio > 0.25 ? '#26c6da' : T.yellow      // 充足 cyan → 偏低 teal → 告急黄
+}
+
+export function StaminaBar({ value, max, h = 6, nextCost }) {
+  const pct = Math.max(0, Math.min(100, max > 0 ? (value / max) * 100 : 0))
+  const color = staminaColor(value, max, nextCost)
+  return (
+    <div style={{ height: h, background: T.bg0, borderRadius: 3, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+      <div
+        style={{
+          height: '100%',
+          width: `${pct}%`,
+          background: color,
+          boxShadow: `0 0 6px ${color}80`,
+          transition: 'width .4s, background .3s',
+          borderRadius: 3,
+        }}
+      />
+    </div>
+  )
+}
+
 export function BuffTag({ buffDef, remaining }) {
   if (!buffDef) return null
   const color = buffDef.is_debuff ? T.red : T.green

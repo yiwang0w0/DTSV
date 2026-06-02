@@ -1,11 +1,12 @@
 // 用相对路径而非 @/ 别名：roomState.js 被 scripts/smoke-check.mjs 以原生 Node ESM 直接导入，
-// Node 不解析 webpack 的 @/ 别名（clock.js 自身无 import，可被原生 Node 解析）。
+// Node 不解析 webpack 的 @/ 别名（clock.js / constants.js 自身无 import，可被原生 Node 解析）。
 import {
   clampPhaseSeconds,
   clampMaxPhase,
   PHASE_SECONDS_DEFAULT,
   MAX_PHASE_DEFAULT,
 } from './server/br/clock.js'
+import { STAMINA_CONFIG } from './constants.js'
 
 const LOG_LIMIT = 200
 
@@ -250,6 +251,12 @@ export function createPlayerState(user, stats = {}) {
     maxHp: stats.maxHp ?? stats.hp ?? 100,
     atk: stats.atk ?? 10,
     def: stats.def ?? 5,
+    // ── BR 体力系统（移动经济·只由移动消耗；纯函数见 src/lib/stamina.js，数值见 STAMINA_CONFIG） ──
+    // 新字段经 normalizeGamevars 对 players 的原样透传安全持久化；旧存档缺字段时 moveToRoom 内 ensureStaminaFields 兜底 backfill。
+    stamina: STAMINA_CONFIG.MAX_STAMINA,      // 上次结算时刻的体力快照（开局满）
+    maxStamina: STAMINA_CONFIG.MAX_STAMINA,   // 本局上限（恒 = MAX，留作未来职业 perk 扩展位）
+    staminaAt: Date.now(),                    // stamina 快照对应的 wall-clock 毫秒；懒回复锚点
+    lastMoveAt: null,                         // 上次成功移动的毫秒时间戳；惩罚倍率 dt 锚点；首移为 null ⇒ 1×
     map: 0,                  // 旧字段：保留向后兼容；Phase 19 改用 chamberIndex；BR 下镜像当前房 templateId
     chamberIndex: 0,         // Phase 19.4: 玩家在 gamevars.raidPath 中的位置（0 = 入口）
     chamberHistory: [],      // Phase 19.4: 已走过的 chamber idx 列表

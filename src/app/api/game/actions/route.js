@@ -32,6 +32,10 @@ export async function POST(request) {
     if (error instanceof VersionConflictError) {
       return NextResponse.json({ error: '操作冲突，请重试' }, { status: 409 })
     }
+    // BR 体力不足：下发结构化 code 便于客户端用特定文案/样式（既有通用 400+message 已能兜底显示中文）。
+    if (error.code === 'no_stamina') {
+      return NextResponse.json({ error: error.message || '体力不足', code: 'no_stamina' }, { status: 400 })
+    }
     return NextResponse.json({ error: error.message || '动作执行失败' }, { status: 400 })
   }
 }

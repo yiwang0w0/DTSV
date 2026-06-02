@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../layout'
-import { ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS } from '@/lib/constants'
+import { ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
 import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
@@ -28,12 +28,16 @@ import {
   LogLine,
   PanelTitle,
   SLOTS,
+  StaminaBar,
   T,
   cellStateFor,
   computeLocalClock,
   hpColor,
   warnWindowSeconds,
 } from './gameUi'
+// Phase 31 BR：体力系统纯函数（前后端共用同一份算法，客户端仅做 UX 预览，
+//   真正扣除/拦截以服务端 moveToRoom 为准 → 防本地时钟漂移作弊）。
+import { dtSecSince, effectiveStamina, movePenaltyMultiplier, moveStaminaCost } from '@/lib/stamina'
 
 // Phase 19.7: chamber 类型元数据（路径前进面板用）
 const CHAMBER_TYPE_META = {
@@ -284,6 +288,18 @@ export default function GameClientPage() {
   const brEnabled = br?.enabled === true
   // 我的当前房（BR）
   const myRoomId = brEnabled ? (meBase?.roomId ?? null) : null
+
+  // ── Phase 31 BR：体力 + 移动惩罚倍率（客户端 UX 派生，服务端 moveToRoom 权威）──
+  //   依赖 nowMs（BR 1s tick L194-198）⇒ 每秒重算，体力条平滑增长、消耗预览随等待时间下降。
+  //   注意：刻意不放进 me useMemo（me 只依赖 [equipped, meBase]，不随 nowMs 变 ⇒ 放进去不会每秒刷新）。
+  //   非 BR 模式下 nowMs 不 tick，这些值恒定为静态快照，开销可忽略。
+  const staminaNow = brEnabled && meBase ? effectiveStamina(meBase, nowMs) : null
+  const staminaMax = meBase?.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA
+  const moveDtSec = dtSecSince(meBase?.lastMoveAt ?? null, nowMs)
+  const moveMult = movePenaltyMultiplier(moveDtSec)
+  const moveCostPreview = moveStaminaCost(moveDtSec)
+  // 本地预判：体力不足以再走一步（与服务端 no_stamina 双保险，仅做点击短路 + 着色，非安全边界）。
+  const moveBlocked = staminaNow != null && staminaNow < moveCostPreview
 
   // 大时钟（本地推算，server started_at 为锚点；nowMs 每秒 tick 细化倒计时）
   const brClock = useMemo(() => {
@@ -991,8 +1007,10 @@ export default function GameClientPage() {
 
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '300px 1fr 300px', overflow: 'hidden' }}>
         <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
+          {/* ① 常驻核心状态条：flexShrink:0 + 不内滚 ⇒ HP/体力/属性永远在视口内，
+                不再被 flex:1 挤成小滚动区。高度由内容自然撑开（约 130-160px）。 */}
           <PanelTitle>👤 {me ? me.name : '未加入'}</PanelTitle>
-          <div style={{ padding: '10px 12px', flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '10px 12px', flexShrink: 0, borderBottom: `1px solid ${T.border}` }}>
             {me ? (
               <>
                 <HpBar hp={me.hp || 0} max={me.maxHp || 100} h={8} />
@@ -1000,7 +1018,35 @@ export default function GameClientPage() {
                   <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me.hp}</span>
                   <span style={{ color: T.dim }}>{me.maxHp}</span>
                 </div>
-                <div style={{ marginTop: 6, display: 'flex', gap: 12, fontSize: 11 }}>
+
+                {/* 体力条（BR 专属）：紧跟 HP 下方，黄绿/cyan 系区别于 HP 红。
+                    value=本地懒回复 effectiveStamina(nowMs)，复用 1s tick 平滑增长。 */}
+                {brEnabled && staminaNow != null && (
+                  <div style={{ marginTop: 8 }}>
+                    <StaminaBar value={staminaNow} max={staminaMax} h={8} nextCost={moveCostPreview} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11 }}>
+                      <span style={{ color: staminaNow < moveCostPreview ? T.red : T.cyan, fontFamily: 'monospace', fontWeight: 700 }}>
+                        体力 {Math.floor(staminaNow)}
+                      </span>
+                      <span style={{ color: T.dim }}>{staminaMax}</span>
+                    </div>
+                    {/* 移动消耗预览：>1 倍率警示黄/红 + 「快速移动·体力惩罚」；1× 正常 dim。 */}
+                    <div style={{ marginTop: 4, fontSize: 10, lineHeight: 1.4 }}>
+                      {moveMult > 1 ? (
+                        <span style={{ color: moveMult >= 3 ? T.red : T.yellow }}>
+                          ⚡ 快速移动 · 体力惩罚 ×{moveMult.toFixed(1)}（约 {moveCostPreview} 体力）
+                        </span>
+                      ) : (
+                        <span style={{ color: T.dim }}>移动消耗 {moveCostPreview} 体力（正常）</span>
+                      )}
+                      {moveBlocked && (
+                        <span style={{ color: T.red, marginLeft: 6 }}>· 体力不足，需等待回复</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 11 }}>
                   <span style={{ color: T.orange }}>ATK {me.atk}</span>
                   <span style={{ color: T.cyan }}>DEF {me.def}</span>
                   <span style={{ color: T.yellow }}>击杀 {me.kills || 0}</span>
@@ -1019,12 +1065,19 @@ export default function GameClientPage() {
             )}
           </div>
 
-          {/* Phase 27/28: 角色立绘（纯展示，设置入口在 /profile 个人主页） */}
-          <PortraitDisplay
-            portraitUrl={meBase?.portraitUrl ?? null}
-            dead={meBase && !meBase.alive}
-          />
+          {/* ② 角色立绘（纯展示，设置入口在 /profile）：flexShrink:0 + maxHeight 收敛，
+                在 300px 栏内不喧宾夺主吃掉过多竖向空间。 */}
+          <div style={{ flexShrink: 0, maxHeight: 220, overflow: 'hidden', display: 'flex', justifyContent: 'center', borderBottom: `1px solid ${T.border}` }}>
+            <PortraitDisplay
+              portraitUrl={meBase?.portraitUrl ?? null}
+              dead={meBase && !meBase.alive}
+            />
+          </div>
 
+          {/* ③ 统一向下滚动区：flex:1 + overflowY:auto + minHeight:0（关键：minHeight:0 让 flex 子级
+                可被压缩并由自身滚动）。区域评估 / PvP / 交易 / 背包 全收进这一处，
+                各块移除自身 maxHeight 内滚 ⇒ 消除嵌套滚动条。 */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {/* Phase 18.5: 区域评估小卡 — 战斗强度 + 撤离成功率 */}
           {inGame && me?.alive && !meBase?.extracted && (
             <>
@@ -1070,7 +1123,7 @@ export default function GameClientPage() {
           )}
 
           <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>同地图可攻击</span>}>⚔️ PvP</PanelTitle>
-          <div style={{ padding: '10px 12px', maxHeight: 220, overflowY: 'auto' }}>
+          <div style={{ padding: '10px 12px' }}>
             {pvpTargets.length === 0 ? (
               <div style={{ color: T.dim, fontSize: 12 }}>当前地图没有可攻击玩家</div>
             ) : (
@@ -1098,7 +1151,7 @@ export default function GameClientPage() {
           {tradeableNpcs.length > 0 && (
             <>
               <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>非敌对实体</span>}>🌿 交易</PanelTitle>
-              <div style={{ padding: '10px 12px', maxHeight: 220, overflowY: 'auto' }}>
+              <div style={{ padding: '10px 12px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {tradeableNpcs.map(npc => {
                     const meta = ENTITY_TYPE_META[npc.entity_type] || ENTITY_TYPE_META.symbiote
@@ -1149,7 +1202,7 @@ export default function GameClientPage() {
           {inGame && (
             <>
               <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{(me?.inventory || []).length} 件</span>}>🎒 背包</PanelTitle>
-              <div style={{ padding: '8px 12px', maxHeight: 320, overflowY: 'auto' }}>
+              <div style={{ padding: '8px 12px' }}>
                 {Object.keys(invCount).length === 0 ? (
                   <div style={{ textAlign: 'center', color: T.dim, padding: '12px 0', fontSize: 11 }}>背包空空如也</div>
                 ) : (
@@ -1193,6 +1246,7 @@ export default function GameClientPage() {
               </div>
             </>
           )}
+          </div>{/* ③ 统一向下滚动区结束 */}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1471,6 +1525,11 @@ export default function GameClientPage() {
                 myRoomId={myRoomId}
                 onMove={(toRoomId) => {
                   if (toRoomId == null || !canActBr || busy) return
+                  // 体力不足本地短路：省一次往返（服务端 moveToRoom no_stamina 仍是权威拦截）。
+                  if (moveBlocked) {
+                    toast(`体力不足，需等待回复（移动需 ${moveCostPreview} 体力）`, 'error')
+                    return
+                  }
                   runGameAction('move', { toRoomId })
                 }}
               />

@@ -40,6 +40,36 @@ export const BR_CONFIG = {
   WARN_MIN: 5,          // 预警黄窗下限（秒）
 }
 
+// ── 体力系统配置（BR 移动经济 · single source of truth） ──────────
+// 把「瞬移刷图」逼成「走两步歇一下」：体力是只由移动消耗的资源，配合移动惩罚倍率
+// （短间隔连续移动单步更贵）双层耦合。数值集中此处，stamina.js 不重复定义任何数字
+// （前后端 import 同一份），调参只改这一处。
+//
+// 派生公式（实现见 src/lib/stamina.js，全部纯函数、now 可注入）：
+//   懒回复：effectiveStamina = clamp(stamina + REGEN_PER_SEC × max(0, now−staminaAt)/1000, 0, MAX_STAMINA)
+//   移动惩罚倍率：以 PENALTY_ANCHORS 对「总消耗倍率」分段线性插值（自变量 dt = (now−lastMoveAt)/1000 秒）
+//   实际消耗 = ceil(MOVE_COST × movePenaltyMultiplier(dt))
+//
+// 调参红线 / 设计张力（务必理解再改）：
+//   - 等待 dt≥30s ⇒ 倍率 1× ⇒ 每步仅花 MOVE_COST(10)；30s 回复 30×4=120>100 ⇒ 耐心玩家恒满血、可连走 10 步。
+//   - 快速移动 dt<30s ⇒ 倍率 1×→6× 攀升，叠加「只回了一点体力」⇒ 强反刷：dt=2.5s 仅回 10 体力却要花 55，几步见底被拦截。
+//   - 体力**只由移动消耗**：搜索/战斗/PvP/交互/用道具/撤离全不动体力（与 pollution 各动作扣污染模型正交，互不影响）。
+//
+// PENALTY_ANCHORS：[dtSec, 总消耗倍率] 锚点，必须按 dtSec 升序；锚点间线性插值，dt≥最后锚点 dtSec ⇒ 取末锚倍率（恒 1×）。
+//   node 实算已校验 4 锚点精确命中(0s→6×/5s→5×/15s→3×/30s→1×)，中间值合理(2.5s→5.5×, 10s→4×, 22.5s→2×)。
+export const STAMINA_CONFIG = {
+  MAX_STAMINA:   100,   // 体力上限（满血可在 dt≥30s 节奏下连走 10 步）
+  MOVE_COST:     10,    // 基础移动消耗（实际消耗 = MOVE_COST × 移动惩罚倍率，向上取整）
+  REGEN_PER_SEC: 4,     // 实时（wall-clock）每秒回复体力；懒回复，不落库 tick、不新增服务端定时器
+  // 移动惩罚倍率锚点（总消耗倍率，非「额外加成」）：(0s,6×) → (5s,5×) → (15s,3×) → (30s+,1×)
+  PENALTY_ANCHORS: [
+    [0,  6],
+    [5,  5],
+    [15, 3],
+    [30, 1],
+  ],
+}
+
 // ── 物品分类（远星函馆 5 kinds） ──────────────────────────
 export const ITEM_KIND_META = {
   tech_fragment: { label: '结构碎片', color: '#bc8cff', icon: '🔮' },

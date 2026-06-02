@@ -58,7 +58,8 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG } from '@/lib/constants'
+import { applyMoveStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
 import { makeRaidSeed, forbidden, closePhasesObject } from '@/lib/server/br/forbidden'
@@ -2330,6 +2331,19 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
     throw new Error('目标扇区已进入禁区（缩圈），无法进入')
   }
 
+  // ③.5 体力结算（BR 专属·additive·只由移动消耗）：必须在任何副作用（createActionResolution /
+  //   setVisitedMapFlag / processEventTrigger / tryEncounterProbe）之前，保证拦截零副作用。
+  //   nowMs 在 moveToRoom 内取一次，供体力 + 日志共用（照 clock.js「now 可注入」范式，纯函数级仍可注入便于测试）。
+  //   applyMoveStamina 内部 backfill 老玩家无字段 → 懒回复到 now → 判本次消耗 → 通过则扣除 + 刷两时间戳。
+  const nowMs = Date.now()
+  const staminaResult = applyMoveStamina(player, nowMs)
+  if (staminaResult.blocked) {
+    // 体力不足：不扣血、不移动、零副作用。携 code 供 route 精确映射；message 已中文兜底。
+    throw Object.assign(new Error('体力不足，稍候再移动'), { code: 'no_stamina' })
+  }
+  const moveMult = staminaResult.multiplier
+  const staminaCost = staminaResult.cost
+
   // ④ 通过：镜像 templateId 喂旧逻辑 + 清 encounter
   const targetTid = br.roomTemplates?.[target] ?? player.map ?? 0
   const targetMeta = br.templateMeta?.[targetTid] || null
@@ -2345,6 +2359,11 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
     map: targetTid,           // 镜像当前房 templateId（corpse.mapId / regionAssessment / 现有逻辑读 player.map）
     encounter: null,
     omegaCountdown: null,     // BR 下 Ω 倒计时 dormant（大时钟替代）
+    // 体力字段：staminaResult.player 已含「回复后−消耗 + 刷新的 staminaAt/lastMoveAt」，整体并入。
+    stamina:    staminaResult.player.stamina,
+    staminaAt:  staminaResult.player.staminaAt,
+    lastMoveAt: staminaResult.player.lastMoveAt,
+    maxStamina: staminaResult.player.maxStamina ?? STAMINA_CONFIG.MAX_STAMINA,
   }
 
   // 低污染区自然衰减（保留，与旧 movePlayer 同款）
@@ -2356,6 +2375,14 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
     `${player.name} 移动至【${chamberName}】(扇区 #${target}·阶段 ${effPhase})`,
     'system',
   )
+  // 快速移动惩罚日志：仅 multiplier>1 才追加（正常 1× 不刷，避免噪音）。type='attack' → gameUi LogLine 橙色。
+  if (moveMult > 1) {
+    appendResolutionLog(
+      resolution,
+      `⚡ 快速移动惩罚 ×${moveMult.toFixed(1)}（消耗 ${staminaCost} 体力）`,
+      'attack',
+    )
+  }
   // Ω 特殊扇区只作风味标记（不启动独立倒计时）
   if ((targetMeta?.omegaWindow || 0) > 0) {
     appendResolutionLog(resolution, `⚠ 【${chamberName}】是 Ω 特殊扇区 —— 时间压力由大时钟统一施加`, 'system')

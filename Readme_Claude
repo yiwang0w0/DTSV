@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · BR re-home 进 /game（替代 chamber 移动+Ω，per-raid 种子禁区）
+更新时间：2026-06-03（Asia/Tokyo） · BR 体力系统 + 移动惩罚 + 左栏角色状态压缩修复
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
@@ -98,6 +98,29 @@
 2. 大时钟阶段推进 + 100 房网格按 **per-raid 种子**缩圈（每局禁区图不同）；点相邻 cyan 虚线房移动
 3. 搜索/交易/残片/污染照旧（已改挂当前房）；Ω 倒计时被大时钟取代
 4. 几十秒看完缩圈：建房后 DbConsole 跑 `UPDATE rooms SET gamevars=jsonb_set(coalesce(gamevars,'{}'::jsonb),'{br}','{"phaseSeconds":30,"maxPhase":4}'::jsonb,true) WHERE id=<房号>` 再进
+
+### 体力系统 + 移动惩罚 + 左栏角色状态压缩修复 — Workflow 多智能体编排产出
+
+> 用户：移动消耗体力，30s 内连续移动倍率从 6× 衰减到 1×；并修左侧角色状态被压缩成滚动。契约→backend‖client→验证（4 agent / ~441K tok）。我独立复跑 lint + 审 stamina.js 曲线 + 亲自复核左栏渲染后提交。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/stamina.js`（新·纯函数·前后端共用） | `movePenaltyMultiplier(dt)` 分段线性 **6×@0s→5×@5s→3×@15s→1×@≥30s**（首移/异常=1×）；`moveStaminaCost`=ceil(MOVE_COST×倍率)；`effectiveStamina` 懒回复 clamp；`applyMoveStamina` 收口（backfill→回复→判消耗→扣除/刷时间戳，**不足时零副作用**） |
+| `src/lib/constants.js` | `STAMINA_CONFIG`（MAX 100 / MOVE_COST 10 / REGEN 4/s / PENALTY_ANCHORS 总倍率锚点） |
+| `src/lib/roomState.js` | createPlayerState +stamina/maxStamina/staminaAt/lastMoveAt（向后兼容 backfill） |
+| `src/lib/server/gameActions.js` | moveToRoom 集成：副作用前 applyMoveStamina → 不足抛 `no_stamina`；倍率>1 追加橙色「⚡快速移动惩罚 ×N」日志。**体力只由移动消耗** |
+| `src/app/api/game/actions/route.js` | `no_stamina`→400「体力不足」 |
+| `src/app/game/[id]/GameClientPage.jsx` | **左栏重构三段式**：① 核心状态(HP+体力条+消耗预览+属性) flexShrink:0 常驻不压缩 ② 立绘 maxHeight 220 收敛 ③ 区域评估/PvP/交易/背包 统一滚动区(minHeight:0)。+ 体力条 + 移动消耗预览(×N 警示) |
+| `src/app/game/[id]/gameUi.js` | StaminaBar（HpBar 同款，cyan/teal/yellow，<下次消耗转红） |
+
+验证：next lint ✔ 0；曲线 node 实算逐点命中(2.5s→5.5× / 10s→4× / dt=0→消耗60 / 首移→10)；体力耗尽拦截零副作用；左栏核心状态常驻、嵌套滚动条消除。
+
+### 走查（体力）
+
+1. BR 局连续移动：刚移完立即再移 → 消耗 6×（60 体力）+ 橙色惩罚提示；等几秒倍率递减
+2. 狂点移动 → 体力耗尽 → 被拦「体力不足」（服务端 no_stamina + 前端预判双保险）
+3. 停下等待 → 体力 +4/s 平滑回复、惩罚倍率衰减到 1×
+4. 左栏：HP + 体力条 + 属性**始终可见**（不再压缩成小滚动）；下方面板统一滚动
 
 ---
 
