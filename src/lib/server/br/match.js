@@ -23,6 +23,7 @@ import {
   MAX_PHASE_DEFAULT,
 } from './clock'
 import { loadGridForPhase } from './zones'
+import { loadRoomStates, loadRecentEvents, filterVisible, RECENT_EVENTS_LIMIT } from './events'
 
 /** 把 timestamptz / ISO / Date 安全折算成毫秒整数；无效 ⇒ null */
 function toMs(ts) {
@@ -245,22 +246,51 @@ export async function getMatchState(supabase, matchId, viewerUserId) {
 
   const clock = computeClock(match)
 
-  // 玩家列表
+  // 玩家列表（Phase 32：额外 select inventory，仅 me 暴露 —— 见下，非 me 不读用）
   const { data: playerRows, error: plErr } = await supabase
     .from('br_match_players')
-    .select('user_id, room_id, depth, hp, max_hp, alive, is_jumper')
+    .select('user_id, room_id, depth, hp, max_hp, alive, is_jumper, inventory')
     .eq('match_id', matchId)
 
   if (plErr) throw new Error(plErr.message || '读取玩家列表失败')
 
+  // players[] 保持 Phase 31 形状（不含 inventory —— 信息隐藏，他人背包不暴露）
   const players = (playerRows || []).map((row) => toPlayerLite(row, viewerUserId))
   const me = players.find((p) => p.isMe) || null
 
-  // 有效阶段：Phase 31 me.depth 恒 0 ⇒ effPhase === realPhase；未 join 时按 depth 0 取网格
+  // 有效阶段：Phase 32 me.depth 恒 0 ⇒ effPhase === realPhase；未 join 时按 depth 0 取网格
   const myDepth = me ? me.depth : 0
   const effPhase = effectivePhase(clock.realPhase, myDepth, clock.maxPhase)
 
-  const grid = await loadGridForPhase(supabase, effPhase)
+  const baseGrid = await loadGridForPhase(supabase, effPhase)
+
+  // ── Phase 32：注入每房 physicalState / looted（按 viewer 有效阶段过滤）─────────
+  // 读 br_match_room_state 全房派生态，在 buildGrid 之后于本层注入（保持 zones.buildGrid 纯函数不变）。
+  // 可见性钩子：物理态仅当 state_clock <= effPhase 才暴露给该 viewer，否则回退 'intact'。
+  //   P32 depth 恒 0 ⇒ effPhase === realPhase ⇒ state_clock（=事件 clock_phase <= realPhase）必 <= effPhase
+  //   ⇒ vacuous（恒暴露当前态）。真正「上游看不见下游物理事件」留 Phase 33 加 depth 后激活。
+  const roomStateMap = await loadRoomStates(supabase, matchId)
+  const grid = baseGrid.map((g) => {
+    const st = roomStateMap.get(g.roomId)
+    // 可见性钩子：仅当该房 state_clock 在 viewer 有效阶段内才暴露其派生态，否则回退默认。
+    //   P32 depth 0 ⇒ effPhase===realPhase ⇒ state_clock 必 <= effPhase ⇒ vacuous（恒暴露）。
+    const visible = !!st && st.stateClock <= effPhase
+    const physicalState = visible ? st.physicalState : 'intact'
+    const looted = visible ? st.looted : false
+    return { ...g, physicalState, looted }
+  })
+
+  // ── Phase 32：顶层 visibleEvents（最近 N 条「对 viewer 可见」事件，id DESC）────────
+  // 先读最近事件（已 join 房名），再 filterVisible(effPhase)（§3 公式，按有效阶段参数化）。
+  // P32 depth 0 ⇒ vacuous ⇒ 等价于「全部已发生事件的最近 N 条」。Phase 33 加 depth 自动收窄。
+  const recent = await loadRecentEvents(supabase, matchId, RECENT_EVENTS_LIMIT, viewerUserId)
+  const visibleEvents = filterVisible(recent, effPhase)
+
+  // ── Phase 32：me 增 inventory（仅自己暴露；players[] 不含）──────────────────────
+  if (me) {
+    const myRow = (playerRows || []).find((r) => r.user_id === viewerUserId)
+    me.inventory = Array.isArray(myRow?.inventory) ? myRow.inventory : []
+  }
 
   const open = grid.filter((g) => g.open).length
   const aliveCount = players.filter((p) => p.alive).length
@@ -285,6 +315,8 @@ export async function getMatchState(supabase, matchId, viewerUserId) {
     grid,
     players,
     me,
+    // Phase 32 新增顶层：最近可见事件流（id DESC）。P31 字段全部保留不改。
+    visibleEvents,
     counts: {
       open,
       forbidden: grid.length - open,

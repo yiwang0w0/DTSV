@@ -3,13 +3,14 @@
  *
  * 设计宪法 docs/timejump-br-design.md §3。action 分发（照 src/app/api/game/rooms/route.js
  * 的 POST{action} 与 /api/profile 的鉴权）：
- *   POST { action:'create'|'join', ... }  — 写动作
+ *   POST { action:'create'|'join'|'move'|'search'|'bomb'|'repair', ... }  — 写动作
  *   GET  ?action='state'&matchId= | ?action='list'&status=  — 读
  *
  * 全程 requireRequestUser(request) 取 service-role supabase（绕 RLS）+ 登录 user，
- * 再委托 match.js。鉴权失败统一回 { error }, status。
+ * 再委托 match.js / actions.js。鉴权失败统一回 { error }, status。
  *
- * Phase 31 不处理 move/search/bomb/jump（留 32+）。
+ * Phase 32 加 move/search/bomb/repair（属性① 物理层 + 事件日志 + 可见性骨架）；
+ *   跳跃/深度留 Phase 33，战斗/死亡/继承留 Phase 34。
  */
 
 import { NextResponse } from 'next/server'
@@ -20,6 +21,12 @@ import {
   getMatchState,
   listMatches,
 } from '@/lib/server/br/match'
+import {
+  movePlayer,
+  searchRoom,
+  bombRoom,
+  repairRoom,
+} from '@/lib/server/br/actions'
 
 export async function POST(request) {
   const auth = await requireRequestUser(request)
@@ -49,14 +56,67 @@ export async function POST(request) {
       return NextResponse.json(result)
     }
 
+    // ── Phase 32 动作（委托 actions.js；合法性全部服务端校验）──────────────────
+    if (action === 'move') {
+      const matchId = Number(body.matchId)
+      if (!Number.isFinite(matchId)) {
+        return NextResponse.json({ error: '缺少 matchId' }, { status: 400 })
+      }
+      const toRoomId = Number(body.toRoomId)
+      if (!Number.isFinite(toRoomId)) {
+        return NextResponse.json({ error: '缺少 toRoomId' }, { status: 400 })
+      }
+      const result = await movePlayer(auth.supabase, auth.user, matchId, toRoomId)
+      return NextResponse.json({ ok: true, ...result })
+    }
+
+    if (action === 'search') {
+      const matchId = Number(body.matchId)
+      if (!Number.isFinite(matchId)) {
+        return NextResponse.json({ error: '缺少 matchId' }, { status: 400 })
+      }
+      const result = await searchRoom(auth.supabase, auth.user, matchId)
+      return NextResponse.json({ ok: true, ...result })
+    }
+
+    if (action === 'bomb') {
+      const matchId = Number(body.matchId)
+      if (!Number.isFinite(matchId)) {
+        return NextResponse.json({ error: '缺少 matchId' }, { status: 400 })
+      }
+      const result = await bombRoom(auth.supabase, auth.user, matchId)
+      return NextResponse.json({ ok: true, ...result })
+    }
+
+    if (action === 'repair') {
+      const matchId = Number(body.matchId)
+      if (!Number.isFinite(matchId)) {
+        return NextResponse.json({ error: '缺少 matchId' }, { status: 400 })
+      }
+      const result = await repairRoom(auth.supabase, auth.user, matchId)
+      return NextResponse.json({ ok: true, ...result })
+    }
+
     return NextResponse.json({ error: '未知的 action' }, { status: 400 })
   } catch (e) {
-    // joinMatch 抛出的语义错误映射 HTTP 码
+    // 语义错误码 → HTTP（joinMatch + Phase 32 actions 抛出）
     if (e?.code === 'not_found') {
       return NextResponse.json({ error: e.message || '对局不存在' }, { status: 404 })
     }
     if (e?.code === 'ended') {
       return NextResponse.json({ error: e.message || '对局已结束' }, { status: 400 })
+    }
+    if (e?.code === 'not_in_match') {
+      return NextResponse.json({ error: e.message || '你尚未加入该对局' }, { status: 400 })
+    }
+    if (e?.code === 'dead') {
+      return NextResponse.json({ error: e.message || '你已阵亡，无法行动' }, { status: 403 })
+    }
+    if (e?.code === 'not_neighbor') {
+      return NextResponse.json({ error: e.message || '目标扇区不相邻' }, { status: 400 })
+    }
+    if (e?.code === 'forbidden_zone') {
+      return NextResponse.json({ error: e.message || '目标扇区为禁区' }, { status: 400 })
     }
     console.error('[br] POST 失败:', e?.message || e)
     return NextResponse.json({ error: e?.message || '请求失败' }, { status: 500 })
