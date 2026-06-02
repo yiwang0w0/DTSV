@@ -62,7 +62,7 @@ import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STA
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
-import { makeRaidSeed, forbidden, closePhasesObject } from '@/lib/server/br/forbidden'
+import { makeRaidSeed, forbidden, closePhaseOf, closePhasesObject } from '@/lib/server/br/forbidden'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -392,6 +392,90 @@ async function settleCorpseGeneration(resolution) {
   return resolution
 }
 
+/**
+ * BR【缩圈致死】全房扫描（服务端权威 · wall-clock · 纯逻辑，无任何动作副作用）。
+ *
+ * 设计契约：玩家所在扇区随大时钟缩圈被收缩为禁区 ⇒ 直接致死（caught=dead，不驱离不掉血），
+ * 复用与 PvP 阵亡**完全相同**的死亡后果路径，绝不另造一套惩罚：
+ *   翻 alive=false（resolution 内）→ settleCorpseGeneration 生成可搜刮尸体 → logPlayerDeath(cause='contraction')
+ *   → 收尾（alivenum/deathnum/winner/gamestate）由 persist→applyRoomLifecycle 据 alive 自动重算。
+ *
+ * 架构铁律（BR 大时钟纯 wall-clock，无服务端 tick）：致死只能由写操作触发、服务端权威（不信客户端）。
+ *   realPhase 由 getBrClock(room, gamevars) 据 rooms.started_at 实时算（客户端谎报无效：服务端用
+ *   wall-clock 重算，假触发判 forbidden=false → no-op）。判据复用 forbidden（与 moveToRoom 开放校验
+ *   line 2404 同一函数同一相位口径），保证「能移进的房绝不会下一拍因同相位判定矛盾而被杀」。
+ *   语义差：move 判目标房 target，致死判玩家**现所在房** p.roomId（被「脚下扇区收缩」吞没，非移动判定）。
+ *
+ * 前置守卫：(1) 非 BR 房 / 缺 seed → 整体 no-op（return [] 死亡名单）；(2) lobby/ended 时 getBrClock
+ *   返回 realPhase=0 → forbidden 恒 false，天然安全；(3) 逐玩家判 alive && !extracted && roomId!=null。
+ *
+ * 关键顺序：翻 alive 后必须**自己 await settleCorpseGeneration(resolution)**（与 PvP line 1552/1592
+ *   同款，persist 链路不自动跑 settleNewDeaths），让被吞玩家也生成尸体。
+ *
+ * @param {object} client supabase service-role client（仅 logPlayerDeath 用）
+ * @param {object} resolution createActionResolution 产物（直接原地翻 alive）
+ * @param {object} room rooms 行（gamestate / started_at / gamenum）
+ * @returns {Promise<Array<{playerId:string, player:object}>>} 本次被收缩致死名单（空数组 = 无）
+ */
+async function sweepContractionDeaths(client, resolution, room) {
+  const br = resolution?.gamevars?.br
+  // 守卫①：非 BR 房 / 缺 seed → 全程 no-op
+  if (!br?.enabled || br.seed == null) return []
+
+  // 守卫②：大时钟一次（lobby/ended → realPhase=0 → forbidden 恒 false，天然安全）
+  const clock = getBrClock(room, resolution.gamevars)
+  const killed = []
+
+  for (const [pid, p] of Object.entries(resolution.gamevars.players || {})) {
+    // 守卫③：仅在场存活、未撤离、有所在房的玩家参与判定
+    if (!p || p.alive === false || p.extracted || p.roomId == null) continue
+
+    // 有效阶段：本期 depth 恒 0 ⇒ effPhase===realPhase；走 effPhase 后续加 depth 自动激活
+    const depth = Number.isFinite(p.depth) ? p.depth : 0
+    const effPhase = effectivePhase(clock.realPhase, depth, clock.maxPhase)
+    if (!forbidden(br.seed, effPhase, p.roomId)) continue
+
+    // 命中：翻 alive=false（清遭遇/探针/战利品提示，避免死亡态残留交互），写死亡日志条目
+    setResolutionPlayer(resolution, pid, {
+      ...p,
+      alive: false,
+      encounter: null,
+      probeEncounter: null,
+      lootPrompt: null,
+    })
+    appendResolutionLog(resolution, `${p.name} 被收缩边界吞没`, 'death')
+
+    // 死亡日志：cause='contraction'，复用现有 survivedSeconds/chamberDepth helper
+    try {
+      await logPlayerDeath(client, pid, {
+        roomId: room.id,
+        gamenum: room.gamenum || 1,
+        mapId: p.map ?? 0,
+        reason: 'contraction',
+        context: {
+          roomId: p.roomId,
+          closePhase: closePhaseOf(br.seed, p.roomId),
+          effPhase,
+          envPollution: resolution.gamevars?.envPollution ?? 0,
+        },
+        survivedSeconds: raidSurvivedSeconds(room),
+        chamberDepth: chamberDepthOf(p),
+      })
+    } catch (e) {
+      console.error('[sweepContractionDeaths] deathLog 失败:', e?.message)
+    }
+
+    killed.push({ playerId: pid, player: p })
+  }
+
+  // 与 PvP 同款：翻 alive 后显式生成尸体一次（persist 链路不自动跑 settleNewDeaths）
+  if (killed.length > 0) {
+    await settleCorpseGeneration(resolution)
+  }
+
+  return killed
+}
+
 async function persistResolution(client, room, resolution, options = {}) {
   const settled = finalizeResolution(resolution)
   return persistRoom(client, room, settled.gamevars, settled.logs, options)
@@ -432,6 +516,16 @@ async function persistResolutionWithPollution(client, room, resolution, userId, 
     resolution.gamevars = recomputeFlags(resolution.gamevars)
   } catch (e) {
     console.error('[pollution tick] 失败:', e?.message)
+  }
+
+  // BR【缩圈致死】全房扫描：在 ticks 之后、分支/结局评估之前跑一次，使**任何玩家动作**都触发
+  //   全房 sweep（含发起者自己踩进缩圈禁区的情形）。服务端权威按 rooms.started_at wall-clock 判，
+  //   翻 alive 后由 settleCorpseGeneration 生成尸体；收尾交给下方 persist→applyRoomLifecycle。
+  //   非 BR 房 / 缺 seed → 函数内部 no-op，零开销。
+  try {
+    await sweepContractionDeaths(client, resolution, room)
+  } catch (e) {
+    console.error('[contraction sweep] 失败:', e?.message)
   }
 
   try {
@@ -2162,6 +2256,27 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   return nextRoom
 }
 
+/**
+ * BR【缩圈致死】轻动作：仅跑 normalizeGamevars → 全房缩圈 sweep → 持久化，**无任何动作副作用**。
+ *
+ * 供客户端本地时钟探到「我的扇区刚由 open/warning 翻 forbidden」时近实时触发服务端复核致死。
+ * 不信客户端：即便客户端谎报，persistResolutionWithPollution 内 sweepContractionDeaths 用
+ *   rooms.started_at 重算 wall-clock，假触发判 forbidden=false → 全程 no-op（无副作用、无写放大）。
+ *
+ * 借 persistResolutionWithPollution 这个 host：它内部会按惯例跑 pollution/Ω tick（与其它动作一致，
+ *   非 BR 房才 tick Ω；BR 房 Ω dormant）、sweep、分支/结局评估、再持久化。乐观锁 409 由 route 的
+ *   withRetry 自动重试（与其它动作同路径）。
+ *
+ * @param {object} client supabase service-role client
+ * @param {object} room rooms 行
+ * @param {object} gamevars normalize 后 gamevars
+ * @param {object} user 已鉴权用户（executeGameAction 已校验 me 存在）
+ */
+async function brTick(client, room, gamevars, user) {
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
 export async function executeGameAction(client, user, payload, options = {}) {
   const roomId = Number(payload.roomId)
   if (!roomId) {
@@ -2172,7 +2287,9 @@ export async function executeGameAction(client, user, payload, options = {}) {
   const room = options.prefetchedRoom || await fetchRoom(client, roomId)
   const gamevars = normalizeGamevars(room.gamevars)
   const me = getPlayer(gamevars, user.id)
-  if (!['join', 'lootCorpse', 'dismissLootPrompt'].includes(payload.action) && me?.lootPrompt) {
+  // 'br_tick' 须放行 lootPrompt 守卫：持战利品提示的玩家也可能正踩在即将收缩的扇区里，
+  //   必须能 tick 触发服务端复核致死（否则被卡在「请先处理战利品」无法自救/被判）。
+  if (!['join', 'lootCorpse', 'dismissLootPrompt', 'br_tick'].includes(payload.action) && me?.lootPrompt) {
     throw new Error('请先处理当前战利品')
   }
 
@@ -2182,6 +2299,13 @@ export async function executeGameAction(client, user, payload, options = {}) {
 
   if (payload.action === 'join') {
     return joinRoom(client, user, roomId, payload.loadout || null)
+  }
+
+  // BR【缩圈致死】近实时复核：客户端本地时钟探到「我的扇区刚由 open/warning 翻 forbidden」时
+  //   发一次 br_tick → 服务端按 wall-clock + sector re-validate 后致死。无任何动作副作用，
+  //   仅借 persistResolutionWithPollution 的 host 跑全房 sweep + 持久化（鉴权/错误同其它动作）。
+  if (payload.action === 'br_tick') {
+    return brTick(client, room, gamevars, user)
   }
 
   if (payload.action === 'move') {

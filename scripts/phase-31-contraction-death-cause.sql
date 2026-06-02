@@ -1,0 +1,31 @@
+-- ============================================================
+-- Phase 31 — BR 缩圈致死：death_cause_category ENUM 加 'contraction'
+-- ============================================================
+-- 来源: BR【缩圈致死·后端】契约 deathReuse §4。
+-- 玩家所在扇区随大时钟缩圈被收缩为禁区 ⇒ 直接致死（caught=dead，不驱离不掉血），
+-- 走与 PvP/NPC 阵亡完全相同的死亡后果路径（尸体生成 + applyRoomLifecycle 收尾），
+-- 仅死亡因果分类需新增一个枚举值供 archive / healthcheck 聚合区分。
+--
+-- 现状: death_cause_category ENUM 定义于 scripts/phase-25c-death-log-fields.sql:33，
+--   含 5 值: pvp / npc_counter / omega_timeout / pollution_meltdown / other。
+--   deathLog.js 的 logPlayerDeath 写 cause='contraction' 时，若 ENUM 无此值 → insert 报错。
+--
+-- 设计:
+--   ALTER TYPE death_cause_category ADD VALUE IF NOT EXISTS 'contraction'。
+--   仅扩枚举，无需改表结构 / 无需回填（新值只对新发生的缩圈死亡生效；旧行不受影响）。
+--
+-- ⚠ 事务约束（务必单独跑此 migration，勿与「使用该新值的语句」合批）：
+--   Postgres 中 ALTER TYPE ... ADD VALUE 添加的枚举值，在同一事务块内不可被后续语句引用，
+--   且历史上 ADD VALUE 本身不允许在事务块内执行。故本文件**不包 BEGIN/COMMIT**，
+--   让其作为单条 DDL 自动提交（auto-commit），避免「unsafe use of new value of enum type」。
+--   IF NOT EXISTS 保证幂等（重复执行不报错，PG 12+ 支持）。
+--
+-- 验证:
+--   SELECT enumlabel FROM pg_enum
+--     WHERE enumtypid = 'death_cause_category'::regtype ORDER BY enumsortorder;
+--   -- 应包含 contraction
+--   -- 烟测: deathLog.logPlayerDeath(..., {reason:'contraction'}) 后
+--   --   SELECT cause_category, reason_text FROM player_death_log WHERE cause_category='contraction' LIMIT 1;
+-- ============================================================
+
+ALTER TYPE death_cause_category ADD VALUE IF NOT EXISTS 'contraction';

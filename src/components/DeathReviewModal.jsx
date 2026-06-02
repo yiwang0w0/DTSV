@@ -21,6 +21,8 @@ const CAUSE_META = {
   npc_counter:        { icon: '👾', label: '实体反击致命', color: T.orange },
   omega_timeout:      { icon: '⏳', label: 'Ω-段倒计时归零', color: T.purple },
   pollution_meltdown: { icon: '☢',  label: '污染崩溃', color: T.yellow },
+  // 缩圈致死：所在扇区被收缩为禁区，被时空边界吞没（BR 大时钟 wall-clock 权威致死）。
+  contraction:        { icon: '🌀', label: '被收缩边界吞没', color: T.red },
   other:              { icon: '❔', label: '未知原因', color: T.dim },
 }
 

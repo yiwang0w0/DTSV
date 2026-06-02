@@ -12,12 +12,15 @@ const REASON_TEXTS = {
   npc_counter:         (ctx) => `${ctx.npcName || '未知实体'} 反击致命`,
   omega_timeout:       () => 'Ω-段倒计时归零，结构应力撕裂',
   pollution_meltdown:  (ctx) => `污染崩溃（环境 ${ctx.envPollution || 0}% / 个人 ${ctx.personalPollution || 0}%）`,
+  // BR 缩圈致死：玩家所在扇区被收缩为禁区（脚下扇区关闭），被时空边界吞没。
+  contraction:         () => '所在扇区收缩为禁区，被时空边界吞没',
   other:               () => '未知原因致死',
 }
 
-// Phase 25c — reason → cause_category enum 同步（DB ENUM 只接受这 5 个值）
+// Phase 25c — reason → cause_category enum 同步（DB ENUM 只接受这些值）
+// BR 缩圈致死 'contraction' 需配套 SQL ALTER TYPE death_cause_category ADD VALUE（见 scripts/phase-31-contraction-death-cause.sql）。
 const VALID_CAUSE_CATEGORIES = new Set([
-  'pvp', 'npc_counter', 'omega_timeout', 'pollution_meltdown', 'other',
+  'pvp', 'npc_counter', 'omega_timeout', 'pollution_meltdown', 'contraction', 'other',
 ])
 
 /**

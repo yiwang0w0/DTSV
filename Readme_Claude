@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · BR 性能修复（gamevars.br 39KB→~5KB）+ 浏览器走查
+更新时间：2026-06-03（Asia/Tokyo） · BR 缩圈直接致死（phase-31）+ 性能修复 + 浏览器走查
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
@@ -156,7 +156,7 @@
 
 ### 走查发现（待办）
 
-- 🔴 **缩圈无致死**：玩家活在禁区扇区无惩罚——基础大逃杀"圈到你就掉血/驱离/致死"未做（"踩未来禁区即死"是深度层）。待用户定处理方式。
+- ✅ **缩圈直接致死**（用户定·已实现 phase-31 · Workflow 产出）：当前扇区被收缩（`forbidden@realPhase`）即死。服务端权威：每动作全房 `sweepContractionDeaths` + 客户端 `br_tick` 近实时触发（不信客户端，按 `rooms.started_at` 重算 wall-clock）。复用现有"温和+保险"死亡后果（丢本局未撤离物资·保留账号点数·生成可搜刮尸体·applyRoomLifecycle 收尾），未另造。死亡日志 cause=`contraction`（`scripts/phase-31` ENUM 已 postgres MCP 部署）。客户端：我所在扇区下阶段收缩时红脉冲横幅「⚠ 立即撤离 · mm:ss 后致命」+ 倒计时（满阶段 3min 预警，公平）；DeathReviewModal 加 🌀「被收缩边界吞没」。改：gameActions(sweepContractionDeaths/brTick) + deathLog + GameClientPage + DeathReviewModal。`next lint` ✔ 0。
 - ✅ 体力 / 移动惩罚 / 左栏压缩修复 / 100 房网格 / 搜索攻击消耗 全部走查在线可用。
 
 ---

@@ -32,6 +32,7 @@ import {
   T,
   cellStateFor,
   computeLocalClock,
+  fmtBrCountdown,
   hpColor,
   warnWindowSeconds,
 } from './gameUi'
@@ -465,6 +466,59 @@ export default function GameClientPage() {
 
   const brIsFinalPhase = brEnabled && (brClock?.realPhase ?? 0) >= (br?.maxPhase ?? 4) && room?.gamestate === 1
 
+  // ════════════════════════════════════════════════════════════════════
+  // 缩圈致死·客户端（本期客户端实现）—— 契约 warning + br_tick 触发
+  //   服务端仍是唯一权威：致死由每动作 sweep / br_tick re-validate（按 rooms.started_at
+  //   wall-clock 重算 forbidden）裁定，客户端只做① 显著撤离警告 ② 我的扇区刚收缩时
+  //   近实时催一次复核（br_tick）。本地时钟仅驱动 UX，不改变服务端判据。
+  // ════════════════════════════════════════════════════════════════════
+  const brMyCellState = brEnabled && brMyRoom ? brComputeCellState(brMyRoom) : null
+  // 我的扇区「将于下阶段收缩且已进预警窗」（cellStateFor 返回 'warning'）→ 显著横幅 + 倒计时。
+  const myWarning = canActBr && brMyCellState === 'warning'
+  // 我的扇区按本地时钟已判定「收缩为禁区」→ 催一次 br_tick 让服务端权威复核致死。
+  const myForbidden = brEnabled && me?.alive && !meBase?.extracted && room?.gamestate === 1 && brMyCellState === 'forbidden'
+
+  // (1) 收缩预警 toast：仅在 myWarning 由 false→true 的边沿弹一次（防 1s tick 每秒重弹）。
+  const warnEdgeRef = useRef(false)
+  useEffect(() => {
+    if (myWarning && !warnEdgeRef.current) {
+      warnEdgeRef.current = true
+      toast('⚠ 你所在扇区即将收缩 — 立即撤离至相邻开放扇区！', 'error')
+    } else if (!myWarning) {
+      // 离开预警态（已撤离 / 已收缩 / 阵亡）→ 复位，下次再进预警窗可再次提醒。
+      warnEdgeRef.current = false
+    }
+  }, [myWarning, toast])
+
+  // (2) br_tick 自触发：当我的扇区由「非 forbidden」翻「forbidden」的那一拍发一次 br_tick，
+  //   让服务端按 wall-clock 近实时复核并致死（不信客户端：假触发会被服务端 forbidden 判 false、无副作用）。
+  //   用 lastTickedPhaseRef 记「已就当前 realPhase 的收缩边沿触发过」⇒ 每个收缩阶段只发一次，不随 1s tick 刷。
+  //   失败静默（best-effort 背景催办）：真正致死最终仍由下一次任意动作的全房 sweep + realtime alive=false 兜底。
+  const lastTickedPhaseRef = useRef(null)
+  useEffect(() => {
+    const phase = brClock?.realPhase ?? null
+    if (!myForbidden || phase == null) {
+      // 我的扇区不再处于「刚收缩」态（换房到开放区 / 局结束）→ 复位，允许后续阶段再次触发。
+      if (!myForbidden) lastTickedPhaseRef.current = null
+      return
+    }
+    if (lastTickedPhaseRef.current === phase) return  // 当前阶段已催过 → 去抖
+    lastTickedPhaseRef.current = phase
+    // 直发 postGameApi（不走 runGameAction 的错误 toast）：br_tick 是背景复核，
+    //   即便后端未上线该动作（返回错误）也不打扰玩家；成功则 hydrate 最新 room（带回 alive=false）。
+    ;(async () => {
+      try {
+        const { room: nextRoom } = await postGameApi('/api/game/actions', {
+          roomId: Number(roomId),
+          action: 'br_tick',
+        })
+        if (nextRoom) await hydrateRoom(nextRoom)
+      } catch {
+        /* 静默：服务端会在下一次任意动作的全房 sweep / realtime 推送中权威致死 */
+      }
+    })()
+  }, [myForbidden, brClock?.realPhase, hydrateRoom, roomId])
+
   const inGame = !!meBase
   // Phase 30 BR：当前房模板 id（roomTemplates[myRoomId]，与 meBase.map 镜像）+ templateMeta 行
   //   roomTemplates 仍读 gamevars.br（保留字段）；templateMeta 改查一次拉的静态 brTopology
@@ -873,6 +927,33 @@ export default function GameClientPage() {
         }}>
           <span>⚠</span>
           <span>张力警报：环境污染 {envPollutionLevel}% — 结构应力接近临界值，建议立即评估撤离路径</span>
+        </div>
+      )}
+
+      {/* 缩圈致死预警横幅：我的扇区将于下阶段收缩且已进预警窗（myWarning）→ 全宽红条 + 实时倒计时。
+          比网格里的黄格更醒目（脉冲 + 红色 + 大倒计时），引导立即撤离。倒计时随 BR 1s tick 刷新。
+          纯 UX 提示：真正致死仍由服务端 sweep / br_tick 按 wall-clock 权威裁定。 */}
+      {myWarning && (
+        <div style={{
+          background: `linear-gradient(90deg, ${T.red}30, ${T.yellow}1a, ${T.red}30)`,
+          borderBottom: `2px solid ${T.red}80`,
+          padding: '9px 20px',
+          fontSize: 13, fontWeight: 700, color: T.red,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          textShadow: `0 0 12px ${T.red}55`,
+          animation: 'brPulse 1.2s ease-in-out infinite',
+        }}>
+          <span style={{ fontSize: 16 }}>⚠</span>
+          <span>你所在扇区即将收缩，立即撤离！</span>
+          <span style={{
+            fontFamily: 'var(--font-jetbrains-mono), monospace',
+            fontSize: 16, fontWeight: 900,
+            color: T.yellow, letterSpacing: 1,
+            padding: '1px 10px', borderRadius: 6,
+            background: `${T.red}22`, border: `1px solid ${T.yellow}55`,
+          }}>
+            {fmtBrCountdown(brClock?.secondsToNextPhase)} 后致命
+          </span>
         </div>
       )}
 
