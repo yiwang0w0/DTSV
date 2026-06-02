@@ -126,6 +126,13 @@
 - [research-2026-06-03-A-v2] **P1** — 永久纯-PvE 房型(区别于 06-03-A 限时 tutorial raid):Tarkov 数据 **50% 受众长期想要 no-sweat**(非仅新手期),加 PvE/Co-op 模式不蚕食 PvP 池反救休闲流失。DTSV 异步架构分裂成本低(本就非同屏 PvP)。建议 `rooms.gametype` 加永久 `pve_only` 枚举:探针遭遇率 0% + 保留搜寻/撤离/lore/点数经济,但**产出点数打折**防 PvE 房成最优 farm 路径。文件 `roomState.js` gametype 校验 + `probes.js` tryEncounterProbe 读 gametype 短路 + 入场 UI 标签。与 tutorial raid 互补:一个萌新过渡、一个休闲永久家。
 - [research-2026-06-03-A-v2] **P1** — 死亡惩罚"双向校准"护栏(防滑向 DMZ 无聊端):GAMES.GG 明确惩罚**过低(DMZ"死了只丢一把枪"→无聊)和过重(Tarkov→劝退)两端都失败**。DTSV 减负 finding 已堆 ≥6 条(25l/28-D/25h 保险/soft-floor/本批破产地板),缺一个"loss 仍 matter"量化护栏。建议 healthcheck 加 **M_death EV 指标**:算"成功撤离 EV − 阵亡 EV"差值,叠加所有减负机制后若跌破阈值(死亡几乎无损)→ critical 告警;并把"减负不能减到死亡无意义"写进 `docs/economy-canon.md`。这是对整条减负 finding 链的安全带,无 schema 改动。
 
+## 2026-06-03 — research (主题 A 延伸 v3 — 玩家指定保命格 Safe Pocket)
+
+> ⚠ 今日**第 3 个** Glob 误报后重复跑 A 的 run（前两个 [notes-2026-06-03-A.md] / [-A-v2.md]）。3 次检索预算已耗于 A、转 B 无预算且禁伪造引用，故仅打捞唯一未被今日 4 个 A note 覆盖的具体机制。详见 [notes-2026-06-03-A-v3.md](../research/notes-2026-06-03-A-v3.md)
+> 📌 后续 run 提醒：跑前先 `ls research/` + git log 确认今日 note，勿只信 Glob（本仓 research/ 已连续误报）。
+
+- [research-2026-06-03-A-v3] **P2** — 玩家指定"保命格"(ARC Raiders Safe Pocket 移植)：允许玩家把携带物中 **1 件**标记为保命格，阵亡时该件**确定性**自动转入 stash（其余照常全失）。与 **25h 概率保险正交可叠加**（保险掷骰返装备 / 保命格确定保 1 件玩家自选物）、与 06-03-A #5 点数软底 / 06-03-A-v2 破产地板（保点数）不同（保具体物品）、与 25l/28-D（限新手·连败）不同（对所有局生效）。限 1 格起步，可由职业 perk / 点数升级 2-3 格。红线（economy-canon §3.4/§6.1）：①不可保 class_pt 来源物防跳关；②保残片走持久层不注水；③**严禁无限格**（Steam 反方已证无限格抹掉赌注感，限格即 gear-fear 护栏）。文件 `constants.js` `SAFE_POCKET` 块（ENABLED 预埋）+ `gameActions.js` extractPlayer 阵亡分支读 `loadout.safePocketItem` 单件转 stash + Prepare UI 1 格标记。⚠ BR-GATE：迁移到时间跳跃BR 时价值=玩家对单件高价值掉落的主动保全权，可作 BR 撤离/吃鸡取舍机制候选。
+
 <!-- 下次健康检查 / 调研自动追加在这里下方 -->
 
 ### 🔥 高优 Retention（来自 research 主题 A · 2026-06-02 · power-gap / 兜底 / gear-fear 校准）
