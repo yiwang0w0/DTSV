@@ -58,7 +58,12 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG } from '@/lib/constants'
+// ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
+import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
+import { makeRaidSeed, forbidden, closePhasesObject } from '@/lib/server/br/forbidden'
+import { sampleRoomTemplates } from '@/lib/server/br/roomTemplates'
+import { loadRooms as loadBrRooms } from '@/lib/server/br/zones'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
 import {
@@ -68,6 +73,7 @@ import {
   createLogEntry,
   createCorpse,
   createPlayerState,
+  getCurrentChamberTemplateId,
   getDisplayName,
   normalizeGamevars,
   normalizeCorpseEntry,
@@ -131,8 +137,32 @@ async function fetchRoom(client, roomId) {
 
 // ── Phase 19.5: 从 gamevars.raidPath 取 chamber 数据（替代 map_config 表查询） ──
 
-/** 取玩家当前所在 chamber（基于 player.chamberIndex 在 raidPath 中索引） */
+/**
+ * Phase 31 re-home: 把 BR 当前房的 templateMeta 拼成「伪 chamber 对象」，
+ * 字段名对齐旧 pathGenerator 实例化形状（templateId/name/type/isExit/exitCost/pollutionBase/...），
+ * 让 getChamberForPlayer / getChamberAsMapConfig / buildChamberAccelTable 的 BR 分支零成本复用现有逻辑。
+ * 返回 null 表示无映射（防御：roomId 越界 / templateMeta 缺失）。
+ */
+function getBrChamberForPlayer(gamevars, player) {
+  if (!gamevars?.br?.enabled || player?.roomId == null) return null
+  const tid = gamevars.br.roomTemplates?.[player.roomId]
+  if (tid == null) return null
+  const meta = gamevars.br.templateMeta?.[tid]
+  if (!meta) {
+    // 兜底：只有 templateId、无 meta（理论不该发生）；给最小可用字段
+    return { templateId: tid, name: `扇区模板 ${tid}`, type: 'scan_dense', isExit: false }
+  }
+  // 已是伪 chamber 形状（roomTemplates.js toTemplateMeta 字段名即对齐）
+  return { ...meta }
+}
+
+/** 取玩家当前所在 chamber（BR 房用 templateMeta 伪 chamber；否则 raidPath[chamberIndex]） */
 function getChamberForPlayer(gamevars, player) {
+  // ── BR 分支：当前房 → 伪 chamber 对象 ──
+  if (gamevars?.br?.enabled && player?.roomId != null) {
+    return getBrChamberForPlayer(gamevars, player)
+  }
+  // ── 旧 chamber 模式（不变） ──
   const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
   const idx = player?.chamberIndex ?? 0
   return path[idx] || null
@@ -159,14 +189,54 @@ function getChamberAsMapConfig(gamevars, player) {
   }
 }
 
-/** Phase 19.5: 从 gamevars.raidPath 构建 chamber accel 表（key = chamberIndex） */
+/** Phase 19.5: 从 gamevars.raidPath 构建 chamber accel 表（key = templateId → pollutionAccel）
+ *  Phase 31 re-home: BR 房改从 gamevars.br.templateMeta 建表（raidPath 为空，全部采样模板的 accel） */
 function buildChamberAccelTable(gamevars) {
   const table = new Map()
+  // ── BR 分支：用采样模板子集的 pollutionAccel ──
+  if (gamevars?.br?.enabled) {
+    const meta = gamevars.br.templateMeta || {}
+    for (const [tid, m] of Object.entries(meta)) {
+      table.set(Number(tid), Number(m?.pollutionAccel) || 0)
+    }
+    return table
+  }
+  // ── 旧 chamber 模式（不变） ──
   const path = Array.isArray(gamevars?.raidPath) ? gamevars.raidPath : []
   for (const ch of path) {
     table.set(ch.templateId, Number(ch.pollutionAccel) || 0)
   }
   return table
+}
+
+/**
+ * Phase 31 re-home: 从 rooms 行 + gamevars.br 配置算 BR 大时钟视图（复用 br/clock.js computeClock）。
+ * 把 rooms.started_at + gamevars.br 适配成 computeClock 入参（status / started_at / phase_seconds / max_phase）。
+ * realPhase = min(maxPhase, floor((now - started_at)/phaseSeconds))；这是统一时间压力，取代 Ω-段倒计时。
+ *
+ * @param {object} room      rooms 行（gamestate / started_at）
+ * @param {object} gamevars  normalize 后的 gamevars（含 br）
+ * @returns {object} computeClock 结果（realPhase / phaseSeconds / maxPhase / secondsToNextPhase / ...）
+ */
+function getBrClock(room, gamevars) {
+  const status = room?.gamestate === 1 ? 'active' : (room?.gamestate === 2 ? 'ended' : 'lobby')
+  return computeClock({
+    status,
+    started_at: room?.started_at,
+    phase_seconds: gamevars?.br?.phaseSeconds,
+    max_phase: gamevars?.br?.maxPhase,
+  })
+}
+
+/**
+ * Phase 31 re-home: 玩家有效阶段 = effectivePhase(realPhase, player.depth, maxPhase)。
+ * 本期 depth 恒 0 ⇒ effPhase === realPhase；所有禁区/移动校验都走 effPhase，
+ * 后续加 depth 自动激活「跳跃者看更深禁区」（forbidden(seed, effPhase, roomId)）。
+ */
+function getBrEffectivePhase(room, gamevars, player) {
+  const clock = getBrClock(room, gamevars)
+  const depth = Number.isFinite(player?.depth) ? player.depth : 0
+  return effectivePhase(clock.realPhase, depth, clock.maxPhase)
 }
 
 /** Phase 22: 死亡复盘埋点 — 从 room.started_at 算本局存活秒数（无 started_at → null） */
@@ -327,8 +397,10 @@ async function persistResolutionWithPollution(client, room, resolution, userId, 
     const accelTable = buildChamberAccelTable(resolution.gamevars)
     resolution.gamevars = tickEnvPollution(resolution.gamevars, accelTable)
 
+    // Phase 31 re-home: BR 下大时钟（缩圈）成为唯一时间压力 → Ω-段倒计时 dormant（不 tick）。
+    //   非 BR 房保持原 Ω 倒计时行为不变。
     const player = getResolutionPlayer(resolution, userId)
-    if (player?.alive && !player?.extracted) {
+    if (!resolution.gamevars?.br?.enabled && player?.alive && !player?.extracted) {
       const tickResult = tickOmegaCountdown(player, resolution.gamevars)
       if (tickResult.player !== player) {
         setResolutionPlayer(resolution, userId, tickResult.player)
@@ -486,6 +558,18 @@ async function writeRaidStats(client, finalRoom) {
     }
   }
 
+  // Phase 31 re-home: BR 局 chamberIndex 恒 0（chamber 维度无意义）→ 附 BR 元数据兜底。
+  //   不阻塞主流程；非 BR 局 br 字段为 null/false 时不写额外维度。
+  const isBr = gv.br?.enabled === true
+  const brMetadata = isBr
+    ? {
+        br_seed: gv.br?.seed ?? null,
+        br_phase_seconds: gv.br?.phaseSeconds ?? null,
+        br_max_phase: gv.br?.maxPhase ?? null,
+        player_rooms: players.map(p => p?.roomId ?? null),
+      }
+    : {}
+
   await client.from('raid_stats').insert({
     room_id: finalRoom.id,
     gamenum: finalRoom.gamenum || 0,
@@ -510,6 +594,7 @@ async function writeRaidStats(client, finalRoom) {
       class_distribution: classDistribution,
       player_depths: playerDepths,
       player_extracts: playerExtracts,
+      ...brMetadata,
     },
   })
 }
@@ -1298,7 +1383,12 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   if (!attacker?.alive) throw new Error('阵亡玩家无法攻击')
   if (!defender.alive) throw new Error('目标已经阵亡')
   if (targetUid === user.id) throw new Error('不能攻击自己')
-  if ((attacker.map ?? 0) !== (defender.map ?? 0)) throw new Error('目标不在同一地图')
+  // Phase 31 re-home: BR 下「同房」用 roomId 判定（不同房可能采样到同 templateId → 同 map，会误判同屏）；旧房仍用 map。
+  if (gamevars.br?.enabled) {
+    if ((attacker.roomId ?? null) !== (defender.roomId ?? null)) throw new Error('目标不在同一扇区')
+  } else if ((attacker.map ?? 0) !== (defender.map ?? 0)) {
+    throw new Error('目标不在同一地图')
+  }
 
   const [rules, buffPool, equippedInstances] = await Promise.all([
     loadGameRules(client),
@@ -1651,6 +1741,102 @@ export async function createRoom(client, user, payload = {}) {
   return data
 }
 
+/**
+ * Phase 31 re-home: 首玩家初始化 BR 房层（所有新对局默认 BR，见 joinRoom isBr 判据）。
+ * 幂等：若 gamevars.br.enabled 已为 true（已初始化）则原样返回（后加入玩家不重算）。
+ *
+ * 步骤：
+ *   ① 读 br_rooms 全表静态拓扑（复用 zones.loadRooms）+ chamber_templates(enabled) 全表
+ *   ② 生成 per-raid seed（makeRaidSeed(room.id,gamenum,created_at)）
+ *   ③ 采样 sampleRoomTemplates → { roomTemplates, templateMeta }
+ *   ④ 算 closePhases（seed 洗牌的公开禁区表，客户端着色用，不下发 seed）
+ *   ⑤ 选起始房 startRoomId（seed-phase0 下最靠中心的开放房；本期所有人同起点）
+ *   ⑥ 组装 gamevars.br 配置（含 rooms 静态拓扑 + adj 邻接图，避免 moveToRoom 每次查 DB）
+ *
+ * phaseSeconds/maxPhase 来源：已存在的 gamevars.br（建房时塞的 dev 短值）优先，否则 BR_CONFIG 默认。
+ *
+ * @returns {Promise<{ br: object, startRoomId: number|null }>} 失败兜底返回 enabled:false 的最小块（不阻塞 join）
+ */
+async function initBrRoomLayer(client, room, gamevars) {
+  // 幂等：已初始化 → 直接复用
+  if (gamevars?.br?.enabled === true) {
+    return { br: gamevars.br, startRoomId: gamevars.br.startRoomId ?? null }
+  }
+
+  try {
+    const [brRooms, chamberRes] = await Promise.all([
+      loadBrRooms(client), // [{ roomId, label, region, neighborIds, gridX, gridY, closePhase, enabled }]
+      client.from('chamber_templates').select('*').eq('enabled', true),
+    ])
+    const templates = chamberRes.data || []
+    if (!Array.isArray(brRooms) || brRooms.length === 0 || templates.length === 0) {
+      console.error('[joinRoom][BR] 拓扑或模板为空，BR 初始化跳过（br_rooms=%d templates=%d）', brRooms?.length || 0, templates.length)
+      return { br: { ...normalizeGamevars({}).br, enabled: false }, startRoomId: null }
+    }
+
+    // ② seed（建房时若已塞 br.seed 则沿用，否则按对局生成）
+    const seed = Number.isFinite(gamevars?.br?.seed) ? gamevars.br.seed : makeRaidSeed(room)
+
+    // ③ 采样 100 房 → templateId + templateMeta
+    const { roomTemplates, templateMeta } = sampleRoomTemplates(brRooms, templates, seed)
+
+    // ④ 公开禁区表（seed 派生，只读）
+    const closePhases = closePhasesObject(seed)
+
+    // ⑤ 静态拓扑数组 + 邻接图（客户端网格渲染 + moveToRoom 校验缓存）
+    const roomsTopo = brRooms.map(r => ({
+      roomId: r.roomId,
+      label: r.label,
+      region: r.region,
+      gridX: r.gridX,
+      gridY: r.gridY,
+      neighborIds: Array.isArray(r.neighborIds) ? r.neighborIds : [],
+    }))
+    const adj = {}
+    for (const r of roomsTopo) adj[r.roomId] = r.neighborIds
+
+    // ⑥ 起始房：seed-phase0（开局全开放）下最靠网格中心的房
+    const phase0Open = roomsTopo.filter(r => !forbidden(seed, 0, r.roomId))
+    const startPool = phase0Open.length > 0 ? phase0Open : roomsTopo
+    const CX = 4.5
+    const CY = 4.5
+    let startRoom = startPool[0]
+    let bestDist = Number.POSITIVE_INFINITY
+    for (const r of startPool) {
+      if (r.gridX == null || r.gridY == null) continue
+      const d = (r.gridX - CX) * (r.gridX - CX) + (r.gridY - CY) * (r.gridY - CY)
+      if (d < bestDist) { bestDist = d; startRoom = r }
+    }
+    const startRoomId = startRoom?.roomId ?? null
+
+    // phaseSeconds / maxPhase：建房时塞的优先（dev 短值），否则 BR_CONFIG 默认
+    const phaseSeconds = gamevars?.br?.phaseSeconds != null
+      ? clampPhaseSeconds(gamevars.br.phaseSeconds)
+      : clampPhaseSeconds(BR_CONFIG.PHASE_SECONDS)
+    const maxPhase = gamevars?.br?.maxPhase != null
+      ? clampMaxPhase(gamevars.br.maxPhase)
+      : clampMaxPhase(BR_CONFIG.MAX_PHASE)
+
+    const br = {
+      enabled: true,
+      seed,
+      phaseSeconds,
+      maxPhase,
+      roomTemplates,
+      templateMeta,
+      startRoomId,
+      closePhases,
+      rooms: roomsTopo,
+      adj,
+    }
+    console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} templates=${Object.keys(templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
+    return { br, startRoomId }
+  } catch (e) {
+    console.error('[joinRoom][BR] 初始化失败:', e?.message)
+    return { br: { ...normalizeGamevars({}).br, enabled: false }, startRoomId: null }
+  }
+}
+
 export async function joinRoom(client, user, roomId, loadout = null) {
   const room = await fetchRoom(client, roomId)
   if (room.gamestate === 2) {
@@ -1661,6 +1847,12 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   if (getPlayer(gamevars, user.id)) {
     return room
   }
+
+  // ── BR re-home（用户定调：替代原游戏的房间移动，不再是独立 gametype）：所有「新对局」默认走「100 房网格 + 大时钟」。──
+  //   判据：已启用 BR 的房，或尚无 chamber raidPath 的房（= 新开对局，含 /rooms 立即出勤的标准 gametype）→ BR；
+  //   仅"已在跑的旧 chamber 局"（已生成 raidPath）继续走旧路径直到本局结束（向后兼容，不中途变结构）。
+  const hasChamberRaid = Array.isArray(gamevars.raidPath) && gamevars.raidPath.length > 0
+  const isBr = gamevars.br?.enabled === true || !hasChamberRaid
 
   const rules = await loadGameRules(client)
 
@@ -1779,7 +1971,8 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   // research 2026-05-29-B P1: 高危出勤 — 首位玩家的 heat 选择决定整局难度（raidPath 共享）。
   // sanitizeHeatLevel 在 HIGH_RISK.ENABLED=false 时恒返回 0，故预埋阶段恒为标准出勤。
   const heatLevel = sanitizeHeatLevel(loadout?.heatLevel)
-  if (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0) {
+  // ── 旧 chamber 模式：首位玩家生成 raidPath（BR 房跳过整段，走下方 BR 分支） ──
+  if (!isBr && (!Array.isArray(nextRaidPath) || nextRaidPath.length === 0)) {
     try {
       const { data: chambers } = await client
         .from('chamber_templates')
@@ -1814,6 +2007,20 @@ export async function joinRoom(client, user, roomId, loadout = null) {
     }
   }
 
+  // ── Phase 31 re-home: BR 房层初始化 + 玩家落座（首玩家算，后玩家复用已存 gamevars.br） ──
+  // initBrRoomLayer 幂等：br.enabled 已 true 直接复用；首玩家采样 100 房模板 + 算禁区表 + 选起始房。
+  let brBlock = gamevars.br
+  if (isBr) {
+    const initRes = await initBrRoomLayer(client, room, gamevars)
+    brBlock = initRes.br
+    // 每玩家：落起始房、depth=0、map 镜像该房 templateId（喂所有读 player.map 的现有逻辑）
+    if (brBlock?.enabled) {
+      player.roomId = initRes.startRoomId
+      player.depth = 0
+      player.map = brBlock.roomTemplates?.[initRes.startRoomId] ?? 0
+    }
+  }
+
   // ── Phase 25g (28-B P0): 入场后 snapshot + spent 累计 ──
   // 入场后余额 = stashSnapshotBefore(raid 启动基线);spent = before - after(per-type, 截非负)
   let balanceAfterEntry = {}
@@ -1840,6 +2047,8 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   const nextGamevars = {
     ...gamevars,
     raidPath: nextRaidPath,
+    // Phase 31 re-home: BR 房层（首玩家初始化后写一次，后玩家原样保留）。非 BR 房保持 gamevars.br（enabled:false）。
+    br: brBlock || gamevars.br,
     // 29-B P1: 整局高危等级（首位玩家锁定后保留；预埋阶段恒 0）。供 pollution.tickEnvPollution
     //   + extractPlayer 奖励倍率读取。已存在则不覆盖，避免后加入玩家篡改难度。
     heatLevel: Number.isFinite(gamevars.heatLevel) ? gamevars.heatLevel : heatLevel,
@@ -1871,8 +2080,11 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   const isFirstPath = nextRaidPath.length > 0 && (!Array.isArray(gamevars.raidPath) || gamevars.raidPath.length === 0)
   const unlocksNote = isFirstPath && unlocksContributed.length > 0 ? `，已应用 ${unlocksContributed.length} 条残片解锁规则` : ''
   const pathNote = isFirstPath ? `（已生成 ${nextRaidPath.length} chamber 路径${unlocksNote}）` : ''
+  // Phase 31 re-home: BR 首玩家初始化网格时的日志提示（后玩家 br.enabled 已存在则不提示）
+  const isFirstBr = isBr && brBlock?.enabled && !(gamevars.br?.enabled)
+  const brNote = isFirstBr ? `（已展开 100 房网格 · 起始扇区 #${brBlock.startRoomId}）` : ''
   const nextRoom = await persistRoom(client, room, nextGamevars, [
-    createLogEntry(`${classNote}${player.name} 加入了游戏${loadoutNote}${pathNote}`, 'system'),
+    createLogEntry(`${classNote}${player.name} 加入了游戏${loadoutNote}${pathNote}${brNote}`, 'system'),
   ], { startGame: true })
 
   await client.from('profiles').update({ roomid: roomId }).eq('id', user.id)
@@ -1901,8 +2113,16 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return joinRoom(client, user, roomId, payload.loadout || null)
   }
 
-  if (payload.action === 'move' || payload.action === 'advanceChamber') {
-    // Phase 19: 旧 move 与新 advanceChamber 等价（沿 raidPath 前进 1 步）
+  if (payload.action === 'move') {
+    // Phase 31 re-home: BR 房 → 邻接房移动（moveToRoom）；旧房 → 沿 raidPath 前进（movePlayer，不变）
+    if (gamevars.br?.enabled) {
+      return moveToRoom(client, room, gamevars, user, Number(payload.toRoomId))
+    }
+    return movePlayer(client, room, gamevars, user, payload.selection || 'A')
+  }
+
+  if (payload.action === 'advanceChamber') {
+    // Phase 19: advanceChamber 仍映射旧 movePlayer（dormant 兼容；BR 房不应走此路径）
     return movePlayer(client, room, gamevars, user, payload.selection || 'A')
   }
 
@@ -2073,6 +2293,121 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
     console.error('[movePlayer] probe encounter 失败:', e?.message)
   }
 
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Phase 31 re-home: BR「100 房网格」移动 —— moveToRoom
+//  邻接 + 开放校验后把 player.roomId 改到目标房，map 镜像目标房 templateId。
+//  复用旧 movePlayer 的探针/事件/分支钩子（setVisitedMapFlag / processEventTrigger /
+//  tryEncounterProbe），让现有系统在「当前房」上零改动继续工作。
+//  不再 +chamberIndex、不再启动 Ω 倒计时（大时钟是唯一时间压力）。
+// ═══════════════════════════════════════════════════════════════
+async function moveToRoom(client, room, gamevars, user, toRoomId) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('已阵亡玩家无法移动')
+  if (player.extracted) throw new Error('已撤离玩家无法移动')
+
+  // ① BR 校验
+  const br = gamevars.br
+  if (!br?.enabled) throw new Error('该对局未启用网格移动')
+  if (br.seed == null) throw new Error('BR 对局未初始化（缺少 seed）')
+
+  const fromRoomId = player.roomId
+  if (fromRoomId == null) throw new Error('你当前不在任何扇区')
+
+  const target = Math.floor(Number(toRoomId))
+  if (!Number.isFinite(target)) throw new Error('目标扇区无效')
+  if (target === fromRoomId) throw new Error('你已在该扇区')
+
+  // ② 邻接校验（优先用 gamevars.br.adj 缓存，避免每次查 DB）
+  const neighbors = Array.isArray(br.adj?.[fromRoomId]) ? br.adj[fromRoomId] : []
+  if (!neighbors.includes(target)) throw new Error('目标扇区不相邻')
+
+  // ③ 开放校验：forbidden(seed, effectivePhase, target)===false（禁区即拒）
+  const effPhase = getBrEffectivePhase(room, gamevars, player)
+  if (forbidden(br.seed, effPhase, target)) {
+    throw new Error('目标扇区已进入禁区（缩圈），无法进入')
+  }
+
+  // ④ 通过：镜像 templateId 喂旧逻辑 + 清 encounter
+  const targetTid = br.roomTemplates?.[target] ?? player.map ?? 0
+  const targetMeta = br.templateMeta?.[targetTid] || null
+  const roomLabel = (br.rooms || []).find(r => r.roomId === target)?.label || `扇区 #${target}`
+  const chamberName = targetMeta?.name || roomLabel
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  clearEncounterIfAny(resolution, user.id)
+
+  let nextPlayer = {
+    ...player,
+    roomId: target,
+    map: targetTid,           // 镜像当前房 templateId（corpse.mapId / regionAssessment / 现有逻辑读 player.map）
+    encounter: null,
+    omegaCountdown: null,     // BR 下 Ω 倒计时 dormant（大时钟替代）
+  }
+
+  // 低污染区自然衰减（保留，与旧 movePlayer 同款）
+  nextPlayer = applyRetreatDecay(nextPlayer, gamevars.envPollution || 0)
+
+  setResolutionPlayer(resolution, user.id, nextPlayer)
+  appendResolutionLog(
+    resolution,
+    `${player.name} 移动至【${chamberName}】(扇区 #${target}·阶段 ${effPhase})`,
+    'system',
+  )
+  // Ω 特殊扇区只作风味标记（不启动独立倒计时）
+  if ((targetMeta?.omegaWindow || 0) > 0) {
+    appendResolutionLog(resolution, `⚠ 【${chamberName}】是 Ω 特殊扇区 —— 时间压力由大时钟统一施加`, 'system')
+  }
+  if (targetMeta?.type === 'milestone') {
+    appendResolutionLog(resolution, `⚔ 里程碑扇区：${chamberName} —— 强敌可能正等待`, 'damage')
+  }
+
+  // 自动 flag：玩家曾访问该扇区模板（供分支引擎）— 用 templateId 替代 mapId（与旧 movePlayer 一致）
+  setVisitedMapFlag(resolution, targetTid)
+
+  // on_enter_map 事件钩子（保持事件 API 兼容，传 templateId 作 mapId）
+  try {
+    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId: targetTid })
+  } catch (e) {
+    console.error('[moveToRoom] event trigger 失败:', e?.message)
+  }
+
+  // 进入扇区时遭遇异步探针（与旧 movePlayer 同款：传遭遇者实力按其相对缩放 + 硬封顶）
+  try {
+    const probe = await tryEncounterProbe(client, user.id, targetTid, {
+      hp: nextPlayer.hp,
+      maxHp: nextPlayer.maxHp,
+      atk: nextPlayer.atk,
+      def: nextPlayer.def,
+    })
+    if (probe) {
+      const playerWithProbe = {
+        ...nextPlayer,
+        probeEncounter: {
+          probeId: probe.id,
+          ownerPseudonym: buildOwnerPseudonym(probe.id),
+          hp: probe.hp,
+          maxHp: probe.max_hp,
+          atk: probe.atk,
+          def: probe.def,
+          equipmentSnapshot: probe.equipment_snapshot || {},
+          fragmentCount: (probe.fragments_carry || []).length,
+        },
+      }
+      setResolutionPlayer(resolution, user.id, playerWithProbe)
+      appendResolutionLog(
+        resolution,
+        `⚠ 探测到未知探针：HP ${probe.hp}/${probe.max_hp} · ATK ${probe.atk} · 携带 ${(probe.fragments_carry || []).length} 条残片碎片`,
+        'system',
+      )
+    }
+  } catch (e) {
+    console.error('[moveToRoom] probe encounter 失败:', e?.message)
+  }
+
+  console.log(`[br][game] move room=${room.id} user=${user.id} ${fromRoomId}→${target} effPhase=${effPhase}`)
   return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 
@@ -2276,9 +2611,8 @@ async function extractPlayer(client, room, gamevars, user, payload) {
 
     const leftProbe = await leaveProbe(client, {
       ownerId: user.id,
-      chamberTemplateId: player.chamberIndex != null && Array.isArray(gamevars.raidPath)
-        ? (gamevars.raidPath[player.chamberIndex]?.templateId || null)
-        : null,
+      // Phase 31 re-home: BR 房用当前房 templateId（getCurrentChamberTemplateId 已 BR 分支）；旧房用 raidPath[chamberIndex]
+      chamberTemplateId: getCurrentChamberTemplateId(gamevars, player),
       equipmentSnapshot,
       atk: probeAtk,
       def: probeDef,

@@ -26,6 +26,20 @@ export const GAME_TYPES = {
 // Phase 30 — 虚拟空间·时间跳跃BR 模式标识（与现有 chamber-raid 并存，证明可玩后再切默认）
 export const BR_GAME_TYPE = 20
 
+// ── BR 大时钟默认配置（Phase 31 re-home 进 /game 路径 · single source of truth） ──
+// 把 chamber-raid 的 Ω-段独立倒计时替换成「100 房网格 + 大时钟缩圈」时间压力。
+// PHASE_SECONDS / MAX_PHASE 与 br/clock.js 默认 + phase-30 schema 对齐（900s / 4 阶段）。
+// dev 短值走查：建 BR 房或首玩家 join 时可把 {phaseSeconds, maxPhase} 塞进 gamevars.br，
+//   经 br/clock.js clampPhaseSeconds 钳到下限 5s（如 30s/phase 快速验证缩圈），不得低于 5s。
+// WARN_* 给客户端「距下次收缩」预警黄窗用（服务端不依赖，仅 UI 着色复用 /br 页 warnWindowSeconds）。
+export const BR_CONFIG = {
+  PHASE_SECONDS: 900,   // 每阶段秒数（默认 15min；dev 可走短值，下限 5s）
+  MAX_PHASE: 4,         // 末路阶段编号（缩圈到最内 20 房）
+  WARN_RATIO: 0.25,     // 预警黄窗 = 阶段时长 × 此比例
+  WARN_MAX: 180,        // 预警黄窗上限（秒）
+  WARN_MIN: 5,          // 预警黄窗下限（秒）
+}
+
 // ── 物品分类（远星函馆 5 kinds） ──────────────────────────
 export const ITEM_KIND_META = {
   tech_fragment: { label: '结构碎片', color: '#bc8cff', icon: '🔮' },

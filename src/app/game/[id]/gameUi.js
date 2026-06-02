@@ -176,3 +176,370 @@ export function Btn({ children, variant = 'default', size = 'md', onClick, disab
 
 export { Modal }
 
+// ════════════════════════════════════════════════════════════════════════
+// Phase 30 — 虚拟空间·时间跳跃 BR：100 房网格 + 大时钟（从 /br/[matchId] 移植）
+//   纯展示组件 + 纯函数，全部接受派生好的 props（与 HpBar/Btn 同款无副作用风格）。
+//   GameClientPage 负责从 rooms.gamevars.br + started_at 派生 brClock/brGrid/myRoom/movable，
+//   再 useEffect 起 1s 本地时钟 tick；本文件不持有 state。
+//   /br/[matchId]/page.js 走独立 br_match* 路径，沿用其自有内联实现，本组件供 /game 路径用。
+// ════════════════════════════════════════════════════════════════════════
+
+// 网格尺寸（与 server/br/zones.js GRID_W/GRID_H 对齐）
+export const BR_GRID_W = 10
+export const BR_GRID_H = 10
+
+// ── 大时钟本地推算（clock.js 同款公式，应用层计算不落库）──────────────────
+// 入参：{ startedAtMs, phaseSeconds, maxPhase, status }（status: 'active'|'ended'|'lobby'）。
+// status!=='active' 或 startedAtMs 为 null ⇒ realPhase=0，无倒计时锚点。
+//   realPhase     = min(maxPhase, floor((now - started) / (phaseSeconds*1000)))
+//   phaseEndsAtMs = started + (realPhase+1)*phaseSeconds*1000
+//   secondsToNext = ceil((phaseEndsAtMs - now) / 1000)
+export function computeLocalClock(clockInput, nowMs) {
+  const phaseSeconds = clockInput?.phaseSeconds || 0
+  const maxPhase = clockInput?.maxPhase ?? 4
+  const startedAtMs = clockInput?.startedAtMs ?? null
+  const active = clockInput?.status === 'active' && startedAtMs != null
+
+  if (!active || phaseSeconds <= 0) {
+    return {
+      realPhase: 0,
+      maxPhase,
+      phaseEndsAtMs: null,
+      secondsToNextPhase: null,
+      elapsedSeconds: null,
+      isEnded: clockInput?.status === 'ended',
+    }
+  }
+
+  const elapsedMs = Math.max(0, nowMs - startedAtMs)
+  const rawPhase = Math.floor(elapsedMs / (phaseSeconds * 1000))
+  const realPhase = Math.min(maxPhase, rawPhase)
+  const isEnded = realPhase >= maxPhase
+  const phaseEndsAtMs = isEnded ? null : startedAtMs + (realPhase + 1) * phaseSeconds * 1000
+  const secondsToNextPhase = phaseEndsAtMs != null ? Math.max(0, Math.ceil((phaseEndsAtMs - nowMs) / 1000)) : null
+
+  return {
+    realPhase,
+    maxPhase,
+    phaseEndsAtMs,
+    secondsToNextPhase,
+    elapsedSeconds: Math.floor(elapsedMs / 1000),
+    isEnded,
+  }
+}
+
+export function fmtBrCountdown(secs) {
+  if (secs == null) return '--:--'
+  const s = Math.max(0, secs)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
+}
+
+// 预警窗口：缩圈前若干秒把"下阶段将收缩"的扇区标黄。
+// 规则书"缩圈前 3 分钟"：满阶段(900s)→180s；短 dev 局按 25% 比例缩放、下限 5s。
+export function warnWindowSeconds(phaseSeconds) {
+  const ps = Number.isFinite(phaseSeconds) && phaseSeconds > 0 ? phaseSeconds : 900
+  return Math.min(180, Math.max(5, Math.round(ps * 0.25)))
+}
+
+// 扇区显示态（本地时钟瞬时推算，不等服务端推送 → 即时变红 + 预警黄）：
+//   forbidden = 已收缩（realPhase >= closePhase）
+//   warning   = 下一阶段将收缩（closePhase === realPhase+1）且已进入预警窗口
+//   open      = 其余
+export function cellStateFor(room, realPhase, secondsToNext, warnSecs) {
+  if (!room) return 'open'
+  const cp = Number.isFinite(room.closePhase) ? room.closePhase : 5
+  if (realPhase >= cp) return 'forbidden'
+  if (cp === realPhase + 1 && secondsToNext != null && secondsToNext <= warnSecs) return 'warning'
+  return 'open'
+}
+
+// 物资档位 T1..T5 着色（仅展示）
+export function lootTierColor(tier) {
+  return (
+    {
+      1: T.dimB,
+      2: T.green,
+      3: T.cyan,
+      4: T.purple,
+      5: T.orange,
+    }[tier] || T.dim
+  )
+}
+
+// ── 单个扇区格子（显示态由本地时钟驱动：open / warning / forbidden）──────────
+//   isMine     → 我所在格：实线 cyan + 高亮
+//   movable    → 相邻且开放：虚线 cyan 边 + 箭头，点击 onMove(roomId) 触发移动
+//   hasPlayers → 该格有玩家：右上角圆点
+export function BrZoneCell({ room, cellState = 'open', isMine, hasPlayers, movable = false, onMove }) {
+  const forbidden = cellState === 'forbidden'
+  const warning = cellState === 'warning'
+  const accent = forbidden ? T.red : warning ? T.yellow : movable ? T.cyan : T.green
+  const tierColor = forbidden ? `${T.red}cc` : warning ? T.yellow : lootTierColor(room?.lootTier)
+  const stateLabel = forbidden ? '禁区' : warning ? '预警 · 下阶段收缩' : `开放 · 物资档 T${room?.lootTier ?? '-'}`
+  const moveLine = movable ? '\n（点击移动到此扇区）' : ''
+  const tip = room
+    ? `${room.label || `#${room.roomId}`}（${room.region || ''}）\n${stateLabel}\n收缩于阶段 ${room.closePhase}${moveLine}`
+    : ''
+
+  return (
+    <div
+      title={tip}
+      onClick={movable && onMove && room ? () => onMove(room.roomId) : undefined}
+      role={movable ? 'button' : undefined}
+      style={{
+        position: 'relative',
+        aspectRatio: '1 / 1',
+        borderRadius: 4,
+        background: forbidden ? `${T.red}10` : warning ? `${T.yellow}1c` : `${T.green}14`,
+        border: isMine
+          ? `2px solid ${T.cyan}`
+          : movable
+            ? `1px dashed ${T.cyan}aa`
+            : `1px solid ${accent}${warning ? '66' : '40'}`,
+        boxShadow: isMine
+          ? `0 0 8px ${T.cyan}80`
+          : movable ? `0 0 5px ${T.cyan}44` : warning ? `0 0 6px ${T.yellow}55` : 'none',
+        animation: warning && !isMine ? 'brPulse 1.2s ease-in-out infinite' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 9,
+        fontFamily: 'var(--font-jetbrains-mono), monospace',
+        color: tierColor,
+        cursor: movable ? 'pointer' : 'default',
+        transition: 'background .25s, border-color .25s, box-shadow .25s',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 主标：禁区✕ / 预警⚠ / 否则 T 档 */}
+      {forbidden ? (
+        <span style={{ opacity: 0.65, fontSize: 11, lineHeight: 1 }}>✕</span>
+      ) : (
+        <span style={{ fontWeight: 700, lineHeight: 1 }}>
+          {warning ? '⚠' : `T${room?.lootTier ?? '-'}`}
+        </span>
+      )}
+
+      {/* movable 小箭头：右下角，提示可移入 */}
+      {movable && !isMine && (
+        <span style={{ position: 'absolute', bottom: 1, right: 2, fontSize: 8, color: `${T.cyan}cc`, lineHeight: 1 }}>➜</span>
+      )}
+
+      {/* 该格有玩家：右上角圆点；我所在格 cyan，他人 dimB */}
+      {hasPlayers && (
+        <span
+          style={{
+            position: 'absolute',
+            top: 2,
+            right: 3,
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: isMine ? T.cyan : T.dimB,
+            boxShadow: isMine ? `0 0 4px ${T.cyan}` : 'none',
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── 统计小卡（大时钟 HUD 用）─────────────────────────────────────────────
+export function BrStat({ label, value, color }) {
+  return (
+    <div style={{ textAlign: 'center', minWidth: 48 }}>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: color || T.text,
+          fontFamily: 'var(--font-jetbrains-mono), monospace',
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 10, color: T.dim, marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        {label}
+      </div>
+    </div>
+  )
+}
+
+// ── 大时钟 HUD：当前阶段 N/maxPhase + 收缩倒计时 + 末路提示 + 扇区/存活计数 ──
+//   全部接受派生好的标量（GameClientPage 用 computeLocalClock + brGrid 算）。
+export function BrClockHud({
+  realPhase,
+  maxPhase,
+  secondsToNextPhase,
+  status,
+  isFinalPhase,
+  warnSecs,
+  openCount,
+  warningCount,
+  forbiddenCount,
+  aliveCount,
+  playerCount,
+}) {
+  const inWarn = (secondsToNextPhase ?? 999) <= warnSecs
+  return (
+    <div
+      style={{
+        background: `linear-gradient(180deg, ${T.bg2} 0%, ${T.bg1} 100%)`,
+        border: `1px solid ${isFinalPhase ? `${T.red}55` : T.borderB}`,
+        borderRadius: 12,
+        padding: '14px 18px',
+        boxShadow: isFinalPhase ? `0 0 24px ${T.red}22` : 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        {/* 当前阶段 N/maxPhase */}
+        <div>
+          <div style={{ fontSize: 10, color: T.dim, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>
+            收缩阶段
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span
+              style={{
+                fontSize: 44,
+                fontWeight: 800,
+                lineHeight: 1,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                color: isFinalPhase ? T.red : T.cyan,
+                textShadow: `0 0 18px ${isFinalPhase ? T.red : T.cyan}55`,
+              }}
+            >
+              {realPhase}
+            </span>
+            <span style={{ fontSize: 20, color: T.dim, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+              / {maxPhase}
+            </span>
+          </div>
+        </div>
+
+        {/* 倒计时 / 末路提示 */}
+        <div style={{ textAlign: 'center', flex: 1, minWidth: 180 }}>
+          {status !== 'active' ? (
+            <div style={{ fontSize: 13, color: T.dimB }}>
+              {status === 'ended' ? '对局已结束' : '等待大时钟启动…'}
+            </div>
+          ) : isFinalPhase ? (
+            <div>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: T.red,
+                  letterSpacing: '2px',
+                  textShadow: `0 0 16px ${T.red}66`,
+                  animation: 'brPulse 1.4s ease-in-out infinite',
+                }}
+              >
+                末路阶段
+              </div>
+              <div style={{ fontSize: 11, color: `${T.red}cc`, marginTop: 4 }}>
+                收缩边界已达最终态 · 仅余 {openCount} 个开放扇区
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 10, color: T.dim, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>
+                距下次收缩
+              </div>
+              <div
+                style={{
+                  fontSize: 34,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  color: inWarn ? T.yellow : T.text,
+                  textShadow: inWarn ? `0 0 14px ${T.yellow}44` : 'none',
+                }}
+              >
+                {fmtBrCountdown(secondsToNextPhase)}
+              </div>
+              {inWarn && (
+                <div style={{ fontSize: 11, color: T.yellow, marginTop: 4 }}>
+                  ⚠ 收缩警报 · {warningCount} 个扇区即将收缩（推进至阶段 {Math.min(maxPhase, realPhase + 1)}）
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 扇区/玩家计数 */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <BrStat label="开放" value={openCount} color={T.green} />
+          {warningCount > 0 && <BrStat label="预警" value={warningCount} color={T.yellow} />}
+          <BrStat label="禁区" value={forbiddenCount} color={T.red} />
+          <div style={{ width: 1, height: 32, background: T.border }} />
+          <BrStat label="存活" value={aliveCount} color={T.cyan} />
+          <BrStat label="玩家" value={playerCount} color={T.text} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 100 房网格面板（10×10）：渲染扇区格 + 图例 ────────────────────────────
+//   cellByXY: Map<"x,y", room>；room 字段 { roomId, label, region, gridX, gridY, closePhase, lootTier }
+//   computeCellState(room) → 'open'|'warning'|'forbidden'（父组件注入本地时钟态）
+//   movableRoomIds: Set<roomId>；roomHasPlayer: Set<roomId>；myRoomId: number|null
+export function BrGridPanel({ cellByXY, realPhase, computeCellState, movableRoomIds, roomHasPlayer, myRoomId, onMove }) {
+  return (
+    <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
+      <PanelTitle right={<span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>阶段 {realPhase} 禁区图</span>}>
+        🛰 扇区网格 {BR_GRID_W}×{BR_GRID_H}
+      </PanelTitle>
+      <div style={{ padding: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${BR_GRID_W}, 1fr)`, gap: 3 }}>
+          {Array.from({ length: BR_GRID_H }).map((_, y) =>
+            Array.from({ length: BR_GRID_W }).map((_, x) => {
+              const room = cellByXY.get(`${x},${y}`)
+              const isMine = room != null && room.roomId === myRoomId
+              const hasPlayers = room != null && roomHasPlayer.has(room.roomId)
+              const cellState = computeCellState(room)
+              const movable = room != null && movableRoomIds.has(room.roomId)
+              return (
+                <BrZoneCell
+                  key={`${x},${y}`}
+                  room={room}
+                  cellState={cellState}
+                  isMine={isMine}
+                  hasPlayers={hasPlayers}
+                  movable={movable}
+                  onMove={onMove}
+                />
+              )
+            }),
+          )}
+        </div>
+        {/* 图例 */}
+        <div style={{ display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap', fontSize: 10, color: T.dim }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.green}20`, border: `1px solid ${T.green}40` }} /> 开放（标 T 档）
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.yellow}1c`, border: `1px solid ${T.yellow}66` }} /> 预警（下阶段收缩）
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: `${T.red}14`, border: `1px solid ${T.red}40` }} /> 禁区
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, border: `2px solid ${T.cyan}` }} /> 我的扇区
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, border: `1px dashed ${T.cyan}aa` }} /> 可移动（相邻）
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.dimB }} /> 有玩家
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+

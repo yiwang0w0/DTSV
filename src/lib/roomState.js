@@ -1,3 +1,12 @@
+// 用相对路径而非 @/ 别名：roomState.js 被 scripts/smoke-check.mjs 以原生 Node ESM 直接导入，
+// Node 不解析 webpack 的 @/ 别名（clock.js 自身无 import，可被原生 Node 解析）。
+import {
+  clampPhaseSeconds,
+  clampMaxPhase,
+  PHASE_SECONDS_DEFAULT,
+  MAX_PHASE_DEFAULT,
+} from './server/br/clock.js'
+
 const LOG_LIMIT = 200
 
 function makeId(prefix) {
@@ -140,6 +149,47 @@ export function normalizeGamevars(gamevars = {}) {
       : null,
     // ── Phase 20.2: 本局贡献的解锁残片列表（结局横幅展示用） ──
     unlocksContributed: Array.isArray(gamevars.unlocksContributed) ? gamevars.unlocksContributed : [],
+    // ── Phase 31 re-home: BR「100 房网格 + 大时钟」对局态（仅 BR 房有意义） ──
+    // 向后兼容铁律：旧存档无 gamevars.br → 注入 {enabled:false,...}；
+    //   getCurrentChamberTemplateId 在 br.enabled=false 时回退旧 raidPath[chamberIndex] 分支，现有对局零影响。
+    br: normalizeBrBlock(gamevars.br),
+  }
+}
+
+/**
+ * 归一化 BR 对局块（gamevars.br）。所有 BR 对局态（房位映射 / 禁区表 / 拓扑 / 邻接 / 大时钟配置）
+ * 落 rooms.gamevars，不新增 br_match* 对局表。默认值保证旧存档向后兼容（enabled:false）。
+ *
+ * 字段：
+ *   enabled       该局是否 BR（joinRoom 首玩家按 room.gametype===20 置 true）
+ *   seed          per-raid 确定性种子（首玩家生成，永不变）
+ *   phaseSeconds  每阶段秒数（钳到 [MIN_PHASE_SECONDS=5, ∞)，默认 900）
+ *   maxPhase      末路阶段编号（钳到 [0, ∞)，默认 4）
+ *   roomTemplates { [roomId]: templateId } 100 项（采样结果，永不重算）
+ *   templateMeta  { [templateId]: 伪 chamber 字段子集 }（≤模板数，供 getChamberForPlayer 拼伪 chamber）
+ *   startRoomId   该局中心起始房（spawnRoom 结果，供日志/兜底）
+ *   closePhases   { [roomId]: closePhase } 公开禁区表（客户端着色用，不下发 seed）
+ *   rooms         静态拓扑数组 [{ roomId, label, region, gridX, gridY, neighborIds }]（客户端网格渲染）
+ *   adj           { [roomId]: [neighborIds] } 邻接图（moveToRoom 校验，避免每次查 DB）
+ */
+export function normalizeBrBlock(br) {
+  const b = br && typeof br === 'object' ? br : {}
+  const enabled = b.enabled === true
+  const seed = Number.isFinite(b.seed) ? b.seed : null
+  // 复用 br/clock.js 的钳制（已存在，不重写）
+  const phaseSeconds = b.phaseSeconds != null ? clampPhaseSeconds(b.phaseSeconds) : PHASE_SECONDS_DEFAULT
+  const maxPhase = b.maxPhase != null ? clampMaxPhase(b.maxPhase) : MAX_PHASE_DEFAULT
+  return {
+    enabled,
+    seed,
+    phaseSeconds,
+    maxPhase,
+    roomTemplates: b.roomTemplates && typeof b.roomTemplates === 'object' ? b.roomTemplates : {},
+    templateMeta: b.templateMeta && typeof b.templateMeta === 'object' ? b.templateMeta : {},
+    startRoomId: b.startRoomId ?? null,
+    closePhases: b.closePhases && typeof b.closePhases === 'object' ? b.closePhases : {},
+    rooms: Array.isArray(b.rooms) ? b.rooms : [],
+    adj: b.adj && typeof b.adj === 'object' ? b.adj : {},
   }
 }
 
@@ -153,8 +203,14 @@ export function getCurrentChamber(gamevars, player) {
   return path[idx]
 }
 
-/** 取玩家当前 chamber 的 templateId（用于过滤 item/npc/fragment 池） */
+/** 取玩家当前 chamber 的 templateId（用于过滤 item/npc/fragment 池）
+ *  Phase 31 re-home: BR 房读 roomTemplates[player.roomId]；否则回退旧 chamber 模式（不变）。 */
 export function getCurrentChamberTemplateId(gamevars, player) {
+  // ── BR 分支：当前房 → 采样的 templateId（现有按 templateId 过滤的池零改动复用） ──
+  if (gamevars?.br?.enabled && player?.roomId != null) {
+    return gamevars.br.roomTemplates?.[player.roomId] ?? null
+  }
+  // ── 旧 chamber 模式回退（不变） ──
   const ch = getCurrentChamber(gamevars, player)
   return ch?.templateId ?? null
 }
@@ -194,9 +250,12 @@ export function createPlayerState(user, stats = {}) {
     maxHp: stats.maxHp ?? stats.hp ?? 100,
     atk: stats.atk ?? 10,
     def: stats.def ?? 5,
-    map: 0,                  // 旧字段：保留向后兼容；Phase 19 改用 chamberIndex
+    map: 0,                  // 旧字段：保留向后兼容；Phase 19 改用 chamberIndex；BR 下镜像当前房 templateId
     chamberIndex: 0,         // Phase 19.4: 玩家在 gamevars.raidPath 中的位置（0 = 入口）
     chamberHistory: [],      // Phase 19.4: 已走过的 chamber idx 列表
+    // ── Phase 31 re-home: BR「100 房网格」位置（旧 chamber 模式恒 null → 走旧分支） ──
+    roomId: stats.roomId ?? null,   // BR 当前房（br.enabled 下由 joinRoom 置 startRoomId）
+    depth: 0,                       // 跳跃深度；本期恒 0，为后续 effectivePhase「跳跃者看更深禁区」预留
     inventory: [],
     alive: true,
     kills: 0,

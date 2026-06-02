@@ -1,9 +1,9 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · Phase 32 虚拟空间BR 双属性+事件日志+可见性（Workflow 多智能体产出）
+更新时间：2026-06-03（Asia/Tokyo） · BR re-home 进 /game（替代 chamber 移动+Ω，per-raid 种子禁区）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
-## 最近变更（2026-06-03 / Phase 30-32）— 虚拟空间·时间跳跃BR 重建（骨架 → 双属性机制层）
+## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。
 > 北极星文档：`docs/timejump-br-design.md`。之后规划：直播间联动 + VTB 联动（Phase 37+）。
@@ -74,6 +74,30 @@
 2. **搜刮**当前房 → 背包出现物资；再搜 → "已搜空"（守恒只减不增）
 3. **炸毁**当前房 → 格显 💥 + 暗红裂纹；**修复** → 回完好（后写覆盖前写）
 4. 右侧「最近动态」事件流 + 「背包」面板实时更新
+
+### re-home（把 BR 房间模型并入 /game，替代 chamber 移动 + Ω 时间压力）— Workflow 多智能体编排产出
+
+> 用户定调：BR 房间系统**替代原游戏的房间移动**（不再是独立 /br 对局）。契约→backend‖client→回归验证（4 agent / ~722K tok）。我独立复跑 lint + 审 gating + 修一处需求偏差后提交。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/server/br/forbidden.js`（新） | **per-raid 随机种子禁区**：xmur3/mulberry32 PRNG + makeRaidSeed(room) + Fisher-Yates 洗牌每 20 房一阶段 + forbidden(seed,phase,roomId)。每局禁区图不同、同局稳定（验证 100/80/60/40/20 单调） |
+| `src/lib/server/br/roomTemplates.js`（新） | sampleRoomTemplates：给 100 房各采样一个 chamber_template → roomTemplates+templateMeta。**关键**：让所有按 templateId 过滤的现有池零改动复用 |
+| `src/lib/roomState.js` | gamevars.br 块 + player.roomId/depth + getCurrentChamberTemplateId 加 BR 分支（向后兼容旧存档） |
+| `src/lib/server/gameActions.js` | initBrRoomLayer / moveToRoom（邻接+开放校验）/ dispatcher move 分支 / Ω 倒计时 BR 下 dormant / extract·trade·search·combat 经 templateId 映射不破。**gating 修正：所有新对局默认 BR（含立即出勤），旧在跑 chamber 局兼容到结束** |
+| `src/app/game/[id]/GameClientPage.jsx` | 「路径前进 A/B」→「时空收缩·扇区图」（大时钟 HUD + 100 房网格 + 点相邻房移动）；左侧 区域评估/PVP/交易/残片/污染 全保留改挂当前房 |
+| `src/app/game/[id]/gameUi.js` | 新增 BrClockHud/BrGridPanel/BrZoneCell 纯展示组件 |
+| `src/lib/constants.js` | BR_CONFIG（大时钟默认 900s/4 阶段，dev 可短值走查） |
+| `src/app/layout.js` | 移除 /br nav（BR 已并入 /game；/br 页 dormant 待 teardown） |
+
+**修的需求偏差**：workflow 原按我的契约把 BR 门控在独立 gametype===20（仍是"分离系统"），不符合"替代原游戏移动"。已改 `isBr = br.enabled || 无 chamber raidPath`，使**立即出勤进 /game 就是 BR**。验证：next lint ✔ 0；回归核对 search/战斗/交易/残片/污染/撤离不破；additive/reversible（旧 chamber 代码 dormant）。
+
+### 走查（re-home）
+
+1. /rooms **立即出勤** → 进 /game/[id]：第三栏现在是**时空收缩·扇区图**（不再是 chamber A/B 路径）
+2. 大时钟阶段推进 + 100 房网格按 **per-raid 种子**缩圈（每局禁区图不同）；点相邻 cyan 虚线房移动
+3. 搜索/交易/残片/污染照旧（已改挂当前房）；Ω 倒计时被大时钟取代
+4. 几十秒看完缩圈：建房后 DbConsole 跑 `UPDATE rooms SET gamevars=jsonb_set(coalesce(gamevars,'{}'::jsonb),'{br}','{"phaseSeconds":30,"maxPhase":4}'::jsonb,true) WHERE id=<房号>` 再进
 
 ---
 

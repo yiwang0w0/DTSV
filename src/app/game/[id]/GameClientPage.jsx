@@ -20,6 +20,8 @@ import PortraitDisplay from '@/components/PortraitDisplay'
 import OmegaCountdown from '@/components/OmegaCountdown'
 import DeathReviewModal from '@/components/DeathReviewModal'
 import {
+  BrClockHud,
+  BrGridPanel,
   Btn,
   BuffTag,
   HpBar,
@@ -27,7 +29,10 @@ import {
   PanelTitle,
   SLOTS,
   T,
+  cellStateFor,
+  computeLocalClock,
   hpColor,
+  warnWindowSeconds,
 } from './gameUi'
 
 // Phase 19.7: chamber 类型元数据（路径前进面板用）
@@ -81,6 +86,9 @@ export default function GameClientPage() {
   const [deathReview, setDeathReview] = useState(null)
   const deathHandledRef = useRef(false)
 
+  // Phase 30 BR：本地秒级时钟（大时钟倒计时自走，不等 realtime）
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
   const mapIdRef = useRef(0)
 
   // Phase 19.7: chamber 模型 — mapId 现在是 chamber.templateId
@@ -113,7 +121,12 @@ export default function GameClientPage() {
     setRoom(nextRoom)
     setGamevars(normalized)
 
-    const nextMapId = normalized.players?.[user?.id]?.map ?? 0
+    // Phase 30 BR：当前房内容由 roomTemplates[player.roomId] 决定（player.map 已镜像该值，
+    //   显式取以防镜像缺失）；旧 chamber 模式仍用 player.map（=chamber.templateId）。
+    const player = normalized.players?.[user?.id]
+    const nextMapId = normalized.br?.enabled && player?.roomId != null
+      ? (normalized.br.roomTemplates?.[player.roomId] ?? player?.map ?? 0)
+      : (player?.map ?? 0)
     if (mapIdRef.current !== nextMapId) {
       mapIdRef.current = nextMapId
     }
@@ -160,7 +173,10 @@ export default function GameClientPage() {
         setRoom(nextRoom)
         setGamevars(normalized)
 
-        const nextMapId = normalized.players?.[user.id]?.map ?? 0
+        const player = normalized.players?.[user.id]
+        const nextMapId = normalized.br?.enabled && player?.roomId != null
+          ? (normalized.br.roomTemplates?.[player.roomId] ?? player?.map ?? 0)
+          : (player?.map ?? 0)
         if (mapIdRef.current !== nextMapId) {
           mapIdRef.current = nextMapId
           loadMapData(nextMapId)
@@ -172,6 +188,14 @@ export default function GameClientPage() {
       supabase.removeChannel(channel)
     }
   }, [loadMapData, roomId, user])
+
+  // Phase 30 BR：本地秒级时钟 tick（仅 BR 模式开，驱动大时钟倒计时 + 扇区即时着色；
+  //   chamber 模式不开，避免无谓 1s 重渲染）。
+  useEffect(() => {
+    if (!gamevars?.br?.enabled) return undefined
+    const id = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [gamevars?.br?.enabled])
 
   const meBase = useMemo(() => gamevars?.players?.[user?.id] || null, [gamevars, user?.id])
   const equipped = useMemo(() => equipments.filter(item => item.is_equipped), [equipments])
@@ -251,23 +275,140 @@ export default function GameClientPage() {
     return opts
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raidPath, currentChamberIdx, currentChamber?.exitCount, myDecodedIds])
+  // ════════════════════════════════════════════════════════════════════
+  // Phase 30 BR — 100 房网格 + 大时钟派生（仅 gamevars.br.enabled 时有意义）
+  //   契约 stateShape：客户端从 room + gamevars.br 派生 brClock/brGrid/myRoom/movable，
+  //   不新增 fetch 端点、不下发 seed（closePhases 已是公开禁区表）。
+  // ════════════════════════════════════════════════════════════════════
+  const br = gamevars?.br || null
+  const brEnabled = br?.enabled === true
+  // 我的当前房（BR）
+  const myRoomId = brEnabled ? (meBase?.roomId ?? null) : null
+
+  // 大时钟（本地推算，server started_at 为锚点；nowMs 每秒 tick 细化倒计时）
+  const brClock = useMemo(() => {
+    if (!brEnabled) return null
+    return computeLocalClock({
+      startedAtMs: room?.started_at ? Date.parse(room.started_at) : null,
+      phaseSeconds: br?.phaseSeconds,
+      maxPhase: br?.maxPhase,
+      status: room?.gamestate === 1 ? 'active' : room?.gamestate === 2 ? 'ended' : 'lobby',
+    }, nowMs)
+  }, [brEnabled, room?.started_at, room?.gamestate, br?.phaseSeconds, br?.maxPhase, nowMs])
+
+  const brWarnSecs = useMemo(() => warnWindowSeconds(br?.phaseSeconds), [br?.phaseSeconds])
+
+  // brGrid：每房显示态数据（静态拓扑 br.rooms + 派生 closePhase/lootTier/templateId）
+  //   br.rooms（契约 stateShape 选项A）：[{ roomId, label, region, gridX, gridY, neighborIds }]
+  //   br.closePhases：{ [roomId]: closePhase 1..5 }（per-raid seed 派生，公开）
+  const brGrid = useMemo(() => {
+    if (!brEnabled) return []
+    const rooms = Array.isArray(br?.rooms) ? br.rooms : []
+    const closePhases = br?.closePhases || {}
+    const realPhase = brClock?.realPhase ?? 0
+    return rooms.map(r => ({
+      ...r,
+      closePhase: Number.isFinite(closePhases[r.roomId]) ? closePhases[r.roomId] : 5,
+      lootTier: Math.max(1, Math.min(5, realPhase + 1)),
+      templateId: br?.roomTemplates?.[r.roomId] ?? null,
+    }))
+  }, [brEnabled, br?.rooms, br?.closePhases, br?.roomTemplates, brClock?.realPhase])
+
+  // 网格按 gridX/gridY 摆位（10×10）
+  const brCellByXY = useMemo(() => {
+    const m = new Map()
+    for (const r of brGrid) m.set(`${r.gridX},${r.gridY}`, r)
+    return m
+  }, [brGrid])
+
+  // 每格是否有玩家（按 roomId 聚合存活玩家）
+  const brRoomHasPlayer = useMemo(() => {
+    const s = new Set()
+    if (!brEnabled) return s
+    for (const p of allPlayers) {
+      if (p.roomId != null && p.alive !== false) s.add(p.roomId)
+    }
+    return s
+  }, [brEnabled, allPlayers])
+
+  const brMyRoom = useMemo(
+    () => (myRoomId != null ? brGrid.find(r => r.roomId === myRoomId) : null),
+    [brGrid, myRoomId],
+  )
+
+  // 本地时钟驱动的扇区显示态（注入 BrGridPanel）
+  const brComputeCellState = useCallback(
+    (rm) => cellStateFor(rm, brClock?.realPhase ?? 0, brClock?.secondsToNextPhase ?? null, brWarnSecs),
+    [brClock?.realPhase, brClock?.secondsToNextPhase, brWarnSecs],
+  )
+
+  // 可移动目标集合（前端预判高亮；服务端 moveToRoom 再权威校验）：
+  //   myRoom.neighborIds 中本地态非 forbidden 的房（预警仍可移入）。
+  const canActBr = brEnabled && !!meBase && me?.alive && !meBase?.extracted && room?.gamestate === 1
+  const brMovableRoomIds = useMemo(() => {
+    const s = new Set()
+    if (!canActBr || !brMyRoom || !Array.isArray(brMyRoom.neighborIds)) return s
+    const byId = new Map(brGrid.map(r => [r.roomId, r]))
+    for (const nid of brMyRoom.neighborIds) {
+      const rm = byId.get(nid)
+      if (!rm) continue
+      if (brComputeCellState(rm) !== 'forbidden') s.add(nid)
+    }
+    return s
+  }, [canActBr, brMyRoom, brGrid, brComputeCellState])
+
+  // BR 扇区计数（本地态瞬时推算）
+  const brZoneCounts = useMemo(() => {
+    if (!brEnabled) return { open: 0, warning: 0, forbidden: 0 }
+    let forbidden = 0
+    let warning = 0
+    for (const r of brGrid) {
+      const st = brComputeCellState(r)
+      if (st === 'forbidden') forbidden++
+      else if (st === 'warning') warning++
+    }
+    return { open: brGrid.length - forbidden, warning, forbidden }
+  }, [brEnabled, brGrid, brComputeCellState])
+
+  const brIsFinalPhase = brEnabled && (brClock?.realPhase ?? 0) >= (br?.maxPhase ?? 4) && room?.gamestate === 1
+
   const inGame = !!meBase
-  // Phase 19.7: 用 currentChamber 替代 mapConfig（保留 mapConfig 变量名兼容旧引用）
+  // Phase 30 BR：当前房模板 id（roomTemplates[myRoomId]，与 meBase.map 镜像）+ templateMeta 行
+  const brCurrentTemplateId = brEnabled && myRoomId != null
+    ? (br?.roomTemplates?.[myRoomId] ?? meBase?.map ?? null)
+    : null
+  const brTemplateMeta = brCurrentTemplateId != null ? (br?.templateMeta?.[brCurrentTemplateId] || null) : null
+  // Phase 19.7: 用 currentChamber 替代 mapConfig（保留 mapConfig 变量名兼容旧引用）。
+  // Phase 30 BR：currentChamber 为空（raidPath 空），改从 br.templateMeta[当前房模板] 派生 mapConfig，
+  //   驱动头部区域名 / 区域评估 is_exit / 「结构退避」撤离消耗。字段名对齐旧 chamber（snake_case）。
   const effectiveMapConfig = currentChamber ? {
     name: currentChamber.name,
     description: currentChamber.description,
     is_exit: currentChamber.isExit,
     exit_cost: currentChamber.exitCost,
     adjacent_maps: [], // 新模型无邻接
+  } : brTemplateMeta ? {
+    name: brMyRoom?.label ? `${brTemplateMeta.name}（${brMyRoom.label}）` : (brTemplateMeta.name || `扇区 ${myRoomId}`),
+    description: brTemplateMeta.description || '',
+    is_exit: brTemplateMeta.is_exit ?? brTemplateMeta.isExit ?? false,
+    exit_cost: brTemplateMeta.exit_cost ?? brTemplateMeta.exitCost ?? null,
+    adjacent_maps: [],
   } : mapConfig
   const aliveCount = room?.alivenum ?? allPlayers.filter(player => player.alive).length
   const currentMapCorpseCount = useMemo(
     () => (gamevars?.corpses || []).filter(corpse => corpse.mapId === (meBase?.map ?? 0)).length,
     [gamevars?.corpses, meBase?.map],
   )
+  // Phase 30 BR：『同房』判定改用 roomId（不同 roomId 可能采样到同 templateId → 同 map 不等于同房，
+  //   避免跨房误伤）；旧 chamber 模式仍用 player.map。
   const pvpTargets = useMemo(
-    () => allPlayers.filter(player => (player.id || player.uid) !== user?.id && player.alive && (player.map ?? 0) === (meBase?.map ?? 0)),
-    [allPlayers, meBase?.map, user?.id],
+    () => allPlayers.filter(player => {
+      if ((player.id || player.uid) === user?.id || !player.alive) return false
+      return brEnabled
+        ? (player.roomId ?? null) === (meBase?.roomId ?? null) && meBase?.roomId != null
+        : (player.map ?? 0) === (meBase?.map ?? 0)
+    }),
+    [allPlayers, brEnabled, meBase?.map, meBase?.roomId, user?.id],
   )
 
   // Phase 18.5: 区域评估 — 战斗强度 + 撤离成功率
@@ -318,7 +459,7 @@ export default function GameClientPage() {
     }
     return { combatTier, combatLabel, combatColor, npcCount: liveNpcs.length, totalHp, extractTier, extractLabel, extractColor, extractRate }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gamevars?.npcInstances, meBase?.map, meBase?.hp, meBase?.maxHp, meBase?.inventory, mapConfig])
+  }, [gamevars?.npcInstances, meBase?.map, meBase?.roomId, meBase?.hp, meBase?.maxHp, meBase?.inventory, mapConfig])
 
   // Phase 16: PvP 被攻击 toast — 检测 lastPvpHit.seq 变化
   const lastPvpSeqRef = useRef(0)
@@ -622,6 +763,7 @@ export default function GameClientPage() {
           100% { transform: scaleX(1);    opacity: .55 }
         }
         .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
+        @keyframes brPulse{0%,100%{opacity:1}50%{opacity:.45}}
       `}</style>
 
       {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒） */}
@@ -712,8 +854,9 @@ export default function GameClientPage() {
             envP={gamevars?.envPollution || 0}
             personalP={meBase?.personalPollution || 0}
           />
-          {/* Ω 倒计时 — 分层预警（research-2026-05-27-v2 P0） */}
-          <OmegaCountdown value={meBase?.omegaCountdown} />
+          {/* Ω 倒计时 — 分层预警（research-2026-05-27-v2 P0）。
+              Phase 30 BR：大时钟成为唯一时间压力，Ω 倒计时 dormant 不渲染（与大时钟 HUD 不冲突）。 */}
+          {!brEnabled && <OmegaCountdown value={meBase?.omegaCountdown} />}
 
           <span style={{ color: room.gamestate === 2 ? T.yellow : T.green, fontWeight: 700 }}>
             {room.gamestate === 2
@@ -1290,6 +1433,104 @@ export default function GameClientPage() {
           </div>
         </div>
 
+        {brEnabled ? (
+          /* ════════════════════════════════════════════════════════════════
+             Phase 30 BR：替换「路径前进 / 下一段 A-B / chamber」移动面板为
+             100 房网格 + 大时钟 HUD。点相邻开放房 → runGameAction('move',{toRoomId})
+             走现有 action 通道（dispatcher 已加 BR move 分支 → moveToRoom）。
+             ════════════════════════════════════════════════════════════════ */
+          <div style={{ borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
+            <PanelTitle right={
+              <span style={{ fontSize: 10, color: T.dim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                {brMyRoom?.label || (myRoomId != null ? `#${myRoomId}` : '—')}
+              </span>
+            }>🕒 时空收缩 · 扇区图</PanelTitle>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* 大时钟 HUD */}
+              <BrClockHud
+                realPhase={brClock?.realPhase ?? 0}
+                maxPhase={br?.maxPhase ?? 4}
+                secondsToNextPhase={brClock?.secondsToNextPhase ?? null}
+                status={room.gamestate === 1 ? 'active' : room.gamestate === 2 ? 'ended' : 'lobby'}
+                isFinalPhase={brIsFinalPhase}
+                warnSecs={brWarnSecs}
+                openCount={brZoneCounts.open}
+                warningCount={brZoneCounts.warning}
+                forbiddenCount={brZoneCounts.forbidden}
+                aliveCount={aliveCount}
+                playerCount={allPlayers.length}
+              />
+
+              {/* 100 房网格（点相邻开放房移动）*/}
+              <BrGridPanel
+                cellByXY={brCellByXY}
+                realPhase={brClock?.realPhase ?? 0}
+                computeCellState={brComputeCellState}
+                movableRoomIds={brMovableRoomIds}
+                roomHasPlayer={brRoomHasPlayer}
+                myRoomId={myRoomId}
+                onMove={(toRoomId) => {
+                  if (toRoomId == null || !canActBr || busy) return
+                  runGameAction('move', { toRoomId })
+                }}
+              />
+
+              {/* 我的扇区 + 移动提示 */}
+              <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: T.dim }}>所在扇区</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: T.cyan, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                    {brMyRoom?.label || (myRoomId != null ? `#${myRoomId}` : '—')}
+                  </span>
+                </div>
+                {brMyRoom && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: T.dim }}>区段</span>
+                    <span style={{ fontSize: 11, color: T.text }}>{brMyRoom.region || '—'}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: T.dim }}>扇区状态</span>
+                  {brMyRoom ? (() => {
+                    const st = brComputeCellState(brMyRoom)
+                    return (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: st === 'forbidden' ? T.red : st === 'warning' ? T.yellow : T.green }}>
+                        {st === 'forbidden' ? '禁区' : st === 'warning' ? `预警 · T${brMyRoom.lootTier}` : `开放 · T${brMyRoom.lootTier}`}
+                      </span>
+                    )
+                  })() : (
+                    <span style={{ fontSize: 11, color: T.dim }}>—</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 10, color: T.dim2, marginTop: 8, lineHeight: 1.5 }}>
+                  {!canActBr
+                    ? !me?.alive
+                      ? '已阵亡，无法移动。'
+                      : meBase?.extracted
+                        ? '已撤离，结构态锁定。'
+                        : room.gamestate !== 1
+                          ? '对局未进行中。'
+                          : '等待进入对局…'
+                    : '点击网格中虚线高亮的相邻开放扇区即可移动。「搜索区域」搜当前扇区。'}
+                </div>
+              </div>
+
+              {/* 物理态 / 事件流：若已折叠进 gamevars.br.roomState 则展示（本期最小实现可无）*/}
+              {Array.isArray(br?.events) && br.events.length > 0 && (
+                <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
+                  <PanelTitle right={<span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{br.events.length}</span>}>📡 扇区动态</PanelTitle>
+                  <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                    {br.events.slice(-30).reverse().map((ev, i) => (
+                      <div key={ev.id || i} style={{ padding: '6px 12px', borderBottom: `1px solid ${T.border}`, fontSize: 11, color: T.dimB, lineHeight: 1.4 }}>
+                        {ev.text || `${ev.type || '事件'} · ${ev.roomLabel || (ev.roomId != null ? `#${ev.roomId}` : '')}`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
         <div style={{ borderLeft: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
           <PanelTitle right={
             raidPath.length > 0 ? (
@@ -1370,6 +1611,7 @@ export default function GameClientPage() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   )
