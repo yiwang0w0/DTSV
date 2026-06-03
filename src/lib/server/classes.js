@@ -15,12 +15,30 @@ import { getBalances, debitPoints } from './points'
 export const PERK_WHITELIST = [
   'search_bonus',         // 搜索成功率 +
   'pollution_resist',     // 个人污染累积 ×(1-x)（负值则加快）
-  'combat_dmg_mult',      // 玩家伤害 ×(1+x)
-  'combat_def_mult',      // 玩家防御 ×(1+x)
+  'combat_dmg_mult',      // 战斗伤害 ×(1+x)（玩家 & NPC 同公式 classMult）
+  'combat_def_mult',      // 战斗防御 ×(1+x)（玩家 & NPC 同公式 classMult）
+  'combat_hp_mult',       // 战斗生命 ×(1+x)（Phase 37 新增 classMult 分量；旧数据无此 key → 因子 1）
   'omega_window_bonus',   // Ω-段倒计时 +N 回合
   'fragment_drop_bonus',  // 残片掉率 +N（绝对加值）
   'catalog_unlock_tag',   // 解锁 shop_catalog.required_class_ids 含 self 的条目
 ]
+
+/**
+ * Phase 37 — 按白名单过滤一份 perks（admin 编辑/运行时只接受这些 key）。
+ * applyClassToPlayer 内联此逻辑；NPC 职业解析（gameActions.resolveNpcCombatProfile）
+ * 复用此 helper，保证玩家 / NPC 的 perks 口径完全一致（同公式 classMult）。
+ *
+ * @param {object} raw 原始 perks（classes.perks，可空）
+ * @returns {object} 仅含白名单 key 且值非 null/undefined 的浅拷贝
+ */
+export function filterPerks(raw) {
+  const out = {}
+  const src = raw || {}
+  for (const key of PERK_WHITELIST) {
+    if (src[key] !== undefined && src[key] !== null) out[key] = src[key]
+  }
+  return out
+}
 
 const LEGENDARY_NATURAL_CHANCE = 0.10 // 10% 自然 roll 出 legendary 候选
 
@@ -136,11 +154,7 @@ export async function commitClassChoice(client, userId, roomId, classId, usedHig
  */
 export function applyClassToPlayer(player, classObj) {
   if (!classObj) return player
-  const perks = {}
-  const raw = classObj.perks || {}
-  for (const key of PERK_WHITELIST) {
-    if (raw[key] !== undefined && raw[key] !== null) perks[key] = raw[key]
-  }
+  const perks = filterPerks(classObj.perks)
   return {
     ...player,
     atk: (player.atk || 0) + (Number(classObj.base_atk_bonus) || 0),

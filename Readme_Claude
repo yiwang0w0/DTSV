@@ -3,6 +3,23 @@
 更新时间：2026-06-03（Asia/Tokyo） · 全界面走查审计 + 前台虚拟空间化（Phase 36 名词反割裂）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
+## 最近变更（2026-06-04 / Phase 37 — 玩家/NPC 统一战斗·阶段A）— base × 职业乘区 × 装备乘区 + NPC 同构
+
+> 用户：「敌人机制有问题——NPC 不该配死的 atk/def；玩家和 NPC 面板应一致（同职业/装备/物品槽），攻击力=基础值×职业乘区×装备乘区，所有模板这样设计」+ 实体页改敌人投放 + chamber 还有必要吗。
+> 调研 3 agent（chamber 必要性/战斗属性/NPC 模型）。决策(AskUQ)：chamber **分两步退役**、**全游戏数值重排**、敌人投放**平行系统**。北极星 `docs/unified-combat-npc-design.md`。4 阶段：**A 统一引擎(本次)** · B 敌人投放 · C 数值重排(用户主导) · D chamber 退役。
+
+**阶段A 统一战斗引擎（Workflow 5 agent · 迁移期平衡中性）**：玩家=NPC=探针 走同一 `computeCombatStats`：`stat = round((base + classAdd + equipAdd) × (1+classMult) × (1+equipMult))`。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/combatStats.js`(新) | 纯函数 computeCombatStats（统一公式·5 组分量缺省→中性·无 DB·原生可导入） |
+| `gameActions.js` | buildCombatPlayer 改薄适配器（玩家 _classAdd=0 已 baked·_equipMult 读 *_pct）+ 新 buildCombatNpc + resolveNpcCombatProfile（spawn 解析 class/loadout→分量·确定性）+ NPC combat 调用点走统一引擎 + **修死掉落**（createNpcCorpse 读 item_slots+loadout）+ 探针走统一引擎 |
+| `roomState.js`·`classes.js` | normalizeNpcInstance 镜像字段；classes perks 白名单 + combat_hp_mult |
+| `scripts/phase-37`(已部署) | equipment_tiers +atk_pct/def_pct/hp_pct(DEF 0)；npc_pool +class_id/loadout_tiers/item_slots/accuracy/counter_rate(补缺列·DEF=旧回落值) |
+| `NpcsTab.jsx` | 加 class_id 下拉 + 4 装备槽(probe/shield/weapon/comm) + 物品槽 repeater |
+
+**平衡中性（已双证）**：新列默认时 computeCombatStats 逐值==旧 buildCombatPlayer（node 实测）；DB 实测 10 NPC 全中性（loadout={}/items=[]/class=null/acc=0.85/cr=0.3）、装备 *_pct 全 0。**修掉 2 bug**：NPC 死掉落（读不存在的 drop_items）、accuracy/counter_rate 缺列。**1 个预期行为变化**：探针 combat 纳入 calcDamage 后获暴击（此前确定式）。数值真正重排留 Phase C（用户主导）。next lint ✔。主代理亲审 combatStats + 集成 + 部署验证。
+
 ## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
 
 > 用户：制作地图编辑器(编辑房间名·未来 30-40 房) + 房间物品投放表(联动装备) + 后台整理。决策(AskUQ)：一步到位 30-40 / 越晚越肥 / 房间库存一次性 / 全面整理。

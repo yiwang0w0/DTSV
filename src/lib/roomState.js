@@ -99,6 +99,18 @@ export function normalizeNpcInstance(inst) {
     maxHp:     Number.isFinite(inst.maxHp) ? inst.maxHp : (inst.npc?.hp || 1),
     mapId:     inst.mapId ?? 0,
     createdAt: inst.createdAt || new Date().toISOString(),
+    // ── Phase 37: 镜像玩家槽位（统一战斗引擎）──
+    //   全部带默认 → 旧存档 / realtime 往返向后兼容；class/loadout 未解析时全中性
+    //   （_classAdd/_equipAdd/_equipMult 全 {0,0,0} + classPerks {}），buildCombatNpc
+    //   输出逐值 == 旧裸 npc.atk/def/hp（平衡中性）。spawn 时由 resolveNpcCombatProfile 填实值。
+    classId:    inst.classId ?? inst.npc?.class_id ?? null,
+    classPerks: inst.classPerks && typeof inst.classPerks === 'object' ? inst.classPerks : {},
+    loadout:    inst.loadout && typeof inst.loadout === 'object' ? inst.loadout : (inst.npc?.loadout_tiers || {}),
+    inventory:  Array.isArray(inst.inventory) ? inst.inventory : (Array.isArray(inst.npc?.item_slots) ? inst.npc.item_slots : []),
+    _classAdd:  inst._classAdd && typeof inst._classAdd === 'object' ? inst._classAdd : { atk: 0, def: 0, hp: 0 },
+    _equipAdd:  inst._equipAdd && typeof inst._equipAdd === 'object' ? inst._equipAdd : { atk: 0, def: 0, hp: 0 },
+    _equipMult: inst._equipMult && typeof inst._equipMult === 'object' ? inst._equipMult : { atk: 0, def: 0, hp: 0 },
+    _pass:      Array.isArray(inst._pass) ? inst._pass : [],
   }
 }
 

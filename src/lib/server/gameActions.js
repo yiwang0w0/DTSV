@@ -25,11 +25,12 @@ import {
   rollbackCraftSideEffects,
   triggerPassives,
 } from '@/lib/equipmentEngine'
+import { computeCombatStats } from '@/lib/combatStats'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, POINT_LABEL } from '@/lib/server/points'
 import { purchaseFromCatalog } from '@/lib/server/shop'
-import { commitClassChoice, applyClassToPlayer } from '@/lib/server/classes'
+import { commitClassChoice, applyClassToPlayer, filterPerks } from '@/lib/server/classes'
 import { resolvePortraitUrl } from '@/lib/server/portraits'
 import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
@@ -366,23 +367,144 @@ function groupEquipsByOwner(instances) {
   }, {})
 }
 
+/**
+ * Phase 37 — 聚合一组已装备实例的乘区百分比（equipMult 分量）。
+ *   tier.atk_pct/def_pct/hp_pct 之和（0.2=+20%）。新装备列默认 0 → 现有装备返回 {0,0,0}。
+ */
+function sumEquipMult(instances = []) {
+  return instances.reduce((a, i) => {
+    const t = i.tier || {}
+    return {
+      atk: a.atk + (Number(t.atk_pct) || 0),
+      def: a.def + (Number(t.def_pct) || 0),
+      hp:  a.hp  + (Number(t.hp_pct)  || 0),
+    }
+  }, { atk: 0, def: 0, hp: 0 })
+}
+
+/**
+ * Phase 37 — 玩家战斗实体：薄适配器，委托统一引擎 computeCombatStats。
+ *   职业 flat 已被 applyClassToPlayer baked 进 basePlayer.atk/def/maxHp → _classAdd={0,0,0}
+ *   避免双计（铁律）。装备加法走 calcEquippedStats，装备乘区走 sumEquipMult。
+ *
+ * 平衡中性：新装备列默认 *_pct=0 → equipMult 因子全 1；玩家无 combat_hp_mult → classMultHp=1；
+ *   代入公式后 atk/def/maxHp/hp 逐值 == 旧 buildCombatPlayer（见 combatStats.js 文件头证明）。
+ */
 function buildCombatPlayer(basePlayer, instances = []) {
   if (!basePlayer) return null
   const equipped = calcEquippedStats(instances)
-  const maxHp = (basePlayer.maxHp || 100) + (equipped.totalHp || 0)
-  // Phase 24c: 应用职业 perks combat_dmg_mult / combat_def_mult
-  const dmgMult = 1 + (Number(basePlayer.classPerks?.combat_dmg_mult) || 0)
-  const defMult = 1 + (Number(basePlayer.classPerks?.combat_def_mult) || 0)
-  const baseAtk = (basePlayer.atk || 0) + equipped.totalAtk
-  const baseDef = (basePlayer.def || 0) + equipped.totalDef
-  return {
+  return computeCombatStats({
     ...basePlayer,
-    hp: Math.min(basePlayer.hp || 0, maxHp),
-    maxHp,
-    atk: Math.round(baseAtk * dmgMult),
-    def: Math.round(baseDef * defMult),
+    maxHp: basePlayer.maxHp || 100,                                   // 默认 100 与旧式一致
+    _classAdd: { atk: 0, def: 0, hp: 0 },                            // 已 baked → 0（避免双计）
+    _equipAdd: { atk: equipped.totalAtk, def: equipped.totalDef, hp: equipped.totalHp },
+    _equipMult: sumEquipMult(instances),
+    classPerks: basePlayer.classPerks || {},
     _pass: instances.map(instance => instance.tier?.passive).filter(Boolean),
+  })
+}
+
+/**
+ * Phase 37 — NPC 战斗实体：镜像 buildCombatPlayer，走同一统一引擎。
+ *   base ← npc_pool.atk/def/hp（hp 用实例镜像的 maxHp）；分量从实例已解析字段读
+ *   （resolveNpcCombatProfile 在 spawn 时填 _classAdd/_equipAdd/_equipMult/classPerks/_pass）。
+ *
+ * 平衡中性：NPC class_id=null / loadout 空 → 全分量 {0,0,0} + perks={} →
+ *   atk=npc.atk、def=npc.def、maxHp=instance.maxHp(=npc.hp) 逐值 == 旧裸 {...npc, hp, maxHp}。
+ *
+ * @param {object} instance normalizeNpcInstance 产物（含 npc 快照 + 镜像分量字段）
+ * @param {number} [hpOverride] 当前血覆盖（反击时传攻击后的实例 HP）
+ */
+function buildCombatNpc(instance, hpOverride) {
+  const npc = instance.npc || {}
+  const curHp = hpOverride != null ? hpOverride : instance.hp
+  return computeCombatStats({
+    ...npc,                                          // 透传 npc 行（name/level/accuracy/counter_rate/...）
+    atk:   Number(npc.atk) || 0,                     // base ← npc_pool.atk
+    def:   Number(npc.def) || 0,                     // base ← npc_pool.def
+    maxHp: instance.maxHp,                           // base ← npc_pool.hp（实例已镜像）
+    hp:    curHp,
+    _classAdd:  instance._classAdd  || { atk: 0, def: 0, hp: 0 },
+    _equipAdd:  instance._equipAdd  || { atk: 0, def: 0, hp: 0 },
+    _equipMult: instance._equipMult || { atk: 0, def: 0, hp: 0 },
+    classPerks: instance.classPerks || {},
+    _pass:      instance._pass || [],
+  })
+}
+
+/**
+ * Phase 37 — 批量解析 NPC 战斗 profile（确定性·全 DB join·无随机）。
+ *   对每条 npc 行的 class_id / loadout_tiers 一次性批量查 classes / equipment_tiers，
+ *   算出 _classAdd（职业 flat）、classPerks（白名单过滤 perks）、_equipAdd（已装备 tier 加法）、
+ *   _equipMult（已装备 tier 百分比）、_pass（装备被动列表）。返回 { [npcId]: profile }。
+ *
+ *   NPC 装备以"快照"方式存在：loadout_tiers 只是 tierId，不铸实例 → 传伪实例 [{tier}]
+ *   给 calcEquippedStats（其只读 inst.tier）。bonus_atk/def 视作 0（NPC 装备无强化）。
+ *
+ * 红线 ③：纯查询，无 Math.random，确定性。
+ *
+ * @returns {Promise<Record<number, {_classAdd, classPerks, _equipAdd, _equipMult, _pass}>>}
+ */
+async function resolveNpcCombatProfile(client, npcRows = []) {
+  const rows = (npcRows || []).filter(Boolean)
+  if (!rows.length) return {}
+
+  const LOADOUT_SLOT_KEYS = ['probe', 'shield', 'weapon', 'comm']
+
+  // 收集所有非空 tierId / class_id（去重）
+  const tierIdSet = new Set()
+  const classIdSet = new Set()
+  for (const npc of rows) {
+    const lo = npc.loadout_tiers && typeof npc.loadout_tiers === 'object' ? npc.loadout_tiers : {}
+    for (const slot of LOADOUT_SLOT_KEYS) {
+      if (lo[slot] != null) tierIdSet.add(lo[slot])
+    }
+    if (npc.class_id != null) classIdSet.add(npc.class_id)
   }
+
+  // 一次性批量查 tier（带 passive + series.slot，复用既有 join 形状）与 class
+  const [tierRes, classRes] = await Promise.all([
+    tierIdSet.size
+      ? client.from('equipment_tiers')
+          .select('*, passive:passive_skills(*), series:equipment_series(slot,name)')
+          .in('id', [...tierIdSet])
+      : Promise.resolve({ data: [] }),
+    classIdSet.size
+      ? client.from('classes')
+          .select('id, base_atk_bonus, base_def_bonus, base_hp_bonus, perks')
+          .in('id', [...classIdSet])
+      : Promise.resolve({ data: [] }),
+  ])
+  if (tierRes.error) console.error('[resolveNpcCombatProfile] equipment_tiers 查询失败:', tierRes.error.message)
+  if (classRes.error) console.error('[resolveNpcCombatProfile] classes 查询失败:', classRes.error.message)
+
+  const tierMap = (tierRes.data || []).reduce((a, t) => { a[t.id] = t; return a }, {})
+  const classMap = (classRes.data || []).reduce((a, c) => { a[c.id] = c; return a }, {})
+
+  const out = {}
+  for (const npc of rows) {
+    const cls = npc.class_id != null ? classMap[npc.class_id] : null
+    const classAdd = cls
+      ? { atk: Number(cls.base_atk_bonus) || 0, def: Number(cls.base_def_bonus) || 0, hp: Number(cls.base_hp_bonus) || 0 }
+      : { atk: 0, def: 0, hp: 0 }
+    const classPerks = cls ? filterPerks(cls.perks) : {}
+
+    const lo = npc.loadout_tiers && typeof npc.loadout_tiers === 'object' ? npc.loadout_tiers : {}
+    const pseudoInstances = LOADOUT_SLOT_KEYS
+      .map(slot => tierMap[lo[slot]])
+      .filter(Boolean)
+      .map(tier => ({ tier, bonus_atk: 0, bonus_def: 0 }))   // NPC 装备无强化 → bonus 0
+    const equipped = calcEquippedStats(pseudoInstances)
+
+    out[npc.id] = {
+      _classAdd:  classAdd,
+      classPerks,
+      _equipAdd:  { atk: equipped.totalAtk, def: equipped.totalDef, hp: equipped.totalHp },
+      _equipMult: sumEquipMult(pseudoInstances),
+      _pass:      pseudoInstances.map(i => i.tier?.passive).filter(Boolean),
+    }
+  }
+  return out
 }
 
 async function settleCorpseGeneration(resolution) {
@@ -826,11 +948,35 @@ async function fetchNpcDropTierMap(client, names) {
   }, {})
 }
 
-async function createNpcCorpse(client, gamevars, npc, mapId) {
-  const tierMap = await fetchNpcDropTierMap(client, npc.drop_items || [])
-  const entries = (npc.drop_items || [])
-    .map(name => resolveNpcDropEntry(name, tierMap[name]))
+// Phase 37: 修死掉落 bug —— 改读 instance.inventory(item_slots) + instance.loadout(loadout_tiers)
+//   取代不存在的 npc.drop_items（旧代码读它永远 undefined → NPC 啥都不掉）。
+//   平衡中性：旧 NPC item_slots=[]/loadout={} → entries=[] 与现状一致；填了槽位才有掉落（= bug 修复）。
+async function createNpcCorpse(client, gamevars, instance, mapId) {
+  const npc = instance.npc || {}
+  const itemSlots = Array.isArray(instance.inventory) ? instance.inventory : []   // [{item, qty}]
+  const loadout = instance.loadout && typeof instance.loadout === 'object' ? instance.loadout : {} // {slot: tierId}
+
+  // (a) 物品掉落：item_slots 的 item 名按 qty 展开 → 复用 fetchNpcDropTierMap（按名 join tier；非 tier 当 item）
+  const itemNames = itemSlots
+    .flatMap(s => Array(Math.max(1, Number(s?.qty) || 1)).fill(s?.item))
     .filter(Boolean)
+  // (b) 装备掉落：loadout 的 tierId → 直接按 id fetch equipment_tiers
+  const tierIds = ['probe', 'shield', 'weapon', 'comm'].map(sl => loadout[sl]).filter(Boolean)
+
+  const [tierMapByName, tierMapById] = await Promise.all([
+    fetchNpcDropTierMap(client, itemNames),                                       // 现有（按 name）
+    tierIds.length
+      ? client.from('equipment_tiers')
+          .select('id, name, rarity, series:equipment_series(slot,name), durability_max')
+          .in('id', tierIds)
+          .then(({ data }) => (data || []).reduce((a, t) => { a[t.id] = t; return a }, {}))
+      : Promise.resolve({}),
+  ])
+
+  const entries = [
+    ...itemNames.map(name => resolveNpcDropEntry(name, tierMapByName[name])),     // 复用现有解析
+    ...tierIds.map(id => tierMapById[id] && resolveNpcDropEntry(tierMapById[id].name, tierMapById[id])),
+  ].filter(Boolean)
 
   const corpse = createCorpse({
     type: 'npc',
@@ -1072,7 +1218,11 @@ function findNpcInstance(gamevars, instanceId) {
 /** 抽 / 新建 NPC 实例（搜索遭遇时用）
  *  策略：60% 概率从同地图存活实例池抽，40% 概率新建（池为空必新建）
  */
-function pickOrSpawnNpcInstance(resolution, mapId, npcPool) {
+// Phase 37: 改 async 并接 client —— 仅在【新 spawn】时解析 NPC 战斗 profile
+//   （class/loadout → _classAdd/_equipAdd/_equipMult/classPerks/_pass），一次只解析 1 只，
+//   写进实例并随 gamevars 持久化，供后续 attackNpc 走统一引擎。
+//   红线 ⑦：reuse / 抽取的 Math.random 一概不改（Phase B 敌人投放才换），只让 spawn 出的实体带 profile。
+async function pickOrSpawnNpcInstance(client, resolution, mapId, npcPool) {
   const live = (resolution.gamevars.npcInstances || []).filter(i => i.mapId === mapId && i.hp > 0)
   const reuse = live.length > 0 && Math.random() < 0.6
   if (reuse) {
@@ -1083,12 +1233,28 @@ function pickOrSpawnNpcInstance(resolution, mapId, npcPool) {
     return null
   }
   const npc = npcPool[Math.floor(Math.random() * npcPool.length)]
+  // 确定性解析此 NPC 的战斗 profile（无随机；纯 DB join）。失败时回落空 → 走中性默认。
+  let profile = {}
+  try {
+    const resolved = await resolveNpcCombatProfile(client, [npc])
+    profile = resolved[npc.id] || {}
+  } catch (e) {
+    console.error('[pickOrSpawnNpcInstance] resolveNpcCombatProfile 失败:', e?.message)
+  }
   const instance = normalizeNpcInstance({
     npcId: npc.id,
     npc,
     hp: Number(npc.hp) || 1,
     maxHp: Number(npc.hp) || 1,
     mapId,
+    classId:    npc.class_id ?? null,
+    classPerks: profile.classPerks || {},
+    loadout:    npc.loadout_tiers || {},
+    inventory:  Array.isArray(npc.item_slots) ? npc.item_slots : [],
+    _classAdd:  profile._classAdd  || { atk: 0, def: 0, hp: 0 },
+    _equipAdd:  profile._equipAdd  || { atk: 0, def: 0, hp: 0 },
+    _equipMult: profile._equipMult || { atk: 0, def: 0, hp: 0 },
+    _pass:      profile._pass || [],
   })
   resolution.gamevars = {
     ...resolution.gamevars,
@@ -1204,7 +1370,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
     // ── Phase 16: 抽 / 新建 NPC 实例（HP 跨袭击持久化） ──
-    const picked = pickOrSpawnNpcInstance(resolution, mapId, bundle.npcPool)
+    const picked = await pickOrSpawnNpcInstance(client, resolution, mapId, bundle.npcPool)
     if (picked && picked.instance) {
       const inst = picked.instance
       if (picked.spawned) {
@@ -1452,7 +1618,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   if (playerHit) {
     const damageRaw = calcDamage(
       me,
-      { ...instance.npc, hp: instance.hp, maxHp: instance.maxHp },
+      buildCombatNpc(instance),                       // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
       rules,
       weapon?.tier?.sub_kind || '',
     )
@@ -1504,7 +1670,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     setResolutionPlayer(resolution, user.id, resolvedPlayer)
 
     // 尸体 + 战利品
-    const corpseResult = await createNpcCorpse(client, resolution.gamevars, instance.npc, player.map ?? 0)
+    const corpseResult = await createNpcCorpse(client, resolution.gamevars, instance, player.map ?? 0)
     resolution.gamevars = corpseResult.gamevars
     let lootPrompt = null
     if (corpseResult.corpse) {
@@ -1585,7 +1751,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       if (npcHit) {
         const cur = getResolutionPlayer(resolution, user.id)
         const damageIn = calcDamage(
-          { ...instance.npc, hp: instanceHpAfter, maxHp: instance.maxHp },
+          buildCombatNpc(instance, instanceHpAfter),   // Phase 37: NPC 反击 attacker 走统一引擎（当前 HP 覆盖）
           buildCombatPlayer(cur, myEquips),
           rules, '',
         )
@@ -2932,18 +3098,34 @@ async function actOnProbe(client, room, gamevars, user, action) {
 
   if (action !== 'attack') throw new Error('未知的探针动作')
 
-  // 攻击：单次结算 — 玩家攻击探针, 探针反击
-  const myAtk = player.atk || 10
-  const myDef = player.def || 8
-  const myHp = player.hp || 0
-  const probeDmgFromMe = Math.max(1, myAtk - Math.floor(probeEnc.def * 0.5))
+  // 攻击：单次结算 — 玩家攻击探针, 探针反击。
+  // Phase 37（红线 ⑥）：探针纳入统一引擎。
+  //   - 玩家侧用 buildCombatPlayer(player, myEquips)（此前内联裸 player.atk/def，未计装备/乘区）。
+  //   - 探针侧把 equipmentSnapshot 已聚合好的 atk/def/maxHp 当 base 过 computeCombatStats
+  //     （其余分量缺省→0 → 输出逐值 == 快照 atk/def，不重复加装备）。
+  //   - 双向走 calcDamage（与 PvE/PvP 同公式）。注意 calcDamage 含暴击随机 → 探针伤害数值会变
+  //     （此前是确定式 atk−floor(def×0.5)），这是把探针纳入统一引擎的预期后果（任务红线 ⑥ 明确要求）。
+  const [rules, probeEquippedInstances] = await Promise.all([
+    loadGameRules(client),
+    fetchEquippedInstances(client, room.id, [user.id]),
+  ])
+  const myEquips = groupEquipsByOwner(probeEquippedInstances)[user.id] || []
+  const me = buildCombatPlayer(player, myEquips)
+  const probeE = computeCombatStats({
+    atk: probeEnc.atk,
+    def: probeEnc.def,
+    maxHp: probeEnc.maxHp,
+    hp: probeEnc.hp,
+  })
+  const myHp = player.hp || 0   // HP 记账仍以玩家存储血为准（me.hp 仅供公式，不改存档语义）
+  const probeDmgFromMe = calcDamage(me, probeE, rules, '')
   const probeHpAfter = Math.max(0, probeEnc.hp - probeDmgFromMe)
   const probeKilled = probeHpAfter <= 0
 
   let myHpAfter = myHp
   let probeDmgToMe = 0
   if (!probeKilled) {
-    probeDmgToMe = Math.max(1, probeEnc.atk - Math.floor(myDef * 0.5))
+    probeDmgToMe = calcDamage(probeE, me, rules, '')
     myHpAfter = Math.max(0, myHp - probeDmgToMe)
   }
 
