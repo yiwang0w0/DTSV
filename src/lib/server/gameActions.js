@@ -63,8 +63,9 @@ import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STA
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
-import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE } from '@/lib/server/br/forbidden'
+import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE, hashSeed, mulberry32 } from '@/lib/server/br/forbidden'
 import { allocateRoomInventory, takeFromRoom, resolveRef } from '@/lib/server/br/roomItems'
+import { allocateRoomNpcs, takeNpcFromRoom } from '@/lib/server/br/npcPlacement'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -1215,31 +1216,20 @@ function findNpcInstance(gamevars, instanceId) {
   return inst && inst.hp > 0 ? inst : null
 }
 
-/** 抽 / 新建 NPC 实例（搜索遭遇时用）
- *  策略：60% 概率从同地图存活实例池抽，40% 概率新建（池为空必新建）
+/** 由一条 npc_pool 行铸新 NPC 实例并推进 gamevars.npcInstances（程序化 spawn 与 authored materialize 共用）。
+ *  Phase 37 字段构造（class/loadout → _classAdd/_equipAdd/_equipMult/classPerks/_pass · 确定性 DB join）。
+ *  唯一可变项是「npc 行从何而来」（pickOrSpawn 随机抽 / materializeAuthoredNpc 按 id fetch）—— 抽取在调用方完成，本函数只负责构造+落表。
+ *  mapId = 调用点传入（=currentChamber.templateId=roomTemplates[roomId]）→ 保 combat(buildCombatNpc) / corpse(createNpcCorpse) mapId 匹配。
  */
-// Phase 37: 改 async 并接 client —— 仅在【新 spawn】时解析 NPC 战斗 profile
-//   （class/loadout → _classAdd/_equipAdd/_equipMult/classPerks/_pass），一次只解析 1 只，
-//   写进实例并随 gamevars 持久化，供后续 attackNpc 走统一引擎。
-//   红线 ⑦：reuse / 抽取的 Math.random 一概不改（Phase B 敌人投放才换），只让 spawn 出的实体带 profile。
-async function pickOrSpawnNpcInstance(client, resolution, mapId, npcPool) {
-  const live = (resolution.gamevars.npcInstances || []).filter(i => i.mapId === mapId && i.hp > 0)
-  const reuse = live.length > 0 && Math.random() < 0.6
-  if (reuse) {
-    return { instance: live[Math.floor(Math.random() * live.length)], spawned: false }
-  }
-  if (!npcPool || npcPool.length === 0) {
-    if (live.length > 0) return { instance: live[Math.floor(Math.random() * live.length)], spawned: false }
-    return null
-  }
-  const npc = npcPool[Math.floor(Math.random() * npcPool.length)]
+async function spawnNpcInstanceFromRow(client, resolution, mapId, npc) {
+  if (!npc) return null
   // 确定性解析此 NPC 的战斗 profile（无随机；纯 DB join）。失败时回落空 → 走中性默认。
   let profile = {}
   try {
     const resolved = await resolveNpcCombatProfile(client, [npc])
     profile = resolved[npc.id] || {}
   } catch (e) {
-    console.error('[pickOrSpawnNpcInstance] resolveNpcCombatProfile 失败:', e?.message)
+    console.error('[spawnNpcInstanceFromRow] resolveNpcCombatProfile 失败:', e?.message)
   }
   const instance = normalizeNpcInstance({
     npcId: npc.id,
@@ -1261,6 +1251,44 @@ async function pickOrSpawnNpcInstance(client, resolution, mapId, npcPool) {
     npcInstances: [...(resolution.gamevars.npcInstances || []), instance],
   }
   return { instance, spawned: true }
+}
+
+/**
+ * Phase 38: 把 authored 投放取到的 npcId materialize 成战斗实例（与程序化 spawn 同形 { instance, spawned:true }）。
+ *   1) 按 npcId fetch npc_pool 行（无行 → return null → 调用方回落程序化 spawn）；
+ *   2) 复用 spawnNpcInstanceFromRow（Phase 37 profile + normalizeNpcInstance + 推 gamevars.npcInstances）。
+ *   与 pickOrSpawnNpcInstance 的唯一差异：npc 行来自【按 npcId fetch】而非随机抽 npcPool。
+ *   mapId 由调用点传入（保 combat/corpse 匹配，见 spawnNpcInstanceFromRow）。
+ */
+async function materializeAuthoredNpc(client, resolution, mapId, npcId) {
+  const { data: npc } = await client.from('npc_pool').select('*').eq('id', npcId).maybeSingle()
+  if (!npc) return null // 投放指向已删 NPC → 回落程序化 spawn
+  return spawnNpcInstanceFromRow(client, resolution, mapId, npc)
+}
+
+/** 抽 / 新建 NPC 实例（搜索遭遇时用）
+ *  策略：60% 概率从同地图存活实例池抽，40% 概率新建（池为空必新建）
+ */
+// Phase 37: 改 async 并接 client —— 仅在【新 spawn】时解析 NPC 战斗 profile（委托 spawnNpcInstanceFromRow）。
+// Phase 38: 原生非确定 Math.random 改种子确定性 RNG（seedHint）——回落路径（authored 取不到）仍走它，NPC 照常出现·零功能回归。
+//   det = mulberry32(hashSeed(seed,'npcspawn:'+roomId+':'+turn))；非 BR / 无 seed → 回退 Math.random（旧行为·向后兼容）。
+//   同一 turn 内多次搜可能复算同流 —— 可接受（reuse 概率语义·与道具一次性不同）。
+async function pickOrSpawnNpcInstance(client, resolution, mapId, npcPool, seedHint) {
+  // 种子确定性 RNG（替代 3 处 Math.random）：非 BR / 无 seed → 回退 Math.random（旧行为·向后兼容）
+  const det = (seedHint?.seed != null)
+    ? mulberry32(hashSeed(seedHint.seed, 'npcspawn:' + (seedHint.roomId ?? -1) + ':' + (seedHint.turn ?? 0)))
+    : Math.random
+  const live = (resolution.gamevars.npcInstances || []).filter(i => i.mapId === mapId && i.hp > 0)
+  const reuse = live.length > 0 && det() < 0.6
+  if (reuse) {
+    return { instance: live[Math.floor(det() * live.length)], spawned: false }
+  }
+  if (!npcPool || npcPool.length === 0) {
+    if (live.length > 0) return { instance: live[Math.floor(det() * live.length)], spawned: false }
+    return null
+  }
+  const npc = npcPool[Math.floor(det() * npcPool.length)]
+  return spawnNpcInstanceFromRow(client, resolution, mapId, npc)
 }
 
 /** 清掉玩家的 encounter（其他动作开始前调用 — 视为"放过"NPC） */
@@ -1369,8 +1397,32 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
-    // ── Phase 16: 抽 / 新建 NPC 实例（HP 跨袭击持久化） ──
-    const picked = await pickOrSpawnNpcInstance(client, resolution, mapId, bundle.npcPool)
+    // ── Phase 38: authored 敌人投放优先（roomNpcs materialize） — 先于程序化 spawn ──
+    //   红线：此块在 npcChance 门内（已过出现率/体力/roll 门），authored 命中仍受这一切约束·不旁路。
+    //   取到 npcId → materializeAuthoredNpc（fetch npc_pool + resolveNpcCombatProfile + normalizeNpcInstance·mapId=roomTemplates[roomId]） → 推 npcInstances → encounter。
+    //   取不到（无投放/未显形/已取完/fetch 失败） → 回落现有 pickOrSpawnNpcInstance（程序化·种子确定性化）。
+    let picked = null
+    const brBlk = resolution.gamevars?.br
+    if (brBlk?.enabled && player.roomId != null && brBlk.roomNpcs) {
+      const effPhase = getBrEffectivePhase(room, resolution.gamevars, polluted)
+      const npcId = takeNpcFromRoom(brBlk.roomNpcs, player.roomId, effPhase) // 就地标 taken（持久化进 gamevars.br.roomNpcs）
+      if (npcId != null) {
+        try {
+          picked = await materializeAuthoredNpc(client, resolution, mapId, npcId)
+        } catch (e) {
+          console.error('[searchArea] authored NPC materialize 失败（回落程序化）:', e?.message)
+          picked = null
+        }
+      }
+    }
+    // authored 取不到 → 回落现有程序化 spawn（NPC 仍照常出现·零功能回归；seedHint 让原生随机种子确定性化）
+    if (!picked) {
+      picked = await pickOrSpawnNpcInstance(client, resolution, mapId, bundle.npcPool, {
+        seed: brBlk?.seed,
+        roomId: player.roomId,
+        turn: resolution.gamevars?.turn,
+      })
+    }
     if (picked && picked.instance) {
       const inst = picked.instance
       if (picked.spawned) {
@@ -2300,6 +2352,23 @@ async function initBrRoomLayer(client, room, gamevars) {
       roomInvRefs = { items: [], tiers: [] }
     }
 
+    // ── Phase 38: 敌人投放分配（npc_placement_rules NPC 中心·全图分布 → roomNpcs 快照·确定性） ──
+    //   查两表（enabled 规则 + 候选房） → allocateRoomNpcs（同 seed+rules+ruleRooms → 同 roomNpcs，所有实例一致）。
+    //   失败降级空 roomNpcs（takeNpcFromRoom 全 miss → 回落程序化 spawn·零回归）。
+    let roomNpcs = {}
+    try {
+      const [{ data: npcRuleRows }, { data: npcRuleRoomRows }] = await Promise.all([
+        client.from('npc_placement_rules')
+          .select('id, npc_id, count_min, count_max, max_per_room, spawn_phase_min, exclusion_group')
+          .eq('enabled', true).order('id', { ascending: true }),
+        client.from('npc_placement_rule_rooms').select('rule_id, br_room_id, weight'),
+      ])
+      roomNpcs = allocateRoomNpcs(seed, roomIds, npcRuleRows || [], npcRuleRoomRows || [])
+    } catch (e) {
+      console.error('[joinRoom][BR] npc_placement_rules 分配失败（降级空·回落程序化）:', e?.message)
+      roomNpcs = {}
+    }
+
     // ⑥ slim br：rooms/adj/templateMeta 移出（getRaidLayout(seed) 派生），写 7 旧字段 + 5 新快照字段。
     //   新增 gridW/gridH/centerX/centerY（网格视图自适应）+ topoVersion（本局冻结拓扑版本，隔离在飞局被新编辑污染）。
     const br = {
@@ -2319,6 +2388,8 @@ async function initBrRoomLayer(client, room, gamevars) {
       // ── Phase 36: 房间投放快照（placement_rules 全图分布 → roomInv 取货层；格式同 Phase 34） ──
       roomInv,
       roomInvRefs,
+      // ── Phase 38: 敌人投放快照（npc_placement_rules 全图分布 → roomNpcs 遭遇 materialize 层） ──
+      roomNpcs,
     }
     console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} grid=${gridW}x${gridH} center=(${centerX},${centerY}) topoVer=${br.topoVersion} templates=${Object.keys(layout.templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
     return { br, startRoomId }

@@ -236,6 +236,9 @@ export function normalizeBrBlock(br) {
           tiers: Array.isArray(b.roomInvRefs.tiers) ? b.roomInvRefs.tiers : [],
         }
       : { items: [], tiers: [] },
+    // ── Phase 38: 敌人投放快照（authored npc_placement_rules → roomNpcs 遭遇 materialize 层）。
+    //   旧局/realtime 往返兜底空 → takeNpcFromRoom 全 null → 全程回落程序化 spawn（零回归）。──
+    roomNpcs: b.roomNpcs && typeof b.roomNpcs === 'object' ? b.roomNpcs : {},
     // rooms / adj / templateMeta 已移出（getRaidLayout(seed) 派生）：旧 fat 存档的这些字段在此被丢弃。
   }
 }

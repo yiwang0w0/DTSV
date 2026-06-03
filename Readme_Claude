@@ -20,6 +20,22 @@
 
 **平衡中性（已双证）**：新列默认时 computeCombatStats 逐值==旧 buildCombatPlayer（node 实测）；DB 实测 10 NPC 全中性（loadout={}/items=[]/class=null/acc=0.85/cr=0.3）、装备 *_pct 全 0。**修掉 2 bug**：NPC 死掉落（读不存在的 drop_items）、accuracy/counter_rate 缺列。**1 个预期行为变化**：探针 combat 纳入 calcDamage 后获暴击（此前确定式）。数值真正重排留 Phase C（用户主导）。next lint ✔。主代理亲审 combatStats + 集成 + 部署验证。
 
+### 阶段B 敌人投放（Phase 38 · Workflow 5 agent · 平行房间投放）
+
+> NPC 中心全图分布（像房间投放）+ **确定性实例化**（修掉 NPC spawn 的非确定随机 bug）。
+
+| 文件 | 改动 |
+|------|------|
+| `scripts/phase-38`(已部署) | npc_placement_rules(npc_id 单引用·count 区间·几禁·互斥组·3 CHECK·FK·触发器) + npc_placement_rule_rooms(候选房+权重·软引用·UNIQUE)；平行 phase-36 |
+| `src/lib/server/br/npcPlacement.js`(新) | allocateRoomNpcs(平行 allocateRoomInventory·复用 weightedSampleNoReplace/hashSeed·输出紧凑 roomNpcs {roomId:[[npcId,revealPhase]]}·GLOBAL_NPC_CAP=120) + takeNpcFromRoom(相位门+一次性) |
+| `gameActions.js` | initBrRoomLayer 查两表→allocateRoomNpcs→roomNpcs；遭遇 npcChance 门内 authored 优先 materialize（走 Phase A resolveNpcCombatProfile）→取不到回落 pickOrSpawnNpcInstance（**Math.random 改种子确定性** mulberry32(hashSeed(seed,'npcspawn:'+roomId+':'+turn))·非 BR 回退旧） |
+| `roomState.js`·`page.js` | normalizeBrBlock 带 roomNpcs(旧局兜底)；注册 👹 敌人投放 tab |
+| `NpcPlacementTab.jsx`(新) | 克隆房间投放·选 NPC 按名 + CandidateRoomPicker + 数量区间/几禁/互斥/候选不足警告/按房只读 |
+
+**验证（30 测试全过）**：分配确定性/保证铺够/权重/**互斥分散(负对照)**；遭遇 authored 优先(相位门·一次性)；**回落确定性**(修掉非确定随机·grep 无残留)；**NPC 仍照常出现**(无投放房靠回落)；gamevars 紧凑；mapId 保 combat/corpse 匹配；房间投放表不碰；next lint ✔。主代理亲审遭遇集成 + 部署验证。残留：corpse-drop entry ID 后缀仍 Math.random（纯唯一 ID·非选择路径·可接受）。
+
+## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
+
 ## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
 
 > 用户：制作地图编辑器(编辑房间名·未来 30-40 房) + 房间物品投放表(联动装备) + 后台整理。决策(AskUQ)：一步到位 30-40 / 越晚越肥 / 房间库存一次性 / 全面整理。
