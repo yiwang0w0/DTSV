@@ -1,26 +1,38 @@
 /**
- * roomItems.js — 虚拟空间BR「房间物品投放 / 库存状态」纯函数层（gamevars.br.roomInv · Phase 34）
+ * roomItems.js — 虚拟空间BR「房间物品投放 / 库存状态」纯函数层（gamevars.br.roomInv · Phase 34 → Phase 36）
  *
- * 设计契约 Phase 34：authored room_items（admin 在房里手摆的投放规则）→ 每局 init 时一次性按
- *   per-raid 确定性种子铺成 gamevars.br.roomInv 快照；搜索命中 loose-item 时优先从该快照取货
+ * 设计契约 Phase 36（道具为中心 · 全图分布，替代 Phase 34 每房独立概率模型）：
+ *   一条 placement_rule = 一件道具/装备 + 一组候选房（带权重）+ 数量区间 [count_min, count_max]
+ *   + 每房上限（本期固定 1）+ 几禁（spawn_phase_min）+ 互斥组（exclusion_group · 可空）+ 启用。
+ *   每局 init 时 allocateRoomInventory 一次性按 per-raid 确定性种子在「候选房集」上做加权无放回抽样，
+ *   把全图投放铺成 gamevars.br.roomInv 快照；搜索命中 loose-item 时优先从该快照取货
  *   （取到 → 发 authored 件并消耗本次搜索；取不到 → 回落现有 amount 权重程序化抽取，经济基线不破）。
  *
+ *   4 情形：①N选1（候选多·数量1）②N选K（数量K·每房1→K个不同房）③加权倾向（候选权重）
+ *           ④互斥（同组道具同房不共存·各自必去不同候选房·配置足够时两者都保证出现）。
+ *
  * ⚠️ 纯函数、无 DB、无副作用、可单测：
- *   - placeRoomInventory(seed, roomIds, rows) → { roomInv, roomInvRefs }（铺货·确定性）
+ *   - allocateRoomInventory(seed, roomIds, rules, ruleRooms) → { roomInv, roomInvRefs }（全图分配·确定性 · Phase 36）
+ *   - weightedSampleNoReplace(rng, items, k) → items 子集（确定性加权无放回抽样 · Phase 36）
+ *   - placeRoomInventory(seed, roomIds, rows) → { roomInv, roomInvRefs }（@deprecated · Phase 34 每房独立概率，保留供回退）
  *   - takeFromRoom(roomInv, roomId, effPhase) → 件|null（取货·就地标 taken）
  *   - resolveRef(roomInvRefs, kind, refIdx) → { itemName }|{ tierId }
  *
- * 确定性铁律：同 seed + 同 roomIds + 同 rows → 同 roomInv（所有实例算出一致），禁 Math.random。
- *   PRNG 与 forbidden.js 完全同源（xmur3 → hashSeed → mulberry32），不另起随机源。
+ * 确定性铁律：同 seed + 同输入（roomIds + rules + ruleRooms，各按确定序）→ 同 roomInv（所有实例算出一致），禁 Math.random。
+ *   PRNG 与 forbidden.js 完全同源（xmur3 → hashSeed → mulberry32），不另起随机源；每规则独立流
+ *   mulberry32(hashSeed(seed, 'placement:'+rule.id))（增删别的规则不扰动本规则分配）。
  *
  * 紧凑性（控 gamevars.br 增量 ≤ ~3KB）：
  *   - 仅「有投放生效」的房建 key（无货房不出现）。
  *   - 每件 = 定长 3 元组 [refIdx, kind, revealPhase]；取走后 push(1) 变长度 4（taken 标记最省字节）。
  *   - 去重 ref 表 roomInvRefs.{items,tiers}（全局共享索引空间），避免每件重复存长中文道具名 / 重复 tierId。
- *   - 每房件数硬封顶 ROOM_INV_CAP（防 admin 误配巨量 / 装备爆控）。
+ *   - 全局件数硬封顶 GLOBAL_INV_CAP（防病态配置撑爆；ROOM_INV_CAP 仍是 Phase 34 路径的 per-房阀）。
  *
- * 越晚越肥：件仅在 effPhase >= revealPhase（= room_items.spawn_phase_min）显形（takeFromRoom 门控 件[2] <= effPhase）。
+ * 越晚越肥：件仅在 effPhase >= revealPhase（= rule.spawn_phase_min）显形（takeFromRoom 门控 件[2] <= effPhase）。
  * 一次性库存：取走标 taken（件.push(1)）随 roomInv 持久化进 gamevars.br，不再生。
+ *
+ * roomInv/roomInvRefs 格式与 Phase 34 完全一致（[refIdx,kind,revealPhase]·intern ref·taken=push(1)）
+ *   → takeFromRoom/resolveRef/resolveSearchAction 取货链零改动。
  */
 
 import { hashSeed, mulberry32 } from '@/lib/server/br/forbidden'
@@ -71,6 +83,11 @@ function internRef(pool, value) {
 
 /**
  * placeRoomInventory(seed, roomIds, rows) — authored room_items → roomInv 确定性铺货。
+ *
+ * @deprecated Phase 36 — 被 allocateRoomInventory（道具中心·全图分布）取代；本函数实现 Phase 34
+ *   「每房独立概率」模型，运行期不再被调用（gameActions.initBrRoomLayer 已改调 allocateRoomInventory）。
+ *   保留不删：① 便于回退到 Phase 34 模型；② 既有单测/历史快照参照。输出格式与 allocateRoomInventory
+ *   字节级同构（[refIdx,kind,revealPhase]·intern ref），故 takeFromRoom/resolveRef 对两者通用。
  *
  * 逻辑（确定性、纯函数）：
  *   1. roomIdSet = Set(roomIds)；只对本局实际房集铺货 —— 孤儿 br_room_id 行（指向已删/不属本局的房）自然忽略
@@ -149,6 +166,154 @@ export function placeRoomInventory(seed, roomIds, rows) {
     }
 
     if (arr.length > 0) roomInv[roomId] = arr // 仅非空房建 key
+  }
+
+  return { roomInv, roomInvRefs: refs }
+}
+
+/**
+ * weightedSampleNoReplace(rng, items, k) — 确定性加权无放回抽样（Phase 36）。
+ *
+ * 从 items 抽 min(k, items.length) 个**不同**元素，按各元素 weight 倾斜（权重大者更易先被抽中），
+ * 抽中即从池中移除（无放回 → 不会重复抽同一元素）。全程用传入 rng，无内部随机源。
+ *
+ * 确定性铁律：同 rng 序 + 同 items（同序）→ 同结果。
+ *   ⇒ **调用方必须保证 items 已按确定序排列**（本期 allocateRoomInventory 按 br_room_id 升序）。
+ *
+ * 实现细节：
+ *   - pool = items.slice()（浅拷贝，不改入参）；逐轮按「剩余池总权重」做轮盘选择，命中后 splice 移除。
+ *   - 兜底 pick = pool.length-1：防浮点尾差使 r 略 ≥ Σweight 时落空（取末位，等价边界归并）。
+ *   - total <= 0 提前 break（防御；CHECK weight>0 已保证候选权重恒正，正常不触发）。
+ *
+ * @param {() => number} rng mulberry32 实例（[0,1) 流）
+ * @param {Array<{weight:number}>} items 候选（每项带 weight>0 · 含任意 payload · 必须已确定序）
+ * @param {number} k 期望抽取个数（实际抽 min(k, items.length)）
+ * @returns {Array} 抽中的元素（原对象引用 · 长度 = min(k, items.length)）
+ */
+export function weightedSampleNoReplace(rng, items, k) {
+  const pool = Array.isArray(items) ? items.slice() : []
+  const out = []
+  const n = Math.min(Math.max(0, Math.floor(Number(k) || 0)), pool.length)
+  for (let s = 0; s < n; s++) {
+    let total = 0
+    for (let i = 0; i < pool.length; i++) total += Number(pool[i].weight) || 0
+    if (total <= 0) break // 防御：剩余池总权重非正（CHECK weight>0 已排除）
+
+    const r = rng() * total
+    let acc = 0
+    let pick = pool.length - 1 // 兜底取末位（防浮点尾差落空）
+    for (let i = 0; i < pool.length; i++) {
+      acc += Number(pool[i].weight) || 0
+      if (r < acc) { pick = i; break }
+    }
+    out.push(pool[pick])
+    pool.splice(pick, 1) // 无放回
+  }
+  return out
+}
+
+/**
+ * allocateRoomInventory(seed, roomIds, rules, ruleRooms) — 全图投放分配（Phase 36 · 确定性纯函数）。
+ *
+ * 道具为中心：逐条 enabled 规则，在其候选房集（带权重，过滤到本局房集）上做加权无放回抽样，
+ * 把 [count_min, count_max] 件投到不同候选房（每房 ≤1 件），互斥组内的规则相互避让候选房。
+ *
+ * 算法（与契约 §2 逐条对应）：
+ *   ① candidatesByRule：按 rule_id 分组 ruleRooms → 过滤到 roomIdSet → 仅 weight>0 → 组内按 br_room_id 升序（确定性锚点）。
+ *   ② roomGroups：Map<roomId, Set<exclusion_group>>（某房已被哪些互斥组占用）；规则按 id 升序（确定性）。
+ *   ③ 逐 enabled 规则：
+ *        rng = mulberry32(hashSeed(seed, 'placement:'+rule.id))（与 forbidden.js 同源·每规则独立流）。
+ *        count = count_min + floor(rng()*(count_max-count_min+1))（闭区间 [min,max]）。
+ *        eligible = 候选中（若 rule.exclusion_group）剔除「已含该组」的房。
+ *        chosen = weightedSampleNoReplace(rng, eligible, min(count, eligible.length))（确定性加权无放回）。
+ *        每 chosen 房 push [refIdx, kind, revealPhase=spawn_phase_min]；有 exclusion_group 则标记该房占用本组。
+ *        受 GLOBAL_INV_CAP 跨房硬封顶（globalCount 二道阀）。
+ *   ④ chosen < count（候选不足）→ 欠铺（运行期尽力·静默；编辑器配置期已警告）。
+ *   ⑤ roomInv/roomInvRefs 格式与 Phase 34 完全一致 → 取货链零改。
+ *
+ * 语义保证：①N选1（count=1→抽1房）②N选K（count=K·每房1→K个不同房）③加权（按 weight 倾斜）
+ *   ④互斥（同组规则按 id 序逐落·后者 eligible 已剔前者占用房 → 不同房；配置足够时各自都铺）。
+ *
+ * 确定性：'placement:'+rule.id 每规则独立 rng 流（增删别的规则不扰动本规则）；同 seed + 同 rules + 同 ruleRooms → 同 roomInv。
+ *
+ * @param {number} seed per-raid 种子（gamevars.br.seed）
+ * @param {number[]} roomIds 本局实际启用房号集
+ * @param {Array<object>} rules placement_rules 行：{ id, entry_kind, item_name, tier_id, count_min, count_max, max_per_room, spawn_phase_min, exclusion_group, enabled? }
+ * @param {Array<object>} ruleRooms placement_rule_rooms 行：{ rule_id, br_room_id, weight }
+ * @returns {{ roomInv: Object<number, Array>, roomInvRefs: { items: string[], tiers: number[] } }}
+ */
+export function allocateRoomInventory(seed, roomIds, rules, ruleRooms) {
+  const roomInv = {}
+  const refs = { items: [], tiers: [] }
+
+  const ids = Array.isArray(roomIds) ? roomIds : []
+  const roomIdSet = new Set(ids.filter((x) => Number.isFinite(x)).map((x) => Number(x)))
+  if (roomIdSet.size === 0) return { roomInv, roomInvRefs: refs }
+
+  // ① 按 rule_id 分组候选 · 过滤本局房集 · 仅 weight>0 · 组内按 br_room_id 升序（确定性锚点）
+  const candidatesByRule = new Map()
+  for (const rr of (Array.isArray(ruleRooms) ? ruleRooms : [])) {
+    if (!rr) continue
+    const rid = Number(rr.br_room_id)
+    if (!roomIdSet.has(rid)) continue
+    const w = Number(rr.weight)
+    if (!(w > 0)) continue
+    const ruleId = Number(rr.rule_id)
+    if (!candidatesByRule.has(ruleId)) candidatesByRule.set(ruleId, [])
+    candidatesByRule.get(ruleId).push({ br_room_id: rid, weight: w })
+  }
+  for (const list of candidatesByRule.values()) {
+    list.sort((a, b) => a.br_room_id - b.br_room_id)
+  }
+
+  // ② 每房已被哪些互斥组占用 ; 规则按 id 升序（确定性）
+  const roomGroups = new Map() // roomId → Set<exclusion_group>
+  const enabledRules = (Array.isArray(rules) ? rules : [])
+    .filter((r) => r && r.enabled !== false)
+    .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))
+  let total = 0 // 全局件数累计（GLOBAL_INV_CAP 二道阀）
+
+  // ③ 逐规则
+  for (const rule of enabledRules) {
+    if (total >= GLOBAL_INV_CAP) break
+    const cands = candidatesByRule.get(Number(rule.id)) || []
+    if (cands.length === 0) continue // 无候选 → 欠铺（运行期静默；编辑器配置期已警告）
+
+    const rng = mulberry32(hashSeed(seed, 'placement:' + rule.id)) // 与 forbidden.js 同源·每规则独立流
+    const cMin = Math.max(0, Math.floor(Number(rule.count_min) || 0))
+    const cMax = Math.max(cMin, Math.floor(Number(rule.count_max) || 0))
+    const count = cMin + Math.floor(rng() * (cMax - cMin + 1)) // 闭区间 [cMin, cMax]
+    if (count <= 0) continue
+
+    const grp = rule.exclusion_group || null // '' 视同无组（归一）
+    const eligible = grp
+      ? cands.filter((c) => {
+          const s = roomGroups.get(c.br_room_id)
+          return !(s && s.has(grp))
+        })
+      : cands
+    const take = Math.min(count, eligible.length) // 候选不足 → 欠铺（尽力）
+    if (take <= 0) continue
+
+    const chosen = weightedSampleNoReplace(rng, eligible, take) // 确定性加权无放回（eligible 已 br_room_id 升序）
+
+    const kind = rule.entry_kind === 'equipment_tier' ? 1 : 0
+    const revealPhase = Math.max(0, Math.floor(Number(rule.spawn_phase_min) || 0))
+    const refIdx = kind === 1
+      ? internRef(refs.tiers, Number(rule.tier_id))
+      : internRef(refs.items, rule.item_name)
+
+    for (const c of chosen) {
+      if (total >= GLOBAL_INV_CAP) break
+      if (!roomInv[c.br_room_id]) roomInv[c.br_room_id] = []
+      roomInv[c.br_room_id].push([refIdx, kind, revealPhase]) // 格式与 Phase 34 完全一致
+      total++
+      if (grp) { // 互斥：标记该房占用本组（同组后续规则不再选此房）
+        let s = roomGroups.get(c.br_room_id)
+        if (!s) { s = new Set(); roomGroups.set(c.br_room_id, s) }
+        s.add(grp)
+      }
+    }
   }
 
   return { roomInv, roomInvRefs: refs }

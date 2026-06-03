@@ -63,7 +63,7 @@ import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamin
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
 import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE } from '@/lib/server/br/forbidden'
-import { placeRoomInventory, takeFromRoom, resolveRef } from '@/lib/server/br/roomItems'
+import { allocateRoomInventory, takeFromRoom, resolveRef } from '@/lib/server/br/roomItems'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -2107,24 +2107,29 @@ async function initBrRoomLayer(client, room, gamevars) {
       ? clampMaxPhase(gamevars.br.maxPhase)
       : clampMaxPhase(BR_CONFIG.MAX_PHASE)
 
-    // ── Phase 34: 房间投放铺货（authored room_items → roomInv 快照·确定性） ──
-    //   只拉本局实际房集（roomIds）的 enabled 行（孤儿/禁用行不进 → 解耦房增删）；组内按 id 升序 → PRNG idx 锚点稳定。
-    //   placeRoomInventory 纯函数（同 seed+roomIds+rows → 同 roomInv，所有实例一致）；失败降级空库存（回落程序化抽取，零回归）。
+    // ── Phase 36: 房间投放分配（placement_rules 道具中心·全图分布 → roomInv 快照·确定性） ──
+    //   查两表：placement_rules（enabled 规则：道具/装备+数量区间+几禁+互斥组）+ placement_rule_rooms（候选房+权重）。
+    //   allocateRoomInventory 纯函数（同 seed+rules+ruleRooms → 同 roomInv，所有实例一致）：内部按 roomIdSet 过滤候选、
+    //   按 rule_id 分组、按 br_room_id 升序锚定，逐规则在候选房集做加权无放回抽样（互斥组相互避让）。
+    //   ruleRooms 拉全表即可（内部过滤；候选总量小）；失败降级空库存（takeFromRoom 全 miss → 回落程序化抽取，零回归）。
     let roomInv = {}
     let roomInvRefs = { items: [], tiers: [] }
     try {
-      const { data: riRows } = await client
-        .from('room_items')
-        .select('id, br_room_id, entry_kind, item_name, tier_id, fixed_count, random_min, random_max, random_chance, spawn_phase_min')
-        .eq('enabled', true)
-        .in('br_room_id', roomIds)
-        .order('br_room_id', { ascending: true })
-        .order('id', { ascending: true })
-      const placed = placeRoomInventory(seed, roomIds, riRows || [])
+      const [{ data: ruleRows }, { data: ruleRoomRows }] = await Promise.all([
+        client
+          .from('placement_rules')
+          .select('id, entry_kind, item_name, tier_id, count_min, count_max, max_per_room, spawn_phase_min, exclusion_group')
+          .eq('enabled', true)
+          .order('id', { ascending: true }),
+        client
+          .from('placement_rule_rooms')
+          .select('rule_id, br_room_id, weight'),
+      ])
+      const placed = allocateRoomInventory(seed, roomIds, ruleRows || [], ruleRoomRows || [])
       roomInv = placed.roomInv
       roomInvRefs = placed.roomInvRefs
     } catch (e) {
-      console.error('[joinRoom][BR] room_items 铺货失败（降级空库存，回落程序化）:', e?.message)
+      console.error('[joinRoom][BR] placement_rules 分配失败（降级空库存，回落程序化）:', e?.message)
       roomInv = {}
       roomInvRefs = { items: [], tiers: [] }
     }
@@ -2145,7 +2150,7 @@ async function initBrRoomLayer(client, room, gamevars) {
       centerX,
       centerY,
       topoVersion: Number.isFinite(layout.topoVersion) ? layout.topoVersion : null,
-      // ── Phase 34: 房间投放快照（authored room_items → roomInv 取货层） ──
+      // ── Phase 36: 房间投放快照（placement_rules 全图分布 → roomInv 取货层；格式同 Phase 34） ──
       roomInv,
       roomInvRefs,
     }

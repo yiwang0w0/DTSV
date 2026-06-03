@@ -66,6 +66,20 @@
 
 P1 地基+房间编辑器（缩圈 count-flexible 快照致死） · P2 物品投放后端（room_items + roomInv 一次性库存 + 越晚越肥） · P4 后台全面整理（退 MapsTab + DRY + 分组导航） · P3 编辑器 UI（邻接双视图 + 房间投放）。提交链 `daed400`→`ac3099e`→`d9e190a`→本次。**待用户管理员 live 走查全套编辑器。**
 
+### 投放随机性重建（Phase 36 · 用户纠正：每房独立概率 → 道具中心全图分布 · Workflow 5 agent）
+
+> 用户纠正：原 `random_chance`=每房独立掷骰，会导致"全图都没刷出某稀有道具"。要的是**道具为中心的全图分布**：候选房 + 权重 + 数量区间 + 互斥组 + **保证铺够**。AskUQ：编辑器=规则中心+按房只读、数量=区间·每房≤1。
+
+| 文件 | 改动 |
+|------|------|
+| `scripts/phase-36-placement-rules.sql`(新·已部署) | placement_rules(道具/装备·count_min/max·spawn_phase_min·exclusion_group·4 CHECK·2 FK·触发器) + placement_rule_rooms(rule_id CASCADE·br_room_id 软引用·weight>0·UNIQUE·index)；room_items 保留 DEPRECATED 不 DROP |
+| `roomItems.js` | 加 allocateRoomInventory(seed,roomIds,rules,ruleRooms) 全图分配 + weightedSampleNoReplace 确定性加权无放回；placeRoomInventory 标 @deprecated 保留；takeFromRoom/resolveRef 不动 |
+| `gameActions.js` | initBrRoomLayer 改查 placement_rules+placement_rule_rooms→allocateRoomInventory→roomInv（格式不变·取货链零改） |
+| `RoomItemsTab.jsx`(重写) | 规则中心：道具/装备按名 + CandidateRoomPicker 网格多选候选房(带权重) + 数量[min,max] + 几禁 + 互斥组 + 启用 + 候选不足警告；+ 按房只读派生视图 |
+| `CandidateRoomPicker.jsx`(新) | 网格多选候选房·每房设权重(复用网格视觉) |
+
+**分配算法**(确定性·种子)：规则按 id 序 → 每规则 count=随机[min,max] → 候选按 weight **无放回**抽 count 间(剔除已被同互斥组占用的房) → 各放 1 件·标占用。⇒ 4 情形(N选1/N选K/加权/互斥)全覆盖、稀有道具**必铺够**、互斥组**分散到不同房且都出现**。**验证**(node 实测)：保证铺够(count=8→恰 8)；权重(w10 命中 0.66 vs w1 0.07)；**互斥分隔(60 seed 同组永不同房 + 负对照证明分隔确由 exclusion_group 造成)**；确定性(byte 一致·每规则独立流)；每房≤1；区间；**roomInv 格式不变·取货链/越晚越肥/一次性/procedural 回落零改**；CHECK 合规；next lint ✔。主代理亲审 allocateRoomInventory。
+
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。

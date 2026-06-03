@@ -2,402 +2,498 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, C } from '../_shared/ui'
+import CandidateRoomPicker from './CandidateRoomPicker'
 
-/* 地图编辑器 Phase 3 §4: 房间投放 tab（新 RoomItemsTab）
- * - 按房名选房 → 编辑该房 room_items（authored 投放）。直连 supabase（RLS 关·authenticated 全权）。
- * - 行内编辑：类型(item/equipment_tier) · 物品/装备按名选 · 固定 · 随机 min-max · 概率% · 几禁 · 启用 · 保存 · 删除。
- * - 几禁期望预览：开局可见期望 + 末路期望，末路超 ROOM_INV_CAP 黄字提示。
- * - 写库严格符合 phase-34 CHECK：entry_kind XOR item_name/tier_id · counts 非负 · min<=max · chance∈[0,1] · spawn_phase_min>=0。
- * - equipment_tiers 只读（仅选 tier_id，绝不 UPDATE）；item_pool.name 已有 UNIQUE，存名安全。
- * - 不碰 RoomsEditorTab（A 负责）。
+/* Phase 36 投放规则 tab —「道具为中心 · 全图分布」模型（重写）
+ * ─ 旧「每房独立概率」模型（room_items）已退役（DB 空表保留 deprecated，运行期不读）。
+ * ─ 新模型：一条规则 = 一个道具/装备阶 + 一组候选房（带权）+ 全图投放件数 [count_min, count_max]。
+ *   分配在服务端 initBrRoomLayer 用确定性 PRNG（forbidden.js）从候选里加权无放回抽样。
+ * ─ 本 tab 两区：
+ *   ① 规则中心（主）：列 placement_rules，每条一卡 — 道具/装备按名 + 候选房多选(权重) +
+ *      数量[min,max] + 几禁(越晚越肥) + 互斥组 + 启用 + 保存/删（候选不足黄字警告）。
+ *   ② 按房只读派生（次）：选一房 → 派生「这房作为候选的规则」，只读，引导去规则中心编辑。
+ * ─ 直连 supabase CRUD（RLS 关·authenticated 全权）。写库严格符合 phase-36 CHECK：
+ *   entry_kind XOR(item_name/tier_id) · count_min<=count_max · max_per_room>=1 ·
+ *   spawn_phase_min>=0 · placement_rule_rooms.weight>0。
+ * ─ equipment_tiers 只读（仅选 tier_id，绝不 UPDATE）；item_pool.name 已有 UNIQUE，存名安全。
+ * ─ 不碰 NeighborPicker / RoomsEditorTab（A 负责）；page.js tab 已注册。
  */
 
 const MAX_PHASE = 5        // = MAX_CLOSE_PHASE（src/lib/server/br/forbidden.js）；spawn_phase_min 下拉 0..5
-const ROOM_INV_CAP = 24    // 设计 §3 红线④：单房库存上限（消费端硬封顶）
+
+// 一条规则在本地编辑态的空壳（__cands = [{br_room_id, weight}] 候选；__isNew 标未落库）
+function emptyRule(itemPool) {
+  return {
+    id: null, __isNew: true, __dirty: true,
+    entry_kind: 'item',
+    item_name: itemPool[0]?.name ?? null,
+    tier_id: null,
+    count_min: 1, count_max: 1, max_per_room: 1,
+    spawn_phase_min: 0,
+    exclusion_group: null,
+    enabled: true,
+    notes: null,
+    __cands: [],
+  }
+}
 
 export default function RoomItemsTab({ toast }) {
   const [rooms, setRooms] = useState([])
   const [itemPool, setItemPool] = useState([])
   const [tiers, setTiers] = useState([])
+  const [rules, setRules] = useState([])          // 本地编辑态（含 __cands / __dirty / __isNew）
   const [loading, setLoading] = useState(true)
+  const [confirmDelId, setConfirmDelId] = useState(null)   // 用规则 id（或 'new-<idx>'）做确认键
+
+  // ── 按房只读区状态 ──
   const [roomSearch, setRoomSearch] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState(null)
-  const [rows, setRows] = useState([])
-  const [rowsLoading, setRowsLoading] = useState(false)
-  const [confirmDelIdx, setConfirmDelIdx] = useState(null)
 
-  // ── 初始加载：三表并行（br_rooms 选房 / item_pool 道具源 / equipment_tiers 装备源·只读）──
-  useEffect(() => {
-    async function loadStatic() {
-      const [r1, r2, r3] = await Promise.all([
-        supabase.from('br_rooms').select('room_id,label,region,enabled').order('room_id'),
-        supabase.from('item_pool').select('id,name,kind').order('name'),
-        supabase.from('equipment_tiers').select('id,name,rarity,tier,series_id').order('series_id').order('tier'),
-      ])
-      setRooms(r1.data || [])
-      setItemPool(r2.data || [])
-      setTiers(r3.data || [])
-      setLoading(false)
-      const err = [r1, r2, r3].find((r) => r.error)
-      if (err) toast('加载失败: ' + err.error.message, 'error')
+  // ── 初始加载：五查并行（缺表静默降级，不崩 UI）──
+  async function loadAll() {
+    setLoading(true)
+    setConfirmDelId(null)
+    const [r1, r2, r3, r4, r5] = await Promise.all([
+      supabase.from('br_rooms').select('room_id,label,region,grid_x,grid_y,enabled').order('room_id'),
+      supabase.from('item_pool').select('id,name,kind').order('name'),
+      supabase.from('equipment_tiers').select('id,name,rarity,tier,series_id').order('series_id').order('tier'),
+      supabase.from('placement_rules').select('*').order('id'),
+      supabase.from('placement_rule_rooms').select('*'),
+    ])
+    setRooms(r1.data || [])
+    setItemPool(r2.data || [])
+    setTiers(r3.data || [])
+
+    // 候选归并：rule_id → [{br_room_id, weight}]（升序）
+    const candByRule = new Map()
+    for (const rr of (r5.data || [])) {
+      const k = Number(rr.rule_id)
+      if (!candByRule.has(k)) candByRule.set(k, [])
+      candByRule.get(k).push({ br_room_id: Number(rr.br_room_id), weight: Number(rr.weight) })
     }
-    loadStatic()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    for (const list of candByRule.values()) list.sort((a, b) => a.br_room_id - b.br_room_id)
 
-  // ── 选房后拉该房投放行 ──
-  async function loadRows(roomId) {
-    setRowsLoading(true)
-    setConfirmDelIdx(null)
-    const { data, error } = await supabase
-      .from('room_items')
-      .select('*')
-      .eq('br_room_id', roomId)
-      .order('id')
-    if (error) toast('加载投放失败: ' + error.message, 'error')
-    setRows((data || []).map((r) => ({ ...r, __dirty: false, __isNew: false })))
-    setRowsLoading(false)
+    setRules((r4.data || []).map((rule) => ({
+      ...rule,
+      __isNew: false, __dirty: false,
+      __cands: candByRule.get(Number(rule.id)) || [],
+    })))
+    setLoading(false)
+
+    // placement_rules / placement_rule_rooms 可能尚未建表（SQL migration 未跑）→ 提示而非崩
+    if (r4.error || r5.error) {
+      const msg = (r4.error || r5.error).message || ''
+      if (/relation .* does not exist|placement_rule/i.test(msg)) {
+        toast('投放规则表尚未建立（请先跑 phase-36 migration）', 'error')
+      } else {
+        toast('加载投放规则失败: ' + msg, 'error')
+      }
+    }
+    const baseErr = [r1, r2, r3].find((r) => r.error)
+    if (baseErr) toast('加载基础数据失败: ' + baseErr.error.message, 'error')
   }
 
-  function selectRoom(roomId) {
-    setSelectedRoomId(roomId)
-    loadRows(roomId)
+  useEffect(() => { loadAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 已用过的互斥组名（datalist 建议）
+  const groupSuggestions = useMemo(() => {
+    const set = new Set()
+    for (const r of rules) {
+      const g = (r.exclusion_group ?? '').trim()
+      if (g) set.add(g)
+    }
+    return Array.from(set).sort()
+  }, [rules])
+
+  // ── 本地编辑（改 rules，存盘时才落库）──
+  function patchRule(idx, patch) {
+    setRules((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch, __dirty: true } : r)))
   }
+
+  // 切类型时清对侧引用、设本侧默认（满足 XOR CHECK）
+  function switchKind(idx, kind) {
+    patchRule(idx, kind === 'item'
+      ? { entry_kind: 'item', item_name: itemPool[0]?.name ?? null, tier_id: null }
+      : { entry_kind: 'equipment_tier', tier_id: tiers[0]?.id ?? null, item_name: null })
+  }
+
+  function addRule() {
+    setRules((rs) => [emptyRule(itemPool), ...rs])   // 置顶，便于立即编辑
+    setConfirmDelId(null)
+  }
+
+  // ── 存盘单条规则（规则 upsert + 候选全量同步）──
+  async function saveRule(idx) {
+    const r = rules[idx]
+    // 前端预校验（与 CHECK 同形，给友好 toast 而非 DB 报错）
+    if (r.entry_kind === 'item' && !r.item_name) { toast('请选择道具', 'error'); return }
+    if (r.entry_kind === 'equipment_tier' && !r.tier_id) { toast('请选择装备阶', 'error'); return }
+
+    const cMin = Math.max(0, Math.floor(Number(r.count_min) || 0))
+    const cMax = Math.max(cMin, Math.floor(Number(r.count_max) || 0))   // 钳 min<=max
+    const grpRaw = (r.exclusion_group ?? '').trim()
+    const payload = {
+      entry_kind: r.entry_kind,
+      item_name: r.entry_kind === 'item' ? r.item_name : null,             // XOR：对侧强制 null
+      tier_id: r.entry_kind === 'equipment_tier' ? Number(r.tier_id) : null,
+      count_min: cMin,
+      count_max: cMax,
+      max_per_room: 1,                                                     // 本期固定 1（CHECK max_per_room>=1）
+      spawn_phase_min: Math.max(0, Math.floor(Number(r.spawn_phase_min) || 0)),
+      exclusion_group: grpRaw === '' ? null : grpRaw,                      // 空串→null（不互斥）
+      enabled: !!r.enabled,
+      notes: r.notes || null,
+    }
+
+    // 候选：仅 weight>0（CHECK weight>0），去重 br_room_id，升序
+    const candMap = new Map()
+    for (const c of (r.__cands || [])) {
+      const rid = Number(c.br_room_id)
+      const w = Number(c.weight)
+      if (!Number.isFinite(rid)) continue
+      if (!(w > 0)) continue
+      candMap.set(rid, w)   // 后者覆盖（理论无重复）
+    }
+    const candRows = (id) => Array.from(candMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([br_room_id, weight]) => ({ rule_id: id, br_room_id, weight }))
+
+    let ruleId = r.id
+    if (r.__isNew) {
+      const { data, error } = await supabase.from('placement_rules').insert(payload).select('id').single()
+      if (error) { toast('添加规则失败: ' + error.message, 'error'); return }
+      ruleId = data.id
+    } else {
+      const { error } = await supabase.from('placement_rules').update(payload).eq('id', r.id)
+      if (error) { toast('更新规则失败: ' + error.message, 'error'); return }
+    }
+
+    // 候选全量同步：先清后插（CASCADE 不触发；这里仅清本规则候选）
+    const { error: delErr } = await supabase.from('placement_rule_rooms').delete().eq('rule_id', ruleId)
+    if (delErr) { toast('候选清理失败: ' + delErr.message, 'error'); return }
+    const rows = candRows(ruleId)
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase.from('placement_rule_rooms').insert(rows)
+      if (insErr) { toast('候选写入失败: ' + insErr.message, 'error'); return }
+    }
+
+    toast(r.__isNew ? '规则已添加' : '规则已更新')
+    loadAll()   // 重拉，清 dirty/new、拿回 DB id 与候选
+  }
+
+  // ── 删规则（inline 两步确认；CASCADE 自动清候选）──
+  async function removeRule(idx) {
+    const r = rules[idx]
+    if (r.__isNew) { setRules((rs) => rs.filter((_, i) => i !== idx)); setConfirmDelId(null); return }  // 未落库直接丢
+    const { error } = await supabase.from('placement_rules').delete().eq('id', r.id)
+    if (error) { toast('删除失败: ' + error.message, 'error'); return }
+    toast('规则已删除')
+    setConfirmDelId(null)
+    loadAll()
+  }
+
+  // 规则展示名（道具名 / 装备阶名）
+  function ruleLabel(r) {
+    if (r.entry_kind === 'equipment_tier') {
+      const t = tiers.find((t) => t.id === Number(r.tier_id))
+      return t ? `${t.name} · ${t.rarity} · T${t.tier}` : `装备阶 #${r.tier_id ?? '—'}`
+    }
+    return r.item_name || '（未选道具）'
+  }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>加载中...</div>
 
   const filteredRooms = rooms.filter((r) =>
     !roomSearch
     || (r.label || '').includes(roomSearch)
     || (r.region || '').includes(roomSearch)
-    || String(r.room_id).includes(roomSearch)
+    || String(r.room_id).includes(roomSearch),
   )
-
-  const selectedRoom = rooms.find((r) => r.room_id === selectedRoomId)
-
-  // ── 几禁期望预览（仅计 enabled !== false 的行）──
-  const preview = useMemo(() => {
-    function rowExpected(r) {
-      const chance = Number(r.random_chance ?? 1)
-      const fixed = Number(r.fixed_count || 0)
-      const rmin = Number(r.random_min || 0)
-      const rmax = Number(r.random_max || 0)
-      return chance * (fixed + (rmin + rmax) / 2)
-    }
-    let openExp = 0
-    let endExp = 0
-    for (const r of rows) {
-      if (r.enabled === false) continue
-      const exp = rowExpected(r)
-      endExp += exp
-      if (Number(r.spawn_phase_min ?? 0) <= 0) openExp += exp
-    }
-    return { openExp, endExp, overCap: endExp > ROOM_INV_CAP }
-  }, [rows])
-
-  // ── 行编辑纯本地方法（改本地 rows，存盘时才落库）──
-  function patchRow(idx, patch) {
-    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch, __dirty: true } : r)))
-  }
-
-  function addRow() {
-    setRows((rs) => [
-      ...rs,
-      {
-        id: null, __isNew: true, __dirty: true,
-        br_room_id: selectedRoomId, entry_kind: 'item',
-        item_name: itemPool[0]?.name ?? null, tier_id: null,
-        fixed_count: 1, random_min: 0, random_max: 0, random_chance: 1, spawn_phase_min: 0,
-        enabled: true, notes: null,
-      },
-    ])
-  }
-
-  // 切类型时清对侧引用、设本侧默认（满足 XOR CHECK）
-  function switchKind(idx, kind) {
-    patchRow(idx, kind === 'item'
-      ? { entry_kind: 'item', item_name: itemPool[0]?.name ?? null, tier_id: null }
-      : { entry_kind: 'equipment_tier', tier_id: tiers[0]?.id ?? null, item_name: null })
-  }
-
-  // ── 存盘单行 ──
-  async function saveRow(idx) {
-    const r = rows[idx]
-    // 前端预校验（与 CHECK 同形，给友好 toast 而非 DB 报错）
-    if (r.entry_kind === 'item' && !r.item_name) { toast('请选择道具', 'error'); return }
-    if (r.entry_kind === 'equipment_tier' && !r.tier_id) { toast('请选择装备阶', 'error'); return }
-    if (Number(r.random_min) > Number(r.random_max)) { toast('随机下界不能大于上界', 'error'); return }
-    const chance = Math.max(0, Math.min(1, Number(r.random_chance)))   // 钳 [0,1]
-    const payload = {
-      br_room_id: selectedRoomId,
-      entry_kind: r.entry_kind,
-      item_name: r.entry_kind === 'item' ? r.item_name : null,            // XOR：对侧强制 null
-      tier_id: r.entry_kind === 'equipment_tier' ? Number(r.tier_id) : null,
-      fixed_count: Math.max(0, Number(r.fixed_count) || 0),
-      random_min: Math.max(0, Number(r.random_min) || 0),
-      random_max: Math.max(0, Number(r.random_max) || 0),
-      random_chance: chance,
-      spawn_phase_min: Math.max(0, Number(r.spawn_phase_min) || 0),
-      enabled: !!r.enabled,
-      notes: r.notes || null,
-    }
-    if (r.__isNew) {
-      const { error } = await supabase.from('room_items').insert(payload)
-      if (error) { toast('添加失败: ' + error.message, 'error'); return }
-      toast('投放已添加')
-    } else {
-      const { error } = await supabase.from('room_items').update(payload).eq('id', r.id)
-      if (error) { toast('更新失败: ' + error.message, 'error'); return }
-      toast('投放已更新')
-    }
-    loadRows(selectedRoomId)   // 重拉，清 dirty/new、拿回 DB id
-  }
-
-  // ── 删行（仿 ItemsTab inline 两步确认）──
-  async function removeRow(idx) {
-    const r = rows[idx]
-    if (r.__isNew) { setRows((rs) => rs.filter((_, i) => i !== idx)); setConfirmDelIdx(null); return }  // 未落库直接丢
-    const { error } = await supabase.from('room_items').delete().eq('id', r.id)
-    if (error) { toast('删除失败: ' + error.message, 'error'); return }
-    toast('投放已删除')
-    setConfirmDelIdx(null)
-    loadRows(selectedRoomId)
-  }
-
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>加载中...</div>
 
   return (
     <div>
       {/* ── 标题区 ── */}
       <div style={{ marginBottom: 16 }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: C.text }}>🎯 房间投放</h3>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: C.text }}>🎯 投放规则</h3>
         <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.6 }}>
-          按房声明 authored 投放；开局确定性铺货，搜到即发、取走不再生。装备只读选阶。
+          道具为中心 · 全图分布。每条规则 = 一个道具/装备 + 一组候选房（带权）+ 全图投放件数 [下界, 上界]。
+          开局确定性分配（同对局 seed → 同结果），从候选里加权无放回抽样。互斥组保证同组道具落到不同房。
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
-        {/* ── 选房区 ── */}
-        <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-          <input
-            placeholder="搜索房名 / 区域 / 房号..."
-            value={roomSearch}
-            onChange={(e) => setRoomSearch(e.target.value)}
-            style={{ ...INPUT, marginBottom: 8 }}
-          />
-          <div style={{ maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {filteredRooms.map((r) => {
-              const sel = r.room_id === selectedRoomId
-              return (
-                <button
-                  key={r.room_id}
-                  onClick={() => selectRoom(r.room_id)}
-                  style={{
-                    textAlign: 'left', padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
-                    border: `1px solid ${sel ? C.accent : C.border}`,
-                    background: sel ? 'rgba(88,166,255,0.12)' : 'transparent',
-                    color: sel ? C.accent : C.text,
-                    opacity: r.enabled === false ? 0.5 : 1,
-                    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{r.label || `#${r.room_id}`}</span>
-                  {r.region && <span style={{ fontSize: 9, color: C.dim }}>· {r.region}</span>}
-                  <span style={{ fontSize: 9, color: C.dim, fontFamily: 'monospace', marginLeft: 'auto' }}>#{r.room_id}</span>
-                </button>
-              )
-            })}
-            {filteredRooms.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 24, color: C.dim, fontSize: 12 }}>没有匹配的房间</div>
-            )}
-          </div>
-        </div>
+      {/* ══════ ① 规则中心（主区）══════ */}
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>规则中心 <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>· {rules.length} 条</span></div>
+        <button onClick={addRule} style={BTN('#58a6ff', '#fff')}>+ 新建规则</button>
+      </div>
 
-        {/* ── 投放编辑区 ── */}
-        <div>
-          {!selectedRoom ? (
-            <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>请先选择房间</div>
-          ) : (
-            <div>
-              {/* 选中房标题 + 几禁预览 */}
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 6 }}>
-                  {selectedRoom.label || `#${selectedRoom.room_id}`}
-                  {selectedRoom.region && <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>（{selectedRoom.region}）</span>}
-                  <span style={{ fontSize: 11, color: C.dim, fontWeight: 400, fontFamily: 'monospace', marginLeft: 6 }}>· #{selectedRoomId}</span>
-                </div>
-                <div style={{
-                  fontSize: 12, color: C.dim, padding: '8px 12px', borderRadius: 6,
-                  background: C.bg2, border: `1px solid ${C.border}`,
-                }}>
-                  预计 开局 ~<b style={{ color: C.green }}>{preview.openExp.toFixed(1)}</b> 件 · 末路 ~<b style={{ color: C.accent }}>{preview.endExp.toFixed(1)}</b> 件
-                  {preview.overCap && (
-                    <span style={{ color: C.yellow, marginLeft: 10 }}>
-                      ⚠ 末路期望超单房上限 {ROOM_INV_CAP}，铺货时会被截断
-                    </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {rules.map((r, idx) => {
+          const confKey = r.id ?? `new-${idx}`
+          const isConf = confirmDelId === confKey
+          // 欠铺警告：count_min > 有效候选数（weight>0）
+          const validCandCount = (r.__cands || []).filter((c) => Number(c.weight) > 0).length
+          const under = Math.max(0, Math.floor(Number(r.count_min) || 0)) > validCandCount
+          return (
+            <div
+              key={confKey}
+              style={{
+                background: C.bg2, borderRadius: 10,
+                border: `1px solid ${C.border}`,
+                borderLeft: `3px solid ${r.__dirty ? C.yellow : (r.enabled ? C.green : C.dim2)}`,
+                padding: 14,
+              }}
+            >
+              {/* 卡头：展示名 + 启用 + 操作 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: r.entry_kind === 'equipment_tier' ? C.purple : C.text }}>
+                  {r.entry_kind === 'equipment_tier' ? '🛡 ' : '📦 '}{ruleLabel(r)}
+                </span>
+                {r.__isNew && <span style={{ fontSize: 10, color: C.yellow, border: `1px solid ${C.yellow}`, borderRadius: 5, padding: '1px 6px' }}>未保存</span>}
+                {!r.enabled && <span style={{ fontSize: 10, color: C.dim2, border: `1px solid ${C.dim2}`, borderRadius: 5, padding: '1px 6px' }}>已禁用</span>}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.dim, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!r.enabled} onChange={(e) => patchRule(idx, { enabled: e.target.checked })} />
+                    启用
+                  </label>
+                  <button onClick={() => saveRule(idx)} style={BTN('#58a6ff', '#fff', { fontSize: 11, padding: '6px 14px' })}>保存</button>
+                  {isConf ? (
+                    <>
+                      <button onClick={() => removeRule(idx)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '6px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>确认删</button>
+                      <button onClick={() => setConfirmDelId(null)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '6px 10px', border: '1px solid #30363d' })}>取消</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setConfirmDelId(confKey)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.dim2, fontSize: 15, padding: '2px 4px' }}>🗑️</button>
                   )}
                 </div>
               </div>
 
-              {/* 投放行区 */}
-              {rowsLoading ? (
-                <div style={{ padding: 30, textAlign: 'center', color: C.dim }}>加载中...</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {rows.map((r, idx) => {
-                    const isConf = confirmDelIdx === idx
-                    return (
-                      <div
-                        key={r.id ?? `new-${idx}`}
-                        style={{
-                          background: C.bg2, borderRadius: 8,
-                          border: `1px solid ${C.border}`,
-                          borderLeft: `3px solid ${r.__dirty ? C.yellow : C.border2}`,
-                          padding: '10px 12px',
-                          display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 8,
-                        }}
+              {/* 配置行：类型 / 道具或装备 / 数量 / 几禁 / 互斥组 */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, marginBottom: 12 }}>
+                {/* 类型 */}
+                <div>
+                  <label style={{ ...LABEL, marginBottom: 3 }}>类型</label>
+                  <select
+                    style={{ ...INPUT, width: 110, padding: '6px 8px' }}
+                    value={r.entry_kind}
+                    onChange={(e) => switchKind(idx, e.target.value)}
+                  >
+                    <option value="item">道具</option>
+                    <option value="equipment_tier">装备阶</option>
+                  </select>
+                </div>
+
+                {/* 道具 / 装备（按 entry_kind 切）*/}
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  {r.entry_kind === 'item' ? (
+                    <>
+                      <label style={{ ...LABEL, marginBottom: 3 }}>道具</label>
+                      <select
+                        style={{ ...INPUT, padding: '6px 8px' }}
+                        value={r.item_name || ''}
+                        onChange={(e) => patchRule(idx, { item_name: e.target.value })}
                       >
-                        {/* 类型 */}
-                        <div>
-                          <label style={{ ...LABEL, marginBottom: 3 }}>类型</label>
-                          <select
-                            style={{ ...INPUT, width: 120, padding: '6px 8px' }}
-                            value={r.entry_kind}
-                            onChange={(e) => switchKind(idx, e.target.value)}
-                          >
-                            <option value="item">道具</option>
-                            <option value="equipment_tier">装备阶</option>
-                          </select>
-                        </div>
-
-                        {/* 物品 / 装备（按 entry_kind 切）*/}
-                        <div style={{ flex: 1, minWidth: 180 }}>
-                          {r.entry_kind === 'item' ? (
-                            <>
-                              <label style={{ ...LABEL, marginBottom: 3 }}>道具</label>
-                              <select
-                                style={{ ...INPUT, padding: '6px 8px' }}
-                                value={r.item_name || ''}
-                                onChange={(e) => patchRow(idx, { item_name: e.target.value })}
-                              >
-                                {!r.item_name && <option value="">— 选择道具 —</option>}
-                                {itemPool.map((i) => (
-                                  <option key={i.id} value={i.name}>{i.name}（{i.kind}）</option>
-                                ))}
-                              </select>
-                            </>
-                          ) : (
-                            <>
-                              <label style={{ ...LABEL, marginBottom: 3 }}>装备阶</label>
-                              <select
-                                style={{ ...INPUT, padding: '6px 8px' }}
-                                value={r.tier_id || ''}
-                                onChange={(e) => patchRow(idx, { tier_id: Number(e.target.value) })}
-                              >
-                                {!r.tier_id && <option value="">— 选择装备阶 —</option>}
-                                {tiers.map((t) => (
-                                  <option key={t.id} value={t.id}>{t.name} · {t.rarity} · T{t.tier}</option>
-                                ))}
-                              </select>
-                            </>
-                          )}
-                        </div>
-
-                        {/* 固定 */}
-                        <div>
-                          <label style={{ ...LABEL, marginBottom: 3 }}>固定</label>
-                          <input
-                            type="number" min={0}
-                            style={{ ...INPUT, width: 60, padding: '6px 8px' }}
-                            value={r.fixed_count}
-                            onChange={(e) => patchRow(idx, { fixed_count: Number(e.target.value) })}
-                          />
-                        </div>
-
-                        {/* 随机 min–max */}
-                        <div>
-                          <label style={{ ...LABEL, marginBottom: 3 }}>随机区间</label>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <input
-                              type="number" min={0}
-                              style={{ ...INPUT, width: 56, padding: '6px 8px' }}
-                              value={r.random_min}
-                              onChange={(e) => patchRow(idx, { random_min: Number(e.target.value) })}
-                            />
-                            <span style={{ color: C.dim, fontSize: 12 }}>–</span>
-                            <input
-                              type="number" min={0}
-                              style={{ ...INPUT, width: 56, padding: '6px 8px' }}
-                              value={r.random_max}
-                              onChange={(e) => patchRow(idx, { random_max: Number(e.target.value) })}
-                            />
-                          </div>
-                        </div>
-
-                        {/* 概率 %（UI 0-100 ↔ 存 0-1）*/}
-                        <div>
-                          <label style={{ ...LABEL, marginBottom: 3 }}>概率%</label>
-                          <input
-                            type="number" min={0} max={100}
-                            style={{ ...INPUT, width: 64, padding: '6px 8px' }}
-                            value={Math.round((r.random_chance ?? 1) * 100)}
-                            onChange={(e) => patchRow(idx, { random_chance: (Number(e.target.value) || 0) / 100 })}
-                          />
-                        </div>
-
-                        {/* 几禁 */}
-                        <div>
-                          <label style={{ ...LABEL, marginBottom: 3 }}>几禁<span style={{ color: C.dim2, marginLeft: 3 }}>越晚越肥</span></label>
-                          <select
-                            style={{ ...INPUT, width: 110, padding: '6px 8px' }}
-                            value={r.spawn_phase_min ?? 0}
-                            onChange={(e) => patchRow(idx, { spawn_phase_min: Number(e.target.value) })}
-                          >
-                            {Array.from({ length: MAX_PHASE + 1 }).map((_, p) => (
-                              <option key={p} value={p}>{p === 0 ? '0（开局可见）' : `${p} 禁后`}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* 启用 */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.dim, cursor: 'pointer', paddingBottom: 8 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!r.enabled}
-                            onChange={(e) => patchRow(idx, { enabled: e.target.checked })}
-                          />
-                          启用
-                        </label>
-
-                        {/* 操作 */}
-                        <div style={{ display: 'flex', gap: 6, paddingBottom: 4 }}>
-                          <button
-                            onClick={() => saveRow(idx)}
-                            style={BTN('#58a6ff', '#fff', { fontSize: 11, padding: '6px 12px' })}
-                          >
-                            保存
-                          </button>
-                          {isConf ? (
-                            <>
-                              <button onClick={() => removeRow(idx)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '6px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>确认</button>
-                              <button onClick={() => setConfirmDelIdx(null)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '6px 10px', border: '1px solid #30363d' })}>取消</button>
-                            </>
-                          ) : (
-                            <button onClick={() => setConfirmDelIdx(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.dim2, fontSize: 15, padding: '2px 4px' }}>🗑️</button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {rows.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: 30, color: C.dim, fontSize: 12 }}>该房暂无投放，点击下方添加</div>
+                        {!r.item_name && <option value="">— 选择道具 —</option>}
+                        {itemPool.map((i) => (
+                          <option key={i.id} value={i.name}>{i.name}（{i.kind}）</option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label style={{ ...LABEL, marginBottom: 3 }}>装备阶</label>
+                      <select
+                        style={{ ...INPUT, padding: '6px 8px' }}
+                        value={r.tier_id || ''}
+                        onChange={(e) => patchRule(idx, { tier_id: Number(e.target.value) })}
+                      >
+                        {!r.tier_id && <option value="">— 选择装备阶 —</option>}
+                        {tiers.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name} · {t.rarity} · T{t.tier}</option>
+                        ))}
+                      </select>
+                    </>
                   )}
+                </div>
 
-                  <div>
-                    <button onClick={addRow} disabled={!selectedRoomId} style={BTN('#58a6ff', '#fff', { opacity: selectedRoomId ? 1 : 0.5 })}>+ 添加投放</button>
+                {/* 全图件数 min–max */}
+                <div>
+                  <label style={{ ...LABEL, marginBottom: 3 }}>全图件数<span style={{ color: C.dim2, marginLeft: 3 }}>[下界, 上界]</span></label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input
+                      type="number" min={0}
+                      style={{ ...INPUT, width: 56, padding: '6px 8px' }}
+                      value={r.count_min}
+                      onChange={(e) => patchRule(idx, { count_min: Number(e.target.value) })}
+                    />
+                    <span style={{ color: C.dim, fontSize: 12 }}>–</span>
+                    <input
+                      type="number" min={0}
+                      style={{ ...INPUT, width: 56, padding: '6px 8px' }}
+                      value={r.count_max}
+                      onChange={(e) => patchRule(idx, { count_max: Number(e.target.value) })}
+                    />
                   </div>
                 </div>
+
+                {/* 几禁 */}
+                <div>
+                  <label style={{ ...LABEL, marginBottom: 3 }}>几禁<span style={{ color: C.dim2, marginLeft: 3 }}>越晚越肥</span></label>
+                  <select
+                    style={{ ...INPUT, width: 120, padding: '6px 8px' }}
+                    value={r.spawn_phase_min ?? 0}
+                    onChange={(e) => patchRule(idx, { spawn_phase_min: Number(e.target.value) })}
+                  >
+                    {Array.from({ length: MAX_PHASE + 1 }).map((_, p) => (
+                      <option key={p} value={p}>{p === 0 ? '0（开局可见）' : `${p} 禁后`}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 互斥组 */}
+                <div>
+                  <label style={{ ...LABEL, marginBottom: 3 }}>互斥组<span style={{ color: C.dim2, marginLeft: 3 }}>空=不互斥</span></label>
+                  <input
+                    list="placement-excl-groups"
+                    style={{ ...INPUT, width: 140, padding: '6px 8px' }}
+                    value={r.exclusion_group ?? ''}
+                    onChange={(e) => patchRule(idx, { exclusion_group: e.target.value })}
+                    placeholder="如 legendary-core"
+                  />
+                </div>
+              </div>
+
+              {/* 欠铺警告 */}
+              {under && (
+                <div style={{
+                  fontSize: 11, color: C.yellow, marginBottom: 10,
+                  background: 'rgba(210,153,34,0.08)', border: `1px solid ${C.yellow}40`,
+                  borderRadius: 6, padding: '6px 10px',
+                }}>
+                  ⚠ 候选不足：当前有效候选 {validCandCount} 房，最多铺 {validCandCount} 件 / 需 {Math.floor(Number(r.count_min) || 0)} 件（下界）。请增加候选房或调低件数。
+                </div>
+              )}
+
+              {/* 候选房多选 + 权重 */}
+              <div>
+                <label style={{ ...LABEL, marginBottom: 6 }}>候选房（点格子或列表加入 · 每房可设权重）</label>
+                <CandidateRoomPicker
+                  rooms={rooms}
+                  value={r.__cands || []}
+                  onChange={(next) => patchRule(idx, { __cands: next })}
+                />
+              </div>
+            </div>
+          )
+        })}
+
+        {rules.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 36, color: C.dim, fontSize: 12, background: C.bg2, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
+            还没有投放规则，点击「+ 新建规则」开始
+          </div>
+        )}
+      </div>
+
+      <datalist id="placement-excl-groups">
+        {groupSuggestions.map((g) => <option key={g} value={g} />)}
+      </datalist>
+
+      {/* ══════ ② 按房只读派生（次区）══════ */}
+      <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>按房查看（只读）</div>
+        <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>
+          选一房，看它作为候选出现在哪些规则里。此处只读，编辑请回上方规则中心。
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
+          {/* 选房区 */}
+          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
+            <input
+              placeholder="搜索房名 / 区域 / 房号..."
+              value={roomSearch}
+              onChange={(e) => setRoomSearch(e.target.value)}
+              style={{ ...INPUT, marginBottom: 8 }}
+            />
+            <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {filteredRooms.map((r) => {
+                const sel = r.room_id === selectedRoomId
+                return (
+                  <button
+                    key={r.room_id}
+                    onClick={() => setSelectedRoomId(r.room_id)}
+                    style={{
+                      textAlign: 'left', padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                      border: `1px solid ${sel ? C.accent : C.border}`,
+                      background: sel ? 'rgba(88,166,255,0.12)' : 'transparent',
+                      color: sel ? C.accent : C.text,
+                      opacity: r.enabled === false ? 0.5 : 1,
+                      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                    }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{r.label || `#${r.room_id}`}</span>
+                    {r.region && <span style={{ fontSize: 9, color: C.dim }}>· {r.region}</span>}
+                    <span style={{ fontSize: 9, color: C.dim, fontFamily: 'monospace', marginLeft: 'auto' }}>#{r.room_id}</span>
+                  </button>
+                )
+              })}
+              {filteredRooms.length === 0 && (
+                <div style={{ textAlign: 'center', padding: 24, color: C.dim, fontSize: 12 }}>没有匹配的房间</div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* 派生只读列 */}
+          <div>
+            {selectedRoomId == null ? (
+              <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>请选择房间查看其作为候选的规则</div>
+            ) : (() => {
+              const sr = rooms.find((r) => r.room_id === selectedRoomId)
+              // 该房作为候选的规则（遍历本地 rules.__cands）
+              const hits = rules
+                .map((rule) => {
+                  const c = (rule.__cands || []).find((c) => Number(c.br_room_id) === Number(selectedRoomId))
+                  return c ? { rule, weight: c.weight } : null
+                })
+                .filter(Boolean)
+              return (
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 10 }}>
+                    {sr?.label || `#${selectedRoomId}`}
+                    {sr?.region && <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>（{sr.region}）</span>}
+                    <span style={{ fontSize: 11, color: C.dim, fontWeight: 400, fontFamily: 'monospace', marginLeft: 6 }}>· #{selectedRoomId}</span>
+                  </div>
+                  {hits.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 40, color: C.dim, fontSize: 12, background: C.bg2, border: `1px dashed ${C.border}`, borderRadius: 8 }}>
+                      该房不在任何规则候选中
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {hits.map(({ rule, weight }) => (
+                        <div key={rule.id ?? ruleLabel(rule)} style={{
+                          background: C.bg2, border: `1px solid ${C.border}`,
+                          borderLeft: `3px solid ${rule.enabled ? C.green : C.dim2}`,
+                          borderRadius: 8, padding: '10px 12px',
+                          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: rule.entry_kind === 'equipment_tier' ? C.purple : C.text }}>
+                            {rule.entry_kind === 'equipment_tier' ? '🛡 ' : '📦 '}{ruleLabel(rule)}
+                          </span>
+                          <span style={{ fontSize: 11, color: C.dim }}>件数 [{rule.count_min}, {rule.count_max}]</span>
+                          <span style={{ fontSize: 11, color: C.accent }}>本房权重 {weight}</span>
+                          <span style={{ fontSize: 11, color: C.dim }}>
+                            {Number(rule.spawn_phase_min) > 0 ? `${rule.spawn_phase_min} 禁后` : '开局可见'}
+                          </span>
+                          {rule.exclusion_group && <span style={{ fontSize: 10, color: C.cyan, border: `1px solid ${C.cyan}40`, borderRadius: 5, padding: '1px 6px' }}>互斥 {rule.exclusion_group}</span>}
+                          {!rule.enabled && <span style={{ fontSize: 10, color: C.dim2 }}>（已禁用）</span>}
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 10, color: C.dim2, marginTop: 2 }}>共 {hits.length} 条规则把本房列为候选 · 去上方规则中心编辑</div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
         </div>
       </div>
     </div>
