@@ -21,16 +21,21 @@ export const GRID_H = 10
 /**
  * 读 br_rooms 全量静态拓扑。
  *
+ * §5 拓扑版本：多取 updated_at 列（phase-33 migration ADD COLUMN）→ 映射 updatedAt。
+ *   computeTopoVersion(raidLayout.js) / /api/br/topology route 据此取 max(updatedAt) 作版本指纹。
+ *   /game 与 /br 共享本 loadRooms：多取一列对 /br DB 路径无影响（不读 updatedAt）。
+ *   旧 schema 未跑 migration（无列）→ r.updated_at undefined → updatedAt null → 版本计 0，不崩。
+ *
  * @param {object} supabase
  * @returns {Promise<Array<{
  *   roomId:number, label:string, region:string, neighborIds:number[],
- *   gridX:number|null, gridY:number|null, closePhase:number, enabled:boolean
+ *   gridX:number|null, gridY:number|null, closePhase:number, enabled:boolean, updatedAt:string|null
  * }>>}
  */
 export async function loadRooms(supabase) {
   const { data, error } = await supabase
     .from('br_rooms')
-    .select('room_id, label, region, neighbor_ids, grid_x, grid_y, close_phase, enabled')
+    .select('room_id, label, region, neighbor_ids, grid_x, grid_y, close_phase, enabled, updated_at')
     .order('room_id', { ascending: true })
 
   if (error) throw new Error(error.message || '读取扇区拓扑失败')
@@ -44,6 +49,7 @@ export async function loadRooms(supabase) {
     gridY: r.grid_y ?? null,
     closePhase: Number.isFinite(r.close_phase) ? r.close_phase : 5,
     enabled: r.enabled !== false,
+    updatedAt: r.updated_at ?? null,
   }))
 }
 

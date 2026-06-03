@@ -42,15 +42,23 @@ import {
 import { dtSecSince, effectiveStamina, movePenaltyMultiplier, moveStaminaCost } from '@/lib/stamina'
 
 // ════════════════════════════════════════════════════════════════════════
-// BR 静态拓扑（网格房间布局 + chamber 模板元）—— 一次拉取 + 跨对局缓存
-//   契约 clientStrategy：拓扑/模板纯静态、所有对局相同（不随对局变、不含 seed），
-//   故从 gamevars.br 解耦，改 GET /api/br/topology 拉一次永久缓存 → 不再每动作经
-//   Supabase realtime 广播 18.7KB 拓扑 + 10.9KB templateMeta（收益所在）。
-//   端点返回 { rooms:[{roomId,label,region,gridX,gridY,neighborIds}], templateMeta:{[tid]:行} }。
-//   _brTopologyCache = 模块级（跨组件实例 / 跨对局复用）；localStorage 作冷启动持久层
-//   （静态可长缓存，端点已 Cache-Control immutable）。in-flight Promise 去重并发拉取。
+// BR 静态拓扑（网格房间布局 + chamber 模板元）—— 拉取 + 跨对局缓存 + 拓扑版本失效（§5）
+//   契约 clientStrategy：拓扑/模板对所有对局相同（不含 seed），故从 gamevars.br 解耦，改
+//   GET /api/br/topology 拉取缓存 → 不再每动作经 Supabase realtime 广播 18.7KB 拓扑 +
+//   10.9KB templateMeta（收益所在）。
+//   端点返回 { rooms:[{roomId,label,region,gridX,gridY,neighborIds}], templateMeta:{[tid]:行}, version }。
+//   _brTopologyCache = 模块级（跨组件实例 / 跨对局复用）；localStorage 作冷启动持久层。
+//   in-flight Promise 去重并发拉取。
+//   ── 拓扑版本失效（§5）──：admin 改 br_rooms → 触发器 bump updated_at → 端点 version 变大。
+//   调用方传 `gamevars.br.topoVersion`（在飞局冻结的期望版本）作 expectedVersion：
+//     · 缓存 version === expectedVersion ⇒ 命中（在飞局凭自己快照锁定，永不被新编辑污染）。
+//     · 不一致（或缓存缺失）⇒ 视为 miss，带 `?v=<expectedVersion>` 重拉（query 仅用于打破
+//       HTTP 缓存，route 忽略其值；route 仍按当前 DB 算 version 回填）。
+//     · expectedVersion 为 null（旧 gamevars 无 topoVersion）⇒ 不强制版本，沿用任意现有缓存
+//       （拓扑仅供房间布局/标签；致死/着色走 closePhases 快照、与拓扑无关，不破红线①）。
+//   LS key 升 v2：结构新增 version 字段，与旧 v1（无 version）不兼容，避免读到旧结构误判命中。
 // ════════════════════════════════════════════════════════════════════════
-const BR_TOPOLOGY_LS_KEY = 'br_topology_v1'
+const BR_TOPOLOGY_LS_KEY = 'br_topology_v2'
 let _brTopologyCache = null
 let _brTopologyInFlight = null
 
@@ -68,19 +76,35 @@ function readBrTopologyFromLS() {
   return null
 }
 
-async function loadBrTopology() {
-  if (_brTopologyCache) return _brTopologyCache
-  // 冷启动：先吃 localStorage（命中即填模块缓存，免一次网络）。
+// 缓存命中判定：expectedVersion 为 null/undefined（无快照版本）⇒ 任意现有缓存均算命中；
+//   否则要求缓存 version 与期望逐位相等（admin 编辑后 version 变 ⇒ 旧缓存失配 ⇒ miss 重拉）。
+function topoMatchesVersion(topo, expectedVersion) {
+  if (!topo || !Array.isArray(topo.rooms) || topo.rooms.length === 0) return false
+  if (!Number.isFinite(expectedVersion)) return true
+  return Number(topo.version) === Number(expectedVersion)
+}
+
+async function loadBrTopology(expectedVersion = null) {
+  // 模块缓存命中且版本匹配 → 直接复用（在飞局凭自己 topoVersion 锁定）。
+  if (topoMatchesVersion(_brTopologyCache, expectedVersion)) return _brTopologyCache
+  // 冷启动：吃 localStorage（命中且版本匹配即填模块缓存，免一次网络）。
   const fromLs = readBrTopologyFromLS()
-  if (fromLs) {
+  if (topoMatchesVersion(fromLs, expectedVersion)) {
     _brTopologyCache = fromLs
     return _brTopologyCache
   }
+  // 版本失配 / 无缓存：丢弃陈旧模块缓存，重新拉（带 ?v= 打破 HTTP 缓存）。
   if (_brTopologyInFlight) return _brTopologyInFlight
   _brTopologyInFlight = (async () => {
     try {
-      const data = await getGameApi('/api/br/topology')
-      const topo = { rooms: Array.isArray(data?.rooms) ? data.rooms : [], templateMeta: data?.templateMeta || {} }
+      // ?v=<期望版本>：route 忽略该参，仅用于让浏览器/CDN 对不同版本走不同 HTTP 缓存条目。
+      const vq = Number.isFinite(expectedVersion) ? Number(expectedVersion) : 0
+      const data = await getGameApi('/api/br/topology?v=' + vq)
+      const topo = {
+        rooms: Array.isArray(data?.rooms) ? data.rooms : [],
+        templateMeta: data?.templateMeta || {},
+        version: Number.isFinite(data?.version) ? Number(data.version) : 0,
+      }
       _brTopologyCache = topo
       if (typeof window !== 'undefined') {
         try { window.localStorage.setItem(BR_TOPOLOGY_LS_KEY, JSON.stringify(topo)) } catch { /* 配额/隐私模式：忽略 */ }
@@ -343,20 +367,27 @@ export default function GameClientPage() {
   // 我的当前房（BR）
   const myRoomId = brEnabled ? (meBase?.roomId ?? null) : null
 
-  // ── BR 静态拓扑：一次拉 /api/br/topology → 模块缓存（跨对局）+ state（触发重渲）──
+  // ── BR 静态拓扑：拉 /api/br/topology → 模块缓存（跨对局）+ state（触发重渲）+ 版本失效（§5）──
   //   契约 clientStrategy：网格「房间拓扑来源」从 gamevars.br.rooms 换成此静态拓扑。
-  //   gamevars.br 仅保留 { closePhases, roomTemplates } 供着色/档位（仍随对局走 realtime）。
-  //   state 初值吃模块缓存 ⇒ 同会话内换房/重挂载立即有拓扑、无闪烁；未命中则 effect 拉一次。
-  const [brTopology, setBrTopology] = useState(() => _brTopologyCache)
+  //   gamevars.br 保留 { closePhases, roomTemplates, gridW/gridH, topoVersion } 供着色/档位/网格/失效。
+  //   期望版本 = gamevars.br.topoVersion（本局冻结）；缓存版本不匹配 ⇒ effect 重拉（admin 改拓扑后新局生效）。
+  //   state 初值吃模块缓存（且版本匹配才用）⇒ 同会话内换房/重挂载立即有拓扑、无闪烁；不匹配则 effect 拉。
+  const brTopoVersion = Number.isFinite(br?.topoVersion) ? br.topoVersion : null
+  const [brTopology, setBrTopology] = useState(() =>
+    topoMatchesVersion(_brTopologyCache, Number.isFinite(gamevars?.br?.topoVersion) ? gamevars.br.topoVersion : null)
+      ? _brTopologyCache
+      : null,
+  )
   useEffect(() => {
     if (!brEnabled) return undefined
-    if (brTopology) return undefined          // 已有拓扑（模块缓存或上次拉取）→ 不重复请求
+    // 已有拓扑且版本与本局快照匹配 → 不重复请求（在飞局凭自己 topoVersion 锁定，不被新编辑污染）。
+    if (topoMatchesVersion(brTopology, brTopoVersion)) return undefined
     let cancelled = false
-    loadBrTopology()
+    loadBrTopology(brTopoVersion)
       .then(topo => { if (!cancelled) setBrTopology(topo) })
-      .catch(() => { /* 拉取失败：网格优雅占位（loading），下次 brEnabled 变化再试 */ })
+      .catch(() => { /* 拉取失败：网格优雅占位（loading），下次依赖变化再试 */ })
     return () => { cancelled = true }
-  }, [brEnabled, brTopology])
+  }, [brEnabled, brTopology, brTopoVersion])
 
   // ── Phase 31 BR：体力 + 移动惩罚倍率（客户端 UX 派生，服务端 moveToRoom 权威）──
   //   依赖 nowMs（BR 1s tick L194-198）⇒ 每秒重算，体力条平滑增长、消耗预览随等待时间下降。
@@ -1906,6 +1937,8 @@ export default function GameClientPage() {
                 movableRoomIds={brMovableRoomIds}
                 roomHasPlayer={brRoomHasPlayer}
                 myRoomId={myRoomId}
+                gridW={br?.gridW ?? 10}
+                gridH={br?.gridH ?? 10}
                 onMove={(toRoomId) => {
                   if (toRoomId == null || !canActBr || busy) return
                   // 体力不足本地短路：省一次往返（服务端 moveToRoom no_stamina 仍是权威拦截）。

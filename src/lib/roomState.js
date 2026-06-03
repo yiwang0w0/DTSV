@@ -10,6 +10,14 @@ import { STAMINA_CONFIG } from './constants.js'
 
 const LOG_LIMIT = 200
 
+// BR 网格默认尺寸（旧 100 房 10×10 拓扑的回退值）。本地常量而非 import server/br/zones——
+//   roomState.js 被 scripts/smoke-check.mjs 以原生 Node ESM 直接导入，不可引入有 @/ 别名/DB 依赖的模块。
+//   旧存档（快照无 gridW/gridH/centerX/centerY）回退到 10/10/4.5/4.5 → 飞局中的旧 100 格零回归。
+const BR_GRID_W_DEFAULT = 10
+const BR_GRID_H_DEFAULT = 10
+const BR_CENTER_X_DEFAULT = 4.5
+const BR_CENTER_Y_DEFAULT = 4.5
+
 function makeId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -178,8 +186,14 @@ export function normalizeGamevars(gamevars = {}) {
  *   phaseSeconds  每阶段秒数（钳到 [MIN_PHASE_SECONDS=5, ∞)，默认 900）
  *   maxPhase      末路阶段编号（钳到 [0, ∞)，默认 4）
  *   startRoomId   该局中心起始房（spawnRoom 结果，供日志/兜底）
- *   roomTemplates { [roomId]: templateId } 100 项 ~1KB —— 保留：getCurrentChamberTemplateId 纯函数依赖它
- *   closePhases   { [roomId]: closePhase } 100 项 ~1KB —— 保留：客户端着色（公开禁区表，不下发 seed）
+ *   roomTemplates { [roomId]: templateId } ~1KB —— 保留：getCurrentChamberTemplateId 纯函数依赖它
+ *   closePhases   { [roomId]: closePhase } ~1KB —— 保留：客户端着色 + 服务端致死共用此快照（公开禁区表，不下发 seed）
+ *
+ * ── 本期新增 5 标量快照字段（~50B；旧存档缺则回退默认，飞局零回归）──
+ *   gridW/gridH   网格宽高（init 从 br_rooms gridX/gridY 上界推；缺省 10/10）
+ *   centerX/centerY 网格中心（= maxGX/2, maxGY/2；缺省 4.5/4.5）
+ *   topoVersion   本局冻结的拓扑版本（getRaidLayout 返回的 maxUpdatedAtMs；缺省 null）——
+ *                 客户端据此使 /api/br/topology 缓存失效；在飞局用快照值隔离新编辑（不被别局/新拓扑污染）。
  */
 export function normalizeBrBlock(br) {
   const b = br && typeof br === 'object' ? br : {}
@@ -196,6 +210,12 @@ export function normalizeBrBlock(br) {
     startRoomId: b.startRoomId ?? null,
     roomTemplates: b.roomTemplates && typeof b.roomTemplates === 'object' ? b.roomTemplates : {},
     closePhases: b.closePhases && typeof b.closePhases === 'object' ? b.closePhases : {},
+    // ── 本期新增（全部带默认，旧存档/realtime 往返向后兼容；缺失走默认不丢字段）──
+    gridW: Number.isFinite(b.gridW) ? b.gridW : BR_GRID_W_DEFAULT,
+    gridH: Number.isFinite(b.gridH) ? b.gridH : BR_GRID_H_DEFAULT,
+    centerX: Number.isFinite(b.centerX) ? b.centerX : BR_CENTER_X_DEFAULT,
+    centerY: Number.isFinite(b.centerY) ? b.centerY : BR_CENTER_Y_DEFAULT,
+    topoVersion: Number.isFinite(b.topoVersion) ? b.topoVersion : null,
     // rooms / adj / templateMeta 已移出（getRaidLayout(seed) 派生）：旧 fat 存档的这些字段在此被丢弃。
   }
 }

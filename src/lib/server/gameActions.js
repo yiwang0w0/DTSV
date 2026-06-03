@@ -62,7 +62,7 @@ import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STA
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
-import { makeRaidSeed, forbidden, closePhaseOf, closePhasesObject, lootTier } from '@/lib/server/br/forbidden'
+import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE } from '@/lib/server/br/forbidden'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -402,12 +402,14 @@ async function settleCorpseGeneration(resolution) {
  *
  * 架构铁律（BR 大时钟纯 wall-clock，无服务端 tick）：致死只能由写操作触发、服务端权威（不信客户端）。
  *   realPhase 由 getBrClock(room, gamevars) 据 rooms.started_at 实时算（客户端谎报无效：服务端用
- *   wall-clock 重算，假触发判 forbidden=false → no-op）。判据复用 forbidden（与 moveToRoom 开放校验
- *   line 2404 同一函数同一相位口径），保证「能移进的房绝不会下一拍因同相位判定矛盾而被杀」。
+ *   wall-clock 重算，假触发判 cp<=effPhase=false → no-op）。判据 = `cp <= effPhase`，cp 读
+ *   **gamevars.br.closePhases 快照**（与 moveToRoom 开放校验、客户端 cellStateFor 同一快照同一表达式），
+ *   保证「能移进的房绝不会下一拍因同相位判定矛盾而被杀」——本期更强：move 与致死显式共用同源快照，
+ *   不再依赖 seed 重算的隐含一致，且快照在 init 冻结 → 在飞局改 br_rooms 拓扑也不动当前局生死（红线①）。
  *   语义差：move 判目标房 target，致死判玩家**现所在房** p.roomId（被「脚下扇区收缩」吞没，非移动判定）。
  *
  * 前置守卫：(1) 非 BR 房 / 缺 seed → 整体 no-op（return [] 死亡名单）；(2) lobby/ended 时 getBrClock
- *   返回 realPhase=0 → forbidden 恒 false，天然安全；(3) 逐玩家判 alive && !extracted && roomId!=null。
+ *   返回 realPhase=0 → effPhase=0 → cp<=0 恒 false，天然安全；(3) 逐玩家判 alive && !extracted && roomId!=null。
  *
  * 关键顺序：翻 alive 后必须**自己 await settleCorpseGeneration(resolution)**（与 PvP line 1552/1592
  *   同款，persist 链路不自动跑 settleNewDeaths），让被吞玩家也生成尸体。
@@ -422,8 +424,11 @@ async function sweepContractionDeaths(client, resolution, room) {
   // 守卫①：非 BR 房 / 缺 seed → 全程 no-op
   if (!br?.enabled || br.seed == null) return []
 
-  // 守卫②：大时钟一次（lobby/ended → realPhase=0 → forbidden 恒 false，天然安全）
+  // 守卫②：大时钟一次（lobby/ended → realPhase=0 → effPhase=0 → cp<=0 恒 false，天然安全）
   const clock = getBrClock(room, resolution.gamevars)
+  // 致死改读快照：gamevars.br.closePhases（init 落，随 realtime 走）。与客户端 cellStateFor 同源同表达式 → 逐格一致。
+  //   在飞局用自己 gamevars.br 快照判生死，不再实时 forbidden(seed,...) 重算 → 不被「新拓扑/别局编辑」破坏（红线①）。
+  const closePhases = br.closePhases || {}
   const killed = []
 
   for (const [pid, p] of Object.entries(resolution.gamevars.players || {})) {
@@ -433,7 +438,10 @@ async function sweepContractionDeaths(client, resolution, room) {
     // 有效阶段：本期 depth 恒 0 ⇒ effPhase===realPhase；走 effPhase 后续加 depth 自动激活
     const depth = Number.isFinite(p.depth) ? p.depth : 0
     const effPhase = effectivePhase(clock.realPhase, depth, clock.maxPhase)
-    if (!forbidden(br.seed, effPhase, p.roomId)) continue
+    // 【致死判据 — 与 forbidden() / 客户端 cellStateFor 语义逐格对齐】forbidden ⟺ closePhase <= effPhase。
+    //   一律写 `cp <= effPhase`（即 effPhase >= closePhase），禁止写成 `<`（差一格会误判可活/误杀）。
+    const cp = Number.isFinite(closePhases[p.roomId]) ? closePhases[p.roomId] : MAX_CLOSE_PHASE
+    if (!(cp <= effPhase)) continue
 
     // 命中：翻 alive=false（清遭遇/探针/战利品提示，避免死亡态残留交互），写死亡日志条目
     setResolutionPlayer(resolution, pid, {
@@ -454,7 +462,7 @@ async function sweepContractionDeaths(client, resolution, room) {
         reason: 'contraction',
         context: {
           roomId: p.roomId,
-          closePhase: closePhaseOf(br.seed, p.roomId),
+          closePhase: cp, // 复用上面已算的快照 cp（不再 closePhaseOf 重算）
           effPhase,
           envPollution: resolution.gamevars?.envPollution ?? 0,
         },
@@ -1970,14 +1978,16 @@ export async function createRoom(client, user, payload = {}) {
  *
  * 步骤：
  *   ① 生成 per-raid seed（makeRaidSeed(room.id,gamenum,created_at)）
- *   ② getRaidLayout(client, seed) → { rooms, adj, templateMeta, roomTemplates }（按 seed 进程级 memo）
- *   ③ 算 closePhases（seed 洗牌的公开禁区表，客户端着色用，不下发 seed）
- *   ④ 选起始房 startRoomId（seed-phase0 下最靠中心的开放房；本期所有人同起点）
- *   ⑤ 组装 **slim** gamevars.br（仅写 enabled/seed/phaseSeconds/maxPhase/startRoomId/roomTemplates/closePhases）
+ *   ② getRaidLayout(client, seed) → { rooms, adj, templateMeta, roomTemplates, topoVersion }（按 seed 进程级 memo）
+ *   ③ 算 closePhases（seed 洗牌 + 按本局房集比例分桶的公开禁区表，客户端着色用，不下发 seed）
+ *   ④ 从 br_rooms gridX/gridY 上界推 gridW/gridH/centerX/centerY（自适应任意网格尺寸）
+ *   ⑤ 选起始房 startRoomId（seed-phase0 下最靠 centerX/Y 的开放房；本期所有人同起点）
+ *   ⑥ 组装 **slim** gamevars.br（7 旧字段 + gridW/gridH/centerX/centerY/topoVersion 5 新快照字段）
  *
  * gamevars 瘦身：rooms（18.7KB）/adj/templateMeta（10.9KB）不再写进 gamevars.br ——
  *   它们全部从 seed 确定性派生（getRaidLayout(seed)），消费点按需取，从而把每动作 ~40-50KB 负载降到 ~5KB。
  *   roomTemplates 从 layout 取（与旧 sampleRoomTemplates 结果同值），仍写进 gamevars.br（getCurrentChamberTemplateId 纯函数依赖）。
+ *   gridW/gridH/centerX/centerY/topoVersion 为本期新增标量快照（~50B），客户端网格视图据此渲染并隔离在飞局拓扑变更。
  *
  * phaseSeconds/maxPhase 来源：已存在的 gamevars.br（建房时塞的 dev 短值）优先，否则 BR_CONFIG 默认。
  *
@@ -2001,14 +2011,31 @@ async function initBrRoomLayer(client, room, gamevars) {
     }
     const { rooms: roomsTopo, roomTemplates } = layout
 
-    // ③ 公开禁区表（seed 派生，只读）
-    const closePhases = closePhasesObject(seed)
+    // 实际启用房号集（缩圈比例分桶的输入；与 closePhases/起始房/网格推导同源 → 全程自洽）
+    const roomIds = roomsTopo.map((r) => r.roomId)
 
-    // ④ 起始房：seed-phase0（开局全开放）下最靠网格中心的房
-    const phase0Open = roomsTopo.filter(r => !forbidden(seed, 0, r.roomId))
+    // ③ 公开禁区表（seed 派生 + 按本局房集比例分桶；只读，落快照后服务端致死与客户端着色都读它）
+    const closePhases = closePhasesObject(seed, roomIds)
+
+    // ④ 网格 / 中心：从 br_rooms 的 gridX/gridY 上界推（0-based → 宽=max+1；center=max/2）。
+    //   当前数据 0..9 → gridW=gridH=10, center=4.5（与旧写死值完全相等 → 100 格零回归）。
+    //   全 null 坐标兜底：maxGX=maxGY=0 → gridW=gridH=1, center=0（极端退化不崩）。
+    let maxGX = 0
+    let maxGY = 0
+    for (const r of roomsTopo) {
+      if (Number.isFinite(r.gridX) && r.gridX > maxGX) maxGX = r.gridX
+      if (Number.isFinite(r.gridY) && r.gridY > maxGY) maxGY = r.gridY
+    }
+    const gridW = maxGX + 1
+    const gridH = maxGY + 1
+    const centerX = maxGX / 2
+    const centerY = maxGY / 2
+
+    // ⑤ 起始房：seed-phase0（开局全开放）下最靠网格中心的房（中心用上面推导的 centerX/Y，自适应任意网格）
+    const phase0Open = roomsTopo.filter((r) => !forbidden(seed, 0, r.roomId, roomIds))
     const startPool = phase0Open.length > 0 ? phase0Open : roomsTopo
-    const CX = 4.5
-    const CY = 4.5
+    const CX = centerX
+    const CY = centerY
     let startRoom = startPool[0]
     let bestDist = Number.POSITIVE_INFINITY
     for (const r of startPool) {
@@ -2026,7 +2053,8 @@ async function initBrRoomLayer(client, room, gamevars) {
       ? clampMaxPhase(gamevars.br.maxPhase)
       : clampMaxPhase(BR_CONFIG.MAX_PHASE)
 
-    // ⑤ slim br：rooms/adj/templateMeta 移出（getRaidLayout(seed) 派生），仅写 7 个轻量字段
+    // ⑥ slim br：rooms/adj/templateMeta 移出（getRaidLayout(seed) 派生），写 7 旧字段 + 5 新快照字段。
+    //   新增 gridW/gridH/centerX/centerY（网格视图自适应）+ topoVersion（本局冻结拓扑版本，隔离在飞局被新编辑污染）。
     const br = {
       enabled: true,
       seed,
@@ -2035,8 +2063,14 @@ async function initBrRoomLayer(client, room, gamevars) {
       startRoomId,
       roomTemplates,
       closePhases,
+      // ── 新增（本期 §1/§4/§5）──
+      gridW,
+      gridH,
+      centerX,
+      centerY,
+      topoVersion: Number.isFinite(layout.topoVersion) ? layout.topoVersion : null,
     }
-    console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} templates=${Object.keys(layout.templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
+    console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} grid=${gridW}x${gridH} center=(${centerX},${centerY}) topoVer=${br.topoVersion} templates=${Object.keys(layout.templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
     return { br, startRoomId }
   } catch (e) {
     console.error('[joinRoom][BR] 初始化失败:', e?.message)
@@ -2572,9 +2606,11 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
   const neighbors = Array.isArray(layout.adj?.[fromRoomId]) ? layout.adj[fromRoomId] : []
   if (!neighbors.includes(target)) throw new Error('目标扇区不相邻')
 
-  // ③ 开放校验：forbidden(seed, effectivePhase, target)===false（禁区即拒）
+  // ③ 开放校验：改读 gamevars.br.closePhases 快照（与致死 sweepContractionDeaths / 客户端着色同源同表达式）。
+  //   forbidden ⟺ cpTarget <= effPhase（用 `<=` 不是 `<`）。move 与 sweep 共用同一快照 → 能移进的房不会下一拍被杀。
   const effPhase = getBrEffectivePhase(room, gamevars, player)
-  if (forbidden(br.seed, effPhase, target)) {
+  const cpTarget = Number.isFinite(br.closePhases?.[target]) ? br.closePhases[target] : MAX_CLOSE_PHASE
+  if (cpTarget <= effPhase) {
     throw new Error('目标扇区已进入禁区（缩圈），无法进入')
   }
 

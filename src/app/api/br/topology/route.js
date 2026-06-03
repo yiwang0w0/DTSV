@@ -6,14 +6,18 @@
  *   chamber_templates 折算的伪 chamber 字段），故抽成独立端点：客户端跨对局/跨组件拉一次永久缓存，
  *   不再随每个动作广播。收益即在于此。
  *
- * 返回（强缓存 immutable，所有对局共用）：
+ * 返回（可重验缓存，所有对局共用）：
  *   rooms        [{ roomId, label, region, gridX, gridY, neighborIds }]（br_rooms 全表 ~100 行）
  *   templateMeta { [templateId]: 伪 chamber 字段子集 }（全部 enabled chamber_templates，经 toTemplateMeta）
+ *   version      int（= max(updated_at) 毫秒戳，拓扑版本指纹）——admin 改 br_rooms → 触发器 bump
+ *                updated_at → version 变大 → 客户端凭 gamevars.br.topoVersion 比对失效旧缓存。
  *
  * 鉴权：照 /api/br 的 requireRequestUser 范式取 service-role supabase（br_rooms / chamber_templates
  *   无面向匿名的 RLS 读策略，既有 BR 读路径全走 service-role，故服务端路由最稳）。
  *
- * 与 gamevars 解耦：拓扑/模板纯静态、从不随对局变 → 客户端即便命中旧缓存也正确，可长缓存。
+ * 缓存策略：拓扑可被 admin 编辑（§5 拓扑版本），故从 immutable 改为 max-age=60 +
+ *   stale-while-revalidate=300（60s 内新鲜、之后后台重验）。客户端另以 `?v=<topoVersion>`
+ *   query 打破 HTTP 缓存 + localStorage version 比对 → 在飞局凭自己冻结的 topoVersion 不受污染。
  */
 
 import { NextResponse } from 'next/server'
@@ -49,9 +53,19 @@ export async function GET(request) {
       (chamberRes?.data || []).map((t) => [t.id, toTemplateMeta(t)]),
     )
 
+    // 拓扑版本指纹 = max(updated_at) 毫秒戳（§5）。loadRooms 已映射每行 updatedAt（D 改 zones.js
+    //   select + 映射）；旧无该列（迁移未跑）⇒ 全部 0 ⇒ version=0，与「无版本」语义一致、不崩。
+    //   与 getRaidLayout 的 computeTopoVersion 同口径（取 max 毫秒），故客户端比对的两侧一致。
+    let maxUpdatedAtMs = 0
+    for (const r of Array.isArray(rooms) ? rooms : []) {
+      const t = r?.updatedAt ? Date.parse(r.updatedAt) : 0
+      if (Number.isFinite(t) && t > maxUpdatedAtMs) maxUpdatedAtMs = t
+    }
+
     return NextResponse.json(
-      { rooms: slimRooms, templateMeta },
-      { headers: { 'Cache-Control': 'public, max-age=86400, immutable' } },
+      { rooms: slimRooms, templateMeta, version: maxUpdatedAtMs },
+      // 可重验缓存：60s 内新鲜，之后后台 revalidate 拿新版本（admin 编辑后客户端另以 ?v= 强制打破）。
+      { headers: { 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300' } },
     )
   } catch (e) {
     console.error('[br/topology] GET 失败:', e?.message || e)

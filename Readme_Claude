@@ -3,6 +3,25 @@
 更新时间：2026-06-03（Asia/Tokyo） · 全界面走查审计 + 前台虚拟空间化（Phase 36 名词反割裂）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
+## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
+
+> 用户：制作地图编辑器(编辑房间名·未来 30-40 房) + 房间物品投放表(联动装备) + 后台整理。决策(AskUQ)：一步到位 30-40 / 越晚越肥 / 房间库存一次性 / 全面整理。
+> 北极星：`docs/map-room-item-editor-design.md`。4 阶段：①地基+房间编辑器(本次) ②物品投放后端 ③投放编辑器 ④后台全面整理。
+
+**阶段1 地基（Workflow 6 agent·契约→4路并行→对抗验证致死数学）**：BR 缩圈从「写死 100」重构为「从实际启用 br_rooms 集比例分桶」，且**每局开局快照冻结**——服务端致死与客户端着色都读 `gamevars.br.closePhases` 快照(不再实时 seed 重算)，故 admin 改 br_rooms 不破在飞局生死。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/server/br/forbidden.js` | `computeClosePhases(seed, roomIds)` 比例分桶 `bucketSize=ceil(N/MAX)`；`closePhaseOf/forbidden/closePhasesObject` 透传 roomIds；N=0 守卫(禁回退 1..100)；memo key 含房集指纹 |
+| `src/lib/server/gameActions.js` | `initBrRoomLayer` 落 closePhases(按房集) + gridW/gridH/center(从 br_rooms bounds 推) + topoVersion 快照；`sweepContractionDeaths`/`moveToRoom` 改读快照 `cp<=effPhase`(不再 forbidden(seed)) |
+| `roomState.js` | normalizeBrBlock 带 gridW/gridH/center/topoVersion(默认 10/4.5/null 旧局兜底) |
+| `gameUi.js`·`GameClientPage.jsx` | BR 网格读 gridW/gridH 快照渲染；着色仍读 closePhases(与后端致死同源) |
+| `raidLayout.js`·`zones.js`·`api/br/topology` | 拓扑版本：zones loadRooms 选 updated_at→topoVersion；getRaidLayout memo key + topology `?v=` 带版本使 immutable 缓存可失效 |
+| `admin/_tabs/RoomsEditorTab.jsx`(新)·`admin/page.js` | 🧭 房间编辑器 tab：CRUD br_rooms(label/region/grid/邻接/enabled)；增删房达成 30-40 |
+| `scripts/phase-33-map-editor-foundation.sql`(新·已部署) | br_rooms 加 updated_at + BEFORE UPDATE 触发器(拓扑版本戳)；幂等 |
+
+**对抗验证**：缩圈在 N=36/100 都 5 段比例化(testPass)；**致死≡客户端着色逐格一致**(killConsistent，move/sweep/着色共用快照同表达式)；**N=100 与旧分桶 bit 一致**(regressionOk·4 seed)；在飞局快照冻结安全(inflightSafe)；next lint ✔。主代理亲审 forbidden.js + 致死 diff 通过。**待 live 走查房间编辑器。**
+
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。

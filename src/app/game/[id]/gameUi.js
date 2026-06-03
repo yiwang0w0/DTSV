@@ -214,9 +214,13 @@ export { Modal }
 //   /br/[matchId]/page.js 走独立 br_match* 路径，沿用其自有内联实现，本组件供 /game 路径用。
 // ════════════════════════════════════════════════════════════════════════
 
-// 网格尺寸（与 server/br/zones.js GRID_W/GRID_H 对齐）
-export const BR_GRID_W = 10
-export const BR_GRID_H = 10
+// 网格尺寸默认值（仅 fallback：网格宽高现由 gamevars.br.gridW/gridH 快照驱动·见 §4）。
+//   旧 100 房局（快照无 gridW/gridH）回退到 10×10 → 与历史写死值相等、零回归。
+//   保留旧名 BR_GRID_W/BR_GRID_H 作别名，避免外部 import 断裂（grep 确认本文件内自用为主）。
+export const BR_GRID_W_DEFAULT = 10
+export const BR_GRID_H_DEFAULT = 10
+export const BR_GRID_W = BR_GRID_W_DEFAULT
+export const BR_GRID_H = BR_GRID_H_DEFAULT
 
 // ── 大时钟本地推算（clock.js 同款公式，应用层计算不落库）──────────────────
 // 入参：{ startedAtMs, phaseSeconds, maxPhase, status }（status: 'active'|'ended'|'lobby'）。
@@ -526,20 +530,24 @@ export function BrClockHud({
   )
 }
 
-// ── 100 房网格面板（10×10）：渲染扇区格 + 图例 ────────────────────────────
+// ── 房间网格面板：渲染扇区格 + 图例（尺寸由 gridW/gridH props 驱动·见 §4）────────
 //   cellByXY: Map<"x,y", room>；room 字段 { roomId, label, region, gridX, gridY, closePhase, lootTier }
 //   computeCellState(room) → 'open'|'warning'|'forbidden'（父组件注入本地时钟态）
 //   movableRoomIds: Set<roomId>；roomHasPlayer: Set<roomId>；myRoomId: number|null
-export function BrGridPanel({ cellByXY, realPhase, computeCellState, movableRoomIds, roomHasPlayer, myRoomId, onMove }) {
+//   gridW/gridH: 网格宽高（来自 gamevars.br 快照，在飞局冻结）；缺省回退 10×10（旧 100 房零回归）。
+export function BrGridPanel({ cellByXY, realPhase, computeCellState, movableRoomIds, roomHasPlayer, myRoomId, onMove, gridW = BR_GRID_W_DEFAULT, gridH = BR_GRID_H_DEFAULT }) {
+  // 守卫：非有限 / <1 ⇒ 回退默认，杜绝 repeat(0,1fr) 或 NaN 把网格画崩。
+  const cols = Number.isFinite(gridW) && gridW >= 1 ? Math.floor(gridW) : BR_GRID_W_DEFAULT
+  const rows = Number.isFinite(gridH) && gridH >= 1 ? Math.floor(gridH) : BR_GRID_H_DEFAULT
   return (
     <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
       <PanelTitle right={<span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>阶段 {realPhase} 禁区图</span>}>
-        🛰 扇区网格 {BR_GRID_W}×{BR_GRID_H}
+        🛰 扇区网格 {cols}×{rows}
       </PanelTitle>
       <div style={{ padding: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${BR_GRID_W}, 1fr)`, gap: 3 }}>
-          {Array.from({ length: BR_GRID_H }).map((_, y) =>
-            Array.from({ length: BR_GRID_W }).map((_, x) => {
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 3 }}>
+          {Array.from({ length: rows }).map((_, y) =>
+            Array.from({ length: cols }).map((_, x) => {
               const room = cellByXY.get(`${x},${y}`)
               const isMine = room != null && room.roomId === myRoomId
               const hasPlayers = room != null && roomHasPlayer.has(room.roomId)

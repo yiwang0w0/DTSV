@@ -31,9 +31,8 @@ const STAGE_TYPE_BIAS = {
   5: { fragment_dense: 2.5, hazard: 2, milestone: 1.5, scan_dense: 0.5 },
 }
 
-/** 网格中心坐标（10×10，0-based），用于「milestone 落在中心房」选取 */
-const GRID_CX = 4.5
-const GRID_CY = 4.5
+// 网格中心坐标改为「从 rooms 推」（在 sampleRoomTemplates 内局部算 cx=maxGX/2, cy=maxGY/2），
+//   自适应任意网格尺寸；与 initBrRoomLayer 同源 rooms → 中心一致。旧模块级 GRID_CX/CY=4.5 已删。
 
 /**
  * 把一行 chamber_template 折算成 templateMeta 子集（伪 chamber 对象的字段源）。
@@ -97,6 +96,20 @@ export function sampleRoomTemplates(rooms, templates, seed) {
     return { roomTemplates, templateMeta }
   }
 
+  // 实际启用房号集（传给 closePhaseOf 的第 3 参；与 initBrRoomLayer 的 roomIds 同源 → closePhase 自洽）
+  const sampleIds = roomList.map((r) => r.roomId)
+
+  // 网格中心：从 roomList 的 gridX/gridY 上界推（cx=maxGX/2, cy=maxGY/2；自适应任意尺寸）。
+  //   与 initBrRoomLayer/§4 同公式 → 中心一致；全 null 坐标退化为 (0,0)，不崩。
+  let maxGX = 0
+  let maxGY = 0
+  for (const r of roomList) {
+    if (Number.isFinite(r.gridX) && r.gridX > maxGX) maxGX = r.gridX
+    if (Number.isFinite(r.gridY) && r.gridY > maxGY) maxGY = r.gridY
+  }
+  const cx = maxGX / 2
+  const cy = maxGY / 2
+
   // 按 type 分桶
   const byType = {}
   for (const t of tmplList) {
@@ -120,13 +133,13 @@ export function sampleRoomTemplates(rooms, templates, seed) {
 
   // 计算每房 closePhase + 到中心距离（供保底选址）
   const annotated = roomList.map((r) => {
-    const cp = closePhaseOf(seed, r.roomId)
+    const cp = closePhaseOf(seed, r.roomId, sampleIds)
     const gx = r.gridX
     const gy = r.gridY
     const dist =
       gx == null || gy == null
         ? Number.POSITIVE_INFINITY
-        : (gx - GRID_CX) * (gx - GRID_CX) + (gy - GRID_CY) * (gy - GRID_CY)
+        : (gx - cx) * (gx - cx) + (gy - cy) * (gy - cy)
     return { roomId: r.roomId, closePhase: cp, dist }
   })
 
@@ -171,7 +184,7 @@ export function sampleRoomTemplates(rooms, templates, seed) {
   // ── 第二步：填充其余房（按 stage 偏置加权抽，每房独立确定性子 RNG）──
   for (const r of roomList) {
     if (placed.has(r.roomId)) continue
-    const cp = closePhaseOf(seed, r.roomId)
+    const cp = closePhaseOf(seed, r.roomId, sampleIds)
     const bias = STAGE_TYPE_BIAS[cp] || STAGE_TYPE_BIAS[3]
 
     // 候选 = 该 stage 偏置里出现的类型对应模板；无则全表兜底
