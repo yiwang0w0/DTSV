@@ -118,12 +118,13 @@ export const STAMINA_CONFIG = {
   // 体力回复道具「机能恢复剂」配置（主回复源 · 可搜刮）：
   //   - 一份 = BUNDLE_COUNT 个同名条目（搜索抽中时一次性 push 这么多进 inventory，库存无 per-instance charges 概念）。
   //   - useItem 每次消费 1 个，restoreStamina(+RESTORE) clamp 到 MAX_STAMINA。
-  //   - DB 侧由 item_pool.stamina_restore 列承载实际回复量（见 scripts/phase-25r-stamina-economy.sql）；
-  //     此处 RESTORE/NAME/BUNDLE_COUNT 为应用层落地（搜索产出特判 + 客户端提示）single source of truth。
+  //   - DB 侧由 item_pool.stamina_restore 列承载实际回复量（见 scripts/phase-25r-stamina-economy.sql）。
+  //   - ⚠️ Phase 34: BUNDLE 分发已广义化 → 运行时权威迁至 item_pool.bundle_count 列（搜索产出按行读 bundle_count，
+  //     不再硬比此处 NAME）。此处 RESTORE/NAME/BUNDLE_COUNT 降为 client 提示 / 文档 single-source（值保留，勿删：别处仍 import）。
   RECOVERY_ITEM: {
-    NAME:         '机能恢复剂',  // 与 item_pool 行 name 严格一致（搜索产出特判 found.name 比对）
+    NAME:         '机能恢复剂',  // 与 item_pool 行 name 严格一致（客户端提示 / 文档锚点）
     RESTORE:      50,           // 每次使用恢复体力（与 item_pool.stamina_restore 对齐）
-    BUNDLE_COUNT: 6,            // 一份产出的同名条目数（= 可用次数）
+    BUNDLE_COUNT: 6,            // 一份产出的同名条目数（= 可用次数）；运行时分发已迁 item_pool.bundle_count
   },
 }
 

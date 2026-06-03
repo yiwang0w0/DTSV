@@ -63,6 +63,7 @@ import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamin
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
 import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE } from '@/lib/server/br/forbidden'
+import { placeRoomInventory, takeFromRoom, resolveRef } from '@/lib/server/br/roomItems'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -1237,6 +1238,60 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
+    // ── Phase 34: authored 房间投放优先（roomInv 取货） — 先于程序化 amount 抽取 ──
+    //   仅 BR 房且本房有库存时尝试；取到 → 发该件并 return（消耗本次搜索）；取不到 → 回落下方程序化抽取。
+    //   红线：此块在 1240 门控内（已过 itemChance/污染/体力/roll 门），authored 命中仍受这一切约束，不旁路经济；
+    //         hit===null（无投放/未显形/已取完/装备 INSERT 失败）一律不 return → 落 amount 权重 + lootByDepth（经济基线分毫不动）。
+    const brBlk = resolution.gamevars?.br
+    if (brBlk?.enabled && player.roomId != null && brBlk.roomInv) {
+      const effPhase = getBrEffectivePhase(room, resolution.gamevars, polluted)
+      const hit = takeFromRoom(brBlk.roomInv, player.roomId, effPhase) // 就地标 taken（持久化进 gamevars.br.roomInv）
+      if (hit) {
+        const ref = resolveRef(brBlk.roomInvRefs, hit.kind, hit.refIdx)
+
+        if (hit.kind === 1) {
+          // ── 装备件：走现有 createLootSideEffect 的 equipment_instances INSERT（不另造；耐久=tier.durability_max） ──
+          const tierId = ref.tierId
+          let sideEffect = null
+          try {
+            // corpse=null 安全：createLootSideEffect equipment_tier 分支只读 entry.type/entry.tierId，不引用 corpse。
+            sideEffect = await createLootSideEffect(client, room.id, user.id, null, { type: 'equipment_tier', tierId })
+          } catch (e) {
+            console.error('[searchArea] authored 装备投放失败（回落程序化）:', e?.message)
+            sideEffect = null
+          }
+          if (sideEffect) {
+            let tierName = '未知装备'
+            try {
+              const { data: tierRow } = await client.from('equipment_tiers').select('name').eq('id', tierId).single()
+              if (tierRow?.name) tierName = tierRow.name
+            } catch (e) { /* 名称仅用于日志，失败不影响发放 */ }
+            appendResolutionLog(resolution, `${player.name} 在此处找到了装备【${tierName}】`, 'heal')
+            return await persistResolutionWithPollution(client, room, resolution, user.id)
+          }
+          // INSERT 失败 → 不 return，落入下方程序化抽取（authored 失败不吞搜索结果）
+        } else {
+          // ── item 件：inventory push × bundle_count（读 item_pool.bundle_count；authored 可投放任意道具，故跨本房模板池兜底全量缓存） ──
+          const found = bundle.itemPool.find((i) => i.name === ref.itemName)
+            || (Array.isArray(_allItemsCache) ? _allItemsCache.find((i) => i.name === ref.itemName) : null)
+          const bundleCount = Math.max(1, Number(found?.bundle_count) || 1)
+          const addEntries = Array(bundleCount).fill(ref.itemName)
+          setResolutionPlayer(resolution, user.id, {
+            ...polluted,
+            inventory: [...(polluted.inventory || []), ...addEntries],
+          })
+          const log = bundleCount > 1
+            ? `${player.name} 找到了 ${ref.itemName} ×${bundleCount}`
+            : `${player.name} 找到了 ${ref.itemName}`
+          appendResolutionLog(resolution, log, 'heal')
+          const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
+          try { await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: ref.itemName }) } catch (e) { /* best-effort */ }
+          return persisted
+        }
+      }
+      // hit===null → 不 return，继续往下走现有程序化抽取（回落保底）
+    }
+
     // 按 amount 权重抽 1 件（原逻辑封装为闭包，供基础抽取 + 深度额外抽取共用同一分布）
     const totalWeight = bundle.itemPool.reduce((sum, item) => sum + (item.amount || 1), 0)
     const pickLooseItem = () => {
@@ -1249,12 +1304,11 @@ async function resolveSearchAction(client, room, gamevars, user) {
       return picked
     }
 
-    // 一件 item → inventory 条目数（体力回复道具特判：一份 = BUNDLE_COUNT 个同名条目；其余 1 个）。
-    const recovery = STAMINA_CONFIG.RECOVERY_ITEM
+    // 一件 item → inventory 条目数（= 一次性 push 进 inventory 的同名条目数 = 可用次数）。
+    //   Phase 34: 广义化 BUNDLE — 读 item_pool.bundle_count（DB 运行时权威；恢复剂=6，其余 default 1）。
+    //   原硬比 STAMINA_CONFIG.RECOVERY_ITEM.NAME 已废（该常量降为 client/文档 single-source，不再做分发）。
     const entriesForItem = (item) => {
-      const bundleCount = (recovery && item.name === recovery.NAME)
-        ? Math.max(1, Number(recovery.BUNDLE_COUNT) || 1)
-        : 1
+      const bundleCount = Math.max(1, Number(item.bundle_count) || 1)
       return Array(bundleCount).fill(item.name)
     }
 
@@ -2053,6 +2107,28 @@ async function initBrRoomLayer(client, room, gamevars) {
       ? clampMaxPhase(gamevars.br.maxPhase)
       : clampMaxPhase(BR_CONFIG.MAX_PHASE)
 
+    // ── Phase 34: 房间投放铺货（authored room_items → roomInv 快照·确定性） ──
+    //   只拉本局实际房集（roomIds）的 enabled 行（孤儿/禁用行不进 → 解耦房增删）；组内按 id 升序 → PRNG idx 锚点稳定。
+    //   placeRoomInventory 纯函数（同 seed+roomIds+rows → 同 roomInv，所有实例一致）；失败降级空库存（回落程序化抽取，零回归）。
+    let roomInv = {}
+    let roomInvRefs = { items: [], tiers: [] }
+    try {
+      const { data: riRows } = await client
+        .from('room_items')
+        .select('id, br_room_id, entry_kind, item_name, tier_id, fixed_count, random_min, random_max, random_chance, spawn_phase_min')
+        .eq('enabled', true)
+        .in('br_room_id', roomIds)
+        .order('br_room_id', { ascending: true })
+        .order('id', { ascending: true })
+      const placed = placeRoomInventory(seed, roomIds, riRows || [])
+      roomInv = placed.roomInv
+      roomInvRefs = placed.roomInvRefs
+    } catch (e) {
+      console.error('[joinRoom][BR] room_items 铺货失败（降级空库存，回落程序化）:', e?.message)
+      roomInv = {}
+      roomInvRefs = { items: [], tiers: [] }
+    }
+
     // ⑥ slim br：rooms/adj/templateMeta 移出（getRaidLayout(seed) 派生），写 7 旧字段 + 5 新快照字段。
     //   新增 gridW/gridH/centerX/centerY（网格视图自适应）+ topoVersion（本局冻结拓扑版本，隔离在飞局被新编辑污染）。
     const br = {
@@ -2069,6 +2145,9 @@ async function initBrRoomLayer(client, room, gamevars) {
       centerX,
       centerY,
       topoVersion: Number.isFinite(layout.topoVersion) ? layout.topoVersion : null,
+      // ── Phase 34: 房间投放快照（authored room_items → roomInv 取货层） ──
+      roomInv,
+      roomInvRefs,
     }
     console.log(`[joinRoom][BR] init room=${room.id} seed=${seed} start=${startRoomId} grid=${gridW}x${gridH} center=(${centerX},${centerY}) topoVer=${br.topoVersion} templates=${Object.keys(layout.templateMeta).length} phaseSeconds=${phaseSeconds} maxPhase=${maxPhase}`)
     return { br, startRoomId }

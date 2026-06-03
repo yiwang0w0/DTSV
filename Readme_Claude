@@ -20,7 +20,20 @@
 | `admin/_tabs/RoomsEditorTab.jsx`(新)·`admin/page.js` | 🧭 房间编辑器 tab：CRUD br_rooms(label/region/grid/邻接/enabled)；增删房达成 30-40 |
 | `scripts/phase-33-map-editor-foundation.sql`(新·已部署) | br_rooms 加 updated_at + BEFORE UPDATE 触发器(拓扑版本戳)；幂等 |
 
-**对抗验证**：缩圈在 N=36/100 都 5 段比例化(testPass)；**致死≡客户端着色逐格一致**(killConsistent，move/sweep/着色共用快照同表达式)；**N=100 与旧分桶 bit 一致**(regressionOk·4 seed)；在飞局快照冻结安全(inflightSafe)；next lint ✔。主代理亲审 forbidden.js + 致死 diff 通过。**待 live 走查房间编辑器。**
+**对抗验证**：缩圈在 N=36/100 都 5 段比例化(testPass)；**致死≡客户端着色逐格一致**(killConsistent，move/sweep/着色共用快照同表达式)；**N=100 与旧分桶 bit 一致**(regressionOk·4 seed)；在飞局快照冻结安全(inflightSafe)；next lint ✔。主代理亲审 forbidden.js + 致死 diff 通过。**待 live 走查房间编辑器（需管理员登录）。**
+
+### 阶段2 房间物品投放后端（Phase 34 · Workflow 4 agent + 主代理硬化/亲审）
+
+> room_items 投放表 + gamevars.br.roomInv 一次性库存(开局铺货/搜索取货/越晚越肥/装备件)；additively 接入 resolveSearchAction，procedural loot 经济基线零破坏。
+
+| 文件 | 改动 |
+|------|------|
+| `scripts/phase-34-room-items.sql`(新·已部署) | room_items 表(br_room_id 软引用·entry_kind item/equipment_tier·fixed/random_min/max/chance·spawn_phase_min·4 CHECK·2 FK·部分索引·updated_at 触发器) + item_pool.name UNIQUE(FK 前置) + item_pool.bundle_count(广义化恢复剂 BUNDLE，恢复剂迁移=6) |
+| `src/lib/server/br/roomItems.js`(新) | placeRoomInventory(seed,roomIds,rows)→roomInv 确定性铺货(种子 PRNG·孤儿房忽略·ROOM_INV_CAP=24/房) + takeFromRoom(相位门+一次性 taken) + resolveRef；**主代理加 GLOBAL_INV_CAP=240** 跨房二道阀(防病态配置撑爆 gamevars) |
+| `gameActions.js` | resolveSearchAction loose-item 门内 authored-first：takeFromRoom 命中→发件(item push×bundle_count / equipment_tier 走 createLootSideEffect INSERT)→**取不到回落现有 amount 程序化抽取**；bundle 广义化读 item.bundle_count(不再硬比 NAME)；initBrRoomLayer 查 room_items→placeRoomInventory→落 roomInv 快照(失败降级空) |
+| `roomState.js`·`constants.js` | normalizeBrBlock 带 roomInv/roomInvRefs(旧局兜底空→全回落程序化·零回归)；constants RECOVERY_ITEM 注释降为 client/文档(运行时权威迁 DB bundle_count) |
+
+**验证**：铺货确定性(node 实测)；越晚越肥相位门；一次性消耗；**procedural 回落完好(逐行)**；装备 INSERT；bundle 广义化；gamevars 增量 30 房 0.62KB/100 房 1.67KB(GLOBAL_CAP 硬封顶 ≤~3KB)；SQL 幂等；next lint ✔。主代理亲审 resolveSearchAction 接入(经济门内·回落完整) + 硬化 GLOBAL_INV_CAP。**room_items 0 行，待 Phase 3 投放编辑器灌入。**
 
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 

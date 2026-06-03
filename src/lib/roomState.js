@@ -216,6 +216,14 @@ export function normalizeBrBlock(br) {
     centerX: Number.isFinite(b.centerX) ? b.centerX : BR_CENTER_X_DEFAULT,
     centerY: Number.isFinite(b.centerY) ? b.centerY : BR_CENTER_Y_DEFAULT,
     topoVersion: Number.isFinite(b.topoVersion) ? b.topoVersion : null,
+    // ── Phase 34: 房间投放快照（authored room_items → roomInv 取货层）。旧局/realtime 往返兜底空 → takeFromRoom 全 null → 全程回落程序化抽取（零回归）。──
+    roomInv: b.roomInv && typeof b.roomInv === 'object' ? b.roomInv : {},
+    roomInvRefs: (b.roomInvRefs && typeof b.roomInvRefs === 'object')
+      ? {
+          items: Array.isArray(b.roomInvRefs.items) ? b.roomInvRefs.items : [],
+          tiers: Array.isArray(b.roomInvRefs.tiers) ? b.roomInvRefs.tiers : [],
+        }
+      : { items: [], tiers: [] },
     // rooms / adj / templateMeta 已移出（getRaidLayout(seed) 派生）：旧 fat 存档的这些字段在此被丢弃。
   }
 }
