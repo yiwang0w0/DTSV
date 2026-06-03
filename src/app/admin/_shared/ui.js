@@ -19,6 +19,24 @@ export const LABEL = {
   fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
 }
 
+// 规范调色板（叙事/分析族）。取最全一份；6 个目标 tab 的本地 const C 均为其逐键相等子集。
+export const C = {
+  bg1:    '#1c2129',
+  bg2:    '#161b22',
+  bg0:    '#0e1117',
+  border: '#30363d',
+  border2:'#21262d',
+  text:   '#e6edf3',
+  dim:    '#8b949e',
+  dim2:   '#484f58',
+  accent: '#58a6ff',
+  green:  '#3fb950',
+  red:    '#f85149',
+  yellow: '#d29922',
+  purple: '#bc8cff',
+  cyan:   '#39d2c0',
+}
+
 export const ROOM_STATE = {
   0: { label: '等待中', color: '#d29922' },
   1: { label: '进行中', color: '#3fb950' },

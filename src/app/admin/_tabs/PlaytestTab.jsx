@@ -1,16 +1,12 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { C } from '../_shared/ui'
 
 /**
  * Phase 22.2 — Playtest 总览
  * 最近 N 局 raid_stats 折线图（平均时长 / 撤离率 / 死亡率）+ 数据点列表
  */
-
-const C = {
-  bg2: '#161b22', border: '#30363d', dim: '#8b949e', dim2: '#484f58',
-  green: '#3fb950', red: '#f85149', yellow: '#d29922', cyan: '#39d2c0', purple: '#bc8cff', accent: '#58a6ff',
-}
 
 export default function PlaytestTab({ toast }) {
   const [stats, setStats] = useState([])

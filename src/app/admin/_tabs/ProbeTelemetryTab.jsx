@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { C } from '../_shared/ui'
 
 /**
  * Phase 25d — 探针遥测 (cross_room_probes)
@@ -8,12 +9,6 @@ import { supabase } from '@/lib/supabase'
  * 读 v_probe_telemetry (per-owner aggregate) + v_probe_telemetry_by_chamber
  * 三个核心指标：probes_left / total_encountered / outcome_breakdown
  */
-
-const C = {
-  bg2: '#161b22', border: '#30363d', dim: '#8b949e', dim2: '#484f58',
-  green: '#3fb950', red: '#f85149', yellow: '#d29922',
-  cyan: '#39d2c0', purple: '#bc8cff', accent: '#58a6ff',
-}
 
 export default function ProbeTelemetryTab({ toast }) {
   const [byOwner, setByOwner] = useState([])

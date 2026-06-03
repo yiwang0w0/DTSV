@@ -35,6 +35,20 @@
 
 **验证**：铺货确定性(node 实测)；越晚越肥相位门；一次性消耗；**procedural 回落完好(逐行)**；装备 INSERT；bundle 广义化；gamevars 增量 30 房 0.62KB/100 房 1.67KB(GLOBAL_CAP 硬封顶 ≤~3KB)；SQL 幂等；next lint ✔。主代理亲审 resolveSearchAction 接入(经济门内·回落完整) + 硬化 GLOBAL_INV_CAP。**room_items 0 行，待 Phase 3 投放编辑器灌入。**
 
+### 阶段4 后台全面整理（Phase 4 · Workflow 5 agent · 与阶段3 顺序无关·先做）
+
+> 用户「全面整理」。契约先行（纠正文档 2 处误判：maps state/map_config 预取 OverviewTab 在用·须留）→ 3 路并行（零文件重叠）→ 验证全 tab 渲染。导航 23→18 项。
+
+| 整理 | 改动 |
+|------|------|
+| 退役 MapsTab | page.js 删 import/TABS 项/render（map_config 运行时零 server 读）；**保留** maps state+map_config 预取（OverviewTab 概览统计在用）、@/components/cards 拖拽组件（Phase 3 复用）、item_pool.maps/map_config 表/列。MapsTab.jsx 成孤儿（未删文件·零 runtime·可后续清） |
+| DRY 调色板 | 规范 C 调色板收进 _shared/ui.js；Contracts/Events/Branches/Endings/Playtest/探针遥测 6 tab 删本地 const C 改 import（色值逐键相等·零漂移） |
+| 清死字段 | FragmentsTab 删 maps 草稿字段+MAP_LIST import（fragment_pool.maps 的 DB 读不碰·编辑往返不丢）；DbConsole 删 map_config.npc_count 死预设 |
+| 分组导航（轻包裹） | 新 AnalyticsTab（📈 数据：Playtest+探针遥测）+ NarrativeTab（📜 叙事配置：合同/事件/分支/结局）——只 import 渲染**未改**子 tab + 段切换 |
+| 图标去撞 | chambers 🌀→🏛（与 rooms 🌀 区分）；roomsedit 🧭 |
+
+**验证**：MapsTab 无悬空引用 + 全 tab 仍渲染 + 调色板零漂移 + 死字段净 + 红线（字段/SQL/残片/lore 不碰）；next lint ✔。主代理审 page.js+wrapper+palette diff 通过。**纯前端整理·无 SQL·无需部署 DB。**
+
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。

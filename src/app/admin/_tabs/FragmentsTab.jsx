@@ -56,7 +56,6 @@ const EMPTY_FRAGMENT = {
   rarity: 'common',
   discover_mode: 'search',
   phase_chain: 'search',
-  maps: [],
   min_pollution: 0,
   requires_fragment_id: null,
   weight: 1.0,
@@ -104,7 +103,6 @@ export default function FragmentsTab({ toast }) {
     setEditFrag({
       ...EMPTY_FRAGMENT,
       ...f,
-      maps: f.maps || [],
       phase_chain: f.phase_chain || 'search',
       // Phase 20.1: 合并解锁规则字段（DB 字段可能为空对象）
       unlocks_rules: {

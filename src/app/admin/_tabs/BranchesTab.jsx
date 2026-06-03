@@ -3,14 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi, getGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, MAP_LIST } from '../_shared/ui'
-
-const C = {
-  bg1: '#1c2129', bg2: '#161b22', bg0: '#0e1117',
-  border: '#30363d', border2: '#21262d',
-  text: '#e6edf3', dim: '#8b949e', dim2: '#484f58',
-  accent: '#58a6ff', green: '#3fb950', red: '#f85149', yellow: '#d29922', purple: '#bc8cff',
-}
+import { BTN, INPUT, LABEL, Spinner, MAP_LIST, C } from '../_shared/ui'
 
 const COND_TYPES = [
   { value: 'flagEquals',      label: 'flag 等于',         fields: ['key', 'valueJson'] },

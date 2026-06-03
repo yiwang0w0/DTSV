@@ -3,14 +3,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner } from '../_shared/ui'
-
-const C = {
-  bg1: '#1c2129', bg2: '#161b22', bg0: '#0e1117',
-  border: '#30363d', border2: '#21262d',
-  text: '#e6edf3', dim: '#8b949e', dim2: '#484f58',
-  accent: '#58a6ff', green: '#3fb950', red: '#f85149', yellow: '#d29922',
-}
+import { BTN, INPUT, LABEL, Spinner, C } from '../_shared/ui'
 
 const OBJECTIVE_TYPES = [
   { value: 'find_item',   label: '搜集道具',          fields: ['itemName', 'count'] },
