@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · BR 缩圈直接致死（phase-31）+ 性能修复 + 浏览器走查
+更新时间：2026-06-03（Asia/Tokyo） · BR 跳跃/深度（时间跳跃本体）— 五块核心机制齐
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
@@ -158,6 +158,26 @@
 
 - ✅ **缩圈直接致死**（用户定·已实现 phase-31 · Workflow 产出）：当前扇区被收缩（`forbidden@realPhase`）即死。服务端权威：每动作全房 `sweepContractionDeaths` + 客户端 `br_tick` 近实时触发（不信客户端，按 `rooms.started_at` 重算 wall-clock）。复用现有"温和+保险"死亡后果（丢本局未撤离物资·保留账号点数·生成可搜刮尸体·applyRoomLifecycle 收尾），未另造。死亡日志 cause=`contraction`（`scripts/phase-31` ENUM 已 postgres MCP 部署）。客户端：我所在扇区下阶段收缩时红脉冲横幅「⚠ 立即撤离 · mm:ss 后致命」+ 倒计时（满阶段 3min 预警，公平）；DeathReviewModal 加 🌀「被收缩边界吞没」。改：gameActions(sweepContractionDeaths/brTick) + deathLog + GameClientPage + DeathReviewModal。`next lint` ✔ 0。
 - ✅ 体力 / 移动惩罚 / 左栏压缩修复 / 100 房网格 / 搜索攻击消耗 全部走查在线可用。
+
+### 跳跃 / 深度（时间跳跃本体）— Workflow 产出
+
+> BR 五块核心机制最后一块。契约→backend‖client→验证（4 agent / ~612K tok）。我独立复跑 lint + 审跳跃/致死链路 + 部署 jump SQL + 验证后提交。
+
+| 文件 | 改动 |
+|------|------|
+| `src/lib/constants.js` | `JUMP_CONFIG`（COOLDOWN 60s / MAX_DEPTH 4 / 道具 时序跃迁器 / LOOT_BY_DEPTH 旋钮·可调） |
+| `src/lib/server/gameActions.js` | `brJump`：耗一枚 jump_charge 道具 + 冷却 + **单向** depth+=1 → persistResolution 内 **sweepContractionDeaths 自动按新有效阶段判致死**（跳进禁区即死·复用缩圈致死零新代码）。`resolveSearchAction` 按有效阶段 lootTier 多产物资（深=好·depth0 零变更）。dispatcher 'br_jump' |
+| `src/lib/roomState.js` | createPlayerState +lastJumpAt（冷却锚） |
+| `scripts/phase-32-jump-item.sql`（新·已 postgres MCP 部署+验证） | item_pool 加 jump_charge 列 + 可搜刮「时序跃迁器」（consumable·13 模板·偏稀） |
+| `GameClientPage.jsx` + `gameUi.js` | 网格按**我的有效阶段**(real+depth)着色（跳跃者看更深层=更多禁区/更高档）+ 跃迁按钮(道具数/冷却/禁用) + **赌命警告**(跃迁后所在扇区将禁区→红字即死) + 深度/有效阶段徽标 |
+
+**赌命三角**：跳得越深 → 物资越好（代差回报）+ 看更深禁区图，但跳进未来禁区即死、不可回头。继承=杀跳跃者搜其尸体（复用 corpse-loot）。验证：next lint ✔ 0；item 部署验证(jump_charge=1/13 模板)；致死链路复用确认。
+
+> **deferred**：逐事件「上游看不见下游」可见性需先把 Phase 32 事件日志(br_match_events)搬进 /game（当前 /game 全量广播 gamevars）。本期交付"按有效阶段看层"——跳跃者与书写者看不同世界层。
+
+### ✅ BR 五块核心机制齐了
+
+世界/大时钟/缩圈(种子禁区) → 双属性(独立 /br) → 移动/体力经济 → 缩圈致死 → 跳跃/深度。之后：调参/抛光 + 逐事件可见性搬家 + 直播/VTB 联动。
 
 ---
 

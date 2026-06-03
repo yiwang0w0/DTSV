@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../../layout'
-import { ENTITY_TYPE_META, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
+import { ENTITY_TYPE_META, JUMP_CONFIG, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
 import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
@@ -32,6 +32,7 @@ import {
   T,
   cellStateFor,
   computeLocalClock,
+  effectivePhase,
   fmtBrCountdown,
   hpColor,
   warnWindowSeconds,
@@ -391,6 +392,16 @@ export default function GameClientPage() {
 
   const brWarnSecs = useMemo(() => warnWindowSeconds(br?.phaseSeconds), [br?.phaseSeconds])
 
+  // ── Phase 33 BR：时序跃迁 / 深度 ──────────────────────────────────────────
+  //   我的「时间层」深度（depth）+ 有效阶段 = min(maxPhase, realPhase + depth)。
+  //   depth=0 的书写者 effPhase===realPhase（看真实世界层）；跃迁者 depth>0 看更深一层
+  //   （网格更多禁区 + 更高物资档），由 br_jump 抬高。封顶 maxPhase。
+  //   网格着色 / 物资档 / 赌命预判全部喂 myEffPhase（替代纯 realPhase），让「跳跃者与书写者
+  //   读到不同世界层」。致死 sweep 服务端已按各玩家 effectivePhase 同口径裁定（一致性铁律）。
+  const brMaxPhase = br?.maxPhase ?? 4
+  const myDepth = Number.isFinite(meBase?.depth) ? meBase.depth : 0
+  const myEffPhase = brEnabled ? effectivePhase(brClock?.realPhase ?? 0, myDepth, brMaxPhase) : 0
+
   // brGrid：每房显示态数据（静态拓扑 brTopology.rooms + 派生 closePhase/lootTier/templateId）
   //   brTopology.rooms（一次拉的静态端点）：[{ roomId, label, region, gridX, gridY, neighborIds }]
   //   br.closePhases / br.roomTemplates：仍读 gamevars.br（per-raid seed 派生·公开·随对局走 realtime）
@@ -399,14 +410,14 @@ export default function GameClientPage() {
     if (!brEnabled) return []
     const rooms = brTopology?.rooms ?? []
     const closePhases = br?.closePhases || {}
-    const realPhase = brClock?.realPhase ?? 0
     return rooms.map(r => ({
       ...r,
       closePhase: Number.isFinite(closePhases[r.roomId]) ? closePhases[r.roomId] : 5,
-      lootTier: Math.max(1, Math.min(5, realPhase + 1)),
+      // 物资档按「我的有效阶段」算（跃迁者看更高档）：myEffPhase+1，钳 1..5。
+      lootTier: Math.max(1, Math.min(5, myEffPhase + 1)),
       templateId: br?.roomTemplates?.[r.roomId] ?? null,
     }))
-  }, [brEnabled, brTopology, br?.closePhases, br?.roomTemplates, brClock?.realPhase])
+  }, [brEnabled, brTopology, br?.closePhases, br?.roomTemplates, myEffPhase])
 
   // 网格按 gridX/gridY 摆位（10×10）
   const brCellByXY = useMemo(() => {
@@ -430,10 +441,13 @@ export default function GameClientPage() {
     [brGrid, myRoomId],
   )
 
-  // 本地时钟驱动的扇区显示态（注入 BrGridPanel）
+  // 本地时钟驱动的扇区显示态（注入 BrGridPanel）。
+  //   按「我的有效阶段」myEffPhase 而非纯 realPhase 判定 open/warning/forbidden ⇒ 跃迁者
+  //   （depth>0）网格立即渲染更深世界层（更多禁区）；书写者 depth=0 时 myEffPhase===realPhase，
+  //   行为与改动前完全一致。预警窗 secondsToNextPhase 仍用真实时钟（下一阶段收缩的 wall-clock 倒计时）。
   const brComputeCellState = useCallback(
-    (rm) => cellStateFor(rm, brClock?.realPhase ?? 0, brClock?.secondsToNextPhase ?? null, brWarnSecs),
-    [brClock?.realPhase, brClock?.secondsToNextPhase, brWarnSecs],
+    (rm) => cellStateFor(rm, myEffPhase, brClock?.secondsToNextPhase ?? null, brWarnSecs),
+    [myEffPhase, brClock?.secondsToNextPhase, brWarnSecs],
   )
 
   // 可移动目标集合（前端预判高亮；服务端 moveToRoom 再权威校验）：
@@ -465,6 +479,57 @@ export default function GameClientPage() {
   }, [brEnabled, brGrid, brComputeCellState])
 
   const brIsFinalPhase = brEnabled && (brClock?.realPhase ?? 0) >= (br?.maxPhase ?? 4) && room?.gamestate === 1
+
+  // ════════════════════════════════════════════════════════════════════
+  // Phase 33 BR：时序跃迁按钮 + 赌命预判（客户端 UX；服务端 br_jump 权威校验/消耗/致死）
+  //   跃迁 = 单向阶梯：消耗一枚 jump_charge>0 道具（时序跃迁器）→ depth+1 → 看更深时间层。
+  //   代价 = 道具 + 冷却 + 赌命（跃迁后所在扇区在新有效阶段若为禁区 → 服务端 sweep 当场致死）。
+  // ════════════════════════════════════════════════════════════════════
+  // 跃迁器数量：镜像背包体力剂徽标的 allItems.find 模式 —— 累加 inventory 中 jump_charge>0 道具件数。
+  const jumpItemCount = useMemo(() => {
+    if (!brEnabled) return 0
+    return Object.entries(invCount).reduce(
+      (sum, [name, c]) => sum + (((allItems.find(i => i.name === name)?.jump_charge ?? 0) > 0) ? c : 0),
+      0,
+    )
+  }, [brEnabled, invCount, allItems])
+  // 跃迁冷却倒计时（复用 stamina 的 dtSecSince；lastJumpAt 缺失 ⇒ Infinity ⇒ 冷却 0，可跳）。
+  //   依赖 nowMs（BR 1s tick）⇒ 每秒刷新。冷却时长读 JUMP_CONFIG.COOLDOWN_SEC（缺失兜底 60s）。
+  const jumpCooldownSec = Number.isFinite(JUMP_CONFIG?.COOLDOWN_SEC) ? JUMP_CONFIG.COOLDOWN_SEC : 60
+  const jumpDtSec = dtSecSince(meBase?.lastJumpAt ?? null, nowMs)
+  const jumpCdLeft = Number.isFinite(jumpDtSec) ? Math.max(0, Math.ceil(jumpCooldownSec - jumpDtSec)) : 0
+  // 跃迁后我的有效阶段（深一层）；与 myEffPhase 相等 ⇒ 已达最深层（depth+1 无增益），按钮禁用。
+  const nextEff = brEnabled ? effectivePhase(brClock?.realPhase ?? 0, myDepth + 1, brMaxPhase) : 0
+  const jumpCapped = brEnabled && nextEff === myEffPhase
+  // 赌命预判：跃迁后所在扇区在「深一层」是否变禁区（nextEff >= 我所在扇区 closePhase）→ 即死。
+  //   与服务端 forbidden(seed, effPhase, roomId)（phase>=closePhase 即禁）同口径。
+  const jumpWouldKill = brEnabled && !!brMyRoom && Number.isFinite(brMyRoom.closePhase) && nextEff >= brMyRoom.closePhase
+  // 可跳条件：能行动 + 不忙 + 有道具 + 不在冷却 + 未达最深层 + 非末路阶段。
+  //   赌命（jumpWouldKill）刻意不禁用 —— 允许玩家故意跳死/战术弃局，仅红字警告 + 首点 confirm。
+  const jumpDisabled = !canActBr || busy || jumpItemCount <= 0 || jumpCdLeft > 0 || jumpCapped || brIsFinalPhase
+  // 已对此「赌命跳」确认过一次 → 避免每次点击重复弹 confirm（仅首点拦截）。
+  const jumpKillConfirmedRef = useRef(false)
+  useEffect(() => {
+    // 离开赌命态（换房 / 阶段变化 / 已不致死）→ 复位，下次再进赌命态重新确认。
+    if (!jumpWouldKill) jumpKillConfirmedRef.current = false
+  }, [jumpWouldKill])
+
+  async function handleBrJump() {
+    if (jumpDisabled) {
+      // 本地短路提示（与禁用态文案一致；服务端 br_jump 仍是权威拦截）。
+      if (jumpItemCount <= 0) toast('没有可用的时序跃迁器', 'error')
+      else if (jumpCdLeft > 0) toast(`跃迁冷却中（剩 ${jumpCdLeft}s）`, 'error')
+      else if (jumpCapped) toast('已达最深时序层，无法继续跃迁', 'error')
+      return
+    }
+    // 赌命跳：跃迁后所在扇区即禁区 → 首点弹 confirm（防误触），确认后本局该态内不再追问。
+    if (jumpWouldKill && !jumpKillConfirmedRef.current) {
+      if (!confirm('确认跃迁？\n你当前所在扇区在深一层为禁区，跃迁将立即致死。')) return
+      jumpKillConfirmedRef.current = true
+    }
+    const next = await runGameAction('br_jump', {})
+    if (next) toast(`🜂 已跃迁至深度 ${myDepth + 1}（有效阶段 ${nextEff}）`, 'success')
+  }
 
   // ════════════════════════════════════════════════════════════════════
   // 缩圈致死·客户端（本期客户端实现）—— 契约 warning + br_tick 触发
@@ -1743,6 +1808,72 @@ export default function GameClientPage() {
                 playerCount={allPlayers.length}
               />
 
+              {/* Phase 33 BR：我的「时间层」徽标 + 时序跃迁入口。
+                  大时钟主显「真实阶段」（全服统一），此处单独显「我的深度 / 有效阶段」（=真实+深度），
+                  区分「世界真实时钟」vs「我读的层」。depth>0 时有效阶段高于真实阶段（看更深世界层）。 */}
+              <div style={{
+                background: myDepth > 0 ? `linear-gradient(180deg, ${T.purple}1a 0%, ${T.bg2} 100%)` : T.bg2,
+                border: `1px solid ${myDepth > 0 ? `${T.purple}55` : T.border}`,
+                borderRadius: 10, padding: '10px 12px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  {/* 深度 + 有效阶段徽标 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ textAlign: 'center', minWidth: 54 }}>
+                      <div style={{ fontSize: 9, color: T.dim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>深度</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, color: myDepth > 0 ? T.purple : T.dimB, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        {myDepth}
+                      </div>
+                    </div>
+                    <div style={{ width: 1, height: 30, background: T.border }} />
+                    <div style={{ textAlign: 'center', minWidth: 70 }}>
+                      <div style={{ fontSize: 9, color: T.dim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>有效阶段</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, color: myEffPhase > (brClock?.realPhase ?? 0) ? T.purple : T.text, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        {myEffPhase} / {brMaxPhase}
+                      </div>
+                      <div style={{ fontSize: 8, color: T.dim2, marginTop: 1 }}>真实 {brClock?.realPhase ?? 0}</div>
+                    </div>
+                  </div>
+
+                  {/* 跃迁按钮 + 赌命警告 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <Btn
+                      variant="default"
+                      size="sm"
+                      loading={busyAction === 'br_jump'}
+                      loadingText="跃迁中…"
+                      disabled={jumpDisabled}
+                      onClick={handleBrJump}
+                      sx={{
+                        background: jumpDisabled ? T.bg0 : `${T.purple}22`,
+                        color: jumpDisabled ? T.dim2 : T.purple,
+                        border: `1px solid ${jumpDisabled ? T.border : `${T.purple}66`}`,
+                        fontWeight: 700,
+                      }}
+                    >
+                      🜂 {jumpItemCount <= 0
+                        ? '无跃迁器'
+                        : jumpCdLeft > 0
+                          ? `冷却 ${jumpCdLeft}s`
+                          : jumpCapped
+                            ? '已达最深层'
+                            : `跃迁深一层（×${jumpItemCount}）`}
+                    </Btn>
+                    {/* 赌命红字：跃迁后所在扇区即禁区 → 即死（按钮不禁用，允许故意赌命） */}
+                    {jumpWouldKill && jumpItemCount > 0 && !jumpCapped && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: T.red, textShadow: `0 0 8px ${T.red}44`, textAlign: 'right', lineHeight: 1.3 }}>
+                        ⚠ 跃迁后所在扇区即禁区 → 即死
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* 说明行：跃迁单向 + 不可逆，看更深层（更多禁区/更高物资档），代价道具+冷却+赌命 */}
+                <div style={{ fontSize: 9, color: T.dim2, marginTop: 8, lineHeight: 1.5 }}>
+                  时序跃迁：消耗一枚跃迁器 → 认知向更深时间层下潜一阶（不可逆）。看更多禁区与更高物资档，
+                  但跃迁后所在扇区若在新阶段已收缩则当场致死。
+                </div>
+              </div>
+
               {/* 拓扑加载占位：一次拉的静态拓扑（brTopology）未到 ⇒ 网格无房可摆，提示加载中。
                   到达后 brGrid 填充、占位消失；着色/大时钟此刻已可正常工作（不依赖拓扑）。 */}
               {!brTopology && (
@@ -1757,10 +1888,11 @@ export default function GameClientPage() {
                 </div>
               )}
 
-              {/* 100 房网格（点相邻开放房移动）*/}
+              {/* 100 房网格（点相邻开放房移动）。realPhase 传 myEffPhase ⇒ 网格标题「阶段 N 禁区图」
+                  与着色同口径显示「我读的层」（跃迁者更深）；BrGridPanel 内部仅作展示标签。 */}
               <BrGridPanel
                 cellByXY={brCellByXY}
-                realPhase={brClock?.realPhase ?? 0}
+                realPhase={myEffPhase}
                 computeCellState={brComputeCellState}
                 movableRoomIds={brMovableRoomIds}
                 roomHasPlayer={brRoomHasPlayer}

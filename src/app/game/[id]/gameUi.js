@@ -258,6 +258,18 @@ export function computeLocalClock(clockInput, nowMs) {
   }
 }
 
+// ── 有效阶段（玩家视角的「时间层」）= min(maxPhase, realPhase + depth) ──────────
+//   server/br/clock.js effectivePhase 的客户端镜像（同款纯函数，避免从 server 路径 import）。
+//   depth 由「时序跃迁」抬高：depth=0 的书写者 effPhase===realPhase（看真实世界层），
+//   跃迁者 depth>0 看更深一层（更多禁区 + 更高物资档），封顶 maxPhase。
+//   被 GameClientPage 用来给网格着色 / 物资档 / 赌命预判喂「我读哪一层」。
+export function effectivePhase(realPhase, depth = 0, maxPhase = 4) {
+  const rp = Number.isFinite(realPhase) ? Math.max(0, Math.floor(realPhase)) : 0
+  const d = Number.isFinite(depth) ? Math.max(0, Math.floor(depth)) : 0
+  const mp = Number.isFinite(maxPhase) ? Math.max(0, Math.floor(maxPhase)) : 4
+  return Math.min(mp, rp + d)
+}
+
 export function fmtBrCountdown(secs) {
   if (secs == null) return '--:--'
   const s = Math.max(0, secs)

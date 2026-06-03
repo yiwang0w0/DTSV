@@ -58,11 +58,11 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG } from '@/lib/constants'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
-import { makeRaidSeed, forbidden, closePhaseOf, closePhasesObject } from '@/lib/server/br/forbidden'
+import { makeRaidSeed, forbidden, closePhaseOf, closePhasesObject, lootTier } from '@/lib/server/br/forbidden'
 import { getRaidLayout } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
@@ -1229,34 +1229,76 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   if (roll < npcChance + corpseChance + looseItemChance && bundle.itemPool.length > 0) {
+    // 按 amount 权重抽 1 件（原逻辑封装为闭包，供基础抽取 + 深度额外抽取共用同一分布）
     const totalWeight = bundle.itemPool.reduce((sum, item) => sum + (item.amount || 1), 0)
-    let remain = Math.random() * totalWeight
-    let found = bundle.itemPool[0]
-    for (const item of bundle.itemPool) {
-      remain -= item.amount || 1
-      if (remain <= 0) {
-        found = item
-        break
+    const pickLooseItem = () => {
+      let remain = Math.random() * totalWeight
+      let picked = bundle.itemPool[0]
+      for (const item of bundle.itemPool) {
+        remain -= item.amount || 1
+        if (remain <= 0) { picked = item; break }
       }
+      return picked
     }
 
-    // ── 体力回复道具特判：一份 = BUNDLE_COUNT 个同名条目（库存无 per-instance charges，用「一次产出 N 个」实现「可用 N 次」） ──
+    // 一件 item → inventory 条目数（体力回复道具特判：一份 = BUNDLE_COUNT 个同名条目；其余 1 个）。
     const recovery = STAMINA_CONFIG.RECOVERY_ITEM
-    const bundleCount = (recovery && found.name === recovery.NAME)
-      ? Math.max(1, Number(recovery.BUNDLE_COUNT) || 1)
-      : 1
-    const foundEntries = Array(bundleCount).fill(found.name)
+    const entriesForItem = (item) => {
+      const bundleCount = (recovery && item.name === recovery.NAME)
+        ? Math.max(1, Number(recovery.BUNDLE_COUNT) || 1)
+        : 1
+      return Array(bundleCount).fill(item.name)
+    }
+
+    const found = pickLooseItem()
+
+    // ── lootByDepth（深度物资代差·对冲跳跃风险 · JUMP_CONFIG.LOOT_BY_DEPTH 旋钮）──
+    //   只在 br.enabled && seed && depth>0 时缩放；书写者(depth0) extraRolls=0 ⇒ 产出与现状完全一致（零经济膨胀基线）。
+    //   公式：extraRolls = clamp(tier - realTier, 0, EXTRA_ROLL_CAP)，即「跳跃带来的档位增量」每 +1 档多产 1 件（≤2）。
+    //   tier 按该玩家有效阶段档位 lootTier(seed, effPhase, roomId)；realTier 按书写者基准（realPhase）。
+    const br = resolution.gamevars?.br
+    const playerDepth = Number.isFinite(polluted.depth) ? polluted.depth : 0
+    let depthTier = 0
+    let extraItems = []
+    if (br?.enabled && br.seed != null && playerDepth > 0 && player.roomId != null) {
+      const effPhase = getBrEffectivePhase(room, resolution.gamevars, polluted)
+      const realPhase = getBrClock(room, resolution.gamevars).realPhase
+      depthTier = lootTier(br.seed, effPhase, player.roomId)
+      const realTier = lootTier(br.seed, realPhase, player.roomId)
+      const cap = Math.max(0, Number(JUMP_CONFIG.LOOT_BY_DEPTH.EXTRA_ROLL_CAP) || 0)
+      const extraRolls = Math.max(0, Math.min(cap, depthTier - realTier))
+      for (let i = 0; i < extraRolls; i++) extraItems.push(pickLooseItem())
+    }
+
+    // 汇总所有抽到的 item（基础 + 深度额外），各自按 bundle 规则展开成 inventory 条目
+    const allPicked = [found, ...extraItems]
+    const addedEntries = allPicked.flatMap(entriesForItem)
     setResolutionPlayer(resolution, user.id, {
       ...polluted,
-      inventory: [...(polluted.inventory || []), ...foundEntries],
+      inventory: [...(polluted.inventory || []), ...addedEntries],
     })
-    const foundLog = bundleCount > 1
-      ? `${player.name} 找到了 ${found.name} ×${bundleCount}`
+
+    // 日志：基础一行（保留原文案 + bundle ×N），深度额外件单独一行并标注代差来源（深度 N·T{tier}）
+    const foundBundle = entriesForItem(found).length
+    const foundLog = foundBundle > 1
+      ? `${player.name} 找到了 ${found.name} ×${foundBundle}`
       : `${player.name} 找到了 ${found.name}`
     appendResolutionLog(resolution, foundLog, 'heal')
+    if (extraItems.length > 0) {
+      const extraDesc = extraItems.map(it => it.name).join('、')
+      appendResolutionLog(
+        resolution,
+        `↳ 深层余烬额外析出：${extraDesc}（深度 ${playerDepth} 物资·T${depthTier}）`,
+        'heal',
+      )
+    }
+
     const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
+    // 合同进度：基础 + 额外抽到的每一件都推进 item_acquired（best-effort）
     try {
-      await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: found.name })
+      for (const it of allPicked) {
+        await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: it.name })
+      }
     } catch (e) {
       console.error('[searchArea] contract progress 失败:', e?.message)
     }
@@ -2316,6 +2358,13 @@ export async function executeGameAction(client, user, payload, options = {}) {
     return movePlayer(client, room, gamevars, user, payload.selection || 'A')
   }
 
+  // 时序跃迁BR「跳跃/深度」：消耗跃迁道具 + depth+=1（赌命即死链路在 persist 内）。
+  //   与 move 同约束（持战利品时落上方 lootPrompt 守卫拒绝，不在白名单）。仅 BR 房有意义；
+  //   brJump 内部自校 br.enabled/seed（非 BR 房抛中文错误），故此处直接转交。
+  if (payload.action === 'br_jump') {
+    return brJump(client, room, gamevars, user)
+  }
+
   if (payload.action === 'advanceChamber') {
     // Phase 19: advanceChamber 仍映射旧 movePlayer（dormant 兼容；BR 房不应走此路径）
     return movePlayer(client, room, gamevars, user, payload.selection || 'A')
@@ -2634,6 +2683,111 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
   }
 
   console.log(`[br][game] move room=${room.id} user=${user.id} ${fromRoomId}→${target} effPhase=${effPhase}`)
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+/** BR 跃迁道具名集合：从 item_pool 取 jump_charge>0 的道具名（按 jump_charge 动态判定，不硬比 NAME）。
+ *  复用 _allItemsCache（搜索链已建并缓存全量 item_pool）；缓存冷时打一次窄查询（仅 name 列）。
+ *  返回 Set<string>；查询失败兜底回退 JUMP_CONFIG.ITEM.NAME（保证有道具时仍能识别）。 */
+async function getJumpItemNames(client) {
+  // 缓存命中：直接从全量池筛 jump_charge>0
+  if (Array.isArray(_allItemsCache) && _allItemsCache.length > 0) {
+    const fromCache = _allItemsCache.filter(i => (Number(i?.jump_charge) || 0) > 0).map(i => i.name)
+    if (fromCache.length > 0) return new Set(fromCache)
+    // 缓存里没有任何跃迁道具：可能是缓存早于 SQL 部署 → 落到下方窄查询复核
+  }
+  try {
+    const { data, error } = await client.from('item_pool').select('name').gt('jump_charge', 0)
+    if (error) {
+      console.error('[brJump] jump_charge 查询失败:', error.message)
+      return new Set([JUMP_CONFIG.ITEM.NAME])
+    }
+    const names = (data || []).map(r => r.name).filter(Boolean)
+    return names.length > 0 ? new Set(names) : new Set([JUMP_CONFIG.ITEM.NAME])
+  } catch (e) {
+    console.error('[brJump] jump_charge 查询异常:', e?.message)
+    return new Set([JUMP_CONFIG.ITEM.NAME])
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  时序跃迁BR「跳跃 / 深度」—— brJump（单向阶梯·耗道具+冷却·赌命）
+//  以 moveToRoom（本文件上方）为精确模板：校验链 → 体力/冷却 gate → resolution → persist。
+//  设计契约（docs/timejump-br-design.md §4 赌命三角）：
+//    - additive·复用现有：消耗一枚 jump_charge>0 道具 + player.depth += 1 + 刷 lastJumpAt，
+//      不另造死亡/经济。depth 抬高后，persistResolutionWithPollution 内已调的 sweepContractionDeaths
+//      会按「新有效阶段 effectivePhase(realPhase, depth, maxPhase)」对**当前所在扇区**判 forbidden ⇒
+//      跳进禁区即死（与缩圈/PvP 同一死亡后果路径：翻 alive=false + settleCorpseGeneration 生尸体 +
+//      logPlayerDeath(cause='contraction')）。本函数无任何额外致死代码 —— 致死链路已就位。
+//    - 失败抛 Error（携 code 供 route 精确映射 400），message 中文兜底。
+// ═══════════════════════════════════════════════════════════════
+async function brJump(client, room, gamevars, user) {
+  const player = getPlayer(gamevars, user.id)
+  // ① 在场校验（与 moveToRoom 对齐）
+  if (!player?.alive) throw new Error('已阵亡无法跃迁')
+  if (player.extracted) throw new Error('已撤离无法跃迁')
+
+  // ② BR 启用校验
+  const br = gamevars.br
+  if (!br?.enabled) throw new Error('该对局未启用时序跃迁')
+  if (br.seed == null) throw new Error('BR 对局未初始化（缺少 seed）')
+
+  // ③ 冷却 gate（wall-clock 懒判，不落库 tick；首跃 lastJumpAt=null ⇒ 无冷却）
+  const nowMs = Date.now()
+  const last = Number.isFinite(player.lastJumpAt) ? player.lastJumpAt : null
+  if (last != null) {
+    const elapsedSec = (nowMs - last) / 1000
+    if (elapsedSec < JUMP_CONFIG.COOLDOWN_SEC) {
+      const leftSec = Math.ceil(JUMP_CONFIG.COOLDOWN_SEC - elapsedSec)
+      throw Object.assign(new Error(`跃迁冷却中（剩 ${leftSec}s）`), { code: 'jump_cooldown' })
+    }
+  }
+
+  // ④ 道具 gate：背包里有一枚 jump_charge>0 道具（按 jump_charge 动态判定，不硬比 NAME）
+  const jumpNames = await getJumpItemNames(client)
+  const carried = (player.inventory || []).find(n => jumpNames.has(n))
+  if (!carried) {
+    throw Object.assign(new Error('没有可用的时序跃迁器'), { code: 'no_jump_item' })
+  }
+
+  // ⑤ 封顶 gate：depth+1 对有效阶段无增益（已到 maxPhase）⇒ 硬拒，不耗道具、零副作用，体验清晰
+  const clock = getBrClock(room, gamevars)
+  const curDepth = Number.isFinite(player.depth) ? player.depth : 0
+  // 双重封顶：自身 MAX_DEPTH 旋钮 + effectivePhase 的 maxPhase 钳制（任一已到顶即无增益）
+  if (curDepth >= JUMP_CONFIG.MAX_DEPTH
+      || effectivePhase(clock.realPhase, curDepth + 1, clock.maxPhase) === effectivePhase(clock.realPhase, curDepth, clock.maxPhase)) {
+    throw Object.assign(new Error('已达最深时序层，无法继续跃迁'), { code: 'jump_capped' })
+  }
+
+  // ── 通过：消耗一枚跃迁道具 + depth += 1 + 刷 lastJumpAt + 清交互态（防跨层残留） ──
+  const nextDepth = curDepth + 1
+  const inventory = removeInventoryItem(player.inventory, carried, 1)
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  // 清 encounter（视为放过 NPC，与 move 同款），日志静默避免噪音
+  clearEncounterIfAny(resolution, user.id, { silent: true })
+
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    depth: nextDepth,
+    lastJumpAt: nowMs,
+    inventory,
+    encounter: null,
+    probeEncounter: null,
+    lootPrompt: null,
+  })
+
+  const newEff = effectivePhase(clock.realPhase, nextDepth, clock.maxPhase)
+  appendResolutionLog(
+    resolution,
+    `${player.name} 以【${carried}】向更深的时间层跃迁 — 抵达深度 ${nextDepth}（有效阶段 ${newEff}）`,
+    'system',
+  )
+
+  console.log(`[br][game] jump room=${room.id} user=${user.id} depth ${curDepth}→${nextDepth} realPhase=${clock.realPhase} newEff=${newEff}`)
+
+  // 赌命即死链路已就位：persistResolutionWithPollution → sweepContractionDeaths 会对**当前所在扇区**
+  //   按 newEff 判 forbidden ⇒ 跳进禁区即死（无需任何额外致死代码）。
   return persistResolutionWithPollution(client, room, resolution, user.id)
 }
 

@@ -40,6 +40,39 @@ export const BR_CONFIG = {
   WARN_MIN: 5,          // 预警黄窗下限（秒）
 }
 
+// ── BR 时序跃迁配置（跳跃 / 深度 · single source of truth） ────────
+// 设计宪法 docs/timejump-br-design.md §4「赌命三角」的后端旋钮集中处（前后端 import 同一份）。
+//
+// 跃迁 = 单向阶梯：消耗一枚跃迁道具（item_pool.jump_charge>0），player.depth += 1（封顶 MAX_DEPTH），
+//   随后玩家有效阶段 effectivePhase(realPhase, depth, maxPhase) 抬高 ⇒ 读更深的禁区图 / 物资档。
+//   赌命即死：跃迁后所在扇区在「新有效阶段」若为禁区，本动作内 sweepContractionDeaths 立即致死
+//   （复用与缩圈 / PvP 完全相同的死亡后果路径，不另造死亡逻辑）。
+//
+// 三个旋钮支撑「赌命三角」：
+//   COOLDOWN_SEC —— 冷却（节奏门槛，避免连跳秒到末路阶段）；wall-clock 懒判，不落库 tick。
+//   ITEM         —— 道具门槛（消耗一枚 jump_charge>0 道具；NAME 主供客户端展示/兜底，CHARGE 预留「一器多跳」）。
+//   LOOT_BY_DEPTH—— 深度物资代差（gear gap·对冲跳跃风险）：跳得越深，搜索产出的「档位增量」越多 ⇒ 多产几件。
+//
+// 调参红线（设计宪法 §4 旋钮4 / economy-canon §6.1）：
+//   - LOOT_BY_DEPTH 仅在 br.enabled && seed && depth>0 时生效；depth0（书写者）产出与现状**完全一致**（零经济膨胀基线）。
+//   - 件数硬封顶 EXTRA_ROLL_CAP=2、稀有概率封顶 RARE_CAP=0.18 ⇒ 回报「可感知不爆」，对冲即死/世界变窄/成猎物代价，
+//     不破坏 24b 点数经济（撤离折点数路径不变）。最终数值以 playtest 为准。
+//   - MAX_DEPTH 默认 4（= 默认 maxPhase；depth 抬高 effPhase 至多到 maxPhase，超出无增益 ⇒ 硬封顶拒绝跃迁）。
+export const JUMP_CONFIG = {
+  COOLDOWN_SEC: 60,            // 两次跃迁的最小间隔秒数（提议·可调；wall-clock 懒判，不新增服务端定时器）
+  MAX_DEPTH: 4,               // 深度上限（与默认 maxPhase 对齐；depth>maxPhase 对 effectivePhase 无增益）
+  ITEM: {
+    NAME: '时序跃迁器',         // 与 item_pool 行 name 一致（主供客户端展示/兜底；服务端按 jump_charge>0 动态判定，不硬比 NAME）
+    CHARGE: 1,                // 一枚道具的 jump_charge（预留未来「一器多跳」，本期恒 1）
+  },
+  // 深度物资代差旋钮（resolveSearchAction loose-item 分支读取；公式见 gameActions.js）：
+  LOOT_BY_DEPTH: {
+    EXTRA_ROLL_CAP: 2,        // 「跳跃档位增量」每 +1 档多产 1 件，封顶 2（书写者 depth0 → 0 额外件，零变更）
+    RARE_STEP: 0.06,         // 每 +1 档对高价值条目（weapon/armor/equipment）权重提升的步长
+    RARE_CAP: 0.18,          // 稀有度概率提升封顶（本期可标 deferred，只做额外件数）
+  },
+}
+
 // ── 体力系统配置（BR 行动经济 · single source of truth） ──────────
 // 把「瞬移刷图 / 无脑连搜连打」逼成「有节奏地行动 + 靠搜刮回血」：体力由三个主动作消耗，
 // 自然回复仅作兜底，主回复源是可搜刮的体力回复道具。数值集中此处，stamina.js 不重复定义

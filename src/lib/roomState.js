@@ -268,7 +268,9 @@ export function createPlayerState(user, stats = {}) {
     chamberHistory: [],      // Phase 19.4: 已走过的 chamber idx 列表
     // ── Phase 31 re-home: BR「100 房网格」位置（旧 chamber 模式恒 null → 走旧分支） ──
     roomId: stats.roomId ?? null,   // BR 当前房（br.enabled 下由 joinRoom 置 startRoomId）
-    depth: 0,                       // 跳跃深度；本期恒 0，为后续 effectivePhase「跳跃者看更深禁区」预留
+    depth: 0,                       // 跃迁深度（单向阶梯·只增）；effectivePhase(realPhase, depth, maxPhase) 据此让跃迁者读更深的禁区图/物资档
+    lastJumpAt: null,               // 上次成功跃迁的 wall-clock 毫秒；JUMP_CONFIG.COOLDOWN_SEC 冷却 dt 锚点；首跃为 null ⇒ 无冷却。
+                                    //   新字段经 normalizeGamevars 对 players 原样透传安全持久化（同 stamina 范式）；旧存档缺字段时 brJump 内 Number.isFinite 兜底为 null。
     inventory: [],
     alive: true,
     kills: 0,
