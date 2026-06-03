@@ -211,6 +211,10 @@
 
 **36c 残片双页结构去冗余（2026-06-03 · 用户定「差异化分工」）**：`/archive`（按分类/三链 + 死亡日志 + 知识图谱）与 `/codex`（按六纪元时间轴）原本都陈列残片内容＝真结构重复。用户拍板**差异化**而非合并：`/codex` 瘦成纯「时间轴进度总览」——`FragmentRow` 去掉残片内容预览（那是 /archive 的职责），只留 编码+残片名+解码档 作进度指示；保留 六纪元 timeline / 各纪元发现·解码进度 / 主线时间轴 / 断链悬案 / 总进度条；头部改写明示「这里看进度 · 残片完整内容在档案库」(内联 Link) + 既有底部 → 档案库 链接。删死函数 `fragmentText`。两路由都留、零动数据/字段/SQL/路由/残片可发现性/六纪元 lore。next lint ✔。
 
+**36d 走查 live 复验 + 补丁（2026-06-03）**：Vercel 部署 `119601c` 后浏览器 live 走查（kanata）确认 36b/36c 全生效——/纪元档案 已差异化为进度总览（残片内容预览移除、头部明示、六纪元 lore 完整）；/档案库 头部「虚拟空间/跨对局」+ 死亡日志「对局 #1」；/合同 wrapper「对局/准备界面/留下残影」。走查另抓出 2 处**既有割裂**并修复：
+- **① `archive/page.js` `DEATH_REASON_META` 缺 `contraction` 键** → 缩圈致死在死亡日志显示「? 未知」(与 reason_text「所在扇区收缩为禁区，被时空边界吞没」自相矛盾)。补 `contraction: { 🌀 收缩吞没, C.red }`(对齐 DeathReviewModal CAUSE_META)。
+- **② 合同 DB 内容遗留改名前旧词**：`新手契约·首次装载` desc「出勤准备界面」→「准备界面」；`新手契约·首座探针` desc「留下一座异步探针」(与同卡 objective「留下残影」自相矛盾)→「留下一道残影」。改 `scripts/phase-25o-starter-contracts.sql` seed + UPDATE live `contracts`(id 8/10, returning 已确认)。合同里 Ω-段/锚点-β/伊甸港/环段部件 等深层远星 flavor＝该留的 20%，未动；`contracts.js` 内仅注释含旧词(非可见)未动。next lint ✔。
+
 ---
 
 ## 历史变更（2026-05-28 / Phase 28-profile）— 个人主页 /profile

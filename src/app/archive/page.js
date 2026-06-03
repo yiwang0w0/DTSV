@@ -51,6 +51,7 @@ const DEATH_REASON_META = {
   npc_counter:        { label: '实体反击', icon: '👹', color: C.red },
   omega_timeout:      { label: 'Ω 超时',  icon: '⏳', color: C.purple },
   pollution_meltdown: { label: '污染崩溃', icon: '☢',  color: C.yellow },
+  contraction:        { label: '收缩吞没', icon: '🌀', color: C.red },
   other:              { label: '未知',     icon: '?',  color: C.dim },
 }
 
