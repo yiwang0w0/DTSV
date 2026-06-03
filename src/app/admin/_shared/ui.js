@@ -4,6 +4,17 @@ import { evalFormula } from '@/lib/gameEngine'
 
 export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
 
+// 装备稀有度 6 档中文映射（与 EquipmentSeriesSection 本地 RARITY_META 同口径，权威源 src/lib/equipmentEngine.js）。
+// 抽到 _shared 供投放编辑器(RoomItemsTab)/商店(ShopTab)复用，统一「英文 enum → 中文 label + 配色」呈现。
+export const RARITY_META = {
+  common:    { label: '普通', color: '#8b949e' },
+  uncommon:  { label: '优秀', color: '#3fb950' },
+  rare:      { label: '稀有', color: '#58a6ff' },
+  epic:      { label: '史诗', color: '#bc8cff' },
+  legendary: { label: '传说', color: '#d29922' },
+  mythic:    { label: '神话', color: '#f85149' },
+}
+
 export const BTN = (bg, color, extra = {}) => ({
   padding: '8px 16px', borderRadius: 7, border: 'none', background: bg,
   color, fontSize: 12, fontWeight: 700, cursor: 'pointer',

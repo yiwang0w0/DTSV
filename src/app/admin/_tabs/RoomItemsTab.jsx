@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, C } from '../_shared/ui'
+import { BTN, INPUT, LABEL, C, ITEM_KIND_META, RARITY_META } from '../_shared/ui'
 import CandidateRoomPicker from './CandidateRoomPicker'
 
 /* Phase 36 投放规则 tab —「道具为中心 · 全图分布」模型（重写）
@@ -196,7 +196,7 @@ export default function RoomItemsTab({ toast }) {
   function ruleLabel(r) {
     if (r.entry_kind === 'equipment_tier') {
       const t = tiers.find((t) => t.id === Number(r.tier_id))
-      return t ? `${t.name} · ${t.rarity} · T${t.tier}` : `装备阶 #${r.tier_id ?? '—'}`
+      return t ? `${t.name} · ${RARITY_META[t.rarity]?.label ?? t.rarity} · T${t.tier}` : `装备阶 #${r.tier_id ?? '—'}`
     }
     return r.item_name || '（未选道具）'
   }
@@ -224,7 +224,7 @@ export default function RoomItemsTab({ toast }) {
       {/* ══════ ① 规则中心（主区）══════ */}
       <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>规则中心 <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>· {rules.length} 条</span></div>
-        <button onClick={addRule} style={BTN('#58a6ff', '#fff')}>+ 新建规则</button>
+        <button onClick={addRule} style={BTN('#58a6ff', '#fff')}>+ 新增规则</button>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -259,7 +259,7 @@ export default function RoomItemsTab({ toast }) {
                   <button onClick={() => saveRule(idx)} style={BTN('#58a6ff', '#fff', { fontSize: 11, padding: '6px 14px' })}>保存</button>
                   {isConf ? (
                     <>
-                      <button onClick={() => removeRule(idx)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '6px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>确认删</button>
+                      <button onClick={() => removeRule(idx)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '6px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>确认</button>
                       <button onClick={() => setConfirmDelId(null)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '6px 10px', border: '1px solid #30363d' })}>取消</button>
                     </>
                   ) : (
@@ -295,7 +295,7 @@ export default function RoomItemsTab({ toast }) {
                       >
                         {!r.item_name && <option value="">— 选择道具 —</option>}
                         {itemPool.map((i) => (
-                          <option key={i.id} value={i.name}>{i.name}（{i.kind}）</option>
+                          <option key={i.id} value={i.name}>{i.name}（{ITEM_KIND_META[i.kind]?.label ?? i.kind}）</option>
                         ))}
                       </select>
                     </>
@@ -309,7 +309,7 @@ export default function RoomItemsTab({ toast }) {
                       >
                         {!r.tier_id && <option value="">— 选择装备阶 —</option>}
                         {tiers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name} · {t.rarity} · T{t.tier}</option>
+                          <option key={t.id} value={t.id}>{t.name} · {RARITY_META[t.rarity]?.label ?? t.rarity} · T{t.tier}</option>
                         ))}
                       </select>
                     </>
@@ -389,7 +389,7 @@ export default function RoomItemsTab({ toast }) {
 
         {rules.length === 0 && (
           <div style={{ textAlign: 'center', padding: 36, color: C.dim, fontSize: 12, background: C.bg2, border: `1px dashed ${C.border}`, borderRadius: 10 }}>
-            还没有投放规则，点击「+ 新建规则」开始
+            还没有投放规则，点击「+ 新增规则」开始
           </div>
         )}
       </div>

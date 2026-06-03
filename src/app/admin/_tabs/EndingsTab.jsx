@@ -100,7 +100,7 @@ export default function EndingsTab({ toast }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>{e.name}</span>
-              <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 10, background: e.active ? `${C.green}18` : `${C.dim2}18`, color: e.active ? C.green : C.dim, border: `1px solid ${e.active ? `${C.green}40` : C.border}` }}>{e.active ? '启用' : '停用'}</span>
+              <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 10, background: e.active ? `${C.green}18` : `${C.dim2}18`, color: e.active ? C.green : C.dim, border: `1px solid ${e.active ? `${C.green}40` : C.border}` }}>{e.active ? '启用' : '禁用'}</span>
               <code style={{ fontSize: 10, color: C.accent, fontFamily: 'monospace', background: `${C.accent}10`, padding: '1px 6px', borderRadius: 4 }}>{e.key}</code>
               <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace', marginLeft: 'auto' }}>#{e.id}</span>
               <button onClick={() => startEdit(e)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}30` }}>编辑</button>
@@ -151,7 +151,7 @@ function EndingEditor({ draft, setDraft, items, onSave, onCancel }) {
         <div>
           <label style={LABEL}>状态</label>
           <select style={INPUT} value={draft.active ? '1' : '0'} onChange={e => update({ active: e.target.value === '1' })}>
-            <option value="1">启用</option><option value="0">停用</option>
+            <option value="1">启用</option><option value="0">禁用</option>
           </select>
         </div>
         <div style={{ gridColumn: '1/-1' }}>

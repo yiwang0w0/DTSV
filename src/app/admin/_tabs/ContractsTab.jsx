@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, C } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Spinner, C, NPC_LEVEL_META } from '../_shared/ui'
 
 const OBJECTIVE_TYPES = [
   { value: 'find_item',   label: '搜集道具',          fields: ['itemName', 'count'] },
@@ -134,7 +134,7 @@ export default function ContractsTab({ toast }) {
                 background: c.active ? `${C.green}18` : `${C.dim2}18`,
                 color: c.active ? C.green : C.dim,
                 border: `1px solid ${c.active ? `${C.green}40` : C.border}`,
-              }}>{c.active ? '启用' : '停用'}</span>
+              }}>{c.active ? '启用' : '禁用'}</span>
               <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace' }}>#{c.id}</span>
               <div style={{ flex: 1 }} />
               <button
@@ -204,7 +204,7 @@ function ContractEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
           <label style={LABEL}>状态</label>
           <select style={INPUT} value={draft.active ? '1' : '0'} onChange={e => update({ active: e.target.value === '1' })}>
             <option value="1">启用</option>
-            <option value="0">停用</option>
+            <option value="0">禁用</option>
           </select>
         </div>
         <div style={{ gridColumn: '1/-1' }}>
@@ -297,10 +297,10 @@ function ObjectiveRow({ obj, items, npcs, onChange, onDelete }) {
       )}
       {meta.fields.includes('npcName') && (
         <div style={{ flex: 1 }}>
-          <label style={LABEL}>NPC</label>
+          <label style={LABEL}>实体</label>
           <select style={INPUT} value={obj.npcName || ''} onChange={e => onChange({ npcName: e.target.value })}>
             <option value="">选择…</option>
-            {npcs.map(n => <option key={n.id} value={n.name}>{n.name} ({n.level})</option>)}
+            {npcs.map(n => <option key={n.id} value={n.name}>{n.name} ({NPC_LEVEL_META[n.level]?.label ?? n.level})</option>)}
           </select>
         </div>
       )}

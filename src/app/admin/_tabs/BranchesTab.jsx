@@ -125,7 +125,7 @@ export default function BranchesTab({ toast }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>{n.name}</span>
               <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 10, background: n.active ? `${C.green}18` : `${C.dim2}18`, color: n.active ? C.green : C.dim, border: `1px solid ${n.active ? `${C.green}40` : C.border}` }}>
-                {n.active ? '启用' : '停用'}
+                {n.active ? '启用' : '禁用'}
               </span>
               <span style={{ fontSize: 10, padding: '1px 8px', borderRadius: 10, background: `${C.accent}18`, color: C.accent, border: `1px solid ${C.accent}30` }}>
                 {n.scope === 'player' ? '玩家级' : '对局级'}
@@ -188,7 +188,7 @@ function BranchEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
         <div>
           <label style={LABEL}>状态</label>
           <select style={INPUT} value={draft.active ? '1' : '0'} onChange={e => update({ active: e.target.value === '1' })}>
-            <option value="1">启用</option><option value="0">停用</option>
+            <option value="1">启用</option><option value="0">禁用</option>
           </select>
         </div>
         <div>

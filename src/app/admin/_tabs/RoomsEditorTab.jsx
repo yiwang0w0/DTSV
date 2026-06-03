@@ -181,11 +181,11 @@ export default function RoomsEditorTab({ toast }) {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input placeholder="搜索房号 / label / region..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...INPUT, width: 240 }} />
           <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} style={{ ...INPUT, width: 180 }}>
-            <option value="all">所有 region</option>
+            <option value="all">全部 region</option>
             {regions.map((rg) => <option key={rg} value={rg}>{rg}</option>)}
           </select>
         </div>
-        <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 添加房间</button>
+        <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 新增房间</button>
       </div>
 
       <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 8 }}>
@@ -208,7 +208,7 @@ export default function RoomsEditorTab({ toast }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: '#e6edf3', fontFamily: 'monospace' }}>#{r.room_id}</span>
-                <span style={{ fontWeight: 600, fontSize: 13, color: '#e6edf3' }}>{r.label || <em style={{ color: '#484f58' }}>（无名）</em>}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: '#e6edf3' }}>{r.label || <em style={{ color: '#484f58' }}>#{r.room_id}</em>}</span>
                 {r.region && <span style={{ fontSize: 9, color: '#8b949e' }}>· {r.region}</span>}
                 <span style={{ fontSize: 9, color: '#58a6ff', fontFamily: 'monospace' }}>
                   ({Number.isFinite(r.grid_x) ? r.grid_x : '—'},{Number.isFinite(r.grid_y) ? r.grid_y : '—'})

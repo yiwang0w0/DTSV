@@ -80,6 +80,16 @@ P1 地基+房间编辑器（缩圈 count-flexible 快照致死） · P2 物品�
 
 **分配算法**(确定性·种子)：规则按 id 序 → 每规则 count=随机[min,max] → 候选按 weight **无放回**抽 count 间(剔除已被同互斥组占用的房) → 各放 1 件·标占用。⇒ 4 情形(N选1/N选K/加权/互斥)全覆盖、稀有道具**必铺够**、互斥组**分散到不同房且都出现**。**验证**(node 实测)：保证铺够(count=8→恰 8)；权重(w10 命中 0.66 vs w1 0.07)；**互斥分隔(60 seed 同组永不同房 + 负对照证明分隔确由 exclusion_group 造成)**；确定性(byte 一致·每规则独立流)；每房≤1；区间；**roomInv 格式不变·取货链/越晚越肥/一次性/procedural 回落零改**；CHECK 合规；next lint ✔。主代理亲审 allocateRoomInventory。
 
+### 管理后台防割裂审核（Phase 36b · 用户「保证没有割裂」· Workflow 8 agent）
+
+> 用户：投放重建后再审管理后台各分页防割裂（含点名"投放道具列表和道具池看着不一致"）。3 组并行审计 → 综合修复清单 → 并行修复 → 验证。
+
+**P0（用户点名·投放/道具池/装备 呈现一致）**：RoomItemsTab + ShopTab 的道具 kind、装备 rarity 原**裸显英文枚举**（consumable/legendary），与道具池(ItemsTab)/装备引擎一律中文（ITEM_KIND_META/RARITY_META label）割裂。修复：RARITY_META 抽到 `_shared/ui.js` 导出；两 tab 改走 ITEM_KIND_META/RARITY_META 中文化。
+
+**跨 tab 同概念词统一**：停用→禁用（叙事族对齐工具族）、NPC→实体、物品→道具、新建→新增（新 tab 对齐数据池）、确认删→确认、所有X→全部X（筛选器首项）、npc level/事件 label 英文→中文。
+
+10 文件（ui.js + 9 tab）·45+/34-·纯可见文案。**红线守**：内部概念名（chamber_template / 各数据域 rarity / story_item 类目）、字段/state key/SQL 不动（综合 agent 的 bystanders 逐条核对未越界）；全 tab 渲染；next lint ✔。主代理审 diff。**纯前端无 SQL。**
+
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。

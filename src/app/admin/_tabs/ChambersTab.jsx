@@ -163,7 +163,7 @@ export default function ChambersTab({ toast }) {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input placeholder="搜索 chamber..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...INPUT, width: 220 }} />
           <select value={filter} onChange={e => setFilter(e.target.value)} style={{ ...INPUT, width: 180 }}>
-            <option value="all">所有类型</option>
+            <option value="all">全部类型</option>
             {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
           </select>
         </div>

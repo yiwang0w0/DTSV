@@ -9,13 +9,13 @@ const TRIGGER_TYPES = [
   { value: 'on_search',    label: '玩家搜索时',     fields: ['mapId'] },
   { value: 'on_enter_map', label: '玩家进入地图时', fields: ['mapId'] },
   { value: 'on_kill_npc',  label: '玩家击杀实体时', fields: ['npcName'] },
-  { value: 'on_pickup',    label: '玩家获得物品时', fields: ['itemName'] },
+  { value: 'on_pickup',    label: '玩家获得道具时', fields: ['itemName'] },
 ]
 
 const EFFECT_TYPES = [
   { value: 'log_only',       label: '仅添加日志',  fields: ['text'] },
-  { value: 'give_item',      label: '给玩家物品',  fields: ['itemName', 'count'] },
-  { value: 'take_item',      label: '扣除玩家物品', fields: ['itemName', 'count'] },
+  { value: 'give_item',      label: '给玩家道具',  fields: ['itemName', 'count'] },
+  { value: 'take_item',      label: '扣除玩家道具', fields: ['itemName', 'count'] },
   { value: 'damage',         label: '扣血',         fields: ['amount'] },
   { value: 'heal',           label: '回血',         fields: ['amount'] },
   { value: 'spawn_npc',      label: '触发实体战斗', fields: ['npc'] },
@@ -141,7 +141,7 @@ export default function EventsTab({ toast }) {
                 background: ev.active ? `${C.green}18` : `${C.dim2}18`,
                 color: ev.active ? C.green : C.dim,
                 border: `1px solid ${ev.active ? `${C.green}40` : C.border}`,
-              }}>{ev.active ? '启用' : '停用'}</span>
+              }}>{ev.active ? '启用' : '禁用'}</span>
               <span style={{ fontSize: 10, color: C.dim, fontFamily: 'monospace' }}>
                 {(TRIGGER_TYPES.find(t => t.value === ev.trigger?.type)?.label) || ev.trigger?.type}
               </span>
@@ -216,7 +216,7 @@ function EventEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
         <div>
           <label style={LABEL}>状态</label>
           <select style={INPUT} value={draft.active ? '1' : '0'} onChange={e => update({ active: e.target.value === '1' })}>
-            <option value="1">启用</option><option value="0">停用</option>
+            <option value="1">启用</option><option value="0">禁用</option>
           </select>
         </div>
         <div style={{ gridColumn: '1/-1' }}>
@@ -273,7 +273,7 @@ function EventEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
               value={draft.trigger?.itemName || ''}
               onChange={e => setTrigger({ itemName: e.target.value })}
             >
-              <option value="">（任意物品）</option>
+              <option value="">（任意道具）</option>
               {items.map(it => <option key={it.id} value={it.name}>{it.name}</option>)}
             </select>
           )}
@@ -338,7 +338,7 @@ function EffectRow({ idx, effect, items, onChange, onDelete, onMoveUp, onMoveDow
         )}
         {meta.fields.includes('itemName') && (
           <div>
-            <label style={LABEL}>物品</label>
+            <label style={LABEL}>道具</label>
             <select style={INPUT} value={effect.itemName || ''} onChange={e => onChange({ itemName: e.target.value })}>
               <option value="">选择…</option>
               {items.map(it => <option key={it.id} value={it.name}>{it.name}</option>)}
@@ -359,7 +359,7 @@ function EffectRow({ idx, effect, items, onChange, onDelete, onMoveUp, onMoveDow
         )}
         {meta.fields.includes('npc') && (
           <div style={{ gridColumn: '1/-1' }}>
-            <label style={LABEL}>NPC（即兴生成）</label>
+            <label style={LABEL}>实体（即兴生成）</label>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 6 }}>
               <input style={INPUT} value={effect.npc?.name || ''} onChange={e => onChange({ npc: { ...(effect.npc || {}), name: e.target.value } })} placeholder="名称" />
               <input type="number" style={INPUT} value={effect.npc?.hp  || ''} onChange={e => onChange({ npc: { ...(effect.npc || {}), hp:  parseInt(e.target.value, 10) || 0 } })} placeholder="HP" />

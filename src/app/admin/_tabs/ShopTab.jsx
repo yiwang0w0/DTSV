@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, RARITY_META } from '../_shared/ui'
 
 /**
  * Phase 24b — ShopTab: shop_catalog CRUD
@@ -110,7 +110,7 @@ export default function ShopTab({ toast }) {
     if (c.entry_kind === 'equipment') {
       const t = tiers.find(t => t.id === c.tier_id)
       const slot = t?.equipment_series?.slot
-      return t ? `${t.name} (${t.rarity}${slot ? `/${slot}` : ''})` : `tier#${c.tier_id}`
+      return t ? `${t.name} (${RARITY_META[t.rarity]?.label ?? t.rarity}${slot ? `/${slot}` : ''})` : `装备阶 #${c.tier_id}`
     }
     return c.item_name
   }
@@ -191,19 +191,19 @@ export default function ShopTab({ toast }) {
                 <select value={edit.tier_id || ''} onChange={e => setEdit({ ...edit, tier_id: parseInt(e.target.value) || null })} style={INPUT}>
                   <option value="">— 选择 —</option>
                   {tiers.map(t => (
-                    <option key={t.id} value={t.id}>[{t.rarity}] {t.name} {t.equipment_series?.slot ? `/${t.equipment_series.slot}` : ''} (ATK {t.base_atk}/DEF {t.base_def}/HP {t.base_hp})</option>
+                    <option key={t.id} value={t.id}>[{RARITY_META[t.rarity]?.label ?? t.rarity}] {t.name} {t.equipment_series?.slot ? `/${t.equipment_series.slot}` : ''} (ATK {t.base_atk}/DEF {t.base_def}/HP {t.base_hp})</option>
                   ))}
                 </select>
               </div>
             )}
             {edit.entry_kind !== 'equipment' && (
               <div>
-                <label style={LABEL}>物品名称</label>
+                <label style={LABEL}>道具名称</label>
                 <select value={edit.item_name} onChange={e => setEdit({ ...edit, item_name: e.target.value })} style={INPUT}>
                   <option value="">— 选择 —</option>
                   {items
                     .filter(i => edit.entry_kind === 'consumable' ? i.kind === 'consumable' : ['tech_fragment','platform_part','omega_matter'].includes(i.kind))
-                    .map(i => <option key={i.name} value={i.name}>[{i.kind}] {i.name}</option>)}
+                    .map(i => <option key={i.name} value={i.name}>[{ITEM_KIND_META[i.kind]?.label ?? i.kind}] {i.name}</option>)}
                 </select>
               </div>
             )}

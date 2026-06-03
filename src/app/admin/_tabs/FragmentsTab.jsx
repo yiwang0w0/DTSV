@@ -173,7 +173,7 @@ export default function FragmentsTab({ toast }) {
             onChange={e => setFilter(e.target.value)}
             style={{ ...INPUT, width: 140 }}
           >
-            <option value="all">所有分类</option>
+            <option value="all">全部分类</option>
             {CATEGORY_OPTIONS.map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
