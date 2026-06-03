@@ -79,16 +79,6 @@ function epochColorOf(fragment) {
   return EPOCH_COLOR_BY_ID[epochIdOf(fragment)] || C.accent
 }
 
-/** 当前 decode_level 应展示的文本（用于摘要预览） */
-function fragmentText(fragment, level) {
-  switch (level) {
-    case 1: return fragment.partial_1 || fragment.raw_text
-    case 2: return fragment.partial_2 || fragment.partial_1
-    case 3: return fragment.full_text || fragment.partial_2
-    default: return ''
-  }
-}
-
 /** 解码进度条（与 /archive 一致的视觉语言） */
 function DecodeBar({ level }) {
   return (
@@ -110,7 +100,6 @@ function DecodeBar({ level }) {
 function FragmentRow({ fragment, playerData, epochColor }) {
   const level = playerData.decode_level
   const code = codeOf(fragment.name)
-  const preview = fragmentText(fragment, level)
   return (
     <div style={{
       background: C.bg2,
@@ -143,16 +132,6 @@ function FragmentRow({ fragment, playerData, epochColor }) {
         </div>
         <DecodeBar level={level} />
       </div>
-      {level >= 1 && preview && (
-        <div style={{
-          marginTop: 6, fontSize: 12, lineHeight: 1.6,
-          color: level >= 3 ? C.dim : C.dim2,
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
-          {preview}
-        </div>
-      )}
     </div>
   )
 }
@@ -284,8 +263,7 @@ export default function CodexPage() {
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>纪元档案</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: C.dim, lineHeight: 1.7 }}>
-          你已解码的数据残片，按远星函馆的六个纪元沿时间轴排列。
-          每个残片对应一个时代——从最初的「构筑纪」到你当下身处的「共构纪」。这条线只增不减，永久保存。
+          你已发现的数据残片，按远星函馆的六个纪元沿时间轴排列——这里是<strong style={{ color: C.text }}>进度总览</strong>：每个纪元的发现与解码进度一目了然。残片的完整内容、合成图谱与死亡记录在 <Link href="/archive" style={{ color: C.accent, textDecoration: 'none' }}>档案库</Link>。这条线只增不减，永久保存。
         </p>
       </div>
 

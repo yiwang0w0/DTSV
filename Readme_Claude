@@ -207,7 +207,9 @@
 | `ExtractionModal.jsx` | verify 抓出的同撤离流程内割裂：📡留下异步探针/异步探针遭遇概率 → 🛰留下跃迁者残影/残影遭遇概率 |
 | `admin/PlaytestTab`·`admin/ContractsTab` | 周目→对局；留下异步探针→留下跃迁者残影（内部 chamber/template/探针遥测/DbConsole SQL label 概念名保留） |
 
-验证：next lint ✔ 0；7 文件 diff 全纯文案 label、字段/state key/路由/SQL/残片可发现性/六纪元 lore 零触碰；verify agent 误报的「stash 防崩改动」经 git diff 确认未发生（实际全纯文案）。**结构性冗余待用户拍板**：`/archive`（按分类/三链）与 `/codex`（按六纪元）都陈列残片＝两种视图，合并/收口需动路由+导航（红线），不擅自做。
+验证：next lint ✔ 0；7 文件 diff 全纯文案 label、字段/state key/路由/SQL/残片可发现性/六纪元 lore 零触碰；verify agent 误报的「stash 防崩改动」经 git diff 确认未发生（实际全纯文案）。
+
+**36c 残片双页结构去冗余（2026-06-03 · 用户定「差异化分工」）**：`/archive`（按分类/三链 + 死亡日志 + 知识图谱）与 `/codex`（按六纪元时间轴）原本都陈列残片内容＝真结构重复。用户拍板**差异化**而非合并：`/codex` 瘦成纯「时间轴进度总览」——`FragmentRow` 去掉残片内容预览（那是 /archive 的职责），只留 编码+残片名+解码档 作进度指示；保留 六纪元 timeline / 各纪元发现·解码进度 / 主线时间轴 / 断链悬案 / 总进度条；头部改写明示「这里看进度 · 残片完整内容在档案库」(内联 Link) + 既有底部 → 档案库 链接。删死函数 `fragmentText`。两路由都留、零动数据/字段/SQL/路由/残片可发现性/六纪元 lore。next lint ✔。
 
 ---
 
