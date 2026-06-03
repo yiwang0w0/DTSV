@@ -77,8 +77,39 @@ room_items
 
 ## §4 编辑器 UI
 
-- **房间编辑器**（扩展/新 tab `🗺️ 房间编辑器`）：CRUD `br_rooms`（name/region/grid_x,y/neighbor_ids/enabled/close_phase 可选覆盖）；支持增删房间达成 30-40；保存即 bump topology 版本。
-- **房间内物品列表**（房间编辑里嵌「物品投放」子区，room-centric）：选房间 → 列出该房 `room_items` → 行内编辑 引用(道具/装备)·fixed·random[min,max]·chance·spawn_phase_min·enabled；复用 MapsTab 拖拽卡片(`@/components/cards`)。便于用户「列出物品列表来编辑」。
+### Phase 1（已落地）房间编辑器 `🧭 房间编辑器`（`RoomsEditorTab.jsx`）
+- CRUD `br_rooms`（label/region/grid_x,y/neighbor_ids/enabled/close_phase 可选覆盖）；支持增删房间达成 30-40；保存即 bump topology 版本（`updated_at` 触发器）。
+- 邻接初版 = 逗号分隔 ID 文本（`neighborStr`）→ **Phase 3 升级为网格+列表双视图**（见下）。
+
+### Phase 3（本次）邻接双视图（实现者 A · `RoomsEditorTab.jsx` + 新 `_tabs/NeighborPicker.jsx`）
+
+**决策**：用户选「网格+列表双视图」+「邻接对称同步（默认勾）」。
+
+**`NeighborPicker.jsx` 组件**
+- **props**：`{ rooms, currentRoomId, value, onChange }`。`rooms`=全 `br_rooms`（含 `room_id/grid_x/grid_y/label/region/enabled`）；`currentRoomId`=正在编辑的房号（新增时为预填房号）；`value`=已选 neighbor 房号 `number[]`；`onChange(next:number[])`。
+- **网格视图（主）**：按 `grid_x/grid_y` 渲染网格（复用 `BrGridPanel`/`BrZoneCell` 视觉范式·GitHub dark `_shared/ui.js` 调色板，**不** import 对局 `gameUi.js` —— admin 与 game 解耦，仅复刻视觉）。`gridW = max(grid_x)+1`、`gridH = max(grid_y)+1`。格子着色：当前房=蓝实线高亮(`C.accent`)、已选邻接=绿(`C.green`)、其它可点=灰(`C.border`)；空格(无房映射)=暗占位。格子内显示**房名**（容不下→末段缩写 + `title` 悬停全名）。点格子 toggle 进/出 `value`（`currentRoomId` 自身不可点）。
+- **列表视图（兜底·折叠 details 或并列）**：搜索框（按 `label`/`region` 过滤）；每行 房名 + 区域徽标 + `(gx,gy)` + 开/关按钮（已选高亮绿）。供跨网格/远连用。
+- **已选 chips**：`value` 房号 → 房名 chips（蓝底），点 `✕` 移除。
+
+**`RoomsEditorTab.jsx` 接入**
+- 编辑/添加 modal 内：把 `neighbor_ids` 那块 `<input value={neighborStr}>` 整块替换为 `<NeighborPicker rooms={rooms} currentRoomId={Number(edit.room_id)} value={edit.neighbor_ids} onChange={(next)=>setEdit({...edit, neighbor_ids: next})} />`。`neighbor_ids` 改为 `edit` 内权威数组态。
+- 删 `neighborStr` state + `setNeighborStr` 调用；`neighborsToStr/strToNeighbors` 可删（或保留内部不暴露 UI）。`save` 用 `edit.neighbor_ids`（已是数组）。
+- **对称同步**：modal 加复选框「邻接对称（推荐·默认勾）」`symmetricSync` state（默认 true）。`save` 成功写本房后，若勾：diff 旧 `value`（`__origNeighbors`，openEdit/openAdd 时快照）vs 新 `neighbor_ids` → 对**新增**的对面房 UPDATE 其 `neighbor_ids` 并入 `roomId`（去重）；对**移除**的对面房 UPDATE 其 `neighbor_ids` 剔除 `roomId`。只 UPDATE 对面房 `neighbor_ids` 单列，不碰其它列。
+
+### Phase 3（本次）房间投放 tab `🎯 房间投放`（实现者 B · 新 `_tabs/RoomItemsTab.jsx` + `page.js` 注册）
+
+**决策**：用户选「独立 🎯 房间投放 tab」（不嵌房间编辑器）。
+
+**`RoomItemsTab.jsx({ toast })`**
+- **选房**：顶部按房名搜索下拉/列表（从 `br_rooms` 取 `room_id/label/region`，显示房名非 ID）。选中 → 下方列该房 `room_items`（`supabase.from('room_items').select('*').eq('br_room_id', selectedRoomId)`）。
+- **投放行（行内编辑）**：`entry_kind` 切换（道具/装备）· 物品选择器（**按名** · 道具=`item_pool.name` 搜索下拉 / 装备=`equipment_tiers` 按 `name`+`rarity` 搜索下拉）· `fixed_count` · `random_min`–`random_max` · `random_chance`%（0-100 UI ↔ 0-1 存）· `spawn_phase_min`（下拉 0..`MAX_CLOSE_PHASE`=5·标「越晚越肥」）· `enabled` 开关 · 删除。`+ 添加投放` 默认 `entry_kind='item'`。
+- **几禁预览**：实时算「开局可见期望（`spawn_phase_min<=0` 的行）= Σ `random_chance × (fixed_count + (random_min+random_max)/2)`」与「末路期望（全行显形）」，展示「预计 开局 ~X 件 · 末路 ~Y 件」；末路期望 > `ROOM_INV_CAP=24` → 黄字提示。
+- **存盘**：直连 `supabase` `room_items` insert/update/delete（严格符合 phase-34 CHECK：`entry_kind` XOR `item_name`/`tier_id`；counts 非负；`min<=max`；`chance∈[0,1]`；`spawn_phase_min>=0`）；成功 toast。
+- **不碰** `RoomsEditorTab`（A 负责）。
+
+**`page.js` 注册（3 处）**：① `import RoomItemsTab from './_tabs/RoomItemsTab'`；② TABS 加 `{ key:'placements', label:'🎯 房间投放' }`（放 `roomsedit` 之后）；③ render 加 `{tab === 'placements' && <RoomItemsTab toast={toast} />}`。
+
+> 注：phase-34 schema 已部署（`room_items` 表 / `item_pool.bundle_count` / `item_pool_name_key` UNIQUE 均在位，已核 DB），两实现者可直连。`MAX_CLOSE_PHASE=5`（`src/lib/server/br/forbidden.js`）；`ROOM_INV_CAP=24`（设计 §3 红线④）。
 
 ## §5 后台全面整理
 

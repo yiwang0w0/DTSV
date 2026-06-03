@@ -49,6 +49,23 @@
 
 **验证**：MapsTab 无悬空引用 + 全 tab 仍渲染 + 调色板零漂移 + 死字段净 + 红线（字段/SQL/残片/lore 不碰）；next lint ✔。主代理审 page.js+wrapper+palette diff 通过。**纯前端整理·无 SQL·无需部署 DB。**
 
+### 阶段3 邻接双视图 + 🎯房间投放编辑器（Phase 3 收官 · Workflow 4 agent · 用户 UI 反馈驱动）
+
+> 用户反馈：邻接逗号 ID 输入不直观，要点选 + 按房名；投放编辑器好好设计。决策(AskUQ)：邻接=网格+列表双视图、投放=独立 tab。
+
+| 文件 | 改动 |
+|------|------|
+| `_tabs/NeighborPicker.jsx`(新) | 邻接双视图受控组件：网格点选（复用 BrGridPanel 视觉·当前房蓝/邻接绿/可点灰·格显房名·点 toggle）+ 可搜索房名列表（兜底跨区连）+ 已选房名 chips（✕移除）；纯 UI 无 DB |
+| `RoomsEditorTab.jsx` | 邻接逗号 ID 输入→`<NeighborPicker>`；**对称同步**（默认勾）：save 用 `__origNeighbors` 快照 diff 增删 → 只 UPDATE 对面房 neighbor_ids 单列（增/删本房号·保留其它邻接·不误删） |
+| `_tabs/RoomItemsTab.jsx`(新) | 🎯 房间投放 tab：按房名选房→该房 room_items 行内编辑（类型/道具按名/装备按阶名/固定/随机 min-max/概率%/几禁下拉/启用/两步删）+ 几禁期望预览（开局 vs 末路·超 ROOM_INV_CAP 黄字）+ 直连 supabase CRUD |
+| `admin/page.js` | 注册 🎯 房间投放 tab（import/TABS/render） |
+
+**验证**：邻接网格/列表/chips/对称同步（diff 不误删对面房其它邻接·主代理+verify 双确认）；投放 CRUD 严格符合 phase-34 CHECK（entry_kind XOR item_name/tier_id·min≤max·chance∈[0,1]）；装备只读；按名选房选物；几禁预览公式合理；全 tab 渲染；next lint ✔。主代理亲审 RoomItemsTab 写库 + 对称同步逻辑。**纯前端·room_items 表 Phase 2 已部署·无新 SQL。**
+
+### 🏁 地图编辑器特性 — 4 阶段全部完成
+
+P1 地基+房间编辑器（缩圈 count-flexible 快照致死） · P2 物品投放后端（room_items + roomInv 一次性库存 + 越晚越肥） · P4 后台全面整理（退 MapsTab + DRY + 分组导航） · P3 编辑器 UI（邻接双视图 + 房间投放）。提交链 `daed400`→`ac3099e`→`d9e190a`→本次。**待用户管理员 live 走查全套编辑器。**
+
 ## 最近变更（2026-06-03 / Phase 30-32 + re-home）— 虚拟空间·时间跳跃BR 重建 → 并入 /game
 
 > 方向转向（用户拍板）：① **全力实时 BR 重建** ② **弱化远星表层符号**（虚拟空间搜打撤为主，远星六纪元退深层）。

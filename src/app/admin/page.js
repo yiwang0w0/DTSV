@@ -21,6 +21,7 @@ import ClassesTab    from './_tabs/ClassesTab'
 import PortraitsTab  from './_tabs/PortraitsTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 import RoomsEditorTab from './_tabs/RoomsEditorTab'
+import RoomItemsTab  from './_tabs/RoomItemsTab'
 import AnalyticsTab  from './_tabs/AnalyticsTab'
 import NarrativeTab  from './_tabs/NarrativeTab'
 
@@ -30,6 +31,7 @@ const TABS = [
   { key: 'npcs',      label: '👻 实体',      dataKey: 'npcs' },
   { key: 'rooms',     label: '🌀 对局',      dataKey: 'rooms' },
   { key: 'roomsedit', label: '🧭 房间编辑器' },
+  { key: 'placements', label: '🎯 房间投放' },
   { key: 'users',     label: '👥 用户权限' },
   { key: 'rules',     label: '⚙️ 战斗规则' },
   { key: 'equipment', label: '🗡️ 装备引擎' },
@@ -129,6 +131,7 @@ export default function AdminPage() {
       {tab === 'npcs'      && <NpcsTab      npcs={npcs} onRefresh={refresh} toast={toast} />}
       {tab === 'rooms'     && <RoomsTab     rooms={rooms} onRefresh={refresh} toast={toast} />}
       {tab === 'roomsedit' && <RoomsEditorTab toast={toast} />}
+      {tab === 'placements' && <RoomItemsTab toast={toast} />}
       {tab === 'users'     && <UsersTab     toast={toast} />}
       {tab === 'rules'     && <RulesTab     toast={toast} />}
       {tab === 'equipment' && <EquipmentTab toast={toast} />}

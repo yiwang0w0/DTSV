@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
+import NeighborPicker from './NeighborPicker'
 
 /* 地图编辑器 Phase 1 §6: br_rooms 拓扑 CRUD（仿 ChambersTab）
  * - 编辑 label/region/grid_x/grid_y/neighbor_ids/enabled，可选 close_phase
@@ -21,17 +22,6 @@ const EMPTY = {
   enabled: true,
 }
 
-// neighbor_ids 数组 ↔ 逗号分隔字符串
-function neighborsToStr(arr) {
-  return Array.isArray(arr) ? arr.join(', ') : ''
-}
-function strToNeighbors(str) {
-  return String(str || '')
-    .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n))
-}
-
 export default function RoomsEditorTab({ toast }) {
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,8 +29,8 @@ export default function RoomsEditorTab({ toast }) {
   const [regionFilter, setRegionFilter] = useState('all')
   const [modal, setModal] = useState(false)
   const [edit, setEdit] = useState(null)
-  // neighbor_ids 编辑态用独立字符串缓存（允许中途输入逗号/空格）
-  const [neighborStr, setNeighborStr] = useState('')
+  // 邻接对称同步开关（默认勾）：保存时给对面房同步加/删本房号
+  const [symmetricSync, setSymmetricSync] = useState(true)
   const [confirmDel, setConfirmDel] = useState(null)
 
   async function load() {
@@ -87,19 +77,19 @@ export default function RoomsEditorTab({ toast }) {
     // 新增时 room_id 预填一个未占用的最小正整数（便利, 仍可改）
     let suggest = 1
     while (idSet.has(suggest)) suggest++
-    setEdit({ ...EMPTY, room_id: suggest, __editing: false })
-    setNeighborStr('')
+    setEdit({ ...EMPTY, room_id: suggest, neighbor_ids: [], __editing: false, __origNeighbors: [] })
     setModal(true)
   }
 
   function openEdit(r) {
+    const nb = Array.isArray(r.neighbor_ids) ? r.neighbor_ids : []
     setEdit({
       ...EMPTY,
       ...r,
-      neighbor_ids: Array.isArray(r.neighbor_ids) ? r.neighbor_ids : [],
+      neighbor_ids: nb,
       __editing: true,
+      __origNeighbors: [...nb],
     })
-    setNeighborStr(neighborsToStr(r.neighbor_ids))
     setModal(true)
   }
 
@@ -113,7 +103,7 @@ export default function RoomsEditorTab({ toast }) {
       toast(`room_id ${roomId} 已存在`, 'error'); return
     }
 
-    const neighbor_ids = strToNeighbors(neighborStr)
+    const neighbor_ids = Array.isArray(edit.neighbor_ids) ? edit.neighbor_ids : []
     const payload = {
       room_id: roomId,
       label: (edit.label || '').trim(),
@@ -136,6 +126,33 @@ export default function RoomsEditorTab({ toast }) {
       if (error) { toast('添加失败: ' + error.message, 'error'); return }
       toast('房间已添加 · 拓扑版本已更新，新对局生效，在飞局不受影响')
     }
+
+    // 对称同步：只 UPDATE 对面房 neighbor_ids 单列（增/删本房号），不碰其它列
+    if (symmetricSync) {
+      const me = roomId
+      const oldSet = new Set(edit.__origNeighbors || [])
+      const newSet = new Set(neighbor_ids)
+      const added = [...newSet].filter((n) => !oldSet.has(n) && n !== me)
+      const removed = [...oldSet].filter((n) => !newSet.has(n) && n !== me)
+      const byId = new Map(rooms.map((r) => [r.room_id, r]))
+      for (const other of added) {
+        const o = byId.get(other); if (!o) continue          // 悬空号跳过（不创建房）
+        const cur = Array.isArray(o.neighbor_ids) ? o.neighbor_ids : []
+        if (cur.includes(me)) continue
+        const next = [...cur, me].sort((a, b) => a - b)
+        const { error } = await supabase.from('br_rooms').update({ neighbor_ids: next }).eq('room_id', other)
+        if (error) toast(`对面房 #${other} 同步失败: ${error.message}`, 'error')
+      }
+      for (const other of removed) {
+        const o = byId.get(other); if (!o) continue
+        const cur = Array.isArray(o.neighbor_ids) ? o.neighbor_ids : []
+        if (!cur.includes(me)) continue
+        const next = cur.filter((n) => n !== me)
+        const { error } = await supabase.from('br_rooms').update({ neighbor_ids: next }).eq('room_id', other)
+        if (error) toast(`对面房 #${other} 同步失败: ${error.message}`, 'error')
+      }
+    }
+
     setModal(false)
     load()
   }
@@ -281,21 +298,17 @@ export default function RoomsEditorTab({ toast }) {
               <input type="number" min={0} style={INPUT} value={edit.grid_y ?? 0} onChange={(e) => setEdit({ ...edit, grid_y: Number(e.target.value) })} />
             </div>
             <div style={{ gridColumn: '1/-1' }}>
-              <label style={LABEL}>neighbor_ids（邻接房号, 逗号分隔, 对称性自负）</label>
-              <input
-                style={{ ...INPUT, fontFamily: 'monospace' }}
-                value={neighborStr}
-                onChange={(e) => setNeighborStr(e.target.value)}
-                placeholder="如 2, 11, 12"
+              <label style={LABEL}>邻接房间（点格子或列表增删）</label>
+              <NeighborPicker
+                rooms={rooms}
+                currentRoomId={Number(edit.room_id)}
+                value={Array.isArray(edit.neighbor_ids) ? edit.neighbor_ids : []}
+                onChange={(next) => setEdit({ ...edit, neighbor_ids: next })}
               />
-              <div style={{ fontSize: 10, color: '#484f58', marginTop: 4 }}>
-                解析为：[{strToNeighbors(neighborStr).join(', ') || '—'}]
-                {(() => {
-                  const broken = strToNeighbors(neighborStr).filter((nid) => nid !== edit.room_id && !idSet.has(nid))
-                  if (broken.length === 0) return null
-                  return <span style={{ color: '#d29922', marginLeft: 8 }}>· ⚠ 不存在的房号: {broken.join(', ')}</span>
-                })()}
-              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: '#8b949e', cursor: 'pointer' }}>
+                <input type="checkbox" checked={symmetricSync} onChange={(e) => setSymmetricSync(e.target.checked)} />
+                邻接对称（推荐）：保存时给对面房同步加/删本房号
+              </label>
             </div>
             <div>
               <label style={LABEL}>close_phase（1-5, 仅 /br 旧路径）</label>
