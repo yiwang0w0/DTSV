@@ -129,7 +129,7 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
       if (room?.id) {
         router.push(`/game/${room.id}`)
       } else {
-        setStartError('未能获取下一周目对局')
+        setStartError('未能获取下一局对局')
       }
     } catch (err) {
       setStartError(err?.message || '启动失败，请稍后再试')
@@ -157,7 +157,7 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
 
       <div style={{ position: 'relative', zIndex: 2, maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ fontSize: 11, color: C.purple, letterSpacing: 4, marginBottom: 14, fontWeight: 600 }}>
-          第六纪元 · 深界时代
+          虚拟空间 · 搜寻撤离
         </div>
 
         {/* 标题文字粒子（decode：字符在符号池中乱滚后定格） */}
@@ -174,17 +174,16 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
           />
         </div>
         <div style={{ fontSize: 14, color: C.dim, marginBottom: 28, fontFamily: 'monospace' }}>
-          17 号异常段 · PI 引导者协议 · v1.0
+          虚拟空间 · 搜寻撤离协议 · v1.0
         </div>
 
         <p style={{
           fontSize: 14, color: C.dim, lineHeight: 1.9, marginBottom: 36,
           maxWidth: 560, margin: '0 auto 36px',
         }}>
-          深界结构在塌陷环带边缘缓慢漂移，泡层文明的残响仍在 17 号异常段循环。
-          作为 PI 引导者（Pioneer Interface Operator），你被派往未归档主控路径的最深处，
-          完成 <span style={{ color: C.accent }}>探查 / 对抗 / 提取</span>，
-          决定这段异常的归属——
+          进入随机生成的虚拟空间实例，在扇区间穿行、收集物资、规避收缩边界。
+          完成 <span style={{ color: C.accent }}>搜寻 / 对抗 / 撤离</span>，
+          带着战利品安全离场，决定这一局的走向——
           <span style={{ color: C.purple }}>崩解 / 清算 / 合流 / 探索</span>。
         </p>
 
@@ -202,8 +201,8 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
               {starting
                 ? '准备就绪中…'
                 : snapshot
-                  ? '🚀 立即出勤'
-                  : '🚀 启动下一周目'}
+                  ? '🚀 立即进入'
+                  : '🚀 启动下一局'}
             </button>
           ) : (
             <>
@@ -232,9 +231,9 @@ function RaidSnapshotCard({ snapshot }) {
   if (!snapshot) {
     return (
       <div style={sectionCard}>
-        <SectionHeader title="🌌 现役异常段" subtitle="对局状态" />
+        <SectionHeader title="🌌 当前虚拟空间" subtitle="对局状态" />
         <div style={{ padding: '24px 0', textAlign: 'center', color: C.dim2, fontSize: 13 }}>
-          系统正在重新部署 17 号异常段，下一段对局即将就绪
+          系统正在重新部署虚拟空间实例，下一局对局即将就绪
         </div>
       </div>
     )
@@ -252,15 +251,15 @@ function RaidSnapshotCard({ snapshot }) {
       <div style={{ ...sectionCard, cursor: 'pointer', transition: 'border-color .2s' }}
            className="hov-card">
         <SectionHeader
-          title="🌌 现役异常段"
-          subtitle={`#${snapshot.gamenum || snapshot.id} · ${isActive ? '进行中' : '等待集结'}`}
+          title={`🌌 虚拟空间实例 #${snapshot.gamenum || snapshot.id}`}
+          subtitle={isActive ? '进行中' : '等待集结'}
           right={<span style={{ fontSize: 11, color: C.accent }}>查看详情 →</span>}
         />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
           <Stat label="在场" value={snapshot.alivenum || 0} color={C.text} />
           <Stat label="已撤离" value={extracted} color={C.green} />
           <Stat label="阵亡" value={snapshot.deathnum || 0} color={C.red} />
-          <Stat label="周目" value={turn} color={C.dim} />
+          <Stat label="对局" value={turn} color={C.dim} />
         </div>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
@@ -280,7 +279,7 @@ function RaidSnapshotCard({ snapshot }) {
 function PersonalStatsCard({ meStats }) {
   return (
     <div style={sectionCard}>
-      <SectionHeader title="👤 你的引导者档案" subtitle="档案速览" />
+      <SectionHeader title="👤 你的玩家档案" subtitle="档案速览" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
         <Stat
           label="账户库容量"
@@ -300,14 +299,14 @@ function PersonalStatsCard({ meStats }) {
 // ── 4 类实体预览 ──────────────────────────────────
 function EntitiesPreview() {
   const ENTITIES = [
-    { key: 'remnant',     desc: '泡层文明残响。主动搜查目标，周期性撤回 Ω-段。', subTag: '敌对' },
-    { key: 'infiltrator', desc: '伪造 PI 编号潜入异常段。隐蔽攻击，识别失败可致命。', subTag: '敌对' },
+    { key: 'remnant',     desc: '空间内的残响实体。主动搜查目标，周期性撤回深处。', subTag: '敌对' },
+    { key: 'infiltrator', desc: '伪造身份潜入虚拟空间。隐蔽攻击，识别失败可致命。', subTag: '敌对' },
     { key: 'symbiote',    desc: '驻守关键节点。可交易：环段部件 ↔ Ω物质。', subTag: '可交易' },
-    { key: 'observer',    desc: '只记录、不直接对抗。可换取深界路径情报。', subTag: '可交易' },
+    { key: 'observer',    desc: '只记录、不直接对抗。可换取深层路径情报。', subTag: '可交易' },
   ]
   return (
     <div style={sectionCard}>
-      <SectionHeader title="🌐 4 类异常实体" subtitle="入侵者档案" />
+      <SectionHeader title="🌐 4 类空间实体" subtitle="实体档案" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
         {ENTITIES.map(e => {
           const meta = ENTITY_TYPE_META[e.key]
@@ -340,7 +339,7 @@ function EntitiesPreview() {
 function LoadoutPreview() {
   return (
     <div style={sectionCard}>
-      <SectionHeader title="🎒 装载 · 4 槽" subtitle="栖居带预部署模块" />
+      <SectionHeader title="🎒 装载 · 4 槽" subtitle="进入前预部署模块" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
         {LOADOUT_SLOTS.map(slot => {
           const meta = LOADOUT_SLOT_META[slot]
@@ -365,7 +364,7 @@ function LoadoutPreview() {
         marginTop: 14, padding: '10px 14px', borderRadius: 8,
         background: `${C.yellow}10`, border: `1px solid ${C.yellow}30`, fontSize: 11, color: C.yellow,
       }}>
-        ⚠ 出勤前最多带：4 装备 + 4 消耗品 = 8 件总载荷。死亡 = 全失，撤离 = 入库。
+        ⚠ 进入前最多带：4 装备 + 4 消耗品 = 8 件总载荷。死亡 = 全失，撤离 = 入库。
       </div>
     </div>
   )
@@ -380,7 +379,7 @@ function Footer() {
       textAlign: 'center', fontSize: 11, color: C.dim2,
       fontFamily: 'monospace', letterSpacing: 1,
     }}>
-      远星函馆 · Phase 15 · 深界路径已开放
+      远星函馆 · Phase 15 · 深层路径已开放
     </div>
   )
 }

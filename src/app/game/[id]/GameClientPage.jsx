@@ -696,7 +696,7 @@ export default function GameClientPage() {
     if (!fragLevelUp?.seq) return
     if (fragLevelUp.seq <= lastFragSeqRef.current) return
     lastFragSeqRef.current = fragLevelUp.seq
-    toast(`🧬 残片【${fragLevelUp.name}】解码度提升至 ${fragLevelUp.level}/3`, 'levelup')
+    toast(`🧬 残片【${fragLevelUp.name}】解码度提升至 ${fragLevelUp.level}/3 · 详情见档案库`, 'levelup')
   }, [fragLevelUp, toast])
 
   async function handleTakeLoot(option) {
@@ -721,7 +721,7 @@ export default function GameClientPage() {
     //   join 控制流将其存 per-player gamevars.runGoal（Phase 24b 接入），结算时评估写 runGoalResult。
     const next = await runGameAction('join', { loadout: payload }, { refreshEquipment: true })
     if (next) {
-      toast('🎒 装载完成，已进入异常段', 'success')
+      toast('🎒 装载完成，已进入虚拟空间', 'success')
     }
   }
 
@@ -773,16 +773,16 @@ export default function GameClientPage() {
   async function handleExtract(opts = {}) {
     const next = await runGameAction('extract', { leaveProbe: !!opts.leaveProbe }, { refreshEquipment: true })
     if (next) {
-      toast(opts.leaveProbe ? '🚪 已撤离 · 探针已部署' : '🚪 已成功撤离，物资已入库', 'success')
+      toast(opts.leaveProbe ? '🚪 已撤离 · 残影已留存' : '🚪 已成功撤离，物资已入库', 'success')
       setExtractOpen(false)
     }
   }
 
   async function handleEmergencyRetreat() {
-    if (!confirm('确认启用缝隙维护轨道？\n个人污染将 +' + POLLUTION_CONFIG.EMERGENCY_COST + '%')) return
+    if (!confirm('确认紧急撤离？\n个人污染将 +' + POLLUTION_CONFIG.EMERGENCY_COST + '%')) return
     const next = await runGameAction('emergencyRetreat', {})
     if (next) {
-      toast(`已传送至外环维护廊（个人污染 +${POLLUTION_CONFIG.EMERGENCY_COST}%）`, 'success')
+      toast(`已撤离至安全区（个人污染 +${POLLUTION_CONFIG.EMERGENCY_COST}%）`, 'success')
     }
   }
 
@@ -981,8 +981,10 @@ export default function GameClientPage() {
         @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
 
-      {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒） */}
-      {inGame && me?.alive && !meBase?.extracted && envPollutionLevel >= POLLUTION_WARN_THRESHOLD && envPollutionLevel < POLLUTION_FORCE_THRESHOLD && (
+      {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒）。
+          BR 决策（用户定「移除前台横幅」）：brEnabled 时隐藏前台污染横幅，仿
+          {!brEnabled && <OmegaCountdown/>} 模式条件渲染（服务端污染机制/字段不动，仅前台不渲染）。 */}
+      {!brEnabled && inGame && me?.alive && !meBase?.extracted && envPollutionLevel >= POLLUTION_WARN_THRESHOLD && envPollutionLevel < POLLUTION_FORCE_THRESHOLD && (
         <div style={{
           background: `linear-gradient(90deg, ${T.yellow}25, ${T.yellow}10)`,
           borderBottom: `1px solid ${T.yellow}50`,
@@ -1022,8 +1024,9 @@ export default function GameClientPage() {
         </div>
       )}
 
-      {/* Phase 18.4: 90% 强制撤离倒计时模态（不可关） */}
-      {forceRetreatActive && me?.alive && !meBase?.extracted && (
+      {/* Phase 18.4: 90% 强制撤离倒计时模态（不可关）。
+          BR 决策（用户定「移除前台横幅」）：brEnabled 时不渲染前台强制撤离模态（服务端机制不动）。 */}
+      {!brEnabled && forceRetreatActive && me?.alive && !meBase?.extracted && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.85)',
@@ -1040,8 +1043,8 @@ export default function GameClientPage() {
               结构应力超限，强制撤离协议触发
             </div>
             <div style={{ fontSize: 12, color: T.dim, lineHeight: 1.7, marginBottom: 16 }}>
-              环境污染 {envPollutionLevel}%，泡泡壳裂解临界。<br/>
-              系统将在倒计时归零时自动启动缝隙维护轨道。
+              环境污染 {envPollutionLevel}%，结构裂解临界。<br/>
+              系统将在倒计时归零时自动紧急撤离。
             </div>
             <div style={{
               fontSize: 42, fontWeight: 900,
@@ -1063,10 +1066,10 @@ export default function GameClientPage() {
                 fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}
             >
-              ⚠ 立即启动缝隙维护轨道
+              ⚠ 立即紧急撤离
             </button>
             <div style={{ fontSize: 10, color: T.dim2, marginTop: 10 }}>
-              （个人污染将 +{POLLUTION_CONFIG.EMERGENCY_COST}%，传送至外环维护廊）
+              （个人污染将 +{POLLUTION_CONFIG.EMERGENCY_COST}%，撤离至安全区）
             </div>
           </div>
         </div>
@@ -1074,28 +1077,34 @@ export default function GameClientPage() {
 
       <div style={{ background: `linear-gradient(90deg,${T.bg2} 0%,${T.bg3} 50%,${T.bg2} 100%)`, borderBottom: `1px solid ${T.borderB}`, padding: '0 20px', height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 16, fontWeight: 900, color: T.cyan, letterSpacing: 2, textShadow: `0 0 20px ${T.cyan}80` }}>
-          远星函馆 · 17号异常段
+          虚拟空间实例 #{room.gamenum || room.id}
         </div>
         <div style={{ display: 'flex', gap: 14, fontSize: 11, color: T.dim, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: T.text, fontWeight: 700 }}>{effectiveMapConfig?.name || '未知区域'}</span>
 
-          {/* 环境污染 */}
-          <PollutionPill
-            label="环境"
-            value={gamevars?.envPollution || 0}
-            color={T.red}
-          />
-          {/* 个人污染 */}
-          <PollutionPill
-            label="个人"
-            value={meBase?.personalPollution || 0}
-            color={T.purple}
-          />
-          {/* 有效污染等级 */}
-          <EffectivePollutionTag
-            envP={gamevars?.envPollution || 0}
-            personalP={meBase?.personalPollution || 0}
-          />
+          {/* 污染 pill（环境 / 个人 / 有效等级）：BR 决策（用户定「移除前台横幅」）下整组隐藏，
+              仿 {!brEnabled && <OmegaCountdown/>} 条件渲染（服务端污染字段不动，仅前台不渲染）。 */}
+          {!brEnabled && (
+            <>
+              {/* 环境污染 */}
+              <PollutionPill
+                label="环境"
+                value={gamevars?.envPollution || 0}
+                color={T.red}
+              />
+              {/* 个人污染 */}
+              <PollutionPill
+                label="个人"
+                value={meBase?.personalPollution || 0}
+                color={T.purple}
+              />
+              {/* 有效污染等级 */}
+              <EffectivePollutionTag
+                envP={gamevars?.envPollution || 0}
+                personalP={meBase?.personalPollution || 0}
+              />
+            </>
+          )}
           {/* Ω 倒计时 — 分层预警（research-2026-05-27-v2 P0）。
               Phase 30 BR：大时钟成为唯一时间压力，Ω 倒计时 dormant 不渲染（与大时钟 HUD 不冲突）。 */}
           {!brEnabled && <OmegaCountdown value={meBase?.omegaCountdown} />}
@@ -1160,7 +1169,7 @@ export default function GameClientPage() {
                   ))}
                 </div>
                 <div style={{ fontSize: 10, color: T.dim2, marginTop: 4, fontStyle: 'italic' }}>
-                  这些完全解码的残片影响了本局 chamber 抽取权重、lore 短句、物品掉落
+                  这些完全解码的残片影响了本局扇区抽取权重、叙事短句、物资掉落 · 详情见档案库
                 </div>
               </div>
             )}
@@ -1311,7 +1320,7 @@ export default function GameClientPage() {
           {/* Phase 18.5: 区域评估小卡 — 战斗强度 + 撤离成功率 */}
           {inGame && me?.alive && !meBase?.extracted && (
             <>
-              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>当前地图</span>}>📊 区域评估</PanelTitle>
+              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '当前扇区' : '当前地图'}</span>}>📊 区域评估</PanelTitle>
               <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{
                   padding: '6px 10px', borderRadius: 6,
@@ -1352,10 +1361,10 @@ export default function GameClientPage() {
             </>
           )}
 
-          <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>同地图可攻击</span>}>⚔️ PvP</PanelTitle>
+          <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '同扇区可攻击' : '同地图可攻击'}</span>}>⚔️ PvP</PanelTitle>
           <div style={{ padding: '10px 12px' }}>
             {pvpTargets.length === 0 ? (
-              <div style={{ color: T.dim, fontSize: 12 }}>当前地图没有可攻击玩家</div>
+              <div style={{ color: T.dim, fontSize: 12 }}>{brEnabled ? '当前扇区没有可攻击玩家' : '当前地图没有可攻击玩家'}</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {pvpTargets.map(target => (
@@ -1508,7 +1517,7 @@ export default function GameClientPage() {
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
             {currentMapCorpseCount > 0 && (
               <div style={{ textAlign: 'center', color: T.dimB, fontSize: 11, marginBottom: 10 }}>
-                当前地图有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
+                {brEnabled ? '当前扇区' : '当前地图'}有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
               </div>
             )}
             {!inGame ? (
@@ -1537,8 +1546,8 @@ export default function GameClientPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>另一位 PI 引导者留下 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>📡 异步探针 · 携 {meBase.probeEncounter.fragmentCount} 残片</div>
+                        <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>另一位玩家留下 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🛰 跃迁者残影 · 携 {meBase.probeEncounter.fragmentCount} 物资</div>
                       </div>
                       <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
                         #{String(meBase.probeEncounter.probeId).slice(-6)}
@@ -1554,14 +1563,14 @@ export default function GameClientPage() {
                       </span>
                     </div>
                     <div style={{ marginTop: 6, fontSize: 10, color: T.dim2 }}>
-                      真实玩家的异步留痕 · 非系统刷怪 · 属性已按你的实力校准
+                      真实玩家的异步残影 · 非系统生成 · 属性已按你的实力校准
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
-                      🎁 携带 {meBase.probeEncounter.fragmentCount} 条残片碎片 — 击败后可夺取 1 条
+                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份物资 — 击败后可夺取 1 份（详情见档案库）
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <Btn variant="danger" loading={busyAction === 'probeAttack'} loadingText="交战中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('probeAttack')} disabled={!me?.alive || room.gamestate === 2}>
-                        ⚔️ 袭击探针
+                        ⚔️ 袭击残影
                       </Btn>
                       <Btn variant="ghost" sx={{ flex: 1, padding: '10px 0' }} onClick={() => runGameAction('probeIgnore')} disabled={busy || !me?.alive || room.gamestate === 2}>
                         放过
@@ -1662,7 +1671,7 @@ export default function GameClientPage() {
                     sx={{ width: '100%', borderColor: `${T.green}50`, color: T.green, fontSize: 13, fontWeight: 700, marginBottom: 6 }}
                     disabled={!me?.alive || room.gamestate === 2}
                   >
-                    🚪 结构退避
+                    🚪 撤离
                     {effectiveMapConfig?.exit_cost?.item && (
                       <span style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>
                         （需 {effectiveMapConfig?.exit_cost.item} ×{effectiveMapConfig?.exit_cost.qty || 1}）
@@ -1677,7 +1686,7 @@ export default function GameClientPage() {
                     sx={{ width: '100%', borderColor: `${T.yellow}50`, color: T.yellow, fontSize: 12 }}
                     disabled={!me?.alive || room.gamestate === 2}
                   >
-                    ⚠ 缝隙维护轨道（个人污染 +{POLLUTION_CONFIG.EMERGENCY_COST}%）
+                    ⚠ 紧急撤离（个人污染 +{POLLUTION_CONFIG.EMERGENCY_COST}%）
                   </Btn>
                 )}
                 {!me?.alive && <div style={{ textAlign: 'center', color: T.red, fontSize: 12, marginTop: 8 }}>你已阵亡，只能查看战况与装备状态</div>}
@@ -1791,7 +1800,7 @@ export default function GameClientPage() {
               <span style={{ fontSize: 10, color: T.dim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
                 {brMyRoom?.label || (myRoomId != null ? `#${myRoomId}` : '—')}
               </span>
-            }>🕒 时空收缩 · 扇区图</PanelTitle>
+            }>🛰 收缩边界 · 扇区图</PanelTitle>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* 大时钟 HUD */}
               <BrClockHud

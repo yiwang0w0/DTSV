@@ -80,7 +80,7 @@ export default function ExtractionModal({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '14px 20px',
           }}>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.green, textShadow: `0 0 12px ${T.green}40` }}>🚪 结构退避</h3>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.green, textShadow: `0 0 12px ${T.green}40` }}>🚪 撤离</h3>
             <button onClick={onClose} style={{ background: 'rgba(14,17,23,0.5)', border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 10px', color: T.dim, cursor: 'pointer', fontSize: 16 }}>✕</button>
           </div>
         </div>
@@ -173,7 +173,7 @@ export default function ExtractionModal({
               </div>
               <div style={{ fontSize: 10.5, color: T.dimB, lineHeight: 1.5 }}>
                 发出撤离信号后进入 <strong style={{ color: T.yellow }}>{SIGNAL_LOCK.WINDOW_TURNS}</strong> 回合脆弱态：
-                环境与个人污染加速、异步探针遭遇概率提升。坚持到信号锁定完成才能结构退避 ——
+                环境与个人污染加速、异步探针遭遇概率提升。坚持到信号锁定完成才能撤离 ——
                 压力来自环境，不会有真人蹲点。
               </div>
             </div>
@@ -192,7 +192,7 @@ export default function ExtractionModal({
               opacity: canExtract ? 1 : 0.6,
             }}
           >
-            {busy ? '撤离中…' : !costMet ? '消耗不足' : (SIGNAL_LOCK.ENABLED ? '🛰 发出撤离信号' : '🚪 完成结构退避')}
+            {busy ? '撤离中…' : !costMet ? '消耗不足' : (SIGNAL_LOCK.ENABLED ? '🛰 发出撤离信号' : '🚪 确认撤离')}
           </button>
         </div>
       </div>

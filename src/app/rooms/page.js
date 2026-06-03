@@ -10,8 +10,8 @@ import { POLLUTION_TIER_META } from '@/lib/constants'
 import { postGameApi } from '@/lib/gameApi'
 
 const ENDING_META = {
-  collapse: { label: '崩解', icon: '💥', color: '#f85149', desc: '异常段坠入视界线' },
-  purge:    { label: '清算', icon: '⚡', color: '#f0883e', desc: '异常段被隔离清除' },
+  collapse: { label: '崩解', icon: '💥', color: '#f85149', desc: '虚拟空间坠入视界线' },
+  purge:    { label: '清算', icon: '⚡', color: '#f0883e', desc: '虚拟空间被隔离清除' },
   merge:    { label: '合流', icon: '🤝', color: '#3fb950', desc: '共存协议签署' },
   explore:  { label: '探索', icon: '🌌', color: '#58a6ff', desc: '发现新路径' },
 }
@@ -72,7 +72,7 @@ export default function RoomsPage() {
       if (room?.id) {
         router.push(`/game/${room.id}`)
       } else {
-        setStartError('未能获取下一周目对局')
+        setStartError('未能获取下一局对局')
         setStarting(false)
       }
     } catch (err) {
@@ -85,7 +85,7 @@ export default function RoomsPage() {
     return (
       <div className="animate-in" style={{ textAlign: 'center', padding: 60 }}>
         <p style={{ color: '#8b949e', fontSize: 16 }}>
-          请先 <Link href="/login" style={{ color: '#58a6ff' }}>登录</Link> 后查看周目记录
+          请先 <Link href="/login" style={{ color: '#58a6ff' }}>登录</Link> 后查看对局记录
         </p>
       </div>
     )
@@ -99,13 +99,13 @@ export default function RoomsPage() {
   return (
     <div className="animate-in">
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>周目记录</h2>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>对局记录</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>
-          17 号异常段的所有探索尝试。每一次出勤都是一个周目，绝大部分以净化失败告终。
+          虚拟空间内的所有探索尝试。每一次进入都是一局对局，绝大部分以撤离失败告终。
         </p>
       </div>
 
-      {/* 没有进行中的周目 — 显示启动 CTA */}
+      {/* 没有进行中的对局 — 显示启动 CTA */}
       {active.length === 0 && (
         <div style={{
           marginBottom: 24,
@@ -122,10 +122,10 @@ export default function RoomsPage() {
         }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#e6edf3', marginBottom: 4 }}>
-              暂无进行中的周目
+              暂无进行中的对局
             </div>
             <div style={{ fontSize: 12, color: '#8b949e' }}>
-              点击右侧按钮启动下一段 17 号异常段探查。
+              点击右侧按钮启动下一局虚拟空间探查。
             </div>
             {startError && (
               <div style={{ marginTop: 8, fontSize: 11, color: '#f85149' }}>
@@ -148,7 +148,7 @@ export default function RoomsPage() {
               opacity: starting ? 0.7 : 1,
             }}
           >
-            {starting ? '准备就绪中…' : '🚀 启动下一周目'}
+            {starting ? '准备就绪中…' : '🚀 启动下一局'}
           </button>
         </div>
       )}
@@ -157,7 +157,7 @@ export default function RoomsPage() {
       {active.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#3fb950', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-            当前周目
+            当前对局
           </div>
           {active.map(room => {
             const env = room.gamevars?.envPollution || 0
@@ -181,7 +181,7 @@ export default function RoomsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-jetbrains-mono), monospace', color: '#e6edf3' }}>
-                        周目 #{room.gamenum || room.id}
+                        虚拟空间实例 #{room.gamenum || room.id}
                       </span>
                       <span style={{
                         padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
@@ -193,7 +193,7 @@ export default function RoomsPage() {
                     <span style={{ fontSize: 11, color: '#58a6ff' }}>进入 →</span>
                   </div>
                   <div style={{ display: 'flex', gap: 20, fontSize: 12, color: '#8b949e' }}>
-                    <span>引导者 <strong style={{ color: '#e6edf3' }}>{players.length}</strong></span>
+                    <span>玩家 <strong style={{ color: '#e6edf3' }}>{players.length}</strong></span>
                     <span>存活 <strong style={{ color: '#3fb950' }}>{room.alivenum || 0}</strong></span>
                     <span>阵亡 <strong style={{ color: '#f85149' }}>{room.deathnum || 0}</strong></span>
                     <span>污染度 <strong style={{ color: tierMeta?.color }}>{env}%</strong></span>
@@ -205,15 +205,15 @@ export default function RoomsPage() {
         </div>
       )}
 
-      {/* 历史周目列表 */}
+      {/* 历史对局列表 */}
       <div style={{ fontSize: 12, fontWeight: 700, color: '#8b949e', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-        历史周目 ({ended.length})
+        历史对局 ({ended.length})
       </div>
 
       {ended.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🪹</div>
-          <p>还没有结束的周目</p>
+          <p>还没有结束的对局</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -274,7 +274,7 @@ export default function RoomsPage() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: '#484f58', flexShrink: 0 }}>
-                      <span title="引导者数">👤 {players.length}</span>
+                      <span title="玩家数">👤 {players.length}</span>
                       <span title="阵亡" style={{ color: room.deathnum > 0 ? '#f85149' : '#484f58' }}>
                         💀 {room.deathnum || 0}
                       </span>

@@ -39,7 +39,7 @@ function Nav({ user, onLogout }) {
   const path = usePathname()
   const links = [
     { href: '/', label: '首页' },
-    { href: '/rooms', label: '周目记录' },
+    { href: '/rooms', label: '对局记录' },
     // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
     ...(user ? [{ href: '/archive', label: '档案库' }] : []),

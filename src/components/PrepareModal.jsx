@@ -600,7 +600,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
               opacity: confirming ? 0.6 : 1,
             }}
           >
-            {confirming ? '装载中...' : '🚀 进入异常段'}
+            {confirming ? '装载中...' : '🚀 进入虚拟空间'}
           </button>
         </div>
       </div>
