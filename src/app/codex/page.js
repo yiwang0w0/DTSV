@@ -536,7 +536,7 @@ export default function CodexPage() {
                 <div style={{ padding: '14px 18px', fontSize: 12, color: C.dim2 }}>
                   {b.total === 0
                     ? '本纪元仅以文档形式残存，暂无可拾取的残片。'
-                    : `尚未发现本纪元的残片（共 ${b.total} 个待发现）。在异常段搜索 / 战斗 / 撤离中触达。`}
+                    : `尚未发现本纪元的残片（共 ${b.total} 个待发现）。在虚拟空间搜索 / 战斗 / 撤离中触达。`}
                 </div>
               )}
             </section>

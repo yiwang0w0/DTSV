@@ -151,12 +151,12 @@ export default function ExtractionModal({
             />
             <div style={{ flex: 1, fontSize: 12 }}>
               <div style={{ color: leaveProbe ? T.purple : T.text, fontWeight: 600 }}>
-                📡 留下异步探针（消耗 1 件环段部件）
+                🛰 留下跃迁者残影（消耗 1 件环段部件）
               </div>
               <div style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>
                 {platformPartCount > 0
                   ? `你有 ${platformPartCount} 件 platform_part — 7 天内其他玩家有概率遭遇`
-                  : '没有 platform_part 物品 — 无法留探针'}
+                  : '没有 platform_part 物品 — 无法留残影'}
               </div>
             </div>
           </label>
@@ -173,7 +173,7 @@ export default function ExtractionModal({
               </div>
               <div style={{ fontSize: 10.5, color: T.dimB, lineHeight: 1.5 }}>
                 发出撤离信号后进入 <strong style={{ color: T.yellow }}>{SIGNAL_LOCK.WINDOW_TURNS}</strong> 回合脆弱态：
-                环境与个人污染加速、异步探针遭遇概率提升。坚持到信号锁定完成才能撤离 ——
+                环境与个人污染加速、残影遭遇概率提升。坚持到信号锁定完成才能撤离 ——
                 压力来自环境，不会有真人蹲点。
               </div>
             </div>

@@ -188,7 +188,7 @@ export default function StashPage() {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
           <p style={{ margin: 0, fontSize: 14 }}>账户库是空的。</p>
           <p style={{ margin: '6px 0 0', fontSize: 12, color: C.dim2 }}>
-            进入 raid 搜寻物资，撤离时会自动入库。
+            进入对局搜寻物资，撤离时会自动入库。
           </p>
         </div>
       ) : (

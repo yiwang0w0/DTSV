@@ -139,7 +139,7 @@ export default function PlaytestTab({ toast }) {
             <table style={{ width: '100%', fontSize: 11, color: '#e6edf3', borderCollapse: 'collapse' }}>
               <thead style={{ position: 'sticky', top: 0, background: '#1f2937' }}>
                 <tr>
-                  <Th>结束时间</Th><Th>周目</Th><Th>分钟</Th><Th>玩家</Th><Th>撤离</Th><Th>死亡</Th>
+                  <Th>结束时间</Th><Th>对局</Th><Th>分钟</Th><Th>玩家</Th><Th>撤离</Th><Th>死亡</Th>
                   <Th>残片</Th><Th>路径长</Th><Th>平均深</Th><Th>污染</Th><Th>结局</Th>
                 </tr>
               </thead>

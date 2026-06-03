@@ -33,8 +33,8 @@ const OBJECTIVE_TEXT = {
   kill_any:    obj => `击杀任意实体 ×${obj.count || 1}`,
   extract:     obj => `成功撤离 ×${obj.count || 1}`,
   extract_at:  obj => `从【${obj.extractionPointId || '?'}】撤离`,
-  purchase:    obj => `出勤准备界面购买装备/物资 ×${obj.count || 1}`,
-  leave_probe: obj => `撤离时留下异步探针 ×${obj.count || 1}`,
+  purchase:    obj => `准备界面购买装备/物资 ×${obj.count || 1}`,
+  leave_probe: obj => `撤离时留下残影 ×${obj.count || 1}`,
 }
 
 export default function ContractsPage() {
@@ -106,7 +106,7 @@ export default function ContractsPage() {
       <div style={{ marginBottom: 18 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>📜 合同</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: C.dim }}>
-          完成合同即可获得奖励物品到账户库。在 raid 中达成目标会自动推进进度。
+          完成合同即可获得奖励物品到账户库。在对局中达成目标会自动推进进度。
         </p>
       </div>
 

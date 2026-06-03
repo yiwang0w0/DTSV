@@ -198,7 +198,7 @@ function FragmentCard({ fragment, playerData }) {
           color: C.dim2,
         }}>
           <span>分类: {cat.label}</span>
-          <span>发现于周目 #{playerData.discover_cycle || '?'}</span>
+          <span>发现于对局 #{playerData.discover_cycle || '?'}</span>
           <span>首次发现: {new Date(playerData.discovered_at).toLocaleDateString('zh-CN')}</span>
           {playerData.last_decoded && level > 0 && (
             <span>最近解码: {new Date(playerData.last_decoded).toLocaleDateString('zh-CN')}</span>
@@ -313,7 +313,7 @@ export default function ArchivePage() {
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>档案库</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: C.dim }}>
-          在异常段搜索中发现的数据残片。每次搜索都有概率发现新残片或推进已知残片的解码。知识跨周目永久保存。
+          在虚拟空间搜索中发现的数据残片。每次搜索都有概率发现新残片或推进已知残片的解码。知识跨对局永久保存。
         </p>
       </div>
 
@@ -505,7 +505,7 @@ export default function ArchivePage() {
                     </div>
                     <div style={{ fontSize: 10, color: C.dim2 }}>
                       {new Date(playerData.last_decoded || playerData.discovered_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      {playerData.discover_cycle != null && <span style={{ marginLeft: 8 }}>· 周目 #{playerData.discover_cycle}</span>}
+                      {playerData.discover_cycle != null && <span style={{ marginLeft: 8 }}>· 对局 #{playerData.discover_cycle}</span>}
                     </div>
                   </div>
                   <DecodeBar level={level} />
@@ -552,7 +552,7 @@ export default function ArchivePage() {
                     {d.reason_text}
                   </span>
                   <span style={{ fontSize: 10, color: C.dim2, flexShrink: 0 }}>
-                    {d.gamenum != null ? `周目 #${d.gamenum} · ` : ''}
+                    {d.gamenum != null ? `对局 #${d.gamenum} · ` : ''}
                     {new Date(d.died_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -576,7 +576,7 @@ export default function ArchivePage() {
               borderLeft: `3px solid ${C.cyan}`, borderRadius: 8,
               fontSize: 13, color: C.cyan, fontWeight: 600,
             }}>
-              📡 我的探针 ({probes.length})
+              🛰 我的残影 ({probes.length})
               {active.length > 0 && <span style={{ color: C.green, marginLeft: 6 }}>· 活跃 {active.length}</span>}
               {defeated.length > 0 && <span style={{ color: C.red, marginLeft: 6 }}>· 被击败 {defeated.length}</span>}
               {expired.length > 0 && <span style={{ color: C.dim2, marginLeft: 6 }}>· 过期 {expired.length}</span>}
@@ -601,13 +601,13 @@ export default function ArchivePage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
-                        <span style={{ fontSize: 11, color: C.dim, fontFamily: 'monospace' }}>chamber #{p.chamber_template_id}</span>
+                        <span style={{ fontSize: 11, color: C.dim, fontFamily: 'monospace' }}>扇区 #{p.chamber_template_id}</span>
                         <span style={{ fontSize: 10, color: C.dim2 }}>
                           HP {p.hp}/{p.max_hp} · ATK {p.atk} · DEF {p.def}
                         </span>
                         {p.fragments_carry && p.fragments_carry.length > 0 && (
                           <span style={{ fontSize: 10, color: C.purple, padding: '1px 6px', borderRadius: 6, background: `${C.purple}15` }}>
-                            🎁 携带 {p.fragments_carry.length} 残片
+                            🎁 携带 {p.fragments_carry.length} 物资
                           </span>
                         )}
                       </div>
@@ -714,7 +714,7 @@ export default function ArchivePage() {
                         {outName}
                       </span>
                       <span style={{ marginLeft: 'auto', fontSize: 10, color: statusColor, fontWeight: 700 }}>
-                        {outOwned ? '✓ 已解锁' : ready ? '⏳ 待 raid' : `🔒 ${aLevel < 3 ? 'A' : ''}${aLevel < 3 && bLevel < 3 ? '+' : ''}${bLevel < 3 ? 'B' : ''} 未完全解码`}
+                        {outOwned ? '✓ 已解锁' : ready ? '⏳ 待下次对局' : `🔒 ${aLevel < 3 ? 'A' : ''}${aLevel < 3 && bLevel < 3 ? '+' : ''}${bLevel < 3 ? 'B' : ''} 未完全解码`}
                       </span>
                     </div>
                     {c.description && (
@@ -739,7 +739,7 @@ export default function ArchivePage() {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📡</div>
           <p style={{ fontSize: 15 }}>尚未发现任何数据残片</p>
           <p style={{ fontSize: 12, color: C.dim2, marginTop: 8 }}>
-            在异常段探索中执行「搜索」行动，有概率发现散落的旧时代数据碎片
+            在虚拟空间探索中执行「搜索」行动，有概率发现散落的旧时代数据碎片
           </p>
         </div>
       ) : (

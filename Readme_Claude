@@ -196,6 +196,19 @@
 
 验证：next lint ✔ 0；grep 复查「时空收缩/现役异常段/结构退避/缝隙维护轨道」可见 UI=0（残留仅 server log/注释/map 数据名·红线外）；改动仅 6 个前台文件、服务端/SQL/字段/残片逻辑零触碰；/codex /archive 深层远星保留。**待 Vercel 部署后复走查确认。**
 
+**36b 剩余页面去冗余补完（2026-06-03 · Workflow 4 agent + verify）**：用户「档案库/纪元档案/合同还是有不少冗余，全部检查修复」——Phase 36 只覆盖 /game+首页+大厅，剩余玩家页未跟进 → 仍混旧远星词。本轮把术语一致扩到剩余全部页面（仍仅改可见 wrapper · 守同一红线）：
+
+| 文件 | 改动 |
+|------|------|
+| `archive/page.js` | 9 处：周目→对局、异常段→虚拟空间、📡我的探针→🛰我的残影、chamber #→扇区 #（label·字段 `chamber_template_id` 不动）、携带 N 残片→物资、待 raid→待下次对局 |
+| `contracts/page.js` | 出勤准备界面→准备界面、异步探针→残影、在 raid 中→在对局中 |
+| `stash/page.js` | 进入 raid→进入对局 |
+| `codex/page.js` | 异常段→虚拟空间（六纪元 EPOCHS/FRAGMENT_EPOCH/共构纪 PI-1 探针 blurb 整块保留） |
+| `ExtractionModal.jsx` | verify 抓出的同撤离流程内割裂：📡留下异步探针/异步探针遭遇概率 → 🛰留下跃迁者残影/残影遭遇概率 |
+| `admin/PlaytestTab`·`admin/ContractsTab` | 周目→对局；留下异步探针→留下跃迁者残影（内部 chamber/template/探针遥测/DbConsole SQL label 概念名保留） |
+
+验证：next lint ✔ 0；7 文件 diff 全纯文案 label、字段/state key/路由/SQL/残片可发现性/六纪元 lore 零触碰；verify agent 误报的「stash 防崩改动」经 git diff 确认未发生（实际全纯文案）。**结构性冗余待用户拍板**：`/archive`（按分类/三链）与 `/codex`（按六纪元）都陈列残片＝两种视图，合并/收口需动路由+导航（红线），不擅自做。
+
 ---
 
 ## 历史变更（2026-05-28 / Phase 28-profile）— 个人主页 /profile

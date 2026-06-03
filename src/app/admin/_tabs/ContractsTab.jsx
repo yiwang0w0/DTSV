@@ -19,7 +19,7 @@ const OBJECTIVE_TYPES = [
   { value: 'extract',     label: '成功撤离 N 次',     fields: ['count'] },
   { value: 'extract_at',  label: '从指定撤离点撤离', fields: ['extractionPointId'] },
   { value: 'purchase',    label: '购买装备/物资 N 次', fields: ['count'] },
-  { value: 'leave_probe', label: '留下异步探针 N 次', fields: ['count'] },
+  { value: 'leave_probe', label: '留下跃迁者残影 N 次', fields: ['count'] },
 ]
 
 export default function ContractsTab({ toast }) {
