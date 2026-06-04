@@ -66,7 +66,7 @@ import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '
 import { makeRaidSeed, forbidden, closePhasesObject, lootTier, MAX_CLOSE_PHASE, hashSeed, mulberry32 } from '@/lib/server/br/forbidden'
 import { allocateRoomInventory, takeFromRoom, resolveRef } from '@/lib/server/br/roomItems'
 import { allocateRoomNpcs, takeNpcFromRoom } from '@/lib/server/br/npcPlacement'
-import { getRaidLayout } from '@/lib/server/br/raidLayout'
+import { getRaidLayout, brLayoutHint } from '@/lib/server/br/raidLayout'
 import { sanitizeHeatLevel, applyHeatPointsMultiplier, heatFragmentDropChance } from '@/lib/server/heat'
 import { isSignalLockActive, beginSignalLock } from '@/lib/server/signalLock'
 import {
@@ -95,10 +95,12 @@ export class VersionConflictError extends Error {
 
 const MAX_RETRIES = 3
 
+// fn 收到当前 attempt 序号（0=首次）。速度/正确性：调用方据此在重试时**丢弃 stale prefetchedRoom**、
+//   改 fetch 最新版本——否则并发下每次重试都拿旧 version 重撞乐观锁，3 次重试 100% 必废、纯烧 CPU+DB。
 export async function withRetry(fn, retries = MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await fn()
+      return await fn(attempt)
     } catch (err) {
       if (err instanceof VersionConflictError && attempt < retries) {
         continue
@@ -626,7 +628,7 @@ async function persistResolutionWithPollution(client, room, resolution, userId, 
     //   非 BR 房或 seed 缺失（旧 enabled:false 房）→ layout=null，buildChamberAccelTable 走非 BR 分支。
     const gvBr = resolution.gamevars?.br
     const layout = gvBr?.enabled && gvBr.seed != null
-      ? await getRaidLayout(client, gvBr.seed)
+      ? await getRaidLayout(client, gvBr.seed, brLayoutHint(gvBr))
       : null
     // Phase 19.5: 从 gamevars.raidPath / layout.templateMeta 算 accel 表（替代 DB 查询）
     const accelTable = buildChamberAccelTable(resolution.gamevars, layout)
@@ -2920,7 +2922,7 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
 
   // gamevars 瘦身：rooms/adj/templateMeta 已移出 gamevars.br → 按 seed 取 layout（首动作付一次 DB 读，
   //   之后 memo 命中无 IO）。邻接/标签/伪 chamber meta 全部从 layout 读，roomTemplates 仍读 gamevars.br（保留）。
-  const layout = await getRaidLayout(client, br.seed)
+  const layout = await getRaidLayout(client, br.seed, brLayoutHint(br))
 
   const fromRoomId = player.roomId
   if (fromRoomId == null) throw new Error('你当前不在任何扇区')
@@ -3288,7 +3290,7 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   // gamevars 瘦身：BR 房的 is_exit/exit_cost 等来自 templateMeta（已移出 gamevars）→ 取 layout 传入。
   //   非 BR 房（raidPath 模式）layout=null，getChamberAsMapConfig 走旧分支不受影响。
   const br = gamevars?.br
-  const layout = br?.enabled && br.seed != null ? await getRaidLayout(client, br.seed) : null
+  const layout = br?.enabled && br.seed != null ? await getRaidLayout(client, br.seed, brLayoutHint(br)) : null
   const mapConfig = getChamberAsMapConfig(gamevars, player, layout)
   if (!mapConfig) throw new Error('chamber 数据不存在（raidPath 未初始化？）')
   if (!mapConfig.is_exit) {

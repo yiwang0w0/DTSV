@@ -172,16 +172,22 @@ export default function GameClientPage() {
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   const mapIdRef = useRef(0)
+  const mapLoadedRef = useRef(false)  // 首次 hydrate 强制载入一次可交易 NPC（即便 chamberTemplateId 恰为 0）
 
-  // Phase 19.7: chamber 模型 — mapId 现在是 chamber.templateId
-  const loadMapData = useCallback(async (chamberTemplateId) => {
-    const [{ data: nextAllItems }, { data: nextNpcs }] = await Promise.all([
-      supabase.from('item_pool').select('*'),
-      // chamber 内可交易非敌对实体（按 chamber_template_ids 过滤）
-      supabase.from('npc_pool').select('id,name,entity_type,trade_wants,trade_offers,chamber_template_ids').eq('tradeable', true),
-    ])
+  // 速度：item_pool 整局静态（不按 chamber 过滤）→ 只在 loadInitial 拉一次。
+  //   旧实现把它塞在 loadMapData 里、每动作 hydrateRoom 都重拉整张表，是搜索/攻击体感卡顿的首要来源。
+  const loadAllItems = useCallback(async () => {
+    const { data } = await supabase.from('item_pool').select('*')
+    setAllItems(data || [])
+  }, [])
 
-    setAllItems(nextAllItems || [])
+  // Phase 19.7: chamber 模型 — chamberTemplateId 决定本房可交易非敌对实体（按 chamber_template_ids 过滤）。
+  //   仅在所在 chamber 变化时调（hydrateRoom / realtime 都加 mapId 守卫），不再每动作重拉。
+  const loadTradeableNpcs = useCallback(async (chamberTemplateId) => {
+    const { data: nextNpcs } = await supabase
+      .from('npc_pool')
+      .select('id,name,entity_type,trade_wants,trade_offers,chamber_template_ids')
+      .eq('tradeable', true)
     setTradeableNpcs((nextNpcs || []).filter(n => Array.isArray(n.chamber_template_ids) && n.chamber_template_ids.includes(chamberTemplateId)))
     // mapConfig 由 useMemo 从 gamevars 算（chamber 数据）
   }, [])
@@ -209,14 +215,17 @@ export default function GameClientPage() {
     const nextMapId = normalized.br?.enabled && player?.roomId != null
       ? (normalized.br.roomTemplates?.[player.roomId] ?? player?.map ?? 0)
       : (player?.map ?? 0)
-    if (mapIdRef.current !== nextMapId) {
+    // 速度：仅当所在 chamber 变化（或首次 hydrate）才重拉可交易 NPC；与下方 realtime handler 同款守卫。
+    //   item_pool 整局静态 → 不在每次 hydrate 重拉（已由 loadInitial 一次性载入）。
+    if (mapIdRef.current !== nextMapId || !mapLoadedRef.current) {
       mapIdRef.current = nextMapId
+      mapLoadedRef.current = true
+      await loadTradeableNpcs(nextMapId)
     }
-    await loadMapData(nextMapId)
     if (refreshEquipment) {
       await loadEquipments()
     }
-  }, [loadEquipments, loadMapData, user?.id])
+  }, [loadEquipments, loadTradeableNpcs, user?.id])
 
   const loadInitial = useCallback(async () => {
     if (!user) {
@@ -228,6 +237,7 @@ export default function GameClientPage() {
     const [{ data: roomData }, buffs] = await Promise.all([
       supabase.from('rooms').select('*').eq('id', roomId).single(),
       loadBuffPool(),
+      loadAllItems(),  // 速度：item_pool 整局一次性载入（与房/buff 并行），此后动作不再重拉整张表
     ])
 
     if (!roomData) {
@@ -239,7 +249,7 @@ export default function GameClientPage() {
     setBuffPool(buffs || [])
     await hydrateRoom(roomData, { refreshEquipment: true })
     setLoading(false)
-  }, [hydrateRoom, roomId, router, user])
+  }, [hydrateRoom, loadAllItems, roomId, router, user])
 
   useEffect(() => {
     loadInitial()
@@ -261,7 +271,7 @@ export default function GameClientPage() {
           : (player?.map ?? 0)
         if (mapIdRef.current !== nextMapId) {
           mapIdRef.current = nextMapId
-          loadMapData(nextMapId)
+          loadTradeableNpcs(nextMapId)
         }
       })
       .subscribe()
@@ -269,7 +279,7 @@ export default function GameClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [loadMapData, roomId, user])
+  }, [loadTradeableNpcs, roomId, user])
 
   // Phase 30 BR：本地秒级时钟 tick（仅 BR 模式开，驱动大时钟倒计时 + 扇区即时着色；
   //   chamber 模式不开，避免无谓 1s 重渲染）。
@@ -516,14 +526,21 @@ export default function GameClientPage() {
   //   跃迁 = 单向阶梯：消耗一枚 jump_charge>0 道具（时序跃迁器）→ depth+1 → 看更深时间层。
   //   代价 = 道具 + 冷却 + 赌命（跃迁后所在扇区在新有效阶段若为禁区 → 服务端 sweep 当场致死）。
   // ════════════════════════════════════════════════════════════════════
-  // 跃迁器数量：镜像背包体力剂徽标的 allItems.find 模式 —— 累加 inventory 中 jump_charge>0 道具件数。
+  // 速度：item 名→定义 Map（随 allItems 一次 O(n) 构建），替代各处 allItems.find(i=>i.name===name) 的 O(n) 线性扫。
+  const itemsByName = useMemo(() => {
+    const m = new Map()
+    for (const it of allItems || []) m.set(it.name, it)
+    return m
+  }, [allItems])
+
+  // 跃迁器数量：镜像背包体力剂徽标的查表模式 —— 累加 inventory 中 jump_charge>0 道具件数。
   const jumpItemCount = useMemo(() => {
     if (!brEnabled) return 0
     return Object.entries(invCount).reduce(
-      (sum, [name, c]) => sum + (((allItems.find(i => i.name === name)?.jump_charge ?? 0) > 0) ? c : 0),
+      (sum, [name, c]) => sum + (((itemsByName.get(name)?.jump_charge ?? 0) > 0) ? c : 0),
       0,
     )
-  }, [brEnabled, invCount, allItems])
+  }, [brEnabled, invCount, itemsByName])
   // 跃迁冷却倒计时（复用 stamina 的 dtSecSince；lastJumpAt 缺失 ⇒ Infinity ⇒ 冷却 0，可跳）。
   //   依赖 nowMs（BR 1s tick）⇒ 每秒刷新。冷却时长读 JUMP_CONFIG.COOLDOWN_SEC（缺失兜底 60s）。
   const jumpCooldownSec = Number.isFinite(JUMP_CONFIG?.COOLDOWN_SEC) ? JUMP_CONFIG.COOLDOWN_SEC : 60
@@ -1496,7 +1513,7 @@ export default function GameClientPage() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {Object.entries(invCount).map(([name, count]) => {
-                      const itemDef = allItems.find(item => item.name === name)
+                      const itemDef = itemsByName.get(name)
                       const mode = itemDef?.use_mode || 'consume'
                       const btnLabel = mode === 'inspect_keep' ? '查看'
                         : mode === 'inspect_consume' ? '查看（一次性）'

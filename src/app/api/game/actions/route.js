@@ -24,8 +24,10 @@ export async function POST(request) {
   }
 
   try {
-    const room = await withRetry(() =>
-      executeGameAction(supabase, auth.user, payload, { prefetchedRoom: roomData }),
+    // 首次用预取的 room（省一往返）；重试时传 null → executeGameAction 重新 fetch 最新版本
+    //   （并发下旧 version 必撞乐观锁，复用 stale room 会让 3 次重试全部白废）。
+    const room = await withRetry((attempt) =>
+      executeGameAction(supabase, auth.user, payload, { prefetchedRoom: attempt === 0 ? roomData : null }),
     )
     return NextResponse.json({ room })
   } catch (error) {

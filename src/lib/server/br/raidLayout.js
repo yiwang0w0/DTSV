@@ -67,7 +67,15 @@ export function computeTopoVersion(brRooms) {
  * @param {number} seed   per-raid uint32 确定性种子（派生一切的唯一输入）
  * @returns {Promise<{ rooms: Array, adj: Object, templateMeta: Object, roomTemplates: Object, topoVersion: number }>}
  */
-export async function getRaidLayout(client, seed) {
+export async function getRaidLayout(client, seed, hint = null) {
+  // 速度快路径：调用方传本局快照 hint（topoVersion+roomCount，来自 gamevars.br）→ 直接组 key 查 memo，
+  //   命中即 **0 DB**（不必为组 key 再读 br_rooms + chamber_templates 两张全表）。warm 进程下覆盖每动作
+  //   几乎所有 getRaidLayout 调用 → 砍掉「每 BR 动作 2 次全表往返」这一恒定地板延迟。
+  //   冷进程 / admin 改拓扑后 hint miss → 落下方 DB 读路径重建并缓存（与旧版逐字等价，零回归）。
+  if (hint && Number.isFinite(hint.topoVersion) && Number.isFinite(hint.roomCount)) {
+    const fastHit = _layoutCache.get(String(seed >>> 0) + ':' + hint.topoVersion + ':' + hint.roomCount)
+    if (fastHit) return fastHit
+  }
   // 首次未命中：并发拉静态拓扑 + 模板（此后 memo，永不重读）。
   //   注意：必须先读 brRooms 才能算 topoVersion/roomCount 组 key → 这里先拉、再算 key、再查 memo。
   //   memo 的价值是省「sampleRoomTemplates 重算 + adj/rooms 重组」（非省 DB 读本身）；同 seed+版本命中即返缓存对象。
@@ -102,4 +110,21 @@ export async function getRaidLayout(client, seed) {
   const layout = { rooms, adj, templateMeta, roomTemplates, topoVersion }
   _layoutCache.set(key, layout)
   return layout
+}
+
+/**
+ * brLayoutHint(br) — 由 gamevars.br 快照组 getRaidLayout 的 memo 提示 { topoVersion, roomCount }。
+ *
+ * roomCount = closePhases 键数。init 时 closePhases 覆盖 layout.rooms 全集（roomIds=roomsTopo.map(roomId)，
+ *   roomsTopo=layout.rooms 来自 loadRooms 全量 br_rooms）→ 键数 **逐值等于** DB 路径的 brRooms.length，
+ *   故组出的 key 与 init 时 _layoutCache 落的 key 一致 → 命中同一 layout，0 DB。
+ * topoVersion 缺失（旧局快照无此字段 / 非 BR）→ 返回 null → getRaidLayout 回落 DB 读路径（零回归）。
+ *
+ * @param {object|null} br gamevars.br
+ * @returns {{topoVersion:number, roomCount:number}|null}
+ */
+export function brLayoutHint(br) {
+  if (!br || !Number.isFinite(br.topoVersion)) return null
+  const roomCount = br.closePhases ? Object.keys(br.closePhases).length : 0
+  return { topoVersion: br.topoVersion, roomCount }
 }
