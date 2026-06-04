@@ -4,7 +4,7 @@
  * /stash — 玩家账户库浏览页
  *
  * 展示当前玩家的所有库存：消耗品/材料 + 装备实例。
- * 真正的"装载"操作发生在 /rooms 加入 raid 时（LoadoutModal）。
+ * 真正的"装载"操作发生在 /rooms 加入 raid 时（PrepareModal）。
  */
 
 import { useEffect, useState, useMemo } from 'react'
