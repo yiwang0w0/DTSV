@@ -1368,7 +1368,7 @@ export default function GameClientPage() {
           {/* Phase 18.5: 区域评估小卡 — 战斗强度 + 撤离成功率 */}
           {inGame && me?.alive && !meBase?.extracted && (
             <>
-              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '当前扇区' : '当前地图'}</span>}>📊 区域评估</PanelTitle>
+              <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '当前扇区' : '当前区域'}</span>}>📊 区域评估</PanelTitle>
               <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{
                   padding: '6px 10px', borderRadius: 6,
@@ -1412,7 +1412,7 @@ export default function GameClientPage() {
           <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '同扇区可攻击' : '同地图可攻击'}</span>}>⚔️ PvP</PanelTitle>
           <div style={{ padding: '10px 12px' }}>
             {pvpTargets.length === 0 ? (
-              <div style={{ color: T.dim, fontSize: 12 }}>{brEnabled ? '当前扇区没有可攻击玩家' : '当前地图没有可攻击玩家'}</div>
+              <div style={{ color: T.dim, fontSize: 12 }}>{brEnabled ? '当前扇区没有可攻击玩家' : '当前区域没有可攻击玩家'}</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {pvpTargets.map(target => (
@@ -1565,7 +1565,7 @@ export default function GameClientPage() {
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
             {currentMapCorpseCount > 0 && (
               <div style={{ textAlign: 'center', color: T.dimB, fontSize: 11, marginBottom: 10 }}>
-                {brEnabled ? '当前扇区' : '当前地图'}有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
+                {brEnabled ? '当前扇区' : '当前区域'}有 {currentMapCorpseCount} 具尸体，搜索时可能发现可搜刮目标
               </div>
             )}
             {!inGame ? (
@@ -1595,7 +1595,7 @@ export default function GameClientPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div>
                         <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>另一位玩家留下 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🛰 跃迁者残影 · 携 {meBase.probeEncounter.fragmentCount} 物资</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🛰 残影 · 携 {meBase.probeEncounter.fragmentCount} 残片</div>
                       </div>
                       <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
                         #{String(meBase.probeEncounter.probeId).slice(-6)}
@@ -1614,7 +1614,7 @@ export default function GameClientPage() {
                       真实玩家的异步残影 · 非系统生成 · 属性已按你的实力校准
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
-                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份物资 — 击败后可夺取 1 份（详情见档案库）
+                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份残片 — 击败后可夺取 1 份（详情见档案库）
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <Btn variant="danger" loading={busyAction === 'probeAttack'} loadingText="交战中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('probeAttack')} disabled={!me?.alive || room.gamestate === 2}>
@@ -2039,7 +2039,7 @@ export default function GameClientPage() {
                 background: T.bg2, borderRadius: 8,
                 borderLeft: `3px solid ${T.cyan}`, border: `1px solid ${T.cyan}30`,
               }}>
-                <div style={{ fontSize: 10, color: T.dim2, marginBottom: 2 }}>当前 chamber</div>
+                <div style={{ fontSize: 10, color: T.dim2, marginBottom: 2 }}>当前区块</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan }}>
                   {currentChamber.name}
                 </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, C, NPC_LEVEL_META } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Spinner, C, NPC_LEVEL_META, DeleteBtn } from '../_shared/ui'
 
 const OBJECTIVE_TYPES = [
   { value: 'find_item',   label: '搜集道具',          fields: ['itemName', 'count'] },
@@ -77,7 +77,6 @@ export default function ContractsTab({ toast }) {
   }
 
   async function remove(id) {
-    if (!confirm('确认删除该合同？所有玩家的进度记录也会被清除。')) return
     try {
       await postGameApi('/api/contracts', { action: 'delete', id })
       toast('已删除')
@@ -141,10 +140,7 @@ export default function ContractsTab({ toast }) {
                 onClick={() => startEdit(c)}
                 style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}30` }}
               >编辑</button>
-              <button
-                onClick={() => remove(c.id)}
-                style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.red}15`, color: C.red, border: `1px solid ${C.red}30` }}
-              >删除</button>
+              <DeleteBtn onConfirm={() => remove(c.id)} />
             </div>
             {c.description && (
               <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>{c.description}</div>

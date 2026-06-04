@@ -19,21 +19,25 @@ import { COLD_CASES } from '@/lib/constants'
 import { DecodeBar } from '@/lib/fragmentMeta'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
+import { THEME } from '@/lib/theme'
 
+// 本地调色板：键名保留（所有消费点不变），值改为引用全站统一 THEME（GitHub-dark 单一真源）。
+//   漂移值统一到最近的 THEME 语义 token（cyan #39d2c0 → accent）；换肤只需改 src/lib/theme.js 一处。
+//   注意：下方 EPOCHS 各纪元 color 为六纪元 lore 时间轴色身份，不属于本调色板，保持原值不动。
 const C = {
-  bg0:    '#0e1117',
-  bg1:    '#1c2129',
-  bg2:    '#161b22',
-  border: '#30363d',
-  text:   '#e6edf3',
-  dim:    '#8b949e',
-  dim2:   '#484f58',
-  accent: '#58a6ff',
-  green:  '#3fb950',
-  red:    '#f85149',
-  yellow: '#d29922',
-  purple: '#bc8cff',
-  cyan:   '#39d2c0',
+  bg0:    THEME.bg,
+  bg1:    THEME.panel2,
+  bg2:    THEME.panel,
+  border: THEME.border,
+  text:   THEME.text,
+  dim:    THEME.dim,
+  dim2:   THEME.dim3,
+  accent: THEME.accent,
+  green:  THEME.success,
+  red:    THEME.danger,
+  yellow: THEME.warning,
+  purple: THEME.purple,
+  cyan:   THEME.accent,
 }
 
 // 六纪元权威分期（docs/narrative-vision.md 第二章）。chronological，1→6。
@@ -196,7 +200,7 @@ export default function CodexPage() {
   }, [fragments, playerFragments])
 
   // 断链悬案视图：把 cold_cases 行 join 到 fragment_pool 取名/编码/纪元。
-  // 已知碎片（fragment_id）= 玩家持有，显名；缺失锚点（missing_anchor_id）= 未持有，
+  // 已知残片（fragment_id）= 玩家持有，显名；缺失锚点（missing_anchor_id）= 未持有，
   // 仅显编码作"开放循环"线索，名/内容保持遮蔽（不剧透，与主线时间轴未发现残片一致）。
   const coldCaseView = useMemo(() => {
     if (!COLD_CASES.ENABLED || coldCases.length === 0) return []
@@ -353,7 +357,7 @@ export default function CodexPage() {
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>🔍 待解悬案</span>
-              <span style={{ fontSize: 11, color: C.yellow, opacity: 0.85 }}>已知碎片指向尚未寻得的前置</span>
+              <span style={{ fontSize: 11, color: C.yellow, opacity: 0.85 }}>已知残片指向尚未寻得的前置</span>
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <span style={{ fontSize: 11, color: C.dim, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
@@ -379,7 +383,7 @@ export default function CodexPage() {
                   padding: '10px 14px',
                   display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                 }}>
-                  {/* 已知碎片（持有，显名） */}
+                  {/* 已知残片（持有，显名） */}
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     {cc.known.code && (
                       <span style={{

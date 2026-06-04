@@ -32,6 +32,7 @@ export default function PortraitsTab({ toast }) {
   const [edit, setEdit] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [disableModal, setDisableModal] = useState(null)
 
   async function load() {
     setLoading(true)
@@ -76,10 +77,10 @@ export default function PortraitsTab({ toast }) {
   }
 
   async function disable(p) {
-    if (!confirm(`下架「${p.name}」?已选用该立绘的玩家会被清空选择。`)) return
     try {
       await postGameApi('/api/portraits', { action: 'disable', portraitId: p.id })
       toast('已下架', 'success')
+      setDisableModal(null)
       load()
     } catch (e) {
       toast('下架失败: ' + e.message, 'error')
@@ -193,7 +194,7 @@ export default function PortraitsTab({ toast }) {
                       </>
                     )}
                     {p.status === 'approved' && p.enabled && (
-                      <button onClick={() => disable(p)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '4px 10px', border: '1px solid #30363d' })}>下架</button>
+                      <button onClick={() => setDisableModal(p)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '4px 10px', border: '1px solid #30363d' })}>下架</button>
                     )}
                   </div>
                 </div>
@@ -219,6 +220,22 @@ export default function PortraitsTab({ toast }) {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button onClick={() => { setRejectModal(null); setRejectReason('') }} style={BTN('transparent', '#8b949e', { border: '1px solid #30363d' })}>取消</button>
             <button onClick={rejectOne} style={BTN('rgba(248,81,73,0.15)', '#f85149', { border: '1px solid rgba(248,81,73,0.3)' })}>确认拒绝</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* 下架二次确认 modal */}
+      {disableModal && (
+        <Modal open={true} title={`下架立绘: ${disableModal.name}`} onClose={() => setDisableModal(null)}>
+          <div style={{ fontSize: 13, color: '#e6edf3', lineHeight: 1.6 }}>
+            确认下架「{disableModal.name}」？
+            <div style={{ marginTop: 8, fontSize: 12, color: '#f85149', padding: '8px 10px', background: '#f8514910', borderRadius: 6, border: '1px solid #f8514930' }}>
+              ⚠ 已选用该立绘的玩家会被清空选择。
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setDisableModal(null)} style={BTN('transparent', '#8b949e', { border: '1px solid #30363d' })}>取消</button>
+            <button onClick={() => disable(disableModal)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { border: '1px solid rgba(248,81,73,0.3)' })}>确认下架</button>
           </div>
         </Modal>
       )}

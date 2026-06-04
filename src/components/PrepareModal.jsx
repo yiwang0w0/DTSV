@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { THEME } from '@/lib/theme'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/layout'
 import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS, HIGH_RISK } from '@/lib/constants'
@@ -37,21 +38,23 @@ import { sanitizeRunGoal, runGoalDef } from '@/lib/server/runGoals'
 // collect_points 默认目标（从 RUN_GOALS 定义派生，避免硬编码漂移）
 const DEFAULT_POINTS_TARGET = runGoalDef('collect_points')?.target ?? 50
 
+// 本地调色板：键名保留（所有消费点不变），值改为引用全站统一 THEME（GitHub-dark 单一真源）。
+//   漂移值统一到最近的 THEME 语义 token（orange #ff8c42 → orange）；换肤只需改 src/lib/theme.js 一处。
 const C = {
-  bg0:    '#0e1117',
-  bg1:    '#1c2129',
-  bg2:    '#161b22',
-  border: '#30363d',
-  border2:'#21262d',
-  text:   '#e6edf3',
-  dim:    '#8b949e',
-  dim2:   '#484f58',
-  accent: '#58a6ff',
-  green:  '#3fb950',
-  red:    '#f85149',
-  yellow: '#d29922',
-  purple: '#bc8cff',
-  orange: '#ff8c42',
+  bg0:    THEME.bg,
+  bg1:    THEME.panel2,
+  bg2:    THEME.panel,
+  border: THEME.border,
+  border2:THEME.panel3,
+  text:   THEME.text,
+  dim:    THEME.dim,
+  dim2:   THEME.dim3,
+  accent: THEME.accent,
+  green:  THEME.success,
+  red:    THEME.danger,
+  yellow: THEME.warning,
+  purple: THEME.purple,
+  orange: THEME.orange,
 }
 
 const POINT_META = {

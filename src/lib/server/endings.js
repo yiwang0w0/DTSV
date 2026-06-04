@@ -10,6 +10,7 @@
  */
 
 import { addItemsToStash } from './stash'
+import { createLogEntry } from '@/lib/roomState'
 
 let _endingsCache = null
 let _cacheTs = 0
@@ -50,7 +51,7 @@ export async function applyEndingIfTriggered(client, resolution) {
       endingTriggered: null,
       log: [
         ...(gv.log || []),
-        { text: `[警告] 触发了未知结局 key="${key}"`, type: 'system', time: new Date().toISOString() },
+        createLogEntry(`[警告] 触发了未知结局 key="${key}"`, 'system'),
       ],
     }
     return null
@@ -86,8 +87,8 @@ export async function applyEndingIfTriggered(client, resolution) {
     },
     log: [
       ...(gv.log || []),
-      { text: `🎬 结局触发：${ending.name}`, type: 'system', time: new Date().toISOString() },
-      ...(ending.banner_text ? [{ text: ending.banner_text, type: 'system', time: new Date().toISOString() }] : []),
+      createLogEntry(`🎬 结局触发：${ending.name}`, 'system'),
+      ...(ending.banner_text ? [createLogEntry(ending.banner_text, 'system')] : []),
     ],
   }
 

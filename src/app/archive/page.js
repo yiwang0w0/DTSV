@@ -14,21 +14,24 @@ import { supabase } from '@/lib/supabase'
 import { DecodeBar } from '@/lib/fragmentMeta'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
+import { THEME } from '@/lib/theme'
 
+// 本地调色板：键名保留（所有消费点不变），值改为引用全站统一 THEME（GitHub-dark 单一真源）。
+//   漂移值统一到最近的 THEME 语义 token（cyan #39d2c0 → accent）；换肤只需改 src/lib/theme.js 一处。
 const C = {
-  bg0:    '#0e1117',
-  bg1:    '#1c2129',
-  bg2:    '#161b22',
-  border: '#30363d',
-  text:   '#e6edf3',
-  dim:    '#8b949e',
-  dim2:   '#484f58',
-  accent: '#58a6ff',
-  green:  '#3fb950',
-  red:    '#f85149',
-  yellow: '#d29922',
-  purple: '#bc8cff',
-  cyan:   '#39d2c0',
+  bg0:    THEME.bg,
+  bg1:    THEME.panel2,
+  bg2:    THEME.panel,
+  border: THEME.border,
+  text:   THEME.text,
+  dim:    THEME.dim,
+  dim2:   THEME.dim3,
+  accent: THEME.accent,
+  green:  THEME.success,
+  red:    THEME.danger,
+  yellow: THEME.warning,
+  purple: THEME.purple,
+  cyan:   THEME.accent,
 }
 
 const CATEGORY_META = {
@@ -195,7 +198,7 @@ export default function ArchivePage() {
     if (!user) return
 
     async function load() {
-      // 并行请求残片池、玩家发现记录、玩家死亡日志、合成配方、我的探针
+      // 并行请求残片池、玩家发现记录、玩家死亡日志、合成配方、我的残影
       const [poolRes, playerRes, deathRes, combosRes, probesRes] = await Promise.all([
         supabase.from('fragment_pool').select('*').eq('enabled', true),
         supabase.from('player_fragments').select('*').eq('user_id', user.id),
@@ -533,7 +536,7 @@ export default function ArchivePage() {
         </details>
       )}
 
-      {/* Phase 21.5: 我的探针 — 跨 raid 异步探针的命运 */}
+      {/* Phase 21.5: 我的残影 — 跨 raid 异步残影的命运 */}
       {probes.length > 0 && (() => {
         const active = probes.filter(p => p.status === 'active')
         const defeated = probes.filter(p => p.status === 'defeated')
@@ -572,13 +575,13 @@ export default function ArchivePage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, color: statusColor, fontWeight: 700 }}>{statusLabel}</span>
-                        <span style={{ fontSize: 11, color: C.dim, fontFamily: 'monospace' }}>扇区 #{p.chamber_template_id}</span>
+                        <span style={{ fontSize: 11, color: C.dim, fontFamily: 'monospace' }}>区块 #{p.chamber_template_id}</span>
                         <span style={{ fontSize: 10, color: C.dim2 }}>
                           HP {p.hp}/{p.max_hp} · ATK {p.atk} · DEF {p.def}
                         </span>
                         {p.fragments_carry && p.fragments_carry.length > 0 && (
                           <span style={{ fontSize: 10, color: C.purple, padding: '1px 6px', borderRadius: 6, background: `${C.purple}15` }}>
-                            🎁 携带 {p.fragments_carry.length} 物资
+                            🎁 携带 {p.fragments_carry.length} 残片
                           </span>
                         )}
                       </div>
@@ -710,7 +713,7 @@ export default function ArchivePage() {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📡</div>
           <p style={{ fontSize: 15 }}>尚未发现任何数据残片</p>
           <p style={{ fontSize: 12, color: C.dim2, marginTop: 8 }}>
-            在虚拟空间探索中执行「搜索」行动，有概率发现散落的旧时代数据碎片
+            在虚拟空间探索中执行「搜索」行动，有概率发现散落的旧时代数据残片
           </p>
         </div>
       ) : (

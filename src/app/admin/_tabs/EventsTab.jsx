@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi, getGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, MAP_LIST, C } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Spinner, DeleteBtn, C } from '../_shared/ui'
 
 const TRIGGER_TYPES = [
   { value: 'on_search',    label: '玩家搜索时',     fields: ['mapId'] },
@@ -27,6 +27,10 @@ export default function EventsTab({ toast }) {
   const [events, setEvents] = useState([])
   const [items, setItems]   = useState([])
   const [npcs, setNpcs]     = useState([])
+  // Phase 19.10 红线修正：地图选择器源由旧 MAP_LIST 改为 chamber_templates。
+  // 运行时 on_search/on_enter_map 的 context.mapId 即 chamber 模板 id（gameActions 传 templateId），
+  // matchesTrigger 用 t.mapId === context.mapId 严格比较 → admin 必须选模板 id，存储仍为 Number(id)。
+  const [chambers, setChambers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState(null)
@@ -34,14 +38,16 @@ export default function EventsTab({ toast }) {
   const reload = useCallback(async () => {
     setLoading(true)
     try {
-      const [evRes, { data: its }, { data: ns }] = await Promise.all([
+      const [evRes, { data: its }, { data: ns }, { data: chs }] = await Promise.all([
         getGameApi('/api/events'),
         supabase.from('item_pool').select('id,name,kind').order('name'),
         supabase.from('npc_pool').select('id,name,level').order('name'),
+        supabase.from('chamber_templates').select('id,template_key,name,type,region_label').eq('enabled', true).order('type').order('template_key'),
       ])
       setEvents(evRes?.events || [])
       setItems(its || [])
       setNpcs(ns || [])
+      setChambers(chs || [])
     } catch (err) {
       toast(err.message || '加载失败', 'error')
     } finally {
@@ -87,7 +93,6 @@ export default function EventsTab({ toast }) {
   }
 
   async function remove(id) {
-    if (!confirm('确认删除该事件？')) return
     try {
       await postGameApi('/api/events', { action: 'delete', id })
       toast('已删除')
@@ -114,7 +119,7 @@ export default function EventsTab({ toast }) {
       {editingId !== null && draft && (
         <EventEditor
           draft={draft} setDraft={setDraft}
-          items={items} npcs={npcs}
+          items={items} npcs={npcs} chambers={chambers}
           onSave={save} onCancel={cancelEdit}
         />
       )}
@@ -151,7 +156,7 @@ export default function EventsTab({ toast }) {
                 #{ev.id} · weight {ev.weight}
               </span>
               <button onClick={() => startEdit(ev)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}30` }}>编辑</button>
-              <button onClick={() => remove(ev.id)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.red}15`, color: C.red, border: `1px solid ${C.red}30` }}>删除</button>
+              <DeleteBtn onConfirm={() => remove(ev.id)} />
             </div>
             {ev.description && (
               <div style={{ fontSize: 12, color: C.dim, marginBottom: 6 }}>{ev.description}</div>
@@ -166,7 +171,7 @@ export default function EventsTab({ toast }) {
   )
 }
 
-function EventEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
+function EventEditor({ draft, setDraft, items, npcs, chambers, onSave, onCancel }) {
   function update(patch) { setDraft({ ...draft, ...patch }) }
   function setTrigger(patch) { update({ trigger: { ...draft.trigger, ...patch } }) }
   function addEffect() {
@@ -253,8 +258,12 @@ function EventEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
               value={draft.trigger?.mapId ?? ''}
               onChange={e => setTrigger({ mapId: e.target.value === '' ? null : Number(e.target.value) })}
             >
-              <option value="">（任意地图）</option>
-              {MAP_LIST.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              <option value="">（任意 chamber）</option>
+              {chambers.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.region_label ? `（${c.region_label}）` : ''}
+                </option>
+              ))}
             </select>
           )}
           {trigMeta.fields.includes('npcName') && (

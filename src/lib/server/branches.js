@@ -14,6 +14,7 @@
  */
 
 import { invalidateEventCache } from './events'
+import { createLogEntry } from '@/lib/roomState'
 
 let _branchCache = null
 let _cacheTs = 0
@@ -199,7 +200,7 @@ function applyBranchAction(branch, node, resolution, userId) {
     ...resolution.gamevars,
     log: [
       ...(resolution.gamevars.log || []),
-      { text: `🌿 ${summary}`, type: 'system', time: new Date().toISOString() },
+      createLogEntry(`🌿 ${summary}`, 'system'),
     ],
   }
 

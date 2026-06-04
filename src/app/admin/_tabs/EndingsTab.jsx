@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi, getGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, C } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Spinner, C, DeleteBtn } from '../_shared/ui'
 
 export default function EndingsTab({ toast }) {
   const [endings, setEndings] = useState([])
@@ -58,7 +58,6 @@ export default function EndingsTab({ toast }) {
     } catch (err) { toast(err.message || '保存失败', 'error') }
   }
   async function remove(id) {
-    if (!confirm('确认删除该结局？')) return
     try {
       await postGameApi('/api/endings', { action: 'delete', id })
       toast('已删除'); reload()
@@ -104,7 +103,7 @@ export default function EndingsTab({ toast }) {
               <code style={{ fontSize: 10, color: C.accent, fontFamily: 'monospace', background: `${C.accent}10`, padding: '1px 6px', borderRadius: 4 }}>{e.key}</code>
               <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace', marginLeft: 'auto' }}>#{e.id}</span>
               <button onClick={() => startEdit(e)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}30` }}>编辑</button>
-              <button onClick={() => remove(e.id)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.red}15`, color: C.red, border: `1px solid ${C.red}30` }}>删除</button>
+              <DeleteBtn onConfirm={() => remove(e.id)} />
             </div>
             {e.description && <div style={{ fontSize: 12, color: C.dim, marginBottom: 6 }}>{e.description}</div>}
             {e.banner_text && <div style={{ fontSize: 12, color: C.purple, fontStyle: 'italic', marginBottom: 6 }}>「{e.banner_text}」</div>}

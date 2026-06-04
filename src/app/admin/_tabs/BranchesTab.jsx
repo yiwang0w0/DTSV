@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi, getGameApi } from '@/lib/gameApi'
-import { BTN, INPUT, LABEL, Spinner, MAP_LIST, C } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Spinner, DeleteBtn, C } from '../_shared/ui'
 
 const COND_TYPES = [
   { value: 'flagEquals',      label: 'flag 等于',         fields: ['key', 'valueJson'] },
@@ -23,6 +23,10 @@ export default function BranchesTab({ toast }) {
   const [nodes, setNodes] = useState([])
   const [items, setItems] = useState([])
   const [npcs, setNpcs]   = useState([])
+  // Phase 19.10 红线修正：mapVisited 的地图选择器源由旧 MAP_LIST 改为 chamber_templates。
+  // 运行时 setVisitedMapFlag(resolution, templateId) 写 flags['visited_map_<templateId>']，
+  // mapVisited 条件读 flags['visited_map_<condition.mapId>'] → admin 必须选模板 id，存储仍为 Number(id)。
+  const [chambers, setChambers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [draft, setDraft] = useState(null)
@@ -30,14 +34,16 @@ export default function BranchesTab({ toast }) {
   const reload = useCallback(async () => {
     setLoading(true)
     try {
-      const [nodeRes, { data: its }, { data: ns }] = await Promise.all([
+      const [nodeRes, { data: its }, { data: ns }, { data: chs }] = await Promise.all([
         getGameApi('/api/branches'),
         supabase.from('item_pool').select('id,name').order('name'),
         supabase.from('npc_pool').select('id,name').order('name'),
+        supabase.from('chamber_templates').select('id,template_key,name,type,region_label').eq('enabled', true).order('type').order('template_key'),
       ])
       setNodes(nodeRes?.nodes || [])
       setItems(its || [])
       setNpcs(ns || [])
+      setChambers(chs || [])
     } catch (err) {
       toast(err.message || '加载失败', 'error')
     } finally {
@@ -75,7 +81,6 @@ export default function BranchesTab({ toast }) {
   }
 
   async function remove(id) {
-    if (!confirm('确认删除该分支节点？')) return
     try {
       await postGameApi('/api/branches', { action: 'delete', id })
       toast('已删除'); reload()
@@ -102,7 +107,7 @@ export default function BranchesTab({ toast }) {
       {editingId !== null && draft && (
         <BranchEditor
           draft={draft} setDraft={setDraft}
-          items={items} npcs={npcs}
+          items={items} npcs={npcs} chambers={chambers}
           onSave={save} onCancel={cancelEdit}
         />
       )}
@@ -133,7 +138,7 @@ export default function BranchesTab({ toast }) {
               {n.once && <span style={{ fontSize: 10, color: C.yellow }}>仅一次</span>}
               <span style={{ fontSize: 10, color: C.dim2, fontFamily: 'monospace', marginLeft: 'auto' }}>#{n.id}</span>
               <button onClick={() => startEdit(n)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.accent}15`, color: C.accent, border: `1px solid ${C.accent}30` }}>编辑</button>
-              <button onClick={() => remove(n.id)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', background: `${C.red}15`, color: C.red, border: `1px solid ${C.red}30` }}>删除</button>
+              <DeleteBtn onConfirm={() => remove(n.id)} />
             </div>
             {n.description && (
               <div style={{ fontSize: 12, color: C.dim, marginTop: 6 }}>{n.description}</div>
@@ -148,7 +153,7 @@ export default function BranchesTab({ toast }) {
   )
 }
 
-function BranchEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
+function BranchEditor({ draft, setDraft, items, npcs, chambers, onSave, onCancel }) {
   function update(p) { setDraft({ ...draft, ...p }) }
   function updCond(i, p) {
     update({ conditions: (draft.conditions || []).map((c, idx) => idx === i ? { ...c, ...p } : c) })
@@ -221,7 +226,7 @@ function BranchEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
             还没有条件
           </div>
         ) : (draft.conditions || []).map((c, i) => (
-          <ConditionRow key={i} idx={i} cond={c} items={items} npcs={npcs} onChange={p => updCond(i, p)} onDelete={() => delCond(i)} />
+          <ConditionRow key={i} idx={i} cond={c} items={items} npcs={npcs} chambers={chambers} onChange={p => updCond(i, p)} onDelete={() => delCond(i)} />
         ))}
       </div>
 
@@ -242,7 +247,7 @@ function BranchEditor({ draft, setDraft, items, npcs, onSave, onCancel }) {
   )
 }
 
-function ConditionRow({ idx, cond, items, npcs, onChange, onDelete }) {
+function ConditionRow({ idx, cond, items, npcs, chambers, onChange, onDelete }) {
   const meta = COND_TYPES.find(t => t.value === cond.type) || COND_TYPES[0]
   return (
     <div style={{ padding: '10px 12px', borderRadius: 8, marginBottom: 6, background: C.bg2, border: `1px solid ${C.border}` }}>
@@ -279,8 +284,12 @@ function ConditionRow({ idx, cond, items, npcs, onChange, onDelete }) {
         )}
         {meta.fields.includes('mapId') && (
           <select style={{ ...INPUT, flex: 1 }} value={cond.mapId ?? ''} onChange={e => onChange({ mapId: Number(e.target.value) })}>
-            <option value="">选择地图…</option>
-            {MAP_LIST.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <option value="">选择 chamber…</option>
+            {chambers.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.region_label ? `（${c.region_label}）` : ''}
+              </option>
+            ))}
           </select>
         )}
         {meta.fields.includes('count') && (

@@ -303,6 +303,9 @@ export default function ChambersTab({ toast }) {
             <div>
               <label style={LABEL}>最大实体池</label>
               <input type="number" style={INPUT} value={edit.max_npcs} onChange={e => setEdit({ ...edit, max_npcs: Number(e.target.value) || 0 })} />
+              <div style={{ fontSize: 10, color: '#8b949e', marginTop: 4, lineHeight: 1.4 }}>
+                NPC 投放已迁至「敌人投放」；此值仅用于路径密度规划（旧机制）。
+              </div>
             </div>
             <div>
               <label style={LABEL}>抽取权重</label>

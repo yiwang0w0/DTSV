@@ -15,6 +15,7 @@
  */
 
 import { weightedPick } from '@/lib/weightedPick'
+import { createLogEntry } from '@/lib/roomState'
 
 let _eventCache = null
 let _cacheTs = 0
@@ -184,11 +185,7 @@ async function applyEventEffects(client, event, resolution, userId, context) {
       ...resolution.gamevars,
       log: [
         ...(resolution.gamevars.log || []),
-        {
-          text: entry.text,
-          type: entry.type,
-          time: new Date().toISOString(),
-        },
+        createLogEntry(entry.text, entry.type),
       ],
     }
   }

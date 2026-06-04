@@ -1,21 +1,25 @@
 import { Modal } from '@/app/admin/_shared/ui'
+import { THEME } from '@/lib/theme'
 
+// 对局/BR 调色板：键名保留（所有消费点不变），值改为引用全站统一 THEME（GitHub-dark）。
+//   此前游戏页用独立赛博青( #00d4ff/#ff4455 )，与大厅/后台的 GitHub-dark 主色突变——现统一到一套 token。
+//   换肤/微调只需改 src/lib/theme.js 一处。
 export const T = {
-  bg0: '#07090f',
-  bg1: '#0c1018',
-  bg2: '#111827',
-  bg3: '#1a2335',
-  border: '#1f2d42',
-  borderB: '#2a3f5f',
-  text: '#d4e4f7',
-  dim: '#4a6a8a',
-  dimB: '#6a8aaa',
-  cyan: '#00d4ff',
-  green: '#00e676',
-  red: '#ff4455',
-  yellow: '#ffc740',
-  purple: '#b47dff',
-  orange: '#ff8c42',
+  bg0: THEME.bg,
+  bg1: THEME.bgInset,
+  bg2: THEME.panel,
+  bg3: THEME.panel2,
+  border: THEME.border,
+  borderB: THEME.borderHover,
+  text: THEME.text,
+  dim: THEME.dim,
+  dimB: THEME.dim2,
+  cyan: THEME.accent,
+  green: THEME.success,
+  red: THEME.danger,
+  yellow: THEME.warning,
+  purple: THEME.purple,
+  orange: THEME.orange,
 }
 
 export const SLOTS = [

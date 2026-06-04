@@ -12,12 +12,15 @@ import Link from 'next/link'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '../layout'
 import { Spinner, useToast } from '../admin/_shared/ui'
+import { THEME } from '@/lib/theme'
 
+// 本地调色板：键名保留（所有消费点不变），值改为引用全站统一 THEME（GitHub-dark 单一真源）。
+//   换肤只需改 src/lib/theme.js 一处。
 const C = {
-  bg0: '#0e1117', bg1: '#1c2129', bg2: '#161b22',
-  border: '#30363d', border2: '#21262d',
-  text: '#e6edf3', dim: '#8b949e', dim2: '#484f58',
-  accent: '#58a6ff', green: '#3fb950', red: '#f85149', yellow: '#d29922', purple: '#bc8cff',
+  bg0: THEME.bg, bg1: THEME.panel2, bg2: THEME.panel,
+  border: THEME.border, border2: THEME.panel3,
+  text: THEME.text, dim: THEME.dim, dim2: THEME.dim3,
+  accent: THEME.accent, green: THEME.success, red: THEME.danger, yellow: THEME.warning, purple: THEME.purple,
 }
 
 const STATUS_META = {

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, DeleteBtn } from '../_shared/ui'
 
 /**
  * Phase 24b — PointsConfigTab
@@ -127,7 +127,6 @@ export default function PointsConfigTab({ toast }) {
   }
 
   async function remove(id) {
-    if (!confirm('确认删除该兑换汇率?')) return
     await supabase.from('shop_exchange_rates').delete().eq('id', id)
     load()
   }
@@ -206,7 +205,7 @@ export default function PointsConfigTab({ toast }) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => toggleEnabled(r)} style={BTN('transparent', '#8b949e', { fontSize: 11, padding: '4px 10px', border: '1px solid #30363d' })}>{r.enabled ? '禁用' : '启用'}</button>
                   <button onClick={() => openEdit(r)} style={BTN('transparent', '#58a6ff', { fontSize: 11, padding: '4px 10px', border: '1px solid rgba(88,166,255,0.3)' })}>编辑</button>
-                  <button onClick={() => remove(r.id)} style={BTN('rgba(248,81,73,0.15)', '#f85149', { fontSize: 11, padding: '4px 10px', border: '1px solid rgba(248,81,73,0.3)' })}>删除</button>
+                  <DeleteBtn onConfirm={() => remove(r.id)} />
                 </div>
               </div>
             )
