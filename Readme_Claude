@@ -1,7 +1,31 @@
 # Readme_Claude
 
-更新时间：2026-06-03（Asia/Tokyo） · 全界面走查审计 + 前台虚拟空间化（Phase 36 名词反割裂）
+更新时间：2026-06-04（Asia/Tokyo） · 全模块大查(速度/冗余/割裂) 三波修复（Phase 40-41）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
+
+## 最近变更（2026-06-04 / Phase 40-41 — 全模块大查·速度+冗余+割裂 三波）
+
+> 用户：「整体分模块大查·重点冗余和割裂·另外提速」。5 路并行审计 agent 摸全(前台/后台/服务端核心/服务端模块/端到端性能) → AskUQ 拍板「三波全做 + 统一一套 token + 红线我查后端再安全处理」→ Dynamic Workflows 分波实施。
+
+**波一·速度（Phase 40 · 已 push·直接生效）**——6.9s 根因不在配置查询(早已缓存)，在每动作的冗余 DB 往返：
+- `getRaidLayout` 加 `brLayoutHint`(快照 topoVersion+roomCount 组 memo key)→ warm 进程 **0 DB**（砍每 BR 动作 2 次全表读 br_rooms+chamber_templates）
+- 客户端 `hydrateRoom` 不再每动作重拉整张 `item_pool`（拆 `loadAllItems` 整局一次 + `loadTradeableNpcs` 加 mapId 守卫）；item 名→def Map 替代 .find
+- `withRetry` 传 attempt，route 重试丢 stale prefetchedRoom 改 fetch 最新版本 → 并发不再 3 次空转（疑似 6.9s 主因）
+- 装备耐久扣减 → 单条 RPC `consume_equipment_durability`（每战斗 1+N 查询→1 往返·`scripts/phase-40`）
+
+**波二·冗余（Phase 41 · 已 push）**：
+- 删死代码 ~1500 行：MapsTab + `components/cards` + LoadoutModal + `getNextChamberOptions`
+- 抽共享：`usePlacementRules` hook + `RoomDerivedView`（RoomItems/NpcPlacement 双胞胎 −350）；`fragmentMeta.jsx`（archive/codex 残片元数据单源）；装备 section 收口 `_shared` 样式；`weightedPick.js`(6→1) + `num.js`(clamp/randInt·零 import)
+- 确定性红线守住：br/roomTemplates·roomItems·forbidden 全未碰
+
+**波三·割裂（Phase 41 · 已 push）**：
+- 主题 token 单源 `src/lib/theme.js`(GitHub-dark)：游戏页 `gameUi.T` + layout/archive/codex/contracts/profile/PrepareModal 全收口 → 消除「大厅蓝→对局赛博青」突变（换肤只改 theme.js 一处·**对局页色调有变·建议你眼校**）
+- 术语：碎片→残片、残影携带 物资→残片、玩家可见 chamber→区块/当前地图→当前区域、跃迁者残影→残影（gamevars 键/lore/DB 列未动）
+- 日志时间戳 events/branches/endings → `createLogEntry`(HH:MM:SS) 统一
+- 红线(查后端后安全处理)：Events/Branches mapId 选择器 旧 MAP_LIST→`chamber_templates`(运行时按 chamber-template id 匹配·语义不动)；ChambersTab `max_npcs` 加消歧文案(列仍被 heat/raids 读·不删)
+- 删除确认：原生 `confirm()`→`_shared DeleteBtn`（PortraitsTab「下架」→Modal）
+
+> 验证：full next lint ✔ + smoke-check ✔ + 各 agent 自 lint；行为等价(缓存/守卫/抽取/UI 文案)·均未触红线。**待你真机走查**：① 对局页统一主题色观感 ② 后台各 tab(删除确认/Events·Branches 的 chamber 选择器)。
 
 ## 最近变更（2026-06-04 / Phase 37 — 玩家/NPC 统一战斗·阶段A）— base × 职业乘区 × 装备乘区 + NPC 同构
 
