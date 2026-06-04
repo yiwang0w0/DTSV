@@ -1397,12 +1397,17 @@ async function resolveSearchAction(client, room, gamevars, user) {
   }
 
   if (roll < npcChance && bundle.npcPool.length > 0) {
-    // ── Phase 38: authored 敌人投放优先（roomNpcs materialize） — 先于程序化 spawn ──
+    // ── Phase 38/39: authored 敌人投放（roomNpcs materialize）——authored-only 局唯一 NPC 来源 ──
     //   红线：此块在 npcChance 门内（已过出现率/体力/roll 门），authored 命中仍受这一切约束·不旁路。
     //   取到 npcId → materializeAuthoredNpc（fetch npc_pool + resolveNpcCombatProfile + normalizeNpcInstance·mapId=roomTemplates[roomId]） → 推 npcInstances → encounter。
-    //   取不到（无投放/未显形/已取完/fetch 失败） → 回落现有 pickOrSpawnNpcInstance（程序化·种子确定性化）。
+    //   取不到（无投放/未显形/已取完/fetch 失败）：authored-only 局 → 不刷怪（picked 留 null）；旧在飞局/非 BR → 回落 pickOrSpawnNpcInstance。
     let picked = null
     const brBlk = resolution.gamevars?.br
+    // ── Phase 39（chamber 退役·只关刷怪）：有 roomNpcs 快照的 BR 局 = authored-only ──
+    //   敌人只来自 👹 敌人投放（roomNpcs）。无投放 / 未显形 / 已取完 → 不刷怪（不再回落程序化 spawn）。
+    //   旧在飞局（快照无 roomNpcs 字段）/ 非 BR 局 → 保留程序化 spawn（向后兼容·零回归）。
+    //   ⇒ 呼应用户「敌人慢慢做」：未编排的房就是空房，编排一条 npc_placement_rules 即在该房刷出。
+    const authoredOnly = !!(brBlk?.enabled && brBlk.roomNpcs)
     if (brBlk?.enabled && player.roomId != null && brBlk.roomNpcs) {
       const effPhase = getBrEffectivePhase(room, resolution.gamevars, polluted)
       const npcId = takeNpcFromRoom(brBlk.roomNpcs, player.roomId, effPhase) // 就地标 taken（持久化进 gamevars.br.roomNpcs）
@@ -1410,13 +1415,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
         try {
           picked = await materializeAuthoredNpc(client, resolution, mapId, npcId)
         } catch (e) {
-          console.error('[searchArea] authored NPC materialize 失败（回落程序化）:', e?.message)
+          console.error('[searchArea] authored NPC materialize 失败:', e?.message)
           picked = null
         }
       }
     }
-    // authored 取不到 → 回落现有程序化 spawn（NPC 仍照常出现·零功能回归；seedHint 让原生随机种子确定性化）
-    if (!picked) {
+    // authored-only 局取不到 authored 敌人 → 不刷怪（picked 留 null，落入下方 corpse/item 分支）。
+    // 仅非 authored-only（旧在飞局 / 非 BR）才回落程序化 spawn（seedHint 让原生随机种子确定性化）。
+    if (!picked && !authoredOnly) {
       picked = await pickOrSpawnNpcInstance(client, resolution, mapId, bundle.npcPool, {
         seed: brBlk?.seed,
         roomId: player.roomId,

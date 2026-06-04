@@ -74,8 +74,15 @@ npc_placement_rule_rooms: id · rule_id REF↑ CASCADE · br_room_id(软引用) 
 - **👹 敌人投放 tab**：克隆 `RoomItemsTab`（去 entry_kind 切换·物品下拉换 NPC 下拉·留 `CandidateRoomPicker`）。
 - **NpcsTab 扩展**：加 class_id 下拉 + 4 装备槽下拉(probe/shield/weapon/comm·从 equipment_tiers 按 series.slot) + 物品槽 repeater（"NPC 是什么" 在 NpcsTab·"NPC 在哪刷" 在敌人投放 tab·同道具/房间投放分工）。
 
-## §4 Chamber 退役（Phase D·后续·分两步）
-敌人投放跑通后：① `br_rooms` 加 pollution_accel/is_exit/exit_cost（从各房当前采样模板回填）；② NPC spawn 已走敌人投放（不再 chamber_template_ids）；③ probe/residue 键 `chamber_template_id`→`room_id`（旧 probe 过期处理）；④ 改 `getChamberAsMapConfig`/`buildChamberAccelTable` 读 br_rooms；删 `roomTemplates.js` 采样 / `gamevars.br.roomTemplates` / topology `templateMeta` / `ChambersTab`；⑤ 退役 `chamber_templates` + `*.chamber_template_ids`。**风险**：在飞局快照、旧 probe 键、过程化密度曲线需手排（用户重排数值时一并）。
+## §4 Chamber 退役（Phase D）
+
+### D-1 只关刷怪（Phase 39 · 已做 · 用户选「只关刷怪·安全」）
+> 用户「就先不刷怪给 chamber 退役了，敌人我要慢慢做」→ AskUQ 拍板**只关刷怪**（不做 D-2 重迁移）。
+- **改动**：`gameActions.js` resolveSearchAction —— 有 `gamevars.br.roomNpcs` 快照的 BR 局 = **authored-only**：敌人只来自 👹 敌人投放；`takeNpcFromRoom` miss → **不刷怪**（不回落 `pickOrSpawnNpcInstance`）。旧在飞局（无 roomNpcs）/ 非 BR 仍程序化（向后兼容）。`!authoredOnly` 守卫一行·易回滚。
+- **不动**：chamber 表保留 —— 物品过程化兜底 / pollution_accel / is_exit / exit_cost / probe·residue 键 / mapId 匹配全照旧走 chamber，**零迁移风险**。`npc_pool.chamber_template_ids` 转休眠（只喂已停的兜底）。
+
+### D-2 彻底退役 chamber 表（后续·分两步·尚未做）
+敌人投放编满后（用户「慢慢做」完成时）：① `br_rooms` 加 pollution_accel/is_exit/exit_cost（从各房当前采样模板回填）；② NPC spawn 已走敌人投放（不再 chamber_template_ids）；③ probe/residue 键 `chamber_template_id`→`room_id`（旧 probe 过期处理）；④ 改 `getChamberAsMapConfig`/`buildChamberAccelTable` 读 br_rooms；删 `roomTemplates.js` 采样 / `gamevars.br.roomTemplates` / topology `templateMeta` / `ChambersTab`；⑤ 退役 `chamber_templates` + `*.chamber_template_ids`。**风险**：在飞局快照、旧 probe 键、过程化密度曲线需手排。**仍连物品过程化兜底**（彻底退役需先决定物品也 authored-only 或换 br_rooms 类型过滤）。
 
 ## §5 阶段计划
 
@@ -84,6 +91,7 @@ npc_placement_rule_rooms: id · rule_id REF↑ CASCADE · br_room_id(软引用) 
 | **A 统一战斗引擎+schema** | `computeCombatStats`(base×职业乘区×装备乘区·兼容加法) 泛化 `buildCombatPlayer`·玩家+NPC 同构；equipment_tiers pct 列；npc_pool class/装备槽/物品槽+补缺列；NPC 战斗实体(class+装备快照)；**修死掉落**；NpcsTab 加 class/装备/物品槽编辑 | **高**(改全战斗·迁移期靠加法项保平衡) |
 | **B 敌人投放** | `npc_placement_rules`+表 + `allocateRoomNpcs` 确定性 + initBrRoomLayer 实例化(**修 Math.random**) + 👹 敌人投放 tab | 中 |
 | **C 全游戏数值重排** | 重排 base/职业乘区/装备 pct/NPC base —— **数据·用户主导**(我给合理默认+工具·用户调) | 中(平衡) |
-| **D chamber 退役** | §4·后续 | 高(迁移) |
+| **D-1 只关刷怪** | §4·已做 —— authored-only·未投放房不刷怪·chamber 表暂留 | 低(1 处逻辑·无 schema) |
+| **D-2 彻底退役 chamber 表** | §4·后续 —— 迁参数/改键/删表 | 高(迁移·待敌人编满) |
 
 **红线（贯穿）**：① `calcDamage` 实体无关·不动公式。② Phase A 迁移期**现有玩家平衡不崩**（新乘区列 DEFAULT 0/中性·旧加法项暂保平衡）→ 数值真正重排在 Phase C 用户主导。③ 确定性：NPC 投放/装备解析用种子 PRNG（同 seed 同结果）。④ 残片可发现性/六纪元 lore/缩圈致死/房间投放(placement_rules) 不碰。⑤ SQL 幂等。⑥ 探针(probeEncounter)combat 路径一并纳入 `computeCombatStats`（已有 snapshot atk/def）。

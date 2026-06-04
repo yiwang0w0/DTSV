@@ -46,7 +46,14 @@
 
 **编辑器**：`EquipmentSeriesSection` 加 atk/def/hp 乘区% 输入（42↔0.42·percent↔real）让你逐 tier 调；职业用 ClassesTab perks、NPC 用 NpcsTab。验证：base 100/50/1000·17 tier 全转 pct（0 还加法）·classes 0 还 flat；next lint ✔。**起步基线·你逐个微调**。
 
+### 阶段D chamber 退役 — 只关刷怪（Phase 39 · 用户选「只关刷怪·安全」）
 
+> 用户：「就先不刷怪给 chamber 退役了，敌人我要慢慢做」。AskUQ 拍板 **只关刷怪**（不做重迁移）：功能上退役 chamber 的刷怪角色，chamber 表暂留（物品过程化/污染/撤离/探针仍走它·零迁移风险）。
+
+**改动（`gameActions.js` resolveSearchAction · 仅 1 处逻辑·无 SQL/schema）**：有 `gamevars.br.roomNpcs` 快照的 BR 局 = **authored-only**——敌人**只**来自 👹 敌人投放（`roomNpcs`）；`takeNpcFromRoom` 取不到（无投放/未显形/已取完）→ **不刷怪**（`picked` 留 null，落 corpse/item 分支），不再回落 `pickOrSpawnNpcInstance` 程序化 spawn。
+- **向后兼容**：旧在飞局（快照无 `roomNpcs`）/ 非 BR → 仍走程序化（零回归）；进行中战斗 `attackNpc` 读 `encounter.instanceId` 直取实例·不受影响。
+- **现状**：0 在飞局（干净切换）；已有 1 条用户 authored 规则「残响低语」(easy·2-4 个·3 候选房·0 禁起)→ 新局这 3 房刷残响低语、其余房空。`npc_pool.chamber_template_ids` 转休眠（只喂已停的兜底·保留以备复用）。
+- **易回滚**：去掉 `!authoredOnly` 守卫即恢复程序化 spawn。
 
 ## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
 
