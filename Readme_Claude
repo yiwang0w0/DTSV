@@ -34,6 +34,20 @@
 
 **验证（30 测试全过）**：分配确定性/保证铺够/权重/**互斥分散(负对照)**；遭遇 authored 优先(相位门·一次性)；**回落确定性**(修掉非确定随机·grep 无残留)；**NPC 仍照常出现**(无投放房靠回落)；gamevars 紧凑；mapId 保 combat/corpse 匹配；房间投放表不碰；next lint ✔。主代理亲审遭遇集成 + 部署验证。残留：corpse-drop entry ID 后缀仍 Math.random（纯唯一 ID·非选择路径·可接受）。
 
+### 阶段C 全游戏数值重排（Phase 39 · 用户主导起步方案 · 已应用+验证）
+
+> 用户 AskUQ：用起步方案（×10 基础 + 装备按稀有度乘区 + 职业 perks 乘子）· 装备强度**温和**。把 Phase A 平衡中性引擎切到**真正用乘区**。
+
+**已应用（postgres MCP · 守卫 `player_init_atk='10'` 防重复 · `scripts/phase-39`）**：
+- 玩家基础 atk 10→100 / def 5→50 / hp 100→1000；NPC ×10（easy 80/40/350 … boss 300/180/2000）；道具 heal/atk/def ×10（stamina 不动）；buff value ×10（hp/atk/def·formula 里 atk*0.05 等比自动随）
+- 装备：清零加法 base → 按 slot×稀有度配 `*_pct`（温和：common+5%→legendary+42%·weapon→atk / shield→def+hp / probe→hp / comm→atk）
+- 职业：清零小额 flat（新基础可忽略）；perks `combat_dmg/def_mult` 保留为职业乘区
+- 战斗"几下打死"节奏保持（全 ×10 同步）；equipment 从主导变温和地基；`equipMult`/`classMult` 真正启用
+
+**编辑器**：`EquipmentSeriesSection` 加 atk/def/hp 乘区% 输入（42↔0.42·percent↔real）让你逐 tier 调；职业用 ClassesTab perks、NPC 用 NpcsTab。验证：base 100/50/1000·17 tier 全转 pct（0 还加法）·classes 0 还 flat；next lint ✔。**起步基线·你逐个微调**。
+
+
+
 ## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器
 
 ## 最近变更（2026-06-03 / Phase 33 — 地图编辑器·阶段1 地基）— 缩圈 count-derived + 快照致死 + 房间编辑器

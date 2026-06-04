@@ -43,6 +43,7 @@ const EMPTY_SERIES = { name: '', slot: 'weapon', description: '', icon: '⚔️'
 const EMPTY_TIER = {
   name: '', rarity: 'common', variant: '', tier: 1,
   base_atk: 0, base_def: 0, base_hp: 0, base_spd: 0,
+  atk_pct: 0, def_pct: 0, hp_pct: 0,
   element: 'none', element_power: 0, durability_max: 0,
   passive_skill_id: null, passive_note: '', req_level: 1, req_class: [], special_note: '',
 }
@@ -472,6 +473,12 @@ export default function EquipmentSeriesSection({ toast }) {
                 <div><label style={LABEL}>DEF 防御加成</label><input type="number" style={INPUT} value={e.base_def} onChange={ev => setEditTier({ ...e, base_def: parseInt(ev.target.value) || 0 })} /></div>
                 <div><label style={LABEL}>HP 生命加成</label><input type="number" style={INPUT} value={e.base_hp} onChange={ev => setEditTier({ ...e, base_hp: parseInt(ev.target.value) || 0 })} /></div>
                 <div><label style={LABEL}>耐久度上限 (0=无限)</label><input type="number" style={INPUT} value={e.durability_max} min={0} onChange={ev => setEditTier({ ...e, durability_max: parseInt(ev.target.value) || 0 })} /></div>
+              </div>
+              <div style={{ fontSize: 10, color: '#8b949e', marginTop: 12, marginBottom: 8, fontWeight: 700 }}>装备乘区 <span style={{ color: '#484f58', fontWeight: 400 }}>(42 = +42%)</span></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div><label style={LABEL}>攻击乘区%</label><input type="number" style={INPUT} value={Math.round((e.atk_pct || 0) * 100)} step={1} min={0} onChange={ev => setEditTier({ ...e, atk_pct: Number(ev.target.value) / 100 })} /></div>
+                <div><label style={LABEL}>防御乘区%</label><input type="number" style={INPUT} value={Math.round((e.def_pct || 0) * 100)} step={1} min={0} onChange={ev => setEditTier({ ...e, def_pct: Number(ev.target.value) / 100 })} /></div>
+                <div><label style={LABEL}>生命乘区%</label><input type="number" style={INPUT} value={Math.round((e.hp_pct || 0) * 100)} step={1} min={0} onChange={ev => setEditTier({ ...e, hp_pct: Number(ev.target.value) / 100 })} /></div>
               </div>
             </div>
             <div style={{ background: '#161b22', borderRadius: 10, padding: 14, border: '1px solid #21262d' }}>
