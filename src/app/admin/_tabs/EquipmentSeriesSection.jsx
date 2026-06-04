@@ -1,22 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Drawer, DeleteBtn } from '../_shared/ui'
+import { Drawer, DeleteBtn, BTN, CARD, TAG, RARITY_META, INPUT as SHARED_INPUT, LABEL as SHARED_LABEL } from '../_shared/ui'
 
-const INPUT = { width: '100%', padding: '9px 13px', borderRadius: 7, border: '1px solid #30363d', background: '#161b22', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
-const LABEL = { display: 'block', fontSize: 10, color: '#8b949e', marginBottom: 5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }
-const BTN = (bg, color, extra = {}) => ({ padding: '8px 16px', borderRadius: 7, border: 'none', background: bg, color, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, ...extra })
-const CARD = (extra = {}) => ({ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16, ...extra })
-const TAG = (color) => ({ display: 'inline-block', fontSize: 10, padding: '1px 8px', borderRadius: 8, background: `${color}15`, color, border: `1px solid ${color}30` })
+// 本编辑器沿用更紧凑的表单密度（padding/字号略小于 _shared 默认），以 spread 覆写在 _shared 基样式上派生，渲染等价。
+const INPUT = { ...SHARED_INPUT, padding: '9px 13px', borderRadius: 7 }
+const LABEL = { ...SHARED_LABEL, fontSize: 10, marginBottom: 5, fontWeight: 700, letterSpacing: '0.6px' }
 
-const RARITY_META = {
-  common:    { label: '普通', color: '#8b949e' },
-  uncommon:  { label: '优秀', color: '#3fb950' },
-  rare:      { label: '稀有', color: '#58a6ff' },
-  epic:      { label: '史诗', color: '#bc8cff' },
-  legendary: { label: '传说', color: '#d29922' },
-  mythic:    { label: '神话', color: '#f85149' },
-}
 const ELEMENT_META = {
   none:    { label: '无', icon: '—'  },
   fire:    { label: '火', icon: '🔥' },

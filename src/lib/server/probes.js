@@ -6,6 +6,9 @@
  * 击败探针 → 抢主人 1 条残片 decode +1。
  */
 
+import { weightedPick } from '@/lib/weightedPick'
+import { clamp } from '@/lib/num'
+
 const PROBE_ENCOUNTER_CHANCE = 0.08 // 8% 进入 chamber 时遭遇探针
 const PROBE_FRAGMENTS_CARRY_LIMIT = 3 // 主人留下的可被夺残片最多 3 条
 const PROBE_ENCOUNTER_LOG_MAX = 50  // Phase 25d encounter_log 每条探针最多保留 50 条事件（防 JSONB 膨胀）
@@ -54,9 +57,10 @@ export function scaleProbeToEncounter(probe, encounterStats) {
   const pDef = Number(encounterStats?.def)
   if (!Number.isFinite(pHp) || !Number.isFinite(pAtk) || !Number.isFinite(pDef)) return null
 
-  const ceilHp = Math.min(PROBE_HP_HARD_CAP, Math.max(PROBE_HP_FLOOR, Math.round(pHp * PROBE_HP_CAP_MULT)))
-  const ceilAtk = Math.min(PROBE_ATK_HARD_CAP, Math.max(PROBE_ATK_FLOOR, Math.round(pAtk * PROBE_ATK_CAP_MULT)))
-  const ceilDef = Math.min(PROBE_DEF_HARD_CAP, Math.max(PROBE_DEF_FLOOR, Math.round(pDef * PROBE_DEF_CAP_MULT)))
+  // clamp(round(stat×mult), floor, hardCap) — pHp/pAtk/pDef 上方已 finite 校验，round 后恒有限，与原内联 min/max 逐值等价
+  const ceilHp = clamp(Math.round(pHp * PROBE_HP_CAP_MULT), PROBE_HP_FLOOR, PROBE_HP_HARD_CAP)
+  const ceilAtk = clamp(Math.round(pAtk * PROBE_ATK_CAP_MULT), PROBE_ATK_FLOOR, PROBE_ATK_HARD_CAP)
+  const ceilDef = clamp(Math.round(pDef * PROBE_DEF_CAP_MULT), PROBE_DEF_FLOOR, PROBE_DEF_HARD_CAP)
 
   const maxHp = clampProbeStat(probe?.max_hp, PROBE_HP_FLOOR, ceilHp)
   const hp = Math.min(clampProbeStat(probe?.hp, PROBE_HP_FLOOR, ceilHp), maxHp)
@@ -95,18 +99,11 @@ function probeDrawWeight(probe, nowMs) {
 
 /**
  * 按长尾衰减权重从候选探针里抽一个。candidates 为空返回 null。
+ * weightFn 为基于 nowMs 的时间衰减闭包；probeDrawWeight 恒 >= 1，故共享 weightedPick
+ * 与原实现逐值等价（原 total<=0 兜底分支在此权重下不可达）。
  */
 function weightedPickProbe(candidates, nowMs) {
-  if (!Array.isArray(candidates) || candidates.length === 0) return null
-  const weights = candidates.map((p) => probeDrawWeight(p, nowMs))
-  const total = weights.reduce((a, b) => a + b, 0)
-  if (!(total > 0)) return candidates[0]
-  let r = Math.random() * total
-  for (let i = 0; i < candidates.length; i++) {
-    r -= weights[i]
-    if (r <= 0) return candidates[i]
-  }
-  return candidates[candidates.length - 1]
+  return weightedPick(candidates, (p) => probeDrawWeight(p, nowMs))
 }
 
 /**

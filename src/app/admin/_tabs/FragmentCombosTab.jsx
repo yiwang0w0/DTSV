@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, HINT } from '../_shared/ui'
 
 /**
  * Phase 20.4 — fragment_combos 管理：A + B → C 合成解锁
@@ -9,8 +9,6 @@ import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
  * 玩家在 A 和 B 残片上都达到 decode_level=3 时，C 残片自动以 decode_level=0
  * 出现在玩家档案中。Description 在 /archive 知识图谱里展示作为合成叙事。
  */
-
-const HINT = { fontSize: 11, color: '#484f58', marginTop: 4 }
 
 const EMPTY_COMBO = {
   fragment_id_a: null,

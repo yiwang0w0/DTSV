@@ -40,13 +40,8 @@
  */
 
 import { STAMINA_CONFIG } from './constants.js'
-
-function clamp(v, lo, hi) {
-  if (!Number.isFinite(v)) return lo
-  if (v < lo) return lo
-  if (v > hi) return hi
-  return v
-}
+// num.js 零外部 import → 同样可被原生 Node ESM 解析（带 .js 扩展），与本文件 constants.js import 同范式。
+import { clamp } from './num.js'
 
 /**
  * 自上次移动到 now 经过的秒数（惩罚倍率自变量 dt）。

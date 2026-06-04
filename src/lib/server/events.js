@@ -14,6 +14,8 @@
  *   { count, lastTurn }
  */
 
+import { weightedPick } from '@/lib/weightedPick'
+
 let _eventCache = null
 let _cacheTs = 0
 const CACHE_TTL = 5 * 60 * 1000  // 5 分钟
@@ -60,13 +62,7 @@ async function pickNpcByEntityType(client, entityType, envPollution = 0) {
   )
   if (candidates.length === 0) return null
 
-  const totalWeight = candidates.reduce((s, n) => s + (Number(n.spawn_weight) || 1), 0)
-  let r = Math.random() * totalWeight
-  for (const n of candidates) {
-    r -= (Number(n.spawn_weight) || 1)
-    if (r <= 0) return n
-  }
-  return candidates[candidates.length - 1]
+  return weightedPick(candidates, (n) => Number(n.spawn_weight) || 1)
 }
 
 export async function processEventTrigger(client, resolution, userId, triggerType, context = {}) {
@@ -91,7 +87,7 @@ export async function processEventTrigger(client, resolution, userId, triggerTyp
 
   if (candidates.length === 0) return null
 
-  const picked = weightedPick(candidates)
+  const picked = weightedPick(candidates, (e) => Number(e.weight) || 1)
   if (!picked) return null
 
   // 记录历史
@@ -128,18 +124,6 @@ function matchesTrigger(event, triggerType, context) {
     default:
       return false
   }
-}
-
-// ── 权重抽取 ──────────────────────────────
-function weightedPick(list) {
-  if (!list.length) return null
-  const totalWeight = list.reduce((s, e) => s + (Number(e.weight) || 1), 0)
-  let r = Math.random() * totalWeight
-  for (const e of list) {
-    r -= (Number(e.weight) || 1)
-    if (r <= 0) return e
-  }
-  return list[list.length - 1]
 }
 
 // ── 历史记录 ──────────────────────────────

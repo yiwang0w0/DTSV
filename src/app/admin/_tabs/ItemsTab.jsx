@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, SECTION_TITLE as SHARED_SECTION_TITLE, HINT as SHARED_HINT } from '../_shared/ui'
 
 /* ── 子类型中文映射（远星函馆） ── */
 const ITEM_SUB_KINDS = {
@@ -43,13 +43,9 @@ function subKindLabel(kind, subKind) {
   return found ? found.label : subKind || '—'
 }
 
-/* ── 分组标题样式 ── */
-const SECTION_TITLE = {
-  fontSize: 12, fontWeight: 700, color: '#58a6ff', marginBottom: 10, marginTop: 18,
-  paddingBottom: 6, borderBottom: '1px solid #21262d', letterSpacing: '0.3px',
-}
-/* ── 字段说明样式 ── */
-const HINT = { fontSize: 11, color: '#484f58', marginTop: 3 }
+/* ── 分组标题 / 字段说明样式 ── 道具页用蓝色小字变体：在 _shared 基样式上 spread 覆写派生，渲染等价 ── */
+const SECTION_TITLE = { ...SHARED_SECTION_TITLE, fontSize: 12, color: '#58a6ff', marginBottom: 10, paddingBottom: 6, letterSpacing: '0.3px' }
+const HINT = { ...SHARED_HINT, marginTop: 3 }
 
 export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   const [filter, setFilter]     = useState('all')

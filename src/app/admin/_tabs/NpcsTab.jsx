@@ -1,15 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META, RARITY_META } from '../_shared/ui'
+import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META, RARITY_META, SECTION_TITLE, HINT } from '../_shared/ui'
 import { ENTITY_TYPE_META } from '@/lib/constants'
-
-/* ── 样式常量 ── */
-const SECTION_TITLE = {
-  fontSize: 13, fontWeight: 700, marginBottom: 12, marginTop: 18,
-  paddingBottom: 8, borderBottom: '1px solid #21262d', color: '#e6edf3',
-}
-const HINT = { fontSize: 11, color: '#484f58', marginTop: 4 }
 
 /* ── Phase 37: NPC 装备槽（镜像玩家 loadout 四槽，键与 equipment_series.slot 对齐）── */
 const LOADOUT_SLOTS = [

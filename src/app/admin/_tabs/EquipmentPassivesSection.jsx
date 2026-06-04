@@ -1,13 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Drawer, DeleteBtn, FormulaPreview } from '../_shared/ui'
+import { Drawer, DeleteBtn, FormulaPreview, BTN, CARD, TAG, INPUT as SHARED_INPUT, LABEL as SHARED_LABEL } from '../_shared/ui'
 
-const INPUT = { width: '100%', padding: '9px 13px', borderRadius: 7, border: '1px solid #30363d', background: '#161b22', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
-const LABEL = { display: 'block', fontSize: 10, color: '#8b949e', marginBottom: 5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' }
-const BTN = (bg, color, extra = {}) => ({ padding: '8px 16px', borderRadius: 7, border: 'none', background: bg, color, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, ...extra })
-const TAG = (color) => ({ display: 'inline-block', fontSize: 10, padding: '1px 8px', borderRadius: 8, background: `${color}15`, color, border: `1px solid ${color}30` })
-const CARD = (extra = {}) => ({ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16, ...extra })
+// 与 EquipmentSeriesSection 同口径的紧凑表单密度：在 _shared 基样式上以 spread 覆写派生，渲染等价。
+const INPUT = { ...SHARED_INPUT, padding: '9px 13px', borderRadius: 7 }
+const LABEL = { ...SHARED_LABEL, fontSize: 10, marginBottom: 5, fontWeight: 700, letterSpacing: '0.6px' }
 
 export const TRIGGER_EVENTS = [
   { value: 'on_attack',      label: '攻击时' },

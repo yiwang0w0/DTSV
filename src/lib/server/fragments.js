@@ -4,6 +4,7 @@
  */
 
 import { detectColdCases, resolveColdCasesForFragment } from './coldCases'
+import { weightedPick } from '@/lib/weightedPick'
 
 // 28-C P0: 新玩家入口残片权重加成
 // 玩家首 3 局 raid 内，F01/F02/F03（按名称前缀匹配，三链分别覆盖 search/search/combat）的
@@ -250,18 +251,4 @@ export async function discoverFragment(client, userId, mapId, pollution, gamenum
       comboUnlocks, // [{ fragmentId, name, comboDescription }]
     }
   }
-}
-
-/**
- * 按权重随机选取一个残片
- * weightFn 可选：用于动态调整权重（例如新玩家入口残片 boost）
- */
-function weightedPick(fragments, weightFn = (f) => f.weight || 1) {
-  const totalWeight = fragments.reduce((sum, f) => sum + weightFn(f), 0)
-  let remain = Math.random() * totalWeight
-  for (const frag of fragments) {
-    remain -= weightFn(frag)
-    if (remain <= 0) return frag
-  }
-  return fragments[fragments.length - 1]
 }

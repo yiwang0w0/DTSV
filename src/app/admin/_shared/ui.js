@@ -30,6 +30,18 @@ export const LABEL = {
   fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
 }
 
+// 卡片容器 / 内联标签工厂。原本在 EquipmentSeriesSection / EquipmentPassivesSection 各自本地定义（两处逐键相等），提升到 _shared 共用。
+export const CARD = (extra = {}) => ({ background: '#1c2129', borderRadius: 12, border: '1px solid #30363d', padding: 16, ...extra })
+export const TAG = (color) => ({ display: 'inline-block', fontSize: 10, padding: '1px 8px', borderRadius: 8, background: `${color}15`, color, border: `1px solid ${color}30` })
+
+// 表单分组标题 / 字段说明样式。NpcsTab / FragmentsTab / FragmentCombosTab 本地定义逐键相等，取其为共同值收口到 _shared。
+// （ItemsTab 的分组标题/说明为蓝色小字变体，在本地以 spread 覆写保留视觉，不改其呈现。）
+export const SECTION_TITLE = {
+  fontSize: 13, fontWeight: 700, marginBottom: 12, marginTop: 18,
+  paddingBottom: 8, borderBottom: '1px solid #21262d', color: '#e6edf3',
+}
+export const HINT = { fontSize: 11, color: '#484f58', marginTop: 4 }
+
 // 规范调色板（叙事/分析族）。取最全一份；6 个目标 tab 的本地 const C 均为其逐键相等子集。
 export const C = {
   bg1:    '#1c2129',

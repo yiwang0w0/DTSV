@@ -24,6 +24,7 @@
  */
 
 import { applyHeatToRaidPath } from './heat'
+import { weightedPick } from '@/lib/weightedPick'
 
 const PATH_LENGTH_MIN = 20
 const PATH_LENGTH_MAX = 25
@@ -35,20 +36,6 @@ const STAGE_BIAS = {
   middle:   { combat_dense: 3, hazard: 2, scan_dense: 1.5, fragment_dense: 1 },    // 5-14
   late:     { fragment_dense: 2, hazard: 2, combat_dense: 1.5, scan_dense: 1 },    // 15-22
   finale:   { milestone: 10 },                                                     // 最后一个
-}
-
-/**
- * 加权随机抽取
- */
-function weightedPick(items, weightFn = (i) => i.spawn_weight || 1) {
-  if (!items || items.length === 0) return null
-  const total = items.reduce((sum, it) => sum + weightFn(it), 0)
-  let r = Math.random() * total
-  for (const it of items) {
-    r -= weightFn(it)
-    if (r <= 0) return it
-  }
-  return items[items.length - 1]
 }
 
 /**
@@ -64,8 +51,8 @@ function pickChamberForStage(stage, allChambers, usedIds, chamberWeightDelta = {
     .filter(c => bias[c.type] !== undefined)
 
   if (candidates.length === 0) {
-    // fallback：不限阶段抽
-    return weightedPick(allChambers.filter(c => c.enabled !== false && !usedIds.has(c.id)))
+    // fallback：不限阶段抽（默认权重 spawn_weight||1，与原行为一致）
+    return weightedPick(allChambers.filter(c => c.enabled !== false && !usedIds.has(c.id)), (c) => c.spawn_weight || 1)
   }
 
   return weightedPick(candidates, (c) => {
@@ -206,42 +193,4 @@ export function generateRaidPath(allChambers, unlocksMerged = null, options = {}
 
   // research 2026-05-29-B P1: 高危出勤难度修正（HIGH_RISK.ENABLED + heatLevel>0 才生效，否则原样返回）
   return applyHeatToRaidPath(path, options?.heatLevel)
-}
-
-/**
- * 在 raidPath 中给定 idx 的 chamber，返回下一段的候选 chamber 列表（exit_count 个）
- * 候选不一定是 raidPath[idx+1]，而是 idx+1 起的 N 个候选（玩家可挑）— 但选定后真正
- * 前进到玩家选的 chamber 那一格。
- *
- * 简化策略：raidPath 是线性的，玩家"选择 A/B/C"只是装饰 UX。后端始终把 chamberIndex
- * +1 推进到 raidPath[idx+1]。
- *
- * Phase 19.6 advanceChamber action 用这个来 generate 候选给客户端选。
- *
- * 简化版：返回 raidPath[idx+1] 一条 + (exit_count - 1) 条"未来 chamber 的预览"，
- * 让玩家选的内容只是叙事多样性（"走 A 还是 B"），实际下一段总是 raidPath[idx+1]。
- *
- * 后续可升级：让玩家选择影响 raidPath（A 进 raidPath[idx+1]，B 跳到 raidPath[idx+2]）。
- * 当前 Phase 19 采用简化版，避免路径分叉的复杂度。
- */
-export function getNextChamberOptions(raidPath, currentIdx, count = 2) {
-  if (!raidPath || currentIdx >= raidPath.length - 1) return []
-  const real = raidPath[currentIdx + 1]
-  if (!real) return []
-
-  // 选项 A = 真正下一段；B/C = 装饰用，从未来段 fetch（仅展示 name/type）
-  const options = [{ ...real, optionLabel: 'A', isRealNext: true }]
-  for (let k = 2; k <= count; k++) {
-    const futureIdx = currentIdx + 1 + (k - 1)
-    if (futureIdx < raidPath.length) {
-      const future = raidPath[futureIdx]
-      options.push({
-        ...future,
-        optionLabel: String.fromCharCode(64 + k), // B / C
-        isRealNext: false,
-        previewOnly: true,
-      })
-    }
-  }
-  return options
 }

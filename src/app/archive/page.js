@@ -11,6 +11,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { DecodeBar } from '@/lib/fragmentMeta'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
 
@@ -62,9 +63,6 @@ const RARITY_META = {
   legendary: { label: '传说', color: C.yellow },
 }
 
-const DECODE_LABELS = ['未解码', '初步解码', '深度解码', '完全解码']
-const DECODE_COLORS = [C.dim2, C.yellow, C.accent, C.green]
-
 /** 根据 decode_level 返回应显示的文本 */
 function getFragmentText(fragment, level) {
   switch (level) {
@@ -74,34 +72,6 @@ function getFragmentText(fragment, level) {
     case 3: return fragment.full_text || fragment.partial_2
     default: return fragment.raw_text
   }
-}
-
-/** 解码进度条 */
-function DecodeBar({ level }) {
-  return (
-    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-      {[0, 1, 2, 3].map(i => (
-        <div
-          key={i}
-          style={{
-            width: 16,
-            height: 4,
-            borderRadius: 2,
-            background: i <= level ? DECODE_COLORS[level] : '#21262d',
-            transition: 'background 0.3s',
-          }}
-        />
-      ))}
-      <span style={{
-        fontSize: 10,
-        fontWeight: 600,
-        color: DECODE_COLORS[level],
-        marginLeft: 6,
-      }}>
-        {DECODE_LABELS[level]}
-      </span>
-    </div>
-  )
 }
 
 /** 单个残片卡片 */

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { COLD_CASES } from '@/lib/constants'
+import { DecodeBar } from '@/lib/fragmentMeta'
 import { useAuth } from '../layout'
 import { Spinner } from '../admin/_shared/ui'
 
@@ -54,9 +55,6 @@ const FRAGMENT_EPOCH = {
 
 const OTHER_EPOCH = { id: 0, name: '未编年档案', theme: '尚未归入时间轴', blurb: '无法对应到六纪元的残片', color: C.dim }
 
-const DECODE_LABELS = ['未解码', '初步解码', '深度解码', '完全解码']
-const DECODE_COLORS = [C.dim2, C.yellow, C.accent, C.green]
-
 function codeOf(name) {
   const m = (name || '').match(/^F\d{2}/)
   return m ? m[0] : null
@@ -77,24 +75,6 @@ const EPOCH_COLOR_BY_ID = Object.fromEntries([...EPOCHS, OTHER_EPOCH].map(e => [
 const EPOCH_NAME_BY_ID = Object.fromEntries([...EPOCHS, OTHER_EPOCH].map(e => [e.id, e.name]))
 function epochColorOf(fragment) {
   return EPOCH_COLOR_BY_ID[epochIdOf(fragment)] || C.accent
-}
-
-/** 解码进度条（与 /archive 一致的视觉语言） */
-function DecodeBar({ level }) {
-  return (
-    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-      {[0, 1, 2, 3].map(i => (
-        <div key={i} style={{
-          width: 14, height: 4, borderRadius: 2,
-          background: i <= level ? DECODE_COLORS[level] : '#21262d',
-          transition: 'background 0.3s',
-        }} />
-      ))}
-      <span style={{ fontSize: 10, fontWeight: 600, color: DECODE_COLORS[level], marginLeft: 6 }}>
-        {DECODE_LABELS[level]}
-      </span>
-    </div>
-  )
 }
 
 function FragmentRow({ fragment, playerData, epochColor }) {

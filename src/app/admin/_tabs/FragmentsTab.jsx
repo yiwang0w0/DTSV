@@ -1,14 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
-
-/* ── 样式常量 ── */
-const SECTION_TITLE = {
-  fontSize: 13, fontWeight: 700, marginBottom: 12, marginTop: 18,
-  paddingBottom: 8, borderBottom: '1px solid #21262d', color: '#e6edf3',
-}
-const HINT = { fontSize: 11, color: '#484f58', marginTop: 4 }
+import { BTN, INPUT, LABEL, Modal, SECTION_TITLE, HINT } from '../_shared/ui'
 
 const CATEGORY_OPTIONS = [
   { value: 'general',   label: '通用记录' },

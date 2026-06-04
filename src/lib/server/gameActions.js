@@ -2790,8 +2790,8 @@ export async function executeGameAction(client, user, payload, options = {}) {
 
 // Phase 19.5+19.6: movePlayer 重写为 advanceChamber 模型
 // 旧签名 (client, room, gamevars, user, mapId) — mapId 现在被忽略（payload.selection 可选）
-// 玩家沿 raidPath 前进 1 步（player.chamberIndex += 1）。selection（'A'/'B'/'C'）仅
-// 用于日志叙事（pathGenerator.getNextChamberOptions 提供的选项里 A 是真正下一段）
+// 玩家沿 raidPath 前进 1 步（player.chamberIndex += 1）。selection（'A'/'B'/'C'）仅作
+// 日志叙事；实际下一段恒为 raidPath[idx+1]（线性路径，selection 不影响推进目标）。
 async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('已阵亡玩家无法前进')

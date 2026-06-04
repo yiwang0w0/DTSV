@@ -1,8 +1,9 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
 import { BTN, INPUT, LABEL, C, ITEM_KIND_META, RARITY_META } from '../_shared/ui'
 import CandidateRoomPicker from './CandidateRoomPicker'
+import RoomDerivedView from './RoomDerivedView'
+import { usePlacementRules } from './usePlacementRules'
+import { supabase } from '@/lib/supabase'
 
 /* Phase 36 投放规则 tab —「道具为中心 · 全图分布」模型（重写）
  * ─ 旧「每房独立概率」模型（room_items）已退役（DB 空表保留 deprecated，运行期不读）。
@@ -12,7 +13,8 @@ import CandidateRoomPicker from './CandidateRoomPicker'
  *   ① 规则中心（主）：列 placement_rules，每条一卡 — 道具/装备按名 + 候选房多选(权重) +
  *      数量[min,max] + 几禁(越晚越肥) + 互斥组 + 启用 + 保存/删（候选不足黄字警告）。
  *   ② 按房只读派生（次）：选一房 → 派生「这房作为候选的规则」，只读，引导去规则中心编辑。
- * ─ 直连 supabase CRUD（RLS 关·authenticated 全权）。写库严格符合 phase-36 CHECK：
+ * ─ CRUD + 候选同步逻辑与 ②区 复用共享件（usePlacementRules / RoomDerivedView，与 NpcPlacementTab 共用）。
+ *   直连 supabase CRUD（RLS 关·authenticated 全权）。写库严格符合 phase-36 CHECK：
  *   entry_kind XOR(item_name/tier_id) · count_min<=count_max · max_per_room>=1 ·
  *   spawn_phase_min>=0 · placement_rule_rooms.weight>0。
  * ─ equipment_tiers 只读（仅选 tier_id，绝不 UPDATE）；item_pool.name 已有 UNIQUE，存名安全。
@@ -38,158 +40,43 @@ function emptyRule(itemPool) {
 }
 
 export default function RoomItemsTab({ toast }) {
-  const [rooms, setRooms] = useState([])
-  const [itemPool, setItemPool] = useState([])
-  const [tiers, setTiers] = useState([])
-  const [rules, setRules] = useState([])          // 本地编辑态（含 __cands / __dirty / __isNew）
-  const [loading, setLoading] = useState(true)
-  const [confirmDelId, setConfirmDelId] = useState(null)   // 用规则 id（或 'new-<idx>'）做确认键
+  const {
+    rooms, rules, extra, loading,
+    confirmDelId, setConfirmDelId,
+    groupSuggestions,
+    patchRule, addRule, saveRule, removeRule,
+  } = usePlacementRules({
+    toast,
+    tableName: 'placement_rules',
+    candTableName: 'placement_rule_rooms',
+    loadExtra: [
+      { key: 'itemPool', query: () => supabase.from('item_pool').select('id,name,kind').order('name') },
+      { key: 'tiers', query: () => supabase.from('equipment_tiers').select('id,name,rarity,tier,series_id').order('series_id').order('tier') },
+    ],
+    makeEmptyRule: () => emptyRule(extra.itemPool || []),
+    validate: (r) => {
+      if (r.entry_kind === 'item' && !r.item_name) return '请选择道具'
+      if (r.entry_kind === 'equipment_tier' && !r.tier_id) return '请选择装备阶'
+      return null
+    },
+    buildPayload: (r) => ({
+      entry_kind: r.entry_kind,
+      item_name: r.entry_kind === 'item' ? r.item_name : null,             // XOR：对侧强制 null
+      tier_id: r.entry_kind === 'equipment_tier' ? Number(r.tier_id) : null,
+    }),
+    missingTableMsg: '投放规则表尚未建立（请先跑 phase-36 migration）',
+    missingTableRe: /relation .* does not exist|placement_rule/i,
+    loadFailMsg: '加载投放规则失败: ',
+  })
 
-  // ── 按房只读区状态 ──
-  const [roomSearch, setRoomSearch] = useState('')
-  const [selectedRoomId, setSelectedRoomId] = useState(null)
-
-  // ── 初始加载：五查并行（缺表静默降级，不崩 UI）──
-  async function loadAll() {
-    setLoading(true)
-    setConfirmDelId(null)
-    const [r1, r2, r3, r4, r5] = await Promise.all([
-      supabase.from('br_rooms').select('room_id,label,region,grid_x,grid_y,enabled').order('room_id'),
-      supabase.from('item_pool').select('id,name,kind').order('name'),
-      supabase.from('equipment_tiers').select('id,name,rarity,tier,series_id').order('series_id').order('tier'),
-      supabase.from('placement_rules').select('*').order('id'),
-      supabase.from('placement_rule_rooms').select('*'),
-    ])
-    setRooms(r1.data || [])
-    setItemPool(r2.data || [])
-    setTiers(r3.data || [])
-
-    // 候选归并：rule_id → [{br_room_id, weight}]（升序）
-    const candByRule = new Map()
-    for (const rr of (r5.data || [])) {
-      const k = Number(rr.rule_id)
-      if (!candByRule.has(k)) candByRule.set(k, [])
-      candByRule.get(k).push({ br_room_id: Number(rr.br_room_id), weight: Number(rr.weight) })
-    }
-    for (const list of candByRule.values()) list.sort((a, b) => a.br_room_id - b.br_room_id)
-
-    setRules((r4.data || []).map((rule) => ({
-      ...rule,
-      __isNew: false, __dirty: false,
-      __cands: candByRule.get(Number(rule.id)) || [],
-    })))
-    setLoading(false)
-
-    // placement_rules / placement_rule_rooms 可能尚未建表（SQL migration 未跑）→ 提示而非崩
-    if (r4.error || r5.error) {
-      const msg = (r4.error || r5.error).message || ''
-      if (/relation .* does not exist|placement_rule/i.test(msg)) {
-        toast('投放规则表尚未建立（请先跑 phase-36 migration）', 'error')
-      } else {
-        toast('加载投放规则失败: ' + msg, 'error')
-      }
-    }
-    const baseErr = [r1, r2, r3].find((r) => r.error)
-    if (baseErr) toast('加载基础数据失败: ' + baseErr.error.message, 'error')
-  }
-
-  useEffect(() => { loadAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 已用过的互斥组名（datalist 建议）
-  const groupSuggestions = useMemo(() => {
-    const set = new Set()
-    for (const r of rules) {
-      const g = (r.exclusion_group ?? '').trim()
-      if (g) set.add(g)
-    }
-    return Array.from(set).sort()
-  }, [rules])
-
-  // ── 本地编辑（改 rules，存盘时才落库）──
-  function patchRule(idx, patch) {
-    setRules((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch, __dirty: true } : r)))
-  }
+  const itemPool = extra.itemPool || []
+  const tiers = extra.tiers || []
 
   // 切类型时清对侧引用、设本侧默认（满足 XOR CHECK）
   function switchKind(idx, kind) {
     patchRule(idx, kind === 'item'
       ? { entry_kind: 'item', item_name: itemPool[0]?.name ?? null, tier_id: null }
       : { entry_kind: 'equipment_tier', tier_id: tiers[0]?.id ?? null, item_name: null })
-  }
-
-  function addRule() {
-    setRules((rs) => [emptyRule(itemPool), ...rs])   // 置顶，便于立即编辑
-    setConfirmDelId(null)
-  }
-
-  // ── 存盘单条规则（规则 upsert + 候选全量同步）──
-  async function saveRule(idx) {
-    const r = rules[idx]
-    // 前端预校验（与 CHECK 同形，给友好 toast 而非 DB 报错）
-    if (r.entry_kind === 'item' && !r.item_name) { toast('请选择道具', 'error'); return }
-    if (r.entry_kind === 'equipment_tier' && !r.tier_id) { toast('请选择装备阶', 'error'); return }
-
-    const cMin = Math.max(0, Math.floor(Number(r.count_min) || 0))
-    const cMax = Math.max(cMin, Math.floor(Number(r.count_max) || 0))   // 钳 min<=max
-    const grpRaw = (r.exclusion_group ?? '').trim()
-    const payload = {
-      entry_kind: r.entry_kind,
-      item_name: r.entry_kind === 'item' ? r.item_name : null,             // XOR：对侧强制 null
-      tier_id: r.entry_kind === 'equipment_tier' ? Number(r.tier_id) : null,
-      count_min: cMin,
-      count_max: cMax,
-      max_per_room: 1,                                                     // 本期固定 1（CHECK max_per_room>=1）
-      spawn_phase_min: Math.max(0, Math.floor(Number(r.spawn_phase_min) || 0)),
-      exclusion_group: grpRaw === '' ? null : grpRaw,                      // 空串→null（不互斥）
-      enabled: !!r.enabled,
-      notes: r.notes || null,
-    }
-
-    // 候选：仅 weight>0（CHECK weight>0），去重 br_room_id，升序
-    const candMap = new Map()
-    for (const c of (r.__cands || [])) {
-      const rid = Number(c.br_room_id)
-      const w = Number(c.weight)
-      if (!Number.isFinite(rid)) continue
-      if (!(w > 0)) continue
-      candMap.set(rid, w)   // 后者覆盖（理论无重复）
-    }
-    const candRows = (id) => Array.from(candMap.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([br_room_id, weight]) => ({ rule_id: id, br_room_id, weight }))
-
-    let ruleId = r.id
-    if (r.__isNew) {
-      const { data, error } = await supabase.from('placement_rules').insert(payload).select('id').single()
-      if (error) { toast('添加规则失败: ' + error.message, 'error'); return }
-      ruleId = data.id
-    } else {
-      const { error } = await supabase.from('placement_rules').update(payload).eq('id', r.id)
-      if (error) { toast('更新规则失败: ' + error.message, 'error'); return }
-    }
-
-    // 候选全量同步：先清后插（CASCADE 不触发；这里仅清本规则候选）
-    const { error: delErr } = await supabase.from('placement_rule_rooms').delete().eq('rule_id', ruleId)
-    if (delErr) { toast('候选清理失败: ' + delErr.message, 'error'); return }
-    const rows = candRows(ruleId)
-    if (rows.length > 0) {
-      const { error: insErr } = await supabase.from('placement_rule_rooms').insert(rows)
-      if (insErr) { toast('候选写入失败: ' + insErr.message, 'error'); return }
-    }
-
-    toast(r.__isNew ? '规则已添加' : '规则已更新')
-    loadAll()   // 重拉，清 dirty/new、拿回 DB id 与候选
-  }
-
-  // ── 删规则（inline 两步确认；CASCADE 自动清候选）──
-  async function removeRule(idx) {
-    const r = rules[idx]
-    if (r.__isNew) { setRules((rs) => rs.filter((_, i) => i !== idx)); setConfirmDelId(null); return }  // 未落库直接丢
-    const { error } = await supabase.from('placement_rules').delete().eq('id', r.id)
-    if (error) { toast('删除失败: ' + error.message, 'error'); return }
-    toast('规则已删除')
-    setConfirmDelId(null)
-    loadAll()
   }
 
   // 规则展示名（道具名 / 装备阶名）
@@ -201,14 +88,16 @@ export default function RoomItemsTab({ toast }) {
     return r.item_name || '（未选道具）'
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>加载中...</div>
+  // 卡内规则名 <span>（图标 + 道具/装备配色）；规则中心卡头与 ②区只读派生共用
+  function renderRuleName(r, fontSize) {
+    return (
+      <span style={{ fontSize, fontWeight: 700, color: r.entry_kind === 'equipment_tier' ? C.purple : C.text }}>
+        {r.entry_kind === 'equipment_tier' ? '🛡 ' : '📦 '}{ruleLabel(r)}
+      </span>
+    )
+  }
 
-  const filteredRooms = rooms.filter((r) =>
-    !roomSearch
-    || (r.label || '').includes(roomSearch)
-    || (r.region || '').includes(roomSearch)
-    || String(r.room_id).includes(roomSearch),
-  )
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: C.dim }}>加载中...</div>
 
   return (
     <div>
@@ -246,9 +135,7 @@ export default function RoomItemsTab({ toast }) {
             >
               {/* 卡头：展示名 + 启用 + 操作 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: r.entry_kind === 'equipment_tier' ? C.purple : C.text }}>
-                  {r.entry_kind === 'equipment_tier' ? '🛡 ' : '📦 '}{ruleLabel(r)}
-                </span>
+                {renderRuleName(r, 14)}
                 {r.__isNew && <span style={{ fontSize: 10, color: C.yellow, border: `1px solid ${C.yellow}`, borderRadius: 5, padding: '1px 6px' }}>未保存</span>}
                 {!r.enabled && <span style={{ fontSize: 10, color: C.dim2, border: `1px solid ${C.dim2}`, borderRadius: 5, padding: '1px 6px' }}>已禁用</span>}
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -399,103 +286,13 @@ export default function RoomItemsTab({ toast }) {
       </datalist>
 
       {/* ══════ ② 按房只读派生（次区）══════ */}
-      <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>按房查看（只读）</div>
-        <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>
-          选一房，看它作为候选出现在哪些规则里。此处只读，编辑请回上方规则中心。
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
-          {/* 选房区 */}
-          <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12 }}>
-            <input
-              placeholder="搜索房名 / 区域 / 房号..."
-              value={roomSearch}
-              onChange={(e) => setRoomSearch(e.target.value)}
-              style={{ ...INPUT, marginBottom: 8 }}
-            />
-            <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {filteredRooms.map((r) => {
-                const sel = r.room_id === selectedRoomId
-                return (
-                  <button
-                    key={r.room_id}
-                    onClick={() => setSelectedRoomId(r.room_id)}
-                    style={{
-                      textAlign: 'left', padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
-                      border: `1px solid ${sel ? C.accent : C.border}`,
-                      background: sel ? 'rgba(88,166,255,0.12)' : 'transparent',
-                      color: sel ? C.accent : C.text,
-                      opacity: r.enabled === false ? 0.5 : 1,
-                      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-                    }}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{r.label || `#${r.room_id}`}</span>
-                    {r.region && <span style={{ fontSize: 9, color: C.dim }}>· {r.region}</span>}
-                    <span style={{ fontSize: 9, color: C.dim, fontFamily: 'monospace', marginLeft: 'auto' }}>#{r.room_id}</span>
-                  </button>
-                )
-              })}
-              {filteredRooms.length === 0 && (
-                <div style={{ textAlign: 'center', padding: 24, color: C.dim, fontSize: 12 }}>没有匹配的房间</div>
-              )}
-            </div>
-          </div>
-
-          {/* 派生只读列 */}
-          <div>
-            {selectedRoomId == null ? (
-              <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>请选择房间查看其作为候选的规则</div>
-            ) : (() => {
-              const sr = rooms.find((r) => r.room_id === selectedRoomId)
-              // 该房作为候选的规则（遍历本地 rules.__cands）
-              const hits = rules
-                .map((rule) => {
-                  const c = (rule.__cands || []).find((c) => Number(c.br_room_id) === Number(selectedRoomId))
-                  return c ? { rule, weight: c.weight } : null
-                })
-                .filter(Boolean)
-              return (
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 10 }}>
-                    {sr?.label || `#${selectedRoomId}`}
-                    {sr?.region && <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>（{sr.region}）</span>}
-                    <span style={{ fontSize: 11, color: C.dim, fontWeight: 400, fontFamily: 'monospace', marginLeft: 6 }}>· #{selectedRoomId}</span>
-                  </div>
-                  {hits.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 40, color: C.dim, fontSize: 12, background: C.bg2, border: `1px dashed ${C.border}`, borderRadius: 8 }}>
-                      该房不在任何规则候选中
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {hits.map(({ rule, weight }) => (
-                        <div key={rule.id ?? ruleLabel(rule)} style={{
-                          background: C.bg2, border: `1px solid ${C.border}`,
-                          borderLeft: `3px solid ${rule.enabled ? C.green : C.dim2}`,
-                          borderRadius: 8, padding: '10px 12px',
-                          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                        }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: rule.entry_kind === 'equipment_tier' ? C.purple : C.text }}>
-                            {rule.entry_kind === 'equipment_tier' ? '🛡 ' : '📦 '}{ruleLabel(rule)}
-                          </span>
-                          <span style={{ fontSize: 11, color: C.dim }}>件数 [{rule.count_min}, {rule.count_max}]</span>
-                          <span style={{ fontSize: 11, color: C.accent }}>本房权重 {weight}</span>
-                          <span style={{ fontSize: 11, color: C.dim }}>
-                            {Number(rule.spawn_phase_min) > 0 ? `${rule.spawn_phase_min} 禁后` : '开局可见'}
-                          </span>
-                          {rule.exclusion_group && <span style={{ fontSize: 10, color: C.cyan, border: `1px solid ${C.cyan}40`, borderRadius: 5, padding: '1px 6px' }}>互斥 {rule.exclusion_group}</span>}
-                          {!rule.enabled && <span style={{ fontSize: 10, color: C.dim2 }}>（已禁用）</span>}
-                        </div>
-                      ))}
-                      <div style={{ fontSize: 10, color: C.dim2, marginTop: 2 }}>共 {hits.length} 条规则把本房列为候选 · 去上方规则中心编辑</div>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-      </div>
+      <RoomDerivedView
+        rooms={rooms}
+        rules={rules}
+        ruleLabel={ruleLabel}
+        unitWord="件"
+        renderName={renderRuleName}
+      />
     </div>
   )
 }

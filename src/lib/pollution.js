@@ -18,6 +18,7 @@
  */
 
 import { POLLUTION_CONFIG, SIGNAL_LOCK, HIGH_RISK } from './constants'
+import { clamp, randInt } from './num'
 
 // ── 默认权重，可通过参数覆盖 ──────────────────────────
 export const POLLUTION_WEIGHTS = {
@@ -320,14 +321,4 @@ function mapAccelLookup(table, mapId) {
   if (!table) return 0
   if (table instanceof Map) return Number(table.get(mapId)) || 0
   return Number(table[mapId]) || 0
-}
-
-function clamp(v, lo, hi) {
-  if (v < lo) return lo
-  if (v > hi) return hi
-  return v
-}
-
-function randInt(lo, hi) {
-  return Math.floor(Math.random() * (hi - lo + 1)) + lo
 }
