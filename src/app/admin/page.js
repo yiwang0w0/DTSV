@@ -25,6 +25,8 @@ import RoomItemsTab  from './_tabs/RoomItemsTab'
 import NpcPlacementTab from './_tabs/NpcPlacementTab'
 import AnalyticsTab  from './_tabs/AnalyticsTab'
 import NarrativeTab  from './_tabs/NarrativeTab'
+import ContentEngine from './_engine/ContentEngine'
+import itemPoolPreviewSchema from './_engine/schemas/itemPoolPreview'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
@@ -46,6 +48,7 @@ const TABS = [
   { key: 'classes',   label: '✦ 职业' },
   { key: 'portraits', label: '🎴 立绘审核' },
   { key: 'analytics', label: '📈 数据' },
+  { key: 'engine',    label: '🧪 引擎预览' },
   { key: 'db',        label: '🗄️ DB 控制台' },
 ]
 
@@ -147,6 +150,7 @@ export default function AdminPage() {
       {tab === 'classes'   && <ClassesTab toast={toast} />}
       {tab === 'portraits' && <PortraitsTab toast={toast} />}
       {tab === 'analytics' && <AnalyticsTab toast={toast} />}
+      {tab === 'engine'    && <ContentEngine schema={itemPoolPreviewSchema} toast={toast} />}
       {tab === 'db'        && <DbConsoleTab toast={toast} />}
     </div>
   )
