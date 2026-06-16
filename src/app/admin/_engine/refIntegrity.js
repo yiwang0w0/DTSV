@@ -24,6 +24,25 @@ export function collectRefTables(schema) {
   return Array.from(seen.values())
 }
 
+/** 从 schema.fields 收集「桥接表」字段(ingredient-list)：一对多子表(如配方→材料)。
+ *  返回 [{ fieldName, table, parentKey, refColumn, itemFields, ref }]。 */
+export function collectBridges(schema) {
+  const out = []
+  for (const f of schema?.fields || []) {
+    if (f.type === 'ingredient-list' && f.bridge?.table) {
+      out.push({
+        fieldName: f.name,
+        table: f.bridge.table,
+        parentKey: f.bridge.parentKey,
+        refColumn: f.bridge.refColumn,   // 桥接表里存「引用对象 id」的列名(如 item_id)
+        itemFields: f.itemFields || [],  // 子行的附加字段(quantity/is_consumed…)
+        ref: f.ref,
+      })
+    }
+  }
+  return out
+}
+
 /** 解析一个 id 在被引用表里的展示名；找不到(断链/孤儿)返回 null。 */
 export function resolveLabel(refs, table, id) {
   const e = refs?.[table]
