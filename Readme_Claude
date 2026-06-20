@@ -1,7 +1,17 @@
 # Readme_Claude
 
-更新时间：2026-06-20（Asia/Tokyo） · 后台信息架构总检修（分组侧栏 + URL 同步 + hub 收编 + 深链修复）
+更新时间：2026-06-20（Asia/Tokyo） · 道具合成链落地（运行时 + 局内动作 + UI）+ 后台信息架构总检修
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
+
+## 最近变更（2026-06-20 / 道具合成链落地 — itemCraft 运行时 + 局内动作 + UI · 03/49）
+
+> 用户「继续推合成运行时」+ 拍板「仅局内、局外没有」。把 phase-49 的 item_recipes(item→item·此前只可 authoring、运行端从不消费 ⇒ 配方无效果) 接成可玩闭环。与装备升阶(tier_recipes)是两套独立系统。
+
+- **运行时核心** `src/lib/itemCraft.js`（纯函数·零 import·与 combatPipeline 同范式）：`countInventoryById` / `checkItemCraft` / `applyItemCraft`。id↔name 桥接兼容 string[] 背包；催化剂(is_consumed=false)不扣、`fail_behavior`(lose/keep)、`req_level` 门槛(null=不限)、`success_rate` 边界(严格 <)。`scripts/smoke-itemcraft.mjs` 23/23。`b69ad82`
+- **局内动作** `gameActions` 加 `action==='craftItem'` → `craftItemRecipe`：拉配方+材料+item_pool 桥接 → applyItemCraft → 写 gamevars 背包 + resolution 日志(成功 buff · 失败损材 damage · keep system)。缺料/等级不足抛中文错误。API 路由无动作白名单(直透分发)。`e646846`
+- **局内 UI** `ItemCraftModal.jsx`(同形装备 CraftModal) + GameClientPage「装备合成」旁加「道具合成」按钮(同 disabled 条件)。checkItemCraft 实时算材料 have/need。0 配方 ⇒ 列表「当前没有可用配方」(中性)。`4535b15`
+
+> 验证：smoke 23/23 · next lint/build ✔ · **浏览器实测**(登录 admin · raid#3 内 · 插临时配方→删)：「道具合成」按钮渲染于「装备合成」旁；模态列出配方(深界情报×1 · 80% · 失败扣材料)、材料 have/need 0/2·0/1 红字、材料不足→开始合成 disabled 正确；验证后临时配方已删、`item_recipes` 归 0(中性)。**局外(回港)合成用户明确不做。**
 
 ## 修复（2026-06-20 / 入场准备加入成功后模态不关闭 · `aeb0501`）
 
