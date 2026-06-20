@@ -13,6 +13,7 @@ import { normalizeGamevars } from '@/lib/roomState'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
+import ItemCraftModal from './ItemCraftModal'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
@@ -162,6 +163,7 @@ export default function GameClientPage() {
   const [busyAction, setBusyAction] = useState(null)  // 追踪当前执行的动作名，用于精确显示 loading
   const [panel, setPanel] = useState('log')
   const [craftOpen, setCraftOpen] = useState(false)
+  const [itemCraftOpen, setItemCraftOpen] = useState(false)
   const [extractOpen, setExtractOpen] = useState(false)
   const [joinLoadoutOpen, setJoinLoadoutOpen] = useState(false)
   // Phase 22: 死亡复盘 — alive→false 时拉 player_death_log 弹一次
@@ -819,6 +821,13 @@ export default function GameClientPage() {
     return result
   }
 
+  // Phase 03/49: 局内道具合成 — 提交 craftItem，成功/失败的细节由服务端写进日志面板
+  async function handleCraftItem(recipeId) {
+    const next = await runGameAction('craftItem', { recipeId })
+    if (next) toast('🧪 合成已执行 · 详见日志', 'success')
+    return next
+  }
+
   async function handleExtract(opts = {}) {
     const next = await runGameAction('extract', { leaveProbe: !!opts.leaveProbe }, { refreshEquipment: true })
     if (next) {
@@ -978,6 +987,12 @@ export default function GameClientPage() {
         player={meBase}
         equipments={equipments}
         onCraft={handleCraft}
+      />
+      <ItemCraftModal
+        open={itemCraftOpen}
+        onClose={() => setItemCraftOpen(false)}
+        player={meBase}
+        onCraft={handleCraftItem}
       />
       <LootModal
         open={!!lootPrompt}
@@ -1711,6 +1726,9 @@ export default function GameClientPage() {
                 <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                   <Btn variant="warn" onClick={() => setCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2}>
                     装备合成
+                  </Btn>
+                  <Btn variant="warn" onClick={() => setItemCraftOpen(true)} sx={{ width: '100%' }} disabled={!me?.alive || room.gamestate === 2}>
+                    道具合成
                   </Btn>
                 </div>
                 {effectiveMapConfig?.is_exit && (
