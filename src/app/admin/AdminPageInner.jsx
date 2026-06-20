@@ -8,23 +8,20 @@ import { useToast, Spinner } from './_shared/ui'
 import Sidebar from './_shared/Sidebar'
 import { TAB_BY_KEY, DEFAULT_TAB, ALL_TAB_KEYS } from './_shared/adminNav'
 import OverviewTab  from './_tabs/OverviewTab'
-import ItemsTab     from './_tabs/ItemsTab'
+import ItemsHub     from './_tabs/ItemsHub'
 import NpcsTab      from './_tabs/NpcsTab'
 import RoomsTab     from './_tabs/RoomsTab'
 import RulesTab     from './_tabs/RulesTab'
 import EquipmentTab  from './_tabs/EquipmentTab'
 import UsersTab      from './_tabs/UsersTab'
-import FragmentsTab  from './_tabs/FragmentsTab'
-import FragmentCombosTab from './_tabs/FragmentCombosTab'
+import FragmentsHub  from './_tabs/FragmentsHub'
 import ChambersTab   from './_tabs/ChambersTab'
-import ShopTab       from './_tabs/ShopTab'
-import PointsConfigTab from './_tabs/PointsConfigTab'
+import EconomyHub    from './_tabs/EconomyHub'
 import ClassesTab    from './_tabs/ClassesTab'
 import PortraitsTab  from './_tabs/PortraitsTab'
 import DbConsoleTab  from './_tabs/DbConsoleTab'
 import RoomsEditorTab from './_tabs/RoomsEditorTab'
-import RoomItemsTab  from './_tabs/RoomItemsTab'
-import NpcPlacementTab from './_tabs/NpcPlacementTab'
+import PlacementsHub from './_tabs/PlacementsHub'
 import AnalyticsTab  from './_tabs/AnalyticsTab'
 import NarrativeTab  from './_tabs/NarrativeTab'
 import ContentEngine from './_engine/ContentEngine'
@@ -113,26 +110,23 @@ export default function AdminPageInner() {
           <h2 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 700 }}>{TAB_BY_KEY[tab]?.label || '⚙️ 管理后台'}</h2>
 
           {tab === 'overview'  && <OverviewTab  items={items} npcs={npcs} maps={maps} rooms={rooms} />}
-          {tab === 'items'     && <ItemsTab     items={items} buffPool={buffPool} onRefresh={refresh} toast={toast} />}
+          {tab === 'items'     && <ItemsHub     items={items} buffPool={buffPool} onRefresh={refresh} toast={toast} />}
           {tab === 'npcs'      && <NpcsTab      npcs={npcs} onRefresh={refresh} toast={toast} />}
           {tab === 'rooms'     && <RoomsTab     rooms={rooms} onRefresh={refresh} toast={toast} />}
           {tab === 'roomsedit' && <RoomsEditorTab toast={toast} />}
-          {tab === 'placements' && <RoomItemsTab toast={toast} />}
-          {tab === 'npcplace'  && <NpcPlacementTab toast={toast} />}
+          {tab === 'placements' && <PlacementsHub toast={toast} />}
           {tab === 'users'     && <UsersTab     toast={toast} />}
           {tab === 'rules'     && <RulesTab     toast={toast} />}
           {tab === 'equipment' && <EquipmentTab toast={toast} />}
           {tab === 'narrative' && <NarrativeTab toast={toast} />}
-          {tab === 'fragments' && <FragmentsTab toast={toast} />}
-          {tab === 'combos'    && <FragmentCombosTab toast={toast} />}
+          {tab === 'fragments' && <FragmentsHub toast={toast} />}
           {tab === 'chambers'  && <ChambersTab toast={toast} />}
-          {tab === 'shop'      && <ShopTab toast={toast} />}
-          {tab === 'points'    && <PointsConfigTab toast={toast} />}
+          {tab === 'economy'   && <EconomyHub toast={toast} />}
           {tab === 'classes'   && <ClassesTab toast={toast} />}
           {tab === 'portraits' && <PortraitsTab toast={toast} />}
           {tab === 'analytics' && <AnalyticsTab toast={toast} />}
           {tab === 'db'        && <DbConsoleTab toast={toast} />}
-          {/* 内容引擎 tab（itemtags/itemrecipe/engine）由注册表驱动 */}
+          {/* engine 预览（已退役侧栏入口，仅深链 ?tab=engine）由注册表驱动 */}
           {ENGINE_TABS[tab] && <ContentEngine schema={ENGINE_TABS[tab]} toast={toast} />}
         </div>
       </div>
