@@ -769,6 +769,7 @@ export default function GameClientPage() {
     //   join 控制流将其存 per-player gamevars.runGoal（Phase 24b 接入），结算时评估写 runGoalResult。
     const next = await runGameAction('join', { loadout: payload }, { refreshEquipment: true })
     if (next) {
+      setJoinLoadoutOpen(false)   // 关键：加入成功后关闭入场准备模态，否则它始终盖在游戏画面上（zIndex 1000）= 看着「没反应」、再点又弹一次成功 toast
       toast('🎒 装载完成，已进入虚拟空间', 'success')
     }
   }
