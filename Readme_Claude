@@ -3,6 +3,13 @@
 更新时间：2026-06-20（Asia/Tokyo） · 道具合成链落地（运行时 + 局内动作 + UI）+ 后台信息架构总检修
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
+## 最近变更（2026-06-20 / 战斗钩子管线 P2 — 玩家→NPC 主伤害接管线 · 43）
+
+> P0+P1(`875e4b1`·passive_skills 加 stage/priority/condition_formula + combatPipeline.js 纯函数·中性未接线) 之后接 **P2 最小灰度**：`gameActions.resolveNpcAttackAction` 主伤害点 `calcDamage` → `collectModifiers`(攻击者 `me._pass` + NPC `_pass`) → **仅当存在 stage 非空 modifier 时** `runCombatPipeline`(注入 `evalFormula` 求值器) → damageRaw。
+> **中性闸口** `if(pipeMods.length)`：今天所有 `passive_skills.stage=NULL` ⇒ collectModifiers 返回 [] ⇒ 短路不进管线 ⇒ 与接管线前**逐字节等价**(守 Phase 37)。污染修正仍在管线之后。invincible/seckill/insurance/limit 旗标命中时追加 ⚙ 日志。
+> ⚠ 实现对齐：设计文档 02 的阶段名(additive/multiplicative/…)**早已过时**；实际 `combatPipeline.js` + 迁移 CHECK 用短名 `add/mult/invincible/special/limit/insurance/seckill`(`runCombatPipeline(ctx,evalFn)` 而非文档的 `(base,ctx,mods)`)——接线以代码为准。
+> 验证：`smoke-pipeline.mjs` 17/17 + next build ✔。其余战斗路径(PvP/NPC 反击/探针)= P3；后台填 stage 的 authoring = P4。`5e534fc`
+
 ## 最近变更（2026-06-20 / 道具合成链落地 — itemCraft 运行时 + 局内动作 + UI · 03/49）
 
 > 用户「继续推合成运行时」+ 拍板「仅局内、局外没有」。把 phase-49 的 item_recipes(item→item·此前只可 authoring、运行端从不消费 ⇒ 配方无效果) 接成可玩闭环。与装备升阶(tier_recipes)是两套独立系统。
