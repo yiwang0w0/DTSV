@@ -26,6 +26,7 @@ import {
   triggerPassives,
 } from '@/lib/equipmentEngine'
 import { computeCombatStats } from '@/lib/combatStats'
+import { applyItemCraft } from '@/lib/itemCraft'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, POINT_LABEL } from '@/lib/server/points'
@@ -2133,6 +2134,54 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
   return persistResolution(client, room, resolution)
 }
 
+// Phase 03/49: 道具合成（局内）—— 玩家显式选一条 item_recipes 配方，交 itemCraft 运行时
+//   校验材料 → 掷成功率 → 扣材出产物（或按 fail_behavior 处理）。只动 gamevars 背包（道具名数组），
+//   不碰战斗/装备/经济（守 Phase 37：0 配方 ⇒ 客户端无可合成项 ⇒ 永不触发）。
+//   运行只认 item_id；背包是名数组，故按 item_pool 现拉 id↔name 双向映射桥接。
+async function craftItemRecipe(client, room, gamevars, user, payload) {
+  const player = getPlayer(gamevars, user.id)
+  if (!player?.alive) throw new Error('阵亡玩家无法合成')
+  if (player.extracted) throw new Error('已撤离玩家无法合成')
+  const recipeId = Number(payload?.recipeId)
+  if (!Number.isFinite(recipeId)) throw new Error('缺少配方 ID')
+
+  const [recipeRes, ingRes, itemsRes] = await Promise.all([
+    client.from('item_recipes').select('*').eq('id', recipeId).eq('enabled', true).maybeSingle(),
+    client.from('item_recipe_ingredients').select('item_id, quantity, is_consumed').eq('recipe_id', recipeId),
+    client.from('item_pool').select('id, name'),
+  ])
+  const recipe = recipeRes?.data
+  if (!recipe) throw new Error('配方不存在或已禁用')
+  recipe.ingredients = ingRes?.data || []
+
+  const idByName = new Map()
+  const nameById = new Map()
+  for (const it of itemsRes?.data || []) { idByName.set(it.name, it.id); nameById.set(it.id, it.name) }
+
+  // 运行端无玩家等级概念时 player.level 为 undefined ⇒ 传 null ⇒ itemCraft 不做等级门槛（回落不限制）。
+  const out = applyItemCraft(recipe, player.inventory || [], { idByName, nameById }, Math.random(), player.level ?? null)
+  if (!out.ok) {
+    if (out.reason === 'level') throw new Error('等级不足，无法合成此配方')
+    const txt = (out.missing || []).map(m => `${nameById.get(m.itemId) || `#${m.itemId}`}×${m.need}(持有 ${m.have})`).join('、')
+    throw new Error(`材料不足：${txt}`)
+  }
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  setResolutionPlayer(resolution, user.id, { ...player, inventory: out.nextInventory })
+
+  const consumedTxt = (out.consumed || []).map(c => `${c.name}×${c.qty}`).join(' + ') || '材料'
+  if (out.success) {
+    const got = out.produced ? `${out.produced.name}×${out.produced.qty}` : '产物'
+    appendResolutionLog(resolution, `${player.name} 合成成功：${consumedTxt} → ${got}`, 'buff')
+  } else if (recipe.fail_behavior === 'keep_materials') {
+    appendResolutionLog(resolution, `${player.name} 合成失败（${recipe.name}）· 材料保留`, 'system')
+  } else {
+    appendResolutionLog(resolution, `${player.name} 合成失败（${recipe.name}）· ${consumedTxt} 损毁`, 'damage')
+  }
+
+  return persistResolution(client, room, resolution)
+}
+
 async function dismissLootPrompt(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player) throw new Error('你还未加入该对局')
@@ -2775,6 +2824,11 @@ export async function executeGameAction(client, user, payload, options = {}) {
 
   if (payload.action === 'useItem') {
     return performItemUse(client, room, gamevars, user, payload.itemName)
+  }
+
+  // Phase 03/49: 道具合成（局内·消费 item_recipes）
+  if (payload.action === 'craftItem') {
+    return craftItemRecipe(client, room, gamevars, user, payload)
   }
 
   if (payload.action === 'lootCorpse') {
