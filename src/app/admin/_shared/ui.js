@@ -154,6 +154,30 @@ export function Drawer({ open, onClose, title, children, width = 680 }) {
   )
 }
 
+// SegTabs — 受控分段按钮组（替代 EquipmentTab/NarrativeTab/AnalyticsTab/RulesTab 各自内联的雷同 pill 子导航）。
+//   sections: [{ key, label, count? }]；视觉沿用现有壳 tab pill（描边态·选中半透明 accent 底）。
+//   gap 默认 6（RulesTab 用 8）；style 可叠 marginBottom 等；wrap 开 flexWrap（Narrative 用）。
+export function SegTabs({ sections, active, onChange, wrap = false, gap = 6, style }) {
+  return (
+    <div style={{ display: 'flex', gap, ...(wrap ? { flexWrap: 'wrap' } : {}), ...style }}>
+      {(sections || []).map((s) => {
+        const on = active === s.key
+        return (
+          <button key={s.key} onClick={() => onChange(s.key)} style={{
+            padding: '8px 18px', borderRadius: 8, cursor: 'pointer',
+            border: `1px solid ${on ? C.accent : C.border}`,
+            background: on ? 'rgba(88,166,255,0.12)' : 'transparent',
+            color: on ? C.accent : C.dim, fontSize: 13, fontWeight: 600,
+          }}>
+            {s.label}
+            {s.count !== undefined && <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.65 }}>({s.count})</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function useToast() {
   const [toasts, setToasts] = useState([])
   const show = useCallback((msg, type = 'success') => {

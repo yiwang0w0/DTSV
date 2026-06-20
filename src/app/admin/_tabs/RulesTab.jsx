@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN } from '../_shared/ui'
+import { BTN, SegTabs } from '../_shared/ui'
 import RuleRow from './RulesRuleRow'
 import RulesBuffModal, { BUFF_TYPE_META } from './RulesBuffModal'
 
@@ -48,13 +48,10 @@ export default function RulesTab({ toast }) {
   return (
     <div>
       {/* 子导航 */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {[{ k: 'rules', label: '📋 全局规则' }, { k: 'buffs', label: '✨ Buff 池', count: buffs.length }].map(s => (
-          <button key={s.k} onClick={() => setSection(s.k)} style={{ padding: '8px 18px', borderRadius: 8, border: `1px solid ${section === s.k ? '#58a6ff' : '#30363d'}`, background: section === s.k ? 'rgba(88,166,255,0.12)' : 'transparent', color: section === s.k ? '#58a6ff' : '#8b949e', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            {s.label}{s.count !== undefined && <span style={{ marginLeft: 4, fontSize: 11, opacity: 0.65 }}>({s.count})</span>}
-          </button>
-        ))}
-      </div>
+      <SegTabs
+        sections={[{ key: 'rules', label: '📋 全局规则' }, { key: 'buffs', label: '✨ Buff 池', count: buffs.length }]}
+        active={section} onChange={setSection} gap={8} style={{ marginBottom: 20 }}
+      />
 
       {/* 规则编辑 */}
       {section === 'rules' && (
