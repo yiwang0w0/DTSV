@@ -28,7 +28,7 @@ import ContentEngine from './_engine/ContentEngine'
 import { ENGINE_TABS } from './_engine/schemas'
 
 export default function AdminPageInner() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router   = useRouter()
   const pathname = usePathname()
   const sp       = useSearchParams()
@@ -51,9 +51,11 @@ export default function AdminPageInner() {
   const [rooms,    setRooms]    = useState([])
   const [buffPool, setBuffPool] = useState([])
 
+  // 等鉴权加载完成再判定（authLoading 期间不重定向）——否则硬加载/刷新/深链会在 session 水合前
+  // 把 admin 误踢回首页（user 初值为 null 而非 undefined，旧的 `!== undefined` 守卫永远为真、首帧即踢）。
   useEffect(() => {
-    if (user !== undefined && (!user || !isAdmin(user))) router.replace('/')
-  }, [router, user])
+    if (!authLoading && (!user || !isAdmin(user))) router.replace('/')
+  }, [router, user, authLoading])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -78,7 +80,8 @@ export default function AdminPageInner() {
     }
   }, [toast])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  // 鉴权就绪且确为 admin 才拉数据（避免硬加载时 session 未水合的空查询）。
+  useEffect(() => { if (!authLoading && user && isAdmin(user)) loadAll() }, [loadAll, user, authLoading])
 
   async function refresh(which) {
     if (which === 'items') {
@@ -95,7 +98,8 @@ export default function AdminPageInner() {
     }
   }
 
-  if (!user) return <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>请先登录</div>
+  if (authLoading) return <Spinner />
+  if (!user || !isAdmin(user)) return <div style={{ textAlign: 'center', padding: 60, color: '#8b949e' }}>请先登录</div>
   if (loading) return <Spinner />
 
   return (
