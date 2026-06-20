@@ -1,7 +1,25 @@
 # Readme_Claude
 
-更新时间：2026-06-04（Asia/Tokyo） · 全模块大查(速度/冗余/割裂) 三波修复（Phase 40-41）
+更新时间：2026-06-20（Asia/Tokyo） · 后台信息架构总检修（分组侧栏 + URL 同步 + hub 收编 + 深链修复）
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
+
+## 最近变更（2026-06-20 / 后台信息架构总检修 — 内容引擎 + 分组侧栏 + URL 同步 + hub 收编）
+
+> 用户：「后台标签太多、相似功能被拆成几部分、交互极不友好」+「一切改动后必须连浏览器截图验证」。本轮把后台从 23 个横排 tab 重做为分组侧栏，并把同域拆散入口收编成 hub；全程登录 admin（`2949215486@qq.com`·显示名 kanata）在 dtsv.vercel.app 浏览器实测。
+
+**重组 A–F（已 push）**：23 横排 tab → 左侧 4 大类折叠侧栏（内容创作 / 世界·投放 / 规则·经济 / 运营·监控）；`page.js` 拆 `<Suspense><AdminPageInner/>` 薄壳（useSearchParams 需 Suspense 边界）；URL 同步 `?tab=`+`?section=`；抽共享 `<SegTabs>` 去掉 4 份重复 pill 子导航；内容引擎 schema 注册表 `_engine/schemas/index.js`；engine 预览退役侧栏入口（仅深链）。导航单源 `_shared/adminNav.js`。
+
+**重组 G·hub 收编（本次·已 push·实测）**：同域拆散入口合并为 4 个 hub 壳 tab（SegTabs 子导航·19 叶子组件零改）——
+- 🔮 道具 = 道具池 + 系列标签 + 合成配方（原 items/itemtags/itemrecipe 3 入口）
+- 📡 残片 = 残片池 + 合成配方（原 fragments/combos）
+- 🛒 经济 = 商店目录 + 点数兑换（原 shop/points）
+- 🎯 投放 = 道具投放 + 敌人投放（原 placements/npcplace·本就都叫「投放」）
+
+侧栏入口 **23 → 17**。新增 `_tabs/{ItemsHub,FragmentsHub,EconomyHub,PlacementsHub}.jsx`。
+
+**附带修复·深链硬加载被踢回首页（本次·已 push·实测）**：AuthContext `user` 初值为 null（非 undefined），AdminPageInner 旧守卫 `user!==undefined && !isAdmin` 首帧恒真 → 硬加载/刷新 `/admin?tab=...` 在 session 水合前即 `router.replace('/')`，令 Phase D 的 `?tab=`/`?section=` 深链仅 SPA 可用、刷新必丢。改用 AuthContext 暴露的 `loading`：authLoading 期间只显 Spinner 不重定向；数据拉取也等鉴权就绪且确为 admin 再跑。非 admin/登出仍照常重定向。
+
+> 验证（浏览器 · 登录 admin 实测 · dtsv.vercel.app）：4 hub 子导航逐个切换正常、`?section=` 深链保持；硬加载 `/admin?tab=economy&section=points` 现稳定落在该子页（修复前必跳首页）；全 tab 横向无溢出（DbConsole / 概览 / 投放编辑器 10×10 网格 `hOverflow=false`）。next lint ✔ / next build ✔（唯一报错为既存无关的 `/api/br/topology` 本地 env 预渲染）。
 
 ## 最近变更（2026-06-04 / Phase 40-41 — 全模块大查·速度+冗余+割裂 三波）
 
