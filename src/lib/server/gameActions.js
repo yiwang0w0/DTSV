@@ -2,6 +2,7 @@ import {
   applyBuff,
   calcDamage,
   calcItemEffect,
+  evalFormula,
   getInitPlayerStats,
   getRule,
   getSearchChances,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/equipmentEngine'
 import { computeCombatStats } from '@/lib/combatStats'
 import { applyItemCraft } from '@/lib/itemCraft'
+import { collectModifiers, runCombatPipeline } from '@/lib/combatPipeline'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, POINT_LABEL } from '@/lib/server/points'
@@ -1677,12 +1679,32 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   let instanceHpAfter = instance.hp
 
   if (playerHit) {
-    const damageRaw = calcDamage(
-      me,
-      buildCombatNpc(instance),                       // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
-      rules,
-      weapon?.tier?.sub_kind || '',
-    )
+    const npcCombat = buildCombatNpc(instance)         // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
+    let damageRaw = calcDamage(me, npcCombat, rules, weapon?.tier?.sub_kind || '')
+
+    // P2 战斗钩子管线（玩家→NPC 主伤害）：仅当存在 stage 非空 modifier 时介入。
+    //   空池（今天所有 passive_skills.stage=NULL ⇒ collectModifiers 返回 []）⇒ 短路不进管线 ⇒
+    //   damageRaw 逐值不变（守 Phase 37 中性铁律·与接管线前逐字节等价）。
+    const pipeMods = collectModifiers(me._pass || [], npcCombat._pass || [])
+    if (pipeMods.length) {
+      const piped = runCombatPipeline({
+        base: damageRaw,
+        defenderHp: instance.hp,
+        modifiers: pipeMods,
+        vars: {
+          atk: me.atk, def: npcCombat.def, hp: me.hp, maxHp: me.maxHp,
+          enemyHp: instance.hp, targetHp: instance.hp, targetMaxHp: instance.maxHp,
+        },
+      }, evalFormula)
+      damageRaw = piped.damage
+      const fl = []
+      if (piped.flags.invincible) fl.push('无敌·伤害归 0')
+      if (piped.flags.seckill)    fl.push('秒杀')
+      if (piped.flags.insurance)  fl.push('保命·留 1 血')
+      if (piped.flags.limited)    fl.push('限伤')
+      if (fl.length) appendResolutionLog(resolution, `⚙ 战斗管线：${fl.join(' / ')}`, 'buff')
+    }
+
     const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
       'on_attack',
       me,
