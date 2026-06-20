@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '../layout'
 import { isAdmin } from '@/lib/auth'
 import { useToast, Spinner } from './_shared/ui'
 import Sidebar from './_shared/Sidebar'
-import { TAB_BY_KEY, DEFAULT_TAB } from './_shared/adminNav'
+import { TAB_BY_KEY, DEFAULT_TAB, ALL_TAB_KEYS } from './_shared/adminNav'
 import OverviewTab  from './_tabs/OverviewTab'
 import ItemsTab     from './_tabs/ItemsTab'
 import NpcsTab      from './_tabs/NpcsTab'
@@ -33,9 +33,20 @@ import { ENGINE_TABS } from './_engine/schemas'
 export default function AdminPageInner() {
   const { user } = useAuth()
   const router   = useRouter()
+  const pathname = usePathname()
+  const sp       = useSearchParams()
   const { show: toast, Container: ToastContainer } = useToast()
 
-  const [tab,      setTab]      = useState(DEFAULT_TAB)
+  // tab 以 URL ?tab= 为单一真源（刷新/深链/后退自动保持）；非法/缺省回落 DEFAULT_TAB。
+  const urlTab = sp.get('tab')
+  const tab    = urlTab && ALL_TAB_KEYS.has(urlTab) ? urlTab : DEFAULT_TAB
+  const goTab  = useCallback((key) => {
+    const next = new URLSearchParams(sp.toString())
+    next.set('tab', key)
+    next.delete('section')   // 切顶层 tab 时清掉上一个壳 tab 的 section
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+  }, [router, pathname, sp])
+
   const [loading,  setLoading]  = useState(true)
   const [items,    setItems]    = useState([])
   const [npcs,     setNpcs]     = useState([])
@@ -95,7 +106,7 @@ export default function AdminPageInner() {
       <ToastContainer />
 
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <Sidebar active={tab} onChange={setTab} counts={{ items: items.length, npcs: npcs.length, rooms: rooms.length }} />
+        <Sidebar active={tab} onChange={goTab} counts={{ items: items.length, npcs: npcs.length, rooms: rooms.length }} />
 
         {/* 内容区：minWidth:0 防宽内容(DB 控制台/图表/ContentEngine grid)撑爆 flex 子项 */}
         <div style={{ flex: 1, minWidth: 0 }}>
