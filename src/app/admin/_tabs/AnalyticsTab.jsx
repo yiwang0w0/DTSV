@@ -1,11 +1,10 @@
 'use client'
-import { useState } from 'react'
 import PlaytestTab        from './PlaytestTab'
 import ProbeTelemetryTab  from './ProbeTelemetryTab'
-import { SegTabs } from '../_shared/ui'
+import { SegTabs, useUrlSection } from '../_shared/ui'
 
 export default function AnalyticsTab({ toast }) {
-  const [section, setSection] = useState('playtest')
+  const [section, setSection] = useUrlSection(['playtest', 'probes'], 'playtest')
   const sections = [
     { key: 'playtest', label: '📈 Playtest 总览' },
     { key: 'probes',   label: '🛰️ 探针遥测' },

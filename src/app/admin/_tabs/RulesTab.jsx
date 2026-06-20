@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { BTN, SegTabs } from '../_shared/ui'
+import { BTN, SegTabs, useUrlSection } from '../_shared/ui'
 import RuleRow from './RulesRuleRow'
 import RulesBuffModal, { BUFF_TYPE_META } from './RulesBuffModal'
 
@@ -17,7 +17,7 @@ export default function RulesTab({ toast }) {
   const [rules, setRules]       = useState([])
   const [buffs, setBuffs]       = useState([])
   const [loading, setLoading]   = useState(true)
-  const [section, setSection]   = useState('rules')
+  const [section, setSection]   = useUrlSection(['rules', 'buffs'], 'rules')
   const [activeCategory, setActiveCategory]   = useState('combat')
   const [buffModal, setBuffModal]             = useState(false)
   const [editBuff, setEditBuff]               = useState(null)

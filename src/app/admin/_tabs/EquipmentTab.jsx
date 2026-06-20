@@ -1,11 +1,10 @@
 'use client'
-import { useState } from 'react'
 import EquipmentSeriesSection   from './EquipmentSeriesSection'
 import EquipmentPassivesSection from './EquipmentPassivesSection'
-import { SegTabs } from '../_shared/ui'
+import { SegTabs, useUrlSection } from '../_shared/ui'
 
 export default function EquipmentTab({ toast }) {
-  const [section, setSection] = useState('series')
+  const [section, setSection] = useUrlSection(['series', 'passives'], 'series')
 
   const sections = [
     { key: 'series',   label: '🗡️ 系列 & 升阶树' },

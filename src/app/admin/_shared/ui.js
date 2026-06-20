@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { evalFormula } from '@/lib/gameEngine'
 
 export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
@@ -176,6 +177,22 @@ export function SegTabs({ sections, active, onChange, wrap = false, gap = 6, sty
       })}
     </div>
   )
+}
+
+// useUrlSection — 壳 tab 的二级 section 以 URL ?section= 为真源（深链 ?tab=narrative&section=endings·后退保持）。
+//   validKeys 校验·脏值/缺省回落 defaultKey。需在 Suspense 边界内（admin 已由 page.js 薄壳包裹）。
+export function useUrlSection(validKeys, defaultKey) {
+  const sp = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const raw = sp.get('section')
+  const section = raw && validKeys.includes(raw) ? raw : defaultKey
+  const setSection = useCallback((key) => {
+    const next = new URLSearchParams(sp.toString())
+    next.set('section', key)
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+  }, [sp, router, pathname])
+  return [section, setSection]
 }
 
 export function useToast() {
