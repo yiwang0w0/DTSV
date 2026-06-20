@@ -28,10 +28,12 @@ import NarrativeTab  from './_tabs/NarrativeTab'
 import ContentEngine from './_engine/ContentEngine'
 import itemPoolPreviewSchema from './_engine/schemas/itemPoolPreview'
 import itemRecipeSchema from './_engine/schemas/itemRecipe'
+import itemTagSchema from './_engine/schemas/itemTag'
 
 const TABS = [
   { key: 'overview',  label: '📊 概览' },
   { key: 'items',     label: '🔮 道具池',  dataKey: 'items' },
+  { key: 'itemtags',  label: '🏷️ 道具标签' },
   { key: 'npcs',      label: '👻 实体',      dataKey: 'npcs' },
   { key: 'rooms',     label: '🌀 对局',      dataKey: 'rooms' },
   { key: 'roomsedit', label: '🧭 房间编辑器' },
@@ -135,6 +137,7 @@ export default function AdminPage() {
 
       {tab === 'overview'  && <OverviewTab  items={items} npcs={npcs} maps={maps} rooms={rooms} />}
       {tab === 'items'     && <ItemsTab     items={items} buffPool={buffPool} onRefresh={refresh} toast={toast} />}
+      {tab === 'itemtags'  && <ContentEngine schema={itemTagSchema} toast={toast} />}
       {tab === 'npcs'      && <NpcsTab      npcs={npcs} onRefresh={refresh} toast={toast} />}
       {tab === 'rooms'     && <RoomsTab     rooms={rooms} onRefresh={refresh} toast={toast} />}
       {tab === 'roomsedit' && <RoomsEditorTab toast={toast} />}

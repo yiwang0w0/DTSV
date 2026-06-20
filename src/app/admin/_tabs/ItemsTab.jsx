@@ -60,15 +60,25 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
       .then(({ data }) => setChambers(data || []))
   }, [])
 
+  // Phase 50: 道具系列标签（item_tags 受管词表 → item_pool.tag_ids 多标签）
+  const [tags, setTags] = useState([])
+  const [tagFilter, setTagFilter] = useState(null)   // 选中的标签 id（null=不按标签筛）
+  useEffect(() => {
+    supabase.from('item_tags').select('id,name,color,sort_order,enabled').order('sort_order')
+      .then(({ data }) => setTags(data || []))
+  }, [])
+  const tagOf = (id) => tags.find(t => t.id === id)
+
   const filtered = items.filter(i =>
     (filter === 'all' || i.kind === filter) &&
+    (!tagFilter || (i.tag_ids || []).includes(tagFilter)) &&
     (!search || i.name.includes(search) || (i.description || '').includes(search))
   )
 
   function openAdd() {
     setEditItem({
       name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1,
-      chamber_template_ids: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
+      chamber_template_ids: [], tag_ids: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
       // Phase 17: 使用模式 + 情报文本
       use_mode: 'consume', inspect_text: '',
     })
@@ -78,6 +88,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
     setEditItem({
       ...item,
       chamber_template_ids: item.chamber_template_ids || [],
+      tag_ids: item.tag_ids || [],
       on_use_buff_ids: item.on_use_buff_ids || [],
       heal_formula: item.heal_formula || '',
       atk_formula: item.atk_formula || '',
@@ -123,6 +134,20 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
               </button>
             ))}
           </div>
+          {tags.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', borderLeft: '1px solid #30363d', paddingLeft: 8 }}>
+              <span style={{ fontSize: 11, color: '#484f58' }}>🏷️</span>
+              {tags.map(t => {
+                const active = tagFilter === t.id
+                return (
+                  <button key={t.id} onClick={() => setTagFilter(active ? null : t.id)}
+                    style={{ padding: '5px 11px', borderRadius: 20, fontSize: 12, cursor: 'pointer', border: `1px solid ${active ? t.color : '#30363d'}`, background: active ? `${t.color}22` : 'transparent', color: active ? t.color : '#8b949e' }}>
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
         <button onClick={openAdd} style={BTN('#58a6ff', '#fff')}>+ 新增道具</button>
       </div>
@@ -158,6 +183,16 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                     : <button onClick={() => setConfirmDel(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#484f58', fontSize: 15 }}>🗑️</button>}
                 </div>
               </div>
+              {(item.tag_ids || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                  {(item.tag_ids || []).map(tid => {
+                    const t = tagOf(tid)
+                    return t
+                      ? <span key={tid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: `${t.color}1a`, color: t.color, border: `1px solid ${t.color}33` }}>{t.name}</span>
+                      : <span key={tid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, color: '#f85149' }}>⚠#{tid}</span>
+                  })}
+                </div>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                 {(item.chamber_template_ids || []).slice(0, 5).map(cid => <span key={cid} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(88,166,255,0.1)', color: '#58a6ff' }}>{chambers.find(x => x.id === cid)?.name || `#${cid}`}</span>)}
                 {(item.chamber_template_ids || []).length > 5 && <span style={{ fontSize: 10, color: '#8b949e' }}>+{item.chamber_template_ids.length - 5}</span>}
@@ -327,6 +362,26 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                   )
                 })}
               </div>
+            </div>
+
+            {/* ─── 系列标签（Phase 50） ─── */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ ...LABEL, marginBottom: 8, display: 'block' }}>🏷️ 系列标签（{(editItem.tag_ids || []).length} 已选）</label>
+              {tags.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {tags.map(t => {
+                    const sel = (editItem.tag_ids || []).includes(t.id)
+                    return (
+                      <button key={t.id} onClick={() => setEditItem({ ...editItem, tag_ids: toggleArr(editItem.tag_ids || [], t.id) })}
+                        style={{ padding: '4px 11px', borderRadius: 16, fontSize: 11, cursor: 'pointer', border: `1px solid ${sel ? t.color : '#30363d'}`, background: sel ? `${t.color}22` : 'transparent', color: sel ? t.color : '#8b949e' }}>
+                        {t.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ ...HINT, padding: '8px 0' }}>暂无标签，去「🏷️ 道具标签」tab 先建标签</div>
+              )}
             </div>
 
             {/* ─── 操作按钮 ─── */}
