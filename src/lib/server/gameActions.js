@@ -1627,6 +1627,37 @@ async function resolveSearchAction(client, room, gamevars, user) {
 //  Phase 16: 单次袭击战斗（无持续 battle 状态）
 //  流程：命中判定 → 命中扣 HP → 击杀/未击杀分支 → 反击判定（独立）→ 反击命中扣玩家血 → 清 encounter
 // ══════════════════════════════════════════════════════
+// ── 战斗钩子管线 · 统一中性闸口 helper（P2/P3 共用·守 Phase 37 中性铁律）────────────
+//   把「base 主伤害 → 扣血」之间的管线接线收成一处：仅当存在 stage 非空 modifier 时介入。
+//   空池（今天所有 passive_skills.stage=NULL ⇒ collectModifiers 返回 []）⇒ 直接 return damageRaw，
+//   与未接管线逐字节等价（smoke-pipeline.mjs 已对 runCombatPipeline 空池恒等做 500 组随机断言）。
+//   attacker/defender 传 buildCombat*/computeCombatStats 产物（取 _pass 与 atk/def/hp/maxHp）；
+//   defenderHp 供 insurance（保命）/seckill（秒杀）阶段 clamp；label 标注是哪条战斗路径，便于线上观测。
+//   命中 invincible/seckill/insurance/limit 时往 resolution 追一条 'buff' 日志。
+function applyCombatPipeline(damageRaw, { attacker, defender, defenderHp, resolution, label } = {}) {
+  const mods = collectModifiers(attacker?._pass || [], defender?._pass || [])
+  if (!mods.length) return damageRaw   // 中性短路：与未接管线逐值等价
+  const piped = runCombatPipeline({
+    base: damageRaw,
+    defenderHp,
+    modifiers: mods,
+    vars: {
+      atk: attacker?.atk, def: defender?.def,
+      hp: attacker?.hp, maxHp: attacker?.maxHp,
+      enemyHp: defenderHp, targetHp: defenderHp, targetMaxHp: defender?.maxHp,
+    },
+  }, evalFormula)
+  const fl = []
+  if (piped.flags.invincible) fl.push('无敌·伤害归 0')
+  if (piped.flags.seckill)    fl.push('秒杀')
+  if (piped.flags.insurance)  fl.push('保命·留 1 血')
+  if (piped.flags.limited)    fl.push('限伤')
+  if (fl.length && resolution) {
+    appendResolutionLog(resolution, `⚙ 战斗管线${label ? `（${label}）` : ''}：${fl.join(' / ')}`, 'buff')
+  }
+  return piped.damage
+}
+
 async function resolveNpcAttackAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法攻击')
@@ -1681,29 +1712,10 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   if (playerHit) {
     const npcCombat = buildCombatNpc(instance)         // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
     let damageRaw = calcDamage(me, npcCombat, rules, weapon?.tier?.sub_kind || '')
-
-    // P2 战斗钩子管线（玩家→NPC 主伤害）：仅当存在 stage 非空 modifier 时介入。
-    //   空池（今天所有 passive_skills.stage=NULL ⇒ collectModifiers 返回 []）⇒ 短路不进管线 ⇒
-    //   damageRaw 逐值不变（守 Phase 37 中性铁律·与接管线前逐字节等价）。
-    const pipeMods = collectModifiers(me._pass || [], npcCombat._pass || [])
-    if (pipeMods.length) {
-      const piped = runCombatPipeline({
-        base: damageRaw,
-        defenderHp: instance.hp,
-        modifiers: pipeMods,
-        vars: {
-          atk: me.atk, def: npcCombat.def, hp: me.hp, maxHp: me.maxHp,
-          enemyHp: instance.hp, targetHp: instance.hp, targetMaxHp: instance.maxHp,
-        },
-      }, evalFormula)
-      damageRaw = piped.damage
-      const fl = []
-      if (piped.flags.invincible) fl.push('无敌·伤害归 0')
-      if (piped.flags.seckill)    fl.push('秒杀')
-      if (piped.flags.insurance)  fl.push('保命·留 1 血')
-      if (piped.flags.limited)    fl.push('限伤')
-      if (fl.length) appendResolutionLog(resolution, `⚙ 战斗管线：${fl.join(' / ')}`, 'buff')
-    }
+    // P2 战斗钩子管线（玩家→NPC 主伤害）：走统一中性闸口 helper（空池逐值不变·守 Phase 37）。
+    damageRaw = applyCombatPipeline(damageRaw, {
+      attacker: me, defender: npcCombat, defenderHp: instance.hp, resolution,
+    })
 
     const { attackerUpdated: meAfterAttack, logs: passiveLogs } = triggerPassives(
       'on_attack',
@@ -1833,11 +1845,14 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       const npcHit = Math.random() < npcAccuracy
       if (npcHit) {
         const cur = getResolutionPlayer(resolution, user.id)
-        const damageIn = calcDamage(
-          buildCombatNpc(instance, instanceHpAfter),   // Phase 37: NPC 反击 attacker 走统一引擎（当前 HP 覆盖）
-          buildCombatPlayer(cur, myEquips),
-          rules, '',
-        )
+        const npcAttacker = buildCombatNpc(instance, instanceHpAfter)   // Phase 37: NPC 反击 attacker 走统一引擎（当前 HP 覆盖）
+        const playerDefender = buildCombatPlayer(cur, myEquips)
+        let damageIn = calcDamage(npcAttacker, playerDefender, rules, '')
+        // P3 战斗钩子管线（NPC 反击玩家）：同 P2 中性闸口（空池逐值不变·守 Phase 37）。
+        damageIn = applyCombatPipeline(damageIn, {
+          attacker: npcAttacker, defender: playerDefender, defenderHp: cur.hp || 0,
+          resolution, label: 'NPC 反击',
+        })
         const playerHpAfter = Math.max(0, (cur.hp || 0) - damageIn)
         setResolutionPlayer(resolution, user.id, {
           ...cur,
@@ -1926,7 +1941,12 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
   const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
 
-  const damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '')
+  let damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '')
+  // P3 战斗钩子管线（PvP 主伤害）：同 P2 中性闸口（空池逐值不变·守 Phase 37）；插在 on_attack 被动前，与 PvE 同序。
+  damage = applyCombatPipeline(damage, {
+    attacker: me, defender: target, defenderHp: target.hp || 0,
+    resolution, label: 'PvP 攻击',
+  })
   const { attackerUpdated: meAfterAttack, defenderUpdated: targetAfterPassive, logs: passiveLogs } = triggerPassives(
     'on_attack',
     me,
@@ -1953,6 +1973,11 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
       const counterHit = Math.random() < counterAccuracy
       if (counterHit) {
         counterDamage = calcDamage(target, me, rules, '')
+        // P3 战斗钩子管线（PvP 反击）：attacker=反击方 target，defender=原攻击者 me（空池逐值不变·守 Phase 37）。
+        counterDamage = applyCombatPipeline(counterDamage, {
+          attacker: target, defender: me, defenderHp: attackerHpAfter,
+          resolution, label: 'PvP 反击',
+        })
         attackerHpAfter = Math.max(0, attackerHpAfter - counterDamage)
         appendResolutionLog(
           resolution,
@@ -3273,7 +3298,12 @@ async function actOnProbe(client, room, gamevars, user, action) {
     hp: probeEnc.hp,
   })
   const myHp = player.hp || 0   // HP 记账仍以玩家存储血为准（me.hp 仅供公式，不改存档语义）
-  const probeDmgFromMe = calcDamage(me, probeE, rules, '')
+  let probeDmgFromMe = calcDamage(me, probeE, rules, '')
+  // P3 战斗钩子管线（探针·我打）：attacker=me，defender=探针（probeE 无 _pass → modifier 仅来自玩家被动·空池逐值不变·守 Phase 37）。
+  probeDmgFromMe = applyCombatPipeline(probeDmgFromMe, {
+    attacker: me, defender: probeE, defenderHp: probeEnc.hp,
+    resolution, label: '探针·我打',
+  })
   const probeHpAfter = Math.max(0, probeEnc.hp - probeDmgFromMe)
   const probeKilled = probeHpAfter <= 0
 
@@ -3281,6 +3311,11 @@ async function actOnProbe(client, room, gamevars, user, action) {
   let probeDmgToMe = 0
   if (!probeKilled) {
     probeDmgToMe = calcDamage(probeE, me, rules, '')
+    // P3 战斗钩子管线（探针·打我）：attacker=探针 probeE，defender=me（空池逐值不变·守 Phase 37）。
+    probeDmgToMe = applyCombatPipeline(probeDmgToMe, {
+      attacker: probeE, defender: me, defenderHp: myHp,
+      resolution, label: '探针·打我',
+    })
     myHpAfter = Math.max(0, myHp - probeDmgToMe)
   }
 
