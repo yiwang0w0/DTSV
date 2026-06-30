@@ -1635,7 +1635,14 @@ async function resolveSearchAction(client, room, gamevars, user) {
 //   defenderHp 供 insurance（保命）/seckill（秒杀）阶段 clamp；label 标注是哪条战斗路径，便于线上观测。
 //   命中 invincible/seckill/insurance/limit 时往 resolution 追一条 'buff' 日志。
 function applyCombatPipeline(damageRaw, { attacker, defender, defenderHp, resolution, label } = {}) {
-  const mods = collectModifiers(attacker?._pass || [], defender?._pass || [])
+  // 收集 modifier 来源：双方装备被动 _pass + 双方职业 classPerks.pipeline_modifiers（Phase 43 P4）。
+  //   collectModifiers 对非数组源安全忽略；全空 ⇒ [] ⇒ 下方短路（守 Phase 37 中性）。
+  const mods = collectModifiers(
+    attacker?._pass || [],
+    defender?._pass || [],
+    attacker?.classPerks?.pipeline_modifiers || [],
+    defender?.classPerks?.pipeline_modifiers || [],
+  )
   if (!mods.length) return damageRaw   // 中性短路：与未接管线逐值等价
   const piped = runCombatPipeline({
     base: damageRaw,

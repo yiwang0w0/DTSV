@@ -21,6 +21,10 @@ export const PERK_WHITELIST = [
   'omega_window_bonus',   // Ω-段倒计时 +N 回合
   'fragment_drop_bonus',  // 残片掉率 +N（绝对加值）
   'catalog_unlock_tag',   // 解锁 shop_catalog.required_class_ids 含 self 的条目
+  // ↓ Phase 43 P4：非数值型 — 战斗管线 modifier 数组 [{stage,priority?,value?,effect_formula?,condition_formula?}]。
+  //   filterPerks 放行后挂到 classPerks.pipeline_modifiers；applyCombatPipeline 收为一路 collectModifiers 源。
+  //   空/缺省/非数组 ⇒ collectModifiers 安全忽略 ⇒ 中性（守 Phase 37）。getClassPerk 仅读数值 key，不受影响。
+  'pipeline_modifiers',
 ]
 
 /**

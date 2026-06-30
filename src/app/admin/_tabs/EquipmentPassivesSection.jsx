@@ -23,10 +23,24 @@ export const EFFECT_TYPES = [
   { value: 'elemental',  label: '元素伤害' },
   { value: 'stat_boost', label: '属性增强' },
 ]
+// Phase 43 P4：战斗管线 modifier 字段（中性默认）。stage=null ⇒ 不挂管线，走旧 triggerPassives 旁路。
+//   parseModifier 复用下方 value / effect_formula 列作金额（公式空或 'value' ⇒ 取 value）。
+const PIPELINE_STAGES = [
+  { value: '',           label: '— 不挂管线（默认·走旧触发）—' },
+  { value: 'add',        label: '加算（+ 到伤害）' },
+  { value: 'mult',       label: '乘算（× 到伤害）' },
+  { value: 'invincible', label: '无敌（伤害归 0）' },
+  { value: 'special',    label: '特殊（公式直接改伤害）' },
+  { value: 'limit',      label: '限伤（钳上限／免伤）' },
+  { value: 'insurance',  label: '保命（致死钳到 HP-1）' },
+  { value: 'seckill',    label: '秒杀（置敌当前 HP）' },
+  { value: 'sidecar',    label: '显式旁路（不参与管线）' },
+]
 const EMPTY_PASSIVE = {
   name: '', icon: '⚡', description: '', trigger_event: 'on_attack',
   effect_type: 'damage', effect_formula: 'floor(atk * 0.3)', effect_target: 'enemy',
   trigger_chance: 0.2, buff_id: null, cooldown_turns: 0, value: 5,
+  stage: null, priority: 100, condition_formula: '',
 }
 
 export default function EquipmentPassivesSection({ toast }) {
@@ -54,6 +68,10 @@ export default function EquipmentPassivesSection({ toast }) {
   async function save() {
     if (!editing.name.trim()) { toast('请填写技能名称', 'error'); return }
     const payload = { ...editing }
+    // Phase 43 P4 战斗管线字段归一（守 DB CHECK + parseModifier 中性）：空 stage/condition ⇒ null；priority ⇒ int 默认 100。
+    payload.stage = payload.stage ? payload.stage : null
+    payload.condition_formula = (payload.condition_formula && String(payload.condition_formula).trim()) || null
+    payload.priority = Number.isFinite(parseInt(payload.priority)) ? parseInt(payload.priority) : 100
     if (editing.id) {
       const id = payload.id; delete payload.id; delete payload.created_at
       const { error } = await supabase.from('passive_skills').update(payload).eq('id', id)
@@ -192,6 +210,37 @@ export default function EquipmentPassivesSection({ toast }) {
                 </select>
               </div>
             )}
+
+            {/* Phase 43 P4：战斗管线（在途主伤害阶段挂载·可选·与旧触发旁路二选一） */}
+            <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(88,166,255,0.04)', border: '1px solid rgba(88,166,255,0.18)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#58a6ff', marginBottom: 4, letterSpacing: '0.5px' }}>⚙ 战斗管线（可选 · 高级）</div>
+              <div style={{ fontSize: 10.5, color: '#8b949e', marginBottom: 10, lineHeight: 1.65 }}>
+                把本被动挂到「在途主伤害」的某个阶段（玩家/NPC/PvP/探针全战斗路径生效）。<strong style={{ color: '#c9d1d9' }}>留空 = 不挂管线</strong>，走上面的旧触发逻辑（默认 · 中性）。阶段内按优先级升序结算；金额复用上面的 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>基础值 / 效果公式</span>（公式留空或填 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>value</span> ⇒ 取基础值）。
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.7fr', gap: 10 }}>
+                <div>
+                  <label style={LABEL}>管线阶段 (stage)</label>
+                  <select style={INPUT} value={e.stage || ''} onChange={ev => setEditing({ ...e, stage: ev.target.value || null })}>
+                    {PIPELINE_STAGES.map(s => <option key={s.value || 'none'} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={LABEL}>阶段内优先级</label>
+                  <input type="number" style={INPUT} value={e.priority ?? 100} min={0}
+                    onChange={ev => setEditing({ ...e, priority: ev.target.value === '' ? 100 : parseInt(ev.target.value) })} />
+                </div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <label style={LABEL}>生效条件式 condition（留空 = 恒生效）</label>
+                <div style={{ fontSize: 10.5, color: '#8b949e', marginBottom: 5 }}>
+                  求值非 0 才生效。可用：<span style={{ color: '#bc8cff', fontFamily: 'monospace' }}>atk, def, hp, maxHp, enemyHp, targetHp, targetMaxHp, damage</span>
+                </div>
+                <input style={{ ...INPUT, fontFamily: 'monospace', fontSize: 12 }} value={e.condition_formula || ''}
+                  onChange={ev => setEditing({ ...e, condition_formula: ev.target.value })}
+                  placeholder="如：targetHp/targetMaxHp < 0.2" />
+              </div>
+            </div>
+
             <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(188,140,255,0.05)', border: '1px solid rgba(188,140,255,0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                 <span style={{ fontSize: 22 }}>{e.icon || '⚡'}</span>
