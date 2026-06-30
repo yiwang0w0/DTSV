@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-30（Asia/Tokyo） · 战斗钩子管线 P3（PvP/NPC 反击/探针·中性闸口） + 并行开发轨道契约就位 + 道具合成链落地
+更新时间：2026-06-30（Asia/Tokyo） · 战斗钩子管线 P3+P4（接线 PvP/反击/探针 + 后台 authoring·中性） + 并行开发轨道契约就位
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 🧭 当前状态 · 并行开发轨道（2026-06-20）
@@ -13,15 +13,26 @@
 - 道具合成链落地：itemCraft 运行时(纯函数·smoke 23/23) + 局内 craftItem 动作 + ItemCraftModal UI（`b69ad82..4535b15`）
 - 战斗钩子管线 P2：玩家→NPC 主伤害接 runCombatPipeline（中性闸口 · `5e534fc`）
 - 战斗钩子管线 P3：PvP + NPC 反击 + 探针 双向接管线，6 处统一 `applyCombatPipeline` 中性闸口 helper（🧭主对话 · `07ee62b`）
+- 战斗钩子管线 P4 authoring：被动编辑器 stage/priority/condition 字段 + 职业 pipeline_modifiers 放行（🧭主对话 · `69c88d4`）
 - 入场准备加入后模态不关闭修复（`aeb0501`）
 
 **4 轨一眼状态**：
 - 🔒 **安全性**：全库 RLS 收紧（anon 可写内容表 = 4/10 漏洞）+ 内容写路径服务端化 + security-review
-- 🧭 **主对话**：战斗管线 P3✅(PvP/NPC 反击/探针·中性闸口) → P4 authoring·P6 死事件 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
+- 🧭 **主对话**：战斗管线 P3✅ + P4 authoring✅(被动 stage/priority/condition + 职业 pipeline_modifiers) → ⚠ 方向性精修 · P6 死事件 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
 - 🎨 **前端美化**：移动化 P1-P4（响应式 + PWA · 偏异步不碰原生）+ 视觉打磨
 - ⚙️ **游戏性优化**：P5 后端 payload 瘦身（移动真瓶颈 🔴）+ 平衡调优 + 内容产出支持
 
 **铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性 / 只改 Readme_Claude 不动 GPT / 排除 phase-25q untracked / SQL 幂等 / UI 改动连浏览器手机+桌面截图验证 / 引用 ID 不按名串。
+
+## 最近变更（2026-06-30 / 战斗钩子管线 P4 authoring — 被动编辑器三字段 + 职业 pipeline_modifiers · 43）
+
+> P2/P3 把管线接通运行端后，本步补「后台填得进去」：让管理员能给被动/职业声明 pipeline modifier，真正启用刚接好的管线（这才是钥匙）。
+
+- **被动编辑器** `EquipmentPassivesSection`（后台 → 装备 → 被动技能 → 编辑抽屉）加「⚙ 战斗管线（可选 · 高级）」段：`stage`（8 阶段下拉 · **留空=不挂管线**·走旧触发旁路·中性默认）/ 阶段内 `priority` / 生效条件式 `condition_formula`。modifier 金额**复用现有 `value`/`effect_formula` 列**（`parseModifier`：公式空或填 `value` ⇒ 取基础值）——无需新金额字段。保存归一：空 stage/condition ⇒ null（守 `passive_skills_stage_check` 与 parseModifier 中性），priority 缺省 100。这些被动经装备 `tier.passive → _pass` 进战斗 ⇒ 填了即对 PvE/PvP/探针全路径生效。
+- **职业** `classes.filterPerks` 白名单放行 `pipeline_modifiers`（非数值型·modifier 数组）；`applyCombatPipeline` 的 `collectModifiers` 多收双方 `classPerks.pipeline_modifiers` 一路（非数组源安全忽略）。⚠ 目前可经 DbConsole/SQL 在 `classes.perks` 写该数组；**ClassesTab 可视化编辑器 = 后续**。
+- **中性守恒**：DB 实测 0 passive 入管线 / 0 class 带 pipeline_modifiers ⇒ 6 处 helper 全短路·逐字节不变。`next build` ✓ 编译成功。admin UI 渲染待 PRIMARY_ADMIN 浏览器眼校。`69c88d4`
+
+> ⚠ **已知语义限制（建议下一步精修）**：当前 `collectModifiers(attacker 源 + defender 源)` 是**无方向合并**——攻防双方 modifier 进同一池。攻击型阶段（add/mult/special/seckill）本应只在 modifier 所有者**进攻时**生效，防御型阶段（invincible/limit/insurance）只在其**防御时**生效；今天不区分 ⇒ 防御者身上的「加伤」被动会错误抬高其受到的伤害。**现 0 条 modifier ⇒ 完全休眠、生产无影响**，正是「开始 authoring 前先定方向模型」的最佳时机。建议精修：按 stage 归属分别从 attacker/defender 源收集（offensive 仅取攻方·defensive 仅取守方），仍中性。
 
 ## 最近变更（2026-06-30 / 战斗钩子管线 P3 — PvP + NPC 反击 + 探针接管线 · 43）
 
