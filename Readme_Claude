@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-20（Asia/Tokyo） · 并行开发轨道契约就位 + 道具合成链落地 + 后台信息架构总检修
+更新时间：2026-06-30（Asia/Tokyo） · 战斗钩子管线 P3（PvP/NPC 反击/探针·中性闸口） + 并行开发轨道契约就位 + 道具合成链落地
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 🧭 当前状态 · 并行开发轨道（2026-06-20）
@@ -12,15 +12,27 @@
 - 后台信息架构总检修：23→17 侧栏 + 4 hub 收编 + URL 深链 + 硬加载重定向修复（`b9aa21d..14c8c7c`）
 - 道具合成链落地：itemCraft 运行时(纯函数·smoke 23/23) + 局内 craftItem 动作 + ItemCraftModal UI（`b69ad82..4535b15`）
 - 战斗钩子管线 P2：玩家→NPC 主伤害接 runCombatPipeline（中性闸口 · `5e534fc`）
+- 战斗钩子管线 P3：PvP + NPC 反击 + 探针 双向接管线，6 处统一 `applyCombatPipeline` 中性闸口 helper（🧭主对话 · `07ee62b`）
 - 入场准备加入后模态不关闭修复（`aeb0501`）
 
 **4 轨一眼状态**：
 - 🔒 **安全性**：全库 RLS 收紧（anon 可写内容表 = 4/10 漏洞）+ 内容写路径服务端化 + security-review
-- 🧭 **主对话**：战斗管线 P3-P6 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
+- 🧭 **主对话**：战斗管线 P3✅(PvP/NPC 反击/探针·中性闸口) → P4 authoring·P6 死事件 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
 - 🎨 **前端美化**：移动化 P1-P4（响应式 + PWA · 偏异步不碰原生）+ 视觉打磨
 - ⚙️ **游戏性优化**：P5 后端 payload 瘦身（移动真瓶颈 🔴）+ 平衡调优 + 内容产出支持
 
 **铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性 / 只改 Readme_Claude 不动 GPT / 排除 phase-25q untracked / SQL 幂等 / UI 改动连浏览器手机+桌面截图验证 / 引用 ID 不按名串。
+
+## 最近变更（2026-06-30 / 战斗钩子管线 P3 — PvP + NPC 反击 + 探针接管线 · 43）
+
+> 接续 P2（玩家→NPC 主伤害），把剩余战斗路径全部接入 `runCombatPipeline`，并抽统一中性闸口 helper 收敛此前会逐字复制 6 份的接线。
+
+- **统一 helper** `applyCombatPipeline(damageRaw, { attacker, defender, defenderHp, resolution, label })`：`collectModifiers(attacker._pass, defender._pass)` 为空 ⇒ **直接 `return damageRaw`**（短路·比依赖管线恒等更强）；非空才 `runCombatPipeline`（注入 `evalFormula`）。命中 invincible/seckill/insurance/limit 追一条 ⚙ 战斗管线日志（带 label 标路径）。
+- **6 处接线**（P2 重构 + 5 处新接，逐处校正 attacker/defender/defenderHp）：① 玩家→NPC 主伤害（重构）② NPC 反击玩家 ③ PvP 主伤害（插在 on_attack 被动前·与 PvE 同序）④ PvP 反击（attacker=反击方 target）⑤ 探针·我打 ⑥ 探针·打我。保命/秒杀按**防御方当前 HP** clamp（defenderHp 逐处取对应方存储血：NPC 反击=玩家 cur.hp、探针·打我=玩家 myHp 等）。探针侧 `probeE` 无 `_pass` ⇒ modifier 仅来自玩家被动。
+- **中性铁律守恒**：`passive_skills` 当前 6 行、`stage` 全 NULL（DB 实测 `in_pipeline=0`）⇒ 6 处 helper 全部短路 ⇒ 战斗数值与接管线前**逐字节等价**（守 Phase 37）。
+- 验证：`smoke-pipeline.mjs` 17/0 · DB 不变量查询(`stage IS NOT NULL` 计 0) · `next build` ✓ 编译成功（唯一报错为既存无关的 `/api/br/topology` 本地 env 预渲染）。`07ee62b`
+
+> 剩余：后台填 stage 的 authoring（`EquipmentPassivesSection` 加 stage/priority/condition 字段 + `filterPerks` 放行 `pipeline_modifiers`）= **P4**；4 死事件派发（on_turn_start / on_hp_below_30 / on_equip）= **P6**。
 
 ## 最近变更（2026-06-20 / 战斗钩子管线 P2 — 玩家→NPC 主伤害接管线 · 43）
 
