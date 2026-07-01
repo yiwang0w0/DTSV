@@ -1,624 +1,505 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PARAMETERS — 真值复刻 (nekogames)</title>
+<title>参数</title>
 <style>
   :root{
-    --bg:#0e1117; --panel:#161b22; --panel2:#1c2230; --border:#30363d;
-    --accent:#58a6ff; --danger:#f85149; --success:#3fb950; --warn:#d29922;
-    --gold:#e3b341; --purple:#bc8cff; --cyan:#39d0d8; --pink:#ff6699; --lime:#88dd55;
-    --txt:#c9d1d9; --muted:#8b949e;
-    --mono:'JetBrains Mono','Consolas',monospace; --sans:'DM Sans','Segoe UI',system-ui,sans-serif;
+    --bg:#000; --cell:#f5c400; --cellDim:#7a6200; --empty:#0a0a0a; --line:#1c1c1c;
+    --exp:#39d353; --life:#f5c400; --act:#ff2fd0; --atk:#ff4444; --def:#39d353;
+    --gold:#f5c400; --lock:#666; --txt:#fff; --dim:#888; --key:#f5c400;
+    --mono:'JetBrains Mono','MS Gothic','Consolas',monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--txt);font-family:var(--sans);padding:12px;
-    display:flex;justify-content:center}
-  #app{width:100%;max-width:1080px}
-  h1{font-size:16px;font-weight:700;letter-spacing:.5px}
-  h1 small{color:var(--muted);font-weight:400;font-size:11px}
-  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--txt);
-    font-family:var(--mono);font-size:11px;padding:5px 9px;border-radius:6px;cursor:pointer;transition:.12s;user-select:none}
-  .btn:hover{border-color:var(--accent);color:#fff}
-  .btn.on{border-color:var(--accent);color:var(--accent)}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px}
-  .sect{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;
-    margin-bottom:8px;text-transform:uppercase}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--txt);font-family:var(--mono);font-size:13px;
+    display:flex;flex-direction:column;overflow:hidden;user-select:none}
+  #top{flex:0 0 auto;padding:4px 8px 6px;border-bottom:1px solid #222}
+  #field{flex:1 1 auto;position:relative;margin:2px;background:#050505;overflow:hidden}
+  .cell{position:absolute;border:1px solid #000;overflow:hidden;cursor:pointer;background:var(--empty)}
+  .cell .fill{position:absolute;inset:0;width:0;background:var(--cell);transition:width .12s linear}
+  .cell .lbl{position:absolute;left:3px;top:1px;z-index:2;color:#fff;text-shadow:0 0 2px #000;
+    font-size:12px;line-height:1.1;pointer-events:none;white-space:nowrap}
+  .cell .sub{position:absolute;left:3px;bottom:1px;z-index:2;font-size:10px;color:#000;pointer-events:none}
+  .cell .ic{position:absolute;right:3px;bottom:2px;z-index:2;font-size:11px;pointer-events:none}
+  .cell.enemy .lbl{color:#000}      /* on yellow */
+  .cell.done{opacity:.5}
+  .cell.locked{cursor:pointer}
+  .cell.flash .fill{filter:brightness(2)}
+  .float{position:absolute;z-index:50;font-weight:700;font-size:13px;pointer-events:none;
+    animation:rise .7s ease-out forwards;text-shadow:0 0 3px #000}
+  @keyframes rise{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-20px)}}
 
-  /* status */
-  #status{margin-bottom:10px}
-  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .st{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:6px 9px}
-  .st .k{font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;display:flex;justify-content:space-between}
-  .st .v{font-size:14px;font-weight:700;font-family:var(--mono)}
-  .bar{height:6px;background:#0b0f16;border-radius:4px;overflow:hidden;margin-top:4px}
-  .bar>i{display:block;height:100%;width:0}
-  .pts{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
-  .pts .lbl{font-family:var(--mono);font-size:11px;color:var(--gold)}
-  .pbtn{font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:5px;cursor:pointer;
-    border:1px solid var(--border);background:var(--panel2);user-select:none;transition:.1s}
-  .pbtn.hot{border-color:var(--gold);color:var(--gold)}
-  .pbtn:disabled,.pbtn.off{opacity:.35;cursor:not-allowed}
-
-  .cols{display:grid;grid-template-columns:1fr 340px;gap:10px}
-  @media(max-width:820px){.cols{grid-template-columns:1fr}.statgrid{grid-template-columns:repeat(2,1fr)}}
-
-  .target{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
-    padding:8px 10px;margin-bottom:7px;cursor:pointer;position:relative;overflow:hidden;transition:.08s;user-select:none}
-  .target:hover{border-color:var(--accent)}
-  .target:active{transform:scale(.996)}
-  .target.eng{border-color:var(--pink);box-shadow:0 0 0 1px var(--pink) inset}
-  .target.locked{cursor:pointer;opacity:.72}
-  .target.goldlock{opacity:.6}
-  .target.done{opacity:.32;cursor:default;filter:grayscale(.8)}
-  .target .row1{display:flex;justify-content:space-between;font-size:12px;font-weight:600}
-  .target .row1 .tag{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:400}
-  .target .hpwrap{display:flex;align-items:center;gap:7px;margin-top:5px}
-  .target .hpnum{font-family:var(--mono);font-size:9px;color:var(--muted);min-width:84px;text-align:right}
-  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-  .fac{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:7px 9px;margin-bottom:6px;
-    cursor:pointer;user-select:none;transition:.08s;position:relative;overflow:hidden}
-  .fac:hover{border-color:var(--accent)}
-  .fac.off{opacity:.4;cursor:not-allowed}
-  .fac .fr{display:flex;justify-content:space-between;align-items:center;font-size:12px}
-  .fac .sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px}
-  .fac .cost{font-family:var(--mono);font-size:11px;color:var(--gold)}
-  .reels{display:flex;gap:4px;font-family:var(--mono);font-weight:700}
-  .reel{width:22px;height:24px;line-height:24px;text-align:center;background:#0b0f16;border:1px solid var(--border);border-radius:4px}
-
-  #log{height:150px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.65;display:flex;flex-direction:column-reverse}
-  #log div{border-bottom:1px solid #21262d;padding:1px 0}
-  .float{position:absolute;font-family:var(--mono);font-size:11px;font-weight:700;pointer-events:none;
-    animation:rise .8s ease-out forwards;z-index:5}
-  @keyframes rise{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-22px)}}
-  #overlay{position:fixed;inset:0;background:rgba(6,9,14,.93);display:none;flex-direction:column;
-    align-items:center;justify-content:center;gap:12px;z-index:50;text-align:center}
-  #overlay h2{font-size:30px;color:var(--gold);text-shadow:0 0 18px rgba(227,179,65,.4)}
-  #overlay .time{font-family:var(--mono);font-size:20px}
-  #overlay .sub{color:var(--muted);font-size:13px;max-width:420px}
+  /* status bar */
+  .srow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .srow1{font-size:15px;margin-bottom:3px}
+  .lv{font-weight:700}
+  .neko{color:#333;letter-spacing:3px;font-size:13px}
+  .how{border:1px solid #555;padding:1px 8px;font-size:11px;color:#aaa;cursor:pointer}
+  .stats{display:flex;gap:20px;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:2px}
+  .stat{display:flex;align-items:center;gap:5px;font-size:13px}
+  .add{display:inline-block;width:14px;height:14px;line-height:12px;text-align:center;border:1px solid #3a6;
+    color:#3fb950;font-size:11px;cursor:pointer;flex:0 0 auto}
+  .add.off{border-color:#333;color:#333;cursor:default}
+  .lab{width:36px;flex:0 0 auto}
+  .mbar{position:relative;width:150px;height:15px;background:#111;overflow:hidden}
+  .mbar > i{position:absolute;inset:0;width:0;transition:width .1s linear}
+  .mbar > span{position:absolute;left:4px;top:0;line-height:15px;font-size:11px;z-index:2;color:#fff;text-shadow:0 0 2px #000}
+  #log{position:absolute;right:6px;top:4px;width:300px;max-height:76px;overflow:hidden;
+    font-size:11px;line-height:1.35;text-align:right;pointer-events:none;z-index:3}
+  #log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .langbtns{display:flex;gap:4px}
+  .lb{border:1px solid #444;padding:0 6px;font-size:11px;color:#888;cursor:pointer}
+  .lb.on{color:#fff;border-color:#888}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:12px;z-index:100;text-align:center}
+  #overlay h2{font-size:30px;color:var(--gold)} #overlay .t{font-size:20px}
 </style>
 </head>
 <body>
-<div id="app">
-  <div class="topbar">
-    <h1>◈ PARAMETERS <small>— nekogames 真值复刻 · 全数值取自 SWF 字节码</small></h1>
-    <div style="display:flex;gap:6px">
-      <div class="btn" id="langJp">JP</div><div class="btn on" id="langEn">EN</div>
-      <div class="btn" id="reset">RESET</div>
+<div id="top">
+  <div id="log"></div>
+  <div class="srow srow1">
+    <span class="lv" id="s_lv">レベル 1</span>
+    <span style="color:var(--gold)" id="s_gold">$ 0</span>
+    <span id="s_key">⚷ 0</span>
+    <span id="s_key2" style="color:#39d0d8">⚷ 0</span>
+    <span class="langbtns"><span class="lb" id="jp">JP</span><span class="lb on" id="en">EN</span><span class="lb" id="rst">RESET</span></span>
+    <span class="neko">N E K O G A M E S</span>
+    <span class="how" id="how">HOW TO PLAY</span>
+  </div>
+  <div class="stats">
+    <div class="col">
+      <div class="stat"><span class="add off" data-pt="none" style="visibility:hidden">+</span><span class="lab" style="color:var(--exp)" data-t="EXP">経験</span>
+        <div class="mbar"><i id="b_exp" style="background:var(--exp)"></i><span id="t_exp">0/100</span></div></div>
+      <div class="stat"><span class="add off" data-pt="LIFE">+</span><span class="lab" style="color:var(--life)" data-t="LIFE">体力</span>
+        <div class="mbar"><i id="b_life" style="background:var(--life)"></i><span id="t_life">100/100</span></div></div>
+      <div class="stat"><span class="add off" data-pt="ACT">+</span><span class="lab" style="color:var(--act)" data-t="ACT">行動</span>
+        <div class="mbar"><i id="b_act" style="background:var(--act)"></i><span id="t_act">50/50</span></div></div>
+    </div>
+    <div class="col">
+      <div class="stat"><span class="add off" data-pt="RPE">+</span><span class="lab" style="color:#39d0d8" data-t="RCV">回復</span>
+        <span id="t_rpe" style="color:#39d0d8">10</span></div>
+      <div class="stat"><span class="add off" data-pt="ATK">+</span><span class="lab" style="color:var(--atk)" data-t="ATK">攻撃</span>
+        <div class="mbar" style="width:110px"><i id="b_atk" style="background:var(--atk)"></i><span id="t_atk">10/10</span></div></div>
+      <div class="stat"><span class="add off" data-pt="DEF">+</span><span class="lab" style="color:var(--def)" data-t="DEF">防御</span>
+        <div class="mbar" style="width:110px"><i id="b_def" style="background:var(--def)"></i><span id="t_def">10/10</span></div></div>
+    </div>
+    <div class="col" style="justify-content:center;color:var(--gold)">
+      <div class="stat" style="font-size:12px"><span id="s_addp">+P 0</span></div>
     </div>
   </div>
-
-  <div class="panel" id="status"></div>
-
-  <div class="cols">
-    <div class="panel">
-      <div class="sect" data-t="targets">TARGETS</div>
-      <div id="targets"></div>
-    </div>
-    <div>
-      <div class="panel" style="margin-bottom:10px">
-        <div class="sect" data-t="facilities">FACILITIES</div>
-        <div id="facilities"></div>
-      </div>
-      <div class="panel">
-        <div class="sect" data-t="log">MESSAGE</div>
-        <div id="log"></div>
-      </div>
-    </div>
-  </div>
-  <p style="color:var(--muted);font-size:10px;margin-top:8px;font-family:var(--mono)">
-    敌人 HP=条宽 · Boss 需 atk&gt;200 破防 · 属性点(+)升级/任务/买点获得 · 目标全清即通关 ·
-    数值验证见 <b>REAL_PARAMS.md</b>
-  </p>
 </div>
+<div id="field"></div>
 
-<div id="overlay">
-  <h2 id="ovT"></h2><div class="time" id="ovTime"></div><div class="sub" id="ovSub"></div>
-  <div class="btn" onclick="location.reload()">PLAY AGAIN</div>
-</div>
+<div id="overlay"><h2 id="ovT"></h2><div class="t" id="ovTime"></div>
+  <div class="how" style="font-size:14px;padding:6px 14px" onclick="location.reload()">PLAY AGAIN</div></div>
 
 <script>
-window.onerror=function(m,s,l,c,e){try{document.getElementById('status').textContent='ERR: '+m+' @'+l+':'+c+' :: '+((e&&e.stack)||'').split('\n').slice(0,3).join(' | ');}catch(_){}};
 "use strict";
 // ============================================================================
-// PARAMETERS — 真值复刻。所有公式/常量取自 数字房间大冒险 Parameters.swf 的 AS3(ABC)
-// 字节码反汇编 + 对抗验证。逐帧公式按原版 30fps 定步长执行。见 REAL_PARAMS.md。
+// PARAMETERS 真值复刻 v2 — 原版 treemap 密铺格子布局。
+// 数值/公式取自 数字房间大冒险 Parameters.swf 字节码(见 REAL_PARAMS.md):
+//   m=格子面积 决定强度/价格; 敌人HP=格子宽; exp_max=100+(lv-1)^2; 逐帧再生四公式;
+//   受击 int(dmg*0.5*(1-def/300)); 武器/防具价格公式; 属性点系统; 连击COMBO_MAX=120。
+// 布局用 squarified treemap 把格子密铺满屏(还原"点格子"手感),尺寸→真实数值。
 // ============================================================================
-const FPS=30, DT=1/FPS;
-const C = { COMBO_MAX:120, COMBO_W_TIME:45, WIDTH_MAX:200 };
+const FPS=30, DT=1000/FPS;
+const C={COMBO_MAX:120, COMBO_W_TIME:45};
+const DESIGN_W=560;   // 设计参考宽(≈原版 stage),用于把像素尺寸换算成原版数值尺度
 
-// ---------- 双语文案(取自原游戏内建字符串表) ----------
+// ---- 双语文案 ----
 const TXT={
-  targets:{jp:'ターゲット',en:'TARGETS'}, facilities:{jp:'施設',en:'FACILITIES'}, log:{jp:'メッセージ',en:'MESSAGE'},
-  ATK:{jp:'攻撃>敵に @ ダメージ',en:'Atk. > @ dmg'},
-  DAMAGE:{jp:'@のダメージ！',en:'@ damage!'},
-  WIN:{jp:'敵に勝利！',en:'You win!'},
-  LEVEL_UP:{jp:'レベル @ に！',en:'Level @!'},
-  UNLOCK_ENEMY:{jp:'敵のロック解除',en:'Enemy unlocked'},
-  M_UNLOCK:{jp:'ミッション解除',en:'Mission unlocked'},
-  I_UNLOCK:{jp:'アイテム解除',en:'Item unlocked'},
-  LOCK:{jp:'ロック中(鍵不足)',en:'Locked (need key)'},
-  M_COMP:{jp:'ミッション完了!',en:'Mission complete!'},
-  M_NG:{jp:'実行>行動不足',en:'Lack of ACT.'},
-  M_OK2:{jp:'徴収>成功',en:'Collected'},
-  BUY_KEY:{jp:'鍵を購入',en:'Bought key'},
-  BUY_ATK:{jp:'武器購入>ATK +@',en:'Weapon > ATK +@'},
-  BUY_DEF:{jp:'防具購入>DEF +@',en:'Armor > DEF +@'},
-  REP_LIFE:{jp:'体力回復',en:'Life repaired'},
-  ADD_ACT:{jp:'行動上限+1',en:'ACT max +1'},
-  ADD_LMAX:{jp:'体力上限+1',en:'LIFE max +1'},
-  ADD_PT:{jp:'ポイント購入',en:'Point bought'},
-  LIMIT:{jp:'所有数が上限',en:'Reached the limit'},
-  NOGOLD:{jp:'ゴールド不足',en:'Not enough gold'},
-  C_MAX:{jp:'最大連続達成！',en:'MAX COMBO!'},
-  SLOT_WIN:{jp:'スロット当り！',en:'SLOT WIN!'},
-  SLOT_LOSE:{jp:'スロット…はずれ',en:'Slot… no match'},
-  BONUS:{jp:'ボーナス獲得！',en:'BONUS!'},
-  PT_LIFE:{jp:'体力+1',en:'LIFE +1'}, PT_ACT:{jp:'行動+1',en:'ACT +1'}, PT_RPE:{jp:'回復+1',en:'RCV +1'},
-  PT_ATK:{jp:'攻撃+@',en:'ATK +@'}, PT_DEF:{jp:'防御+@',en:'DEF +@'},
-  cleared:{jp:'パラメータ クリア！',en:'Parameters Cleared!'},
-  gameover:{jp:'ゲームオーバー',en:'GAME OVER'},
-  allsub:{jp:'全ターゲット制圧。TIMEを競おう。',en:'All targets subdued. Race the TIME.'},
+  EXP:{jp:'経験',en:'EXP'},LIFE:{jp:'体力',en:'LIFE'},ACT:{jp:'行動',en:'ACT'},
+  RCV:{jp:'回復',en:'RCV'},ATK:{jp:'攻撃',en:'ATK'},DEF:{jp:'防御',en:'DEF'},
+  win:{jp:'敵に勝利！',en:'You win!'}, mComp:{jp:'ミッション実行>成功',en:'Run > Success'},
+  mNg:{jp:'ミッション実行>失敗:行動不足',en:'Run > Lack of ACT.'},
+  unlockE:{jp:'敵のロックを解除した',en:'Enemy unlocked'},
+  unlockM:{jp:'ミッションのロックを解除した',en:'Mission unlocked'},
+  unlockI:{jp:'アイテムのロックを解除した',en:'Item unlocked'},
+  locked:{jp:'ロックされています',en:'Locked'},
+  levelUp:{jp:'レベル @ になりました！',en:'Level @!'},
+  dmg:{jp:'攻撃>敵に @ ダメージを与えた!',en:'@ dmg to enemy'},
+  taken:{jp:'@のダメージを受けた！',en:'@ damage!'},
+  buyW:{jp:'武器を購入>攻撃力 @ UP!',en:'Weapon > ATK @ UP'},
+  buyA:{jp:'防具を購入>防御力 @ UP!',en:'Armor > DEF @ UP'},
+  repL:{jp:'体力回復 > 成功',en:'Life repaired'},
+  addAct:{jp:'行動が増加！',en:'ACT max UP'}, addLife:{jp:'体力が増加！',en:'LIFE max UP'},
+  buyKey:{jp:'鍵購入',en:'Bought key'}, buyPt:{jp:'ポイント購入',en:'Point bought'},
+  slotWin:{jp:'スロット当り！',en:'SLOT WIN'}, slotLose:{jp:'…はずれ',en:'…miss'},
+  bonus:{jp:'ボーナス獲得！',en:'BONUS'}, limit:{jp:'所有数が上限に達しています',en:'Reached the limit'},
+  noGold:{jp:'ゴールド不足',en:'Not enough gold'}, cleared:{jp:'パラメータ クリア！',en:'Parameters Cleared!'},
+  over:{jp:'ゲームオーバー',en:'GAME OVER'},
 };
 let lang='en';
-const t=(k,v)=>{let o=TXT[k]; if(!o) return k; let s=o[lang]; return v!==undefined?s.replace('@',v):s;};
+const t=(k,v)=>{const o=TXT[k];if(!o)return k;let s=o[lang];return v!==undefined?s.replace('@',v):s;};
 
-// ---------- 玩家状态 (Main) ----------
+// ---- player ----
 function newMain(){return{
-  lv:1, rpe:10, key:0, key2:0, life:100, act:50, atk:10, def:10, gold:0,
-  life_max:100, act_max:50, atk_max:10, def_max:10,
-  exp:0, exp_total:0, exp_max:100, exp_total_max:100, add_p:0,
-  combo:0, combo_time:0,
-  total_e_num:0, total_m_num:0, m_comp_cnt:0, e_comp_cnt:0, i_comp_cnt:0, lock1_cnt:0,
-  startTime:performance.now(), over:false, won:false,
+  lv:1,rpe:10,key:0,key2:0,life:100,act:50,atk:10,def:10,gold:0,
+  life_max:100,act_max:50,atk_max:10,def_max:10,exp:0,exp_total:0,exp_max:100,exp_total_max:100,
+  add_p:0,combo:0,combo_time:0,
+  total_e:0,e_comp:0,total_m:0,m_comp:0,lock1:0,
+  startTime:performance.now(),over:false,won:false,
 };}
 let S=newMain();
-
-// ---------- helpers ----------
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const R=()=>Math.random();
-function log(msg,color='#c9d1d9'){const d=document.createElement('div');d.innerHTML=msg;d.style.color=color;
-  const b=$('log');b.appendChild(d);while(b.children.length>50)b.removeChild(b.firstChild);b.scrollTop=b.scrollHeight;}
-function floatOn(el,txt,color){if(!el)return;const f=document.createElement('span');f.className='float';f.textContent=txt;
-  f.style.color=color;f.style.left=(15+R()*60)+'%';f.style.top='4px';el.appendChild(f);setTimeout(()=>f.remove(),800);}
-function flash(el){const f=el&&el.querySelector('.flash');if(!f)return;f.style.transition='none';f.style.opacity=.4;
-  requestAnimationFrame(()=>{f.style.transition='opacity .25s';f.style.opacity=0;});}
-function msg(key,v,color){log(t(key,v),color||'#c9d1d9');}
+
+// ---- message log (timestamped like original) ----
+let msgs=[];
+function timeStr(ms){ms=Math.max(0,ms);let s=Math.floor(ms/1000);
+  const cs=Math.floor((ms%1000)/10);
+  const mm=Math.floor(s/60), ss=s%60;
+  return String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0')+':'+String(cs).padStart(2,'0');}
+function msg(text,color){
+  msgs.push('<span style="color:'+(color||'#ccc')+'">'+timeStr(performance.now()-S.startTime)+' '+text+'</span>');
+  if(msgs.length>6)msgs.shift();
+  $('log').innerHTML=msgs.slice().reverse().join('');
+}
 
 // ============================================================================
-//  Main 方法 —— 逐条对应字节码
+//  squarified treemap
 // ============================================================================
-// combo: 每次 addParam 调 handleCombo(); combo_time>0 → combo++ 否则清零;再 combo_time=45
-function handleCombo(){ if(S.combo_time>0) S.combo++; else S.combo=0; S.combo_time=C.COMBO_W_TIME; }
-
-function addAddP(n){ S.add_p+=n; if(S.add_p<0)S.add_p=0; }
-
-// addParam(kind, amount): GOLD / EXP / KEY / KEY2 / NEKO；含升级链
-function addParam(kind, amount){
-  handleCombo();
-  if(kind==='GOLD'){ S.gold+=amount; }
-  else if(kind==='EXP'){
-    S.exp+=amount; S.exp_total+=amount;
-    while(S.exp>=S.exp_max){                     // 升级链
-      S.lv++; S.exp-=S.exp_max;
-      S.exp_max = 100 + (S.lv-1)*(S.lv-1);        // ← (lv-1)²
-      S.exp_total_max += S.exp_max;
-      addAddP(3);                                 // 升级送 3 点
-      S.life=S.life_max; S.act=S.act_max;         // 回满
-      msg('LEVEL_UP', S.lv, 'var(--success)');
+function worstRatio(areas,side){const s=areas.reduce((a,b)=>a+b,0);
+  const mx=Math.max(...areas),mn=Math.min(...areas);
+  return Math.max((side*side*mx)/(s*s),(s*s)/(side*side*mn));}
+function treemap(items,X,Y,W,H){
+  const total=items.reduce((a,b)=>a+b.v,0);
+  const arr=items.map(o=>({o,area:o.v/total*(W*H)}));
+  const out=[]; let x=X,y=Y,w=W,h=H,i=0;
+  while(i<arr.length){
+    const side=Math.min(w,h);
+    const rowAreas=[]; let cur=Infinity,j=i;
+    while(j<arr.length){
+      const test=rowAreas.concat(arr[j].area);
+      const wr=worstRatio(test,side);
+      if(rowAreas.length===0||wr<=cur){rowAreas.push(arr[j].area);cur=wr;j++;}else break;
     }
+    const sum=rowAreas.reduce((a,b)=>a+b,0), thick=sum/side;
+    let off=0;
+    for(let k=0;k<rowAreas.length;k++){
+      const len=rowAreas[k]/thick;
+      let r = (w>=h)?{x:x,y:y+off,w:thick,h:len}:{x:x+off,y:y,w:len,h:thick};
+      out.push(Object.assign(arr[i+k].o,{rect:r})); off+=len;
+    }
+    if(w>=h){x+=thick;w-=thick;}else{y+=thick;h-=thick;}
+    i=j;
   }
-  else if(kind==='KEY'){ S.key+=1; }
-  else if(kind==='KEY2'){ S.key2+=1; }
+  return out;
 }
 
-// setDamage(dmg): 玩家掉血
+// ============================================================================
+//  cell roster — 类型 + 权重(决定面积)。尺寸→真实数值。
+// ============================================================================
+function roster(){
+  const L=[]; const add=(type,v,extra)=>L.push(Object.assign({type,v},extra||{}));
+  // 敌人(权重跨度大;大=Boss)
+  const eW=[6,7,8,9,10,11,12,14,16,18,20,22,26,30,36,44,55,70,90,120];
+  eW.forEach((v,i)=>add('enemy',v,{tier:i}));
+  // 任务
+  [6,7,8,10,12,14,17,20,26,34,44].forEach(v=>add('mission',v));
+  // 武器 / 防具
+  [10,14,18,24,32].forEach(v=>add('weapon',v));
+  [10,13,17,22,30].forEach(v=>add('armor',v));
+  // 特殊设施
+  add('repLife',9);         // 体力回復
+  add('capAct',8);          // 行動++
+  add('capLife',8);         // 体力++
+  add('buyKey',7);          // 鍵 $400
+  add('buyPoint',8);        // 追加(ポイント)
+  add('slot',6);            // スロット
+  add('bonus',7,{bid:'n1'});add('bonus',6,{bid:'n2'});add('bonus',6,{bid:'n3'});
+  // 谜团/杂锁
+  for(let i=0;i<3;i++)add('mystery',5+i);
+  for(let i=0;i<4;i++)add('lock',5+i);
+  return L;
+}
+
+let CELLS=[], byEl=new Map();
+function buildWorld(){
+  S=newMain(); msgs=[]; $('log').innerHTML='';
+  const field=$('field'); field.innerHTML='';
+  const W=field.clientWidth||960, H=field.clientHeight||560;
+  const items=roster();
+  // 打乱顺序 → 大小格子散布(而非全堆左侧),锁也随之散开,更像原版手摆布局
+  for(let i=items.length-1;i>0;i--){const j=Math.floor(R()*(i+1));const tmp=items[i];items[i]=items[j];items[j]=tmp;}
+  const placed=treemap(items,0,0,W,H);
+  const scale=DESIGN_W/W;
+  CELLS=[]; byEl.clear();
+  placed.forEach(c=>{
+    const r=c.rect;
+    const dw=Math.max(6,r.w*scale), dh=Math.max(6,r.h*scale); // 设计尺度
+    c.dw=dw; c.dh=dh; c.m=dw*dh; c.dyTop=r.y*scale;
+    initCell(c);
+    const el=document.createElement('div');
+    el.className='cell '+c.type;
+    el.style.left=r.x+'px'; el.style.top=r.y+'px';
+    el.style.width=(r.w-1)+'px'; el.style.height=(r.h-1)+'px';
+    el.innerHTML='<div class="fill"></div><div class="lbl"></div><div class="sub"></div><div class="ic"></div>';
+    el.addEventListener('pointerdown',ev=>onCell(c,el,ev));
+    field.appendChild(el);
+    c.el=el; byEl.set(c,el);
+    CELLS.push(c);
+  });
+  // 只锁最大的 ~22% 目标格(需要钥匙解锁),其余开局即可玩 —— 贴近原版"大多可玩"
+  const lockable=CELLS.filter(c=>['enemy','boss','mission','weapon','armor'].includes(c.type));
+  const areas=lockable.map(c=>c.m).sort((a,b)=>a-b);
+  const thr=areas.length?areas[Math.floor(areas.length*0.78)]:Infinity;
+  lockable.forEach(c=>{ if(c.m>=thr){ c.locked=true; if(c.type==='enemy'||c.type==='boss')S.lock1++; } });
+  CELLS.forEach(paint);
+  renderStatus();
+  msg(lang==='jp'?'ゲーム開始':'Game start','#888');
+}
+
+function initCell(c){
+  c.done=false; c.cnt=0; c.nw=0; c.locked=false; c.complete_flg=false;
+  if(c.type==='enemy'||c.type==='boss'){
+    c.hpMax=Math.round(c.dw); c.hp=c.hpMax;
+    c.boss = c.v>=70;
+    S.total_e++;
+  } else if(c.type==='mission'){
+    c.hpMax=Math.round(c.dw); c.hp=0;
+    c.cost=c.m*0.01; c.gold=Math.trunc(c.m*0.03*(1+R())*2); c.exp=Math.trunc(c.m*0.1*(1+R())*2);
+    S.total_m++;
+  } else if(c.type==='weapon'){
+    c.price=Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)+(c.dh-30)*45); c.addP=Math.trunc(c.m/100)*0.45;
+    c.buys=0;
+  } else if(c.type==='armor'){
+    c.price=Math.max(10,Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)-(c.dh-30)*10)); c.addP=Math.trunc(c.m/100)*0.5;
+    c.buys=0;
+  } else if(c.type==='repLife'){ c.price=120; }
+  else if(c.type==='capAct'||c.type==='capLife'){ c.price=100; }
+  else if(c.type==='buyKey'){ c.price=400; }
+  else if(c.type==='buyPoint'){ c.price=200; c.locked=true; }
+  else if(c.type==='slot'){ c.price=10; c.reels=['?','?','?']; }
+  else if(c.type==='bonus'){ c.used=false; }
+  else if(c.type==='mystery'||c.type==='lock'){ c.locked=true; c.reveal=c.type; }
+}
+
+// ============================================================================
+//  logic (real formulas)
+// ============================================================================
+function handleCombo(){ if(S.combo_time>0)S.combo++; else S.combo=0; S.combo_time=C.COMBO_W_TIME; }
+function addAddP(n){ S.add_p+=n; if(S.add_p<0)S.add_p=0; }
+function addParam(kind,amount){
+  handleCombo();
+  if(kind==='GOLD') S.gold+=amount;
+  else if(kind==='EXP'){ S.exp+=amount; S.exp_total+=amount;
+    while(S.exp>=S.exp_max){ S.lv++; S.exp-=S.exp_max; S.exp_max=100+(S.lv-1)*(S.lv-1);
+      S.exp_total_max+=S.exp_max; addAddP(3); S.life=S.life_max; S.act=S.act_max;
+      msg(t('levelUp',S.lv),'#39d353'); }
+  } else if(kind==='KEY') S.key+=1;
+  else if(kind==='KEY2') S.key2+=1;
+}
 function setDamage(dmg){
-  const defEff=Math.min(S.def,300);
-  let d=Math.trunc(dmg*0.5*(1-defEff/300));
-  if(d<5) d=Math.trunc(5+R()*10);                 // 最低 5..14
-  S.life-=d;
-  msg('DAMAGE', d, 'var(--danger)');
-  floatOn($('lifeBox'),'-'+d,'var(--danger)');
-  if(S.life<0){ S.life=0; S.atk=0; S.def=0; gameOver(); }   // 死亡归零攻防
+  const d0=Math.min(S.def,300);
+  let d=Math.trunc(dmg*0.5*(1-d0/300)); if(d<5)d=Math.trunc(5+R()*10);
+  S.life-=d; msg(t('taken',d),'#ff4444');
+  if(S.life<0){S.life=0;S.atk=0;S.def=0;gameOver();}
 }
+function useKey(type){ if(type===1){if(S.key>0){S.key--;if(S.lock1>0)S.lock1--;return true;}return false;}
+  else{if(S.key2>0){S.key2--;return true;}return false;} }
 
-// useKey(type): 消耗钥匙解锁。type=1 用 key, 否则用 key2
-function useKey(type){
-  if(type===1){ if(S.key>0){S.key-=1; if(S.lock1_cnt>0)S.lock1_cnt-=1; return true;} return false; }
-  else { if(S.key2>0){S.key2-=1; return true;} return false; }
+function floatText(el,txt,color,ev){
+  const f=document.createElement('div'); f.className='float'; f.textContent=txt; f.style.color=color||'#fff';
+  const fr=$('field').getBoundingClientRect();
+  f.style.left=(ev?ev.clientX-fr.left:parseFloat(el.style.left)+10)+'px';
+  f.style.top =(ev?ev.clientY-fr.top-6:parseFloat(el.style.top)+6)+'px';
+  $('field').appendChild(f); setTimeout(()=>f.remove(),700);
 }
+function flash(el){el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),120);}
 
-// setItem: 原版是道具飞向计数器;这里等效为立即 addParam + 浮字
-function setItem(list){ for(const [k,v] of list){ addParam(k,v); } }
-
-// ============================================================================
-//  目标 (Enemy / Boss / EnemyLast / Mission)
-// ============================================================================
-let TARGETS=[], FACS=[], engaged=null;
-
-function mkEnemy(o){ // o:{name,w,h,y,special}
-  const m=o.w*o.h;
-  const T={type:o.type||'enemy', name:o.name, w:o.w, h:o.h, y:o.y, m,
-    hpMax:o.hpOverride||o.w, hp:o.hpOverride||o.w, cnt:0, done:false,
-    locked:false, keyType:1};
-  if(o.type==='boss'){ T.hpMax=T.hp=240; }
-  if(o.type==='last'){ T.hpMax=T.hp=9999; }
-  // 锁: m>1500 需钥匙 (boss/last 固定锁)
-  if(o.type==='enemy' && m>1500){ T.locked=true; S.lock1_cnt++; }
-  if(o.type==='boss'||o.type==='last'){ T.locked=true; }
-  S.total_e_num++;
-  return T;
+function onCell(c,el,ev){
+  if(S.over||c.done) return;
+  if(c.locked){ tryUnlock(c,el,ev); return; }
+  const T=c.type;
+  if(T==='enemy'||T==='boss') attack(c,el,ev);
+  else if(T==='mission') work(c,el,ev);
+  else if(T==='weapon'||T==='armor') buyItem(c,el,ev);
+  else if(T==='repLife') repLife(c,el,ev);
+  else if(T==='capAct') buyCap(c,'ACT',el,ev);
+  else if(T==='capLife') buyCap(c,'LIFE',el,ev);
+  else if(T==='buyKey') doKey(c,el,ev);
+  else if(T==='buyPoint') doPoint(c,el,ev);
+  else if(T==='slot') spin(c,el,ev);
+  else if(T==='bonus') doBonus(c,el,ev);
 }
-function mkMission(o){
-  const m=o.w*o.h;
-  const T={type:'mission', name:o.name, w:o.w, h:o.h, y:o.y, m,
-    hpMax:o.w, hp:0, cost:m*0.01, done:false, complete_flg:false, locked:m>1000, keyType:1,
-    gold:Math.trunc(m*0.03*(1+R())*2), exp:Math.trunc(m*0.1*(1+R())*2)};
-  S.total_m_num++;
-  return T;
+function tryUnlock(c,el,ev){
+  const kt = (c.type==='mystery'||c.type==='buyPoint')?2:1;
+  if(useKey(kt)){ c.locked=false;
+    if(c.type==='mystery'||c.type==='lock'){ // 变成随机内容
+      c.type=['enemy','mission','weapon'][Math.floor(R()*3)]; c.el.className='cell '+c.type; initCell(c); c.locked=false;
+    }
+    msg(t(c.type==='mission'?'unlockM':(c.type==='weapon'||c.type==='armor'?'unlockI':'unlockE')),'#fff');
+    floatText(el,'✓','#fff',ev); paint(c);
+  } else { msg(t('locked'),'#ff4444'); floatText(el,'🔒','#ff4444',ev); }
 }
-
-// 玩家点击敌人造成伤害 (Enemy/EnemyLast 面积公式; Boss 特殊)
-function clickTarget(T,el){
-  if(S.over||T.done) return;
-  if(T.locked){ if(useKey(T.keyType)){ T.locked=false;
-      msg(T.type==='mission'?'M_UNLOCK':(T.type==='item'?'I_UNLOCK':'UNLOCK_ENEMY'),undefined,'#fff'); }
-    else msg('LOCK',undefined,'var(--danger)'); render(); return; }
-
-  if(T.type==='mission'){ workMission(T,el); return; }
-
-  engaged=T;
+function attack(c,el,ev){
   let dmg;
-  if(T.type==='boss'){ dmg=Math.trunc((S.atk-200)*0.2); }   // Boss: 需 atk>200
-  else {
-    const L2=T.h/10, L3=T.w/10, L4=L2*L2+(T.y-70);
-    if(L2<=L3) dmg=Math.trunc(S.atk*(1-L4/2600)*0.5);        // 宽条
-    else       dmg=Math.trunc(S.atk*0.25 + R()*10 - 5);      // 高条
-  }
-  if(dmg<1) dmg=1;
-  T.hp-=dmg;
-  handleComboVisualOnly();
-  flash(el); floatOn(el,'-'+dmg, T.type==='boss'?'var(--danger)':'var(--accent)');
-  msg('ATK', dmg, 'var(--muted)');
-
-  // 敌人反击: 交战计数,每 15 帧由 game loop 触发(见 stepEnemy)
-  if(T.hp<=0){ defeatTarget(T); }
-  render();
+  if(c.boss) dmg=Math.trunc((S.atk-200)*0.2);
+  else{ const a=c.dh/10,b=c.dw/10,L4=a*a+(c.dyTop-70);
+    dmg=(a<=b)?Math.trunc(S.atk*(1-L4/2600)*0.5):Math.trunc(S.atk*0.25+R()*10-5); }
+  if(dmg<1)dmg=1;
+  c.hp-=dmg; handleCombo(); flash(el); floatText(el,'-'+dmg,'#c00',ev);
+  if(c.hp<=0){ defeat(c); }
+  paint(c);
 }
-function handleComboVisualOnly(){ if(S.combo_time>0)S.combo++; else S.combo=0; S.combo_time=C.COMBO_W_TIME; }
-
-function workMission(T,el){
-  if(T.complete_flg){ // 重复徴收 M_OK2
-    const g=Math.trunc(T.m/10 + (R()*T.m)/100);
-    setItem([['GOLD',g]]); flash(el); floatOn(el,'+'+g+'G','var(--gold)'); msg('M_OK2',undefined,'var(--gold)'); render(); return;
-  }
-  if(S.act<T.cost){ msg('M_NG',undefined,'var(--muted)'); return; }
-  S.act-=T.cost; T.hp+=10+R()*3; handleComboVisualOnly(); flash(el);
-  floatOn(el,'▮','var(--cyan)');
-  if(T.hp>T.hpMax){ // 完成
-    T.hp=T.hpMax; T.complete_flg=true; T.done=true;
-    S.m_comp_cnt++; addAddP(1);
-    T.gold=Math.trunc(T.gold*1.5); T.exp=Math.trunc(T.exp*1.5);
-    dropRewards(T.gold,T.exp,3); // NEKO 3%
-    msg('M_COMP',undefined,'var(--purple)');
-    checkWin();
-  }
-  render();
-}
-
-// 击杀敌人: 面额拆分奖励 + 计数 + 掉钥匙
-function defeatTarget(T){
-  T.hp=0; T.done=true;
-  if(T.type==='boss'){ dropRewards(10000,9999,0); S.e_comp_cnt++; }
-  else if(T.type==='last'){ dropRewards(9999,9999,0); S.e_comp_cnt++; }
-  else {
-    // 普通敌人: 奖励规模用 m 估算(原版按 m/10,m/15 位数掉落,这里等效总量)
-    const g=Math.trunc(T.m/10), e=Math.trunc(T.m/15);
-    const keyCnt=Math.trunc(T.m/1000)%4+1;
-    dropRewards(g,e,25);                    // NEKO 25%
-    for(let i=0;i<keyCnt;i++) addParam('KEY',1);
-    S.e_comp_cnt++;
-  }
-  msg('WIN','','var(--gold)');
-  if(engaged===T) engaged=null;
-  if(S.e_comp_cnt===S.total_e_num) log('★ '+ (lang==='jp'?'全敵討伐!':'All enemies defeated!'),'var(--gold)');
+function defeat(c){
+  c.hp=0; c.done=true;
+  const g=Math.trunc(c.m/10), e=Math.trunc(c.m/15);
+  addParam('GOLD',g); addParam('EXP',e);
+  const keyCnt=Math.trunc(c.m/1000)%4+1; for(let i=0;i<keyCnt;i++)addParam('KEY',1);
+  S.e_comp++; msg(t('win')+' +'+g+'G','#f5c400');
   checkWin();
 }
-// 面额拆分 → 逐笔 addParam(触发连击/升级); ng=NEKO 掉率%
-function dropRewards(gold,exp,nekoPct){
-  addParam('GOLD',gold); addParam('EXP',exp);
-  if(nekoPct>0 && Math.trunc(R()*100)<nekoPct){ log('🐾 NEKO','var(--pink)'); }
+function work(c,el,ev){
+  if(c.complete_flg){ const g=Math.trunc(c.m/10+(R()*c.m)/100); addParam('GOLD',g);
+    floatText(el,'+'+g+'G','#f5c400',ev); flash(el); return; }
+  if(S.act<c.cost){ msg(t('mNg'),'#888'); floatText(el,'ACT!','#888',ev); return; }
+  S.act-=c.cost; c.hp+=10+R()*3; handleCombo(); flash(el);
+  floatText(el,Math.min(100,Math.round(c.hp/c.hpMax*100))+'%','#39d0d8',ev);
+  if(c.hp>c.hpMax){ c.hp=c.hpMax; c.complete_flg=true; c.done=true; S.m_comp++; addAddP(1);
+    c.gold=Math.trunc(c.gold*1.5); c.exp=Math.trunc(c.exp*1.5);
+    addParam('GOLD',c.gold); addParam('EXP',c.exp);
+    msg(t('mComp')+' +'+c.gold+'G','#bc8cff'); checkWin(); }
+  paint(c);
 }
-
-// 敌人每帧(交战中): cnt++,15 帧反击一次
-function stepEnemy(T){
-  if(T.done||T.locked||S.over) return;
-  T.cnt++;
-  // 回血
-  if(T.type==='boss'){ T.hp+=(T.hpMax-T.hp)*0.002+0.001; }
-  else if(T.type==='last'){ T.hp+=S.rpe*0.03; }
-  else { T.hp += (T.y-70)*0.0001*(T.hpMax/100) + S.rpe*0.01; }
-  if(T.hp>T.hpMax)T.hp=T.hpMax;
-  if(T.cnt>=15){
-    T.cnt=0;
-    let d;
-    if(T.type==='boss') d=100-T.hp/4;
-    else if(T.type==='last') d=5+(T.hpMax-T.hp)/200+R()*20;
-    else d=20+(T.w+T.h)/2;
-    setDamage(d);
-  }
+function buyItem(c,el,ev){
+  if(c.buys>=9){ msg(t('limit'),'#d29922'); return; }
+  if(S.gold<c.price){ msg(t('noGold'),'#ff4444'); floatText(el,'$!','#ff4444',ev); return; }
+  S.gold-=c.price; let gain=Math.trunc(c.addP*(1-c.buys*0.05)); if(gain<1)gain=1; c.buys++;
+  if(c.type==='weapon'){S.atk+=gain;S.atk_max+=gain;msg(t('buyW',gain),'#ff6699');}
+  else{S.def+=gain;S.def_max+=gain;msg(t('buyA',gain),'#39d353');}
+  floatText(el,'+'+gain,'#fff',ev); flash(el); if(c.buys>=9)c.done=true; paint(c);
 }
-
-// ============================================================================
-//  设施 (Facilities): 武器/防具/修复/钥匙/点数/老虎机/里程碑
-// ============================================================================
-function mkWeapon(o){ const m=o.w*o.h;
-  return {ftype:'weapon',name:o.name, m, h:o.h, cnt:0, locked:m>1000, keyType:1,
-    price:Math.trunc(m/10)+Math.pow(o.h-30,2)+(o.h-30)*45,
-    addP:Math.trunc(m/100)*0.45};}
-function mkArmor(o){ const m=o.w*o.h;
-  return {ftype:'armor',name:o.name, m, h:o.h, cnt:0, locked:m>1000, keyType:1,
-    price:Math.trunc(m/10)+Math.pow(o.h-30,2)-(o.h-30)*10,
-    addP:Math.trunc(m/100)*0.5};}
-
-function buyItem(F,el){
-  if(F.locked){ if(useKey(F.keyType)){F.locked=false; msg('I_UNLOCK',undefined,'#fff');} else msg('LOCK',undefined,'var(--danger)'); render(); return; }
-  if(F.cnt>=9){ msg('LIMIT',undefined,'var(--warn)'); return; }
-  if(S.gold<F.price){ msg('NOGOLD',undefined,'var(--danger)'); return; }
-  S.gold-=F.price;
-  let gain=Math.trunc(F.addP*(1-F.cnt*0.05)); if(gain<1)gain=1;
-  if(F.cnt===0) S.i_comp_cnt++;
-  F.cnt++;
-  if(F.ftype==='weapon'){ S.atk+=gain; S.atk_max+=gain; msg('BUY_ATK',gain,'var(--pink)'); }
-  else { S.def+=gain; S.def_max+=gain; msg('BUY_DEF',gain,'var(--lime)'); }
-  flash(el);
-  if(F.cnt>=9) F.done=true;
-  render();
-}
-
-// 修复体力: price=100+lv*20, +100 life, price=min(int(price*1.5),3600)
-function mkRepairLife(){ return {ftype:'repLife',name:{jp:'体力回復',en:'Repair Life'}, get price(){return 100+S.lv*20;}, cur:100+20}; }
-// 用闭包保存动态价 —— 简化: 直接函数计算
-const repLife={ftype:'repLife', price:120};
-function buyRepLife(el){
-  repLife.price = repLife.price || (100+S.lv*20);
-  if(S.life>=S.life_max){ msg('REP_LIFE',undefined,'var(--muted)'); return; }
-  if(S.gold<repLife.price){ msg('NOGOLD',undefined,'var(--danger)'); return; }
-  S.gold-=repLife.price; S.life=Math.min(S.life+100,S.life_max);
-  repLife.price=Math.min(Math.trunc(repLife.price*1.5),3600);
-  msg('REP_LIFE',undefined,'var(--warn)'); flash(el); render();
-}
-// 加上限(ACT/LIFE cap): price=100, *1.05, cap 200
-const capAct={ftype:'capAct',price:100}, capLife={ftype:'capLife',price:100};
-function buyCap(F,kind,el){
-  if(S.gold<F.price){ msg('NOGOLD',undefined,'var(--danger)'); return; }
-  if(kind==='ACT'){ if(S.act_max>=200){msg('LIMIT',undefined,'var(--warn)');return;} S.gold-=F.price; S.act_max+=1; msg('ADD_ACT',undefined,'var(--cyan)'); }
-  else { if(S.life_max>=200){msg('LIMIT',undefined,'var(--warn)');return;} S.gold-=F.price; S.life_max+=1; msg('ADD_LMAX',undefined,'var(--danger)'); }
-  F.price=Math.trunc(F.price*1.05); flash(el); render();
-}
-// 买钥匙: 400 固定, +1 key
-const buyKey={ftype:'key',price:400};
-function doBuyKey(el){ if(S.gold<buyKey.price){msg('NOGOLD',undefined,'var(--danger)');return;} S.gold-=buyKey.price; addParam('KEY',1); msg('BUY_KEY',undefined,'var(--purple)'); flash(el); render(); }
-// 买点数: 200 固定, addAddP(1)
-const buyPt={ftype:'point',price:200};
-function doBuyPt(el){ if(S.gold<buyPt.price){msg('NOGOLD',undefined,'var(--danger)');return;} S.gold-=buyPt.price; addAddP(1); msg('ADD_PT',undefined,'var(--gold)'); flash(el); render(); }
-
-// 老虎机: 3 轮各 8 符号(不同分布), 匹配 3 格给奖
-const REELS=[
-  ['$','$','$','@','@','7','*','*'],
-  ['$','$','$','@','@','7','*','$'],
-  ['$','@','7','*','$','@','7','*'],
-];
-const SLOT_PAY={ '$':['GOLD',200,8], '@':['EXP',20,10], '7':['GOLD',777,20], '*':['GOLD',800,12] };
-const slot={ftype:'slot',price:10,reels:['?','?','?']};
-function spinSlot(el){
-  if(S.gold<slot.price){ msg('NOGOLD',undefined,'var(--danger)'); return; }
-  S.gold-=slot.price;
-  slot.reels=REELS.map(r=>r[Math.trunc(R()*8)]);
-  flash(el);
-  if(slot.reels[0]===slot.reels[1]&&slot.reels[0]===slot.reels[2]){
-    const [k,v,cnt]=SLOT_PAY[slot.reels[0]];
-    const list=[]; for(let i=0;i<cnt;i++) list.push([k,v]);
-    setItem(list);
-    log(t('SLOT_WIN')+' '+slot.reels.join('')+' → '+cnt+'×'+k+':'+v+' = '+(cnt*v)+(k==='GOLD'?'G':'EXP'),'var(--gold)');
-  } else { msg('SLOT_LOSE',undefined,'var(--muted)'); }
-  render();
-}
-
-// 里程碑奖励 n1-n5 (一次性; 满足条件后解锁)
-const BONUS=[
-  {id:'n1',name:{jp:'LIFE上限+20',en:'LIFE max +20'}, act(){S.life_max+=20;}, need:()=>S.lv>=3},
-  {id:'n2',name:{jp:'回復 x2',en:'RCV x2'},           act(){S.rpe*=2;},       need:()=>S.lv>=5},
-  {id:'n3',name:{jp:'ACT上限+20',en:'ACT max +20'},    act(){S.act_max+=20;},  need:()=>S.e_comp_cnt>=2},
-  {id:'n4',name:{jp:'$200 xLv',en:'$200 xLv'},         act(){const l=[];for(let i=1;i<S.lv;i++)l.push(['GOLD',200]);setItem(l);}, need:()=>S.lv>=8},
-  {id:'n5',name:{jp:'ATK上限 x2',en:'ATK max x2'},      act(){S.atk_max*=2;},   need:()=>S.m_comp_cnt>=2},
-].map(b=>({...b,ftype:'bonus',used:false}));
-function useBonus(B,el){ if(B.used||!B.need()) return; B.act(); B.used=true; msg('BONUS',undefined,'var(--gold)'); flash(el); render(); }
-
-// 属性点按钮 (+LIFE/+ACT/+RPE/+ATK/+DEF) —— 花 add_p
-function spendPoint(kind){
-  if(S.add_p<=0) return;
-  if(kind==='LIFE'){ S.life+=1; S.life_max+=1; msg('PT_LIFE',undefined,'var(--danger)'); }
-  else if(kind==='ACT'){ S.act+=1; S.act_max+=1; msg('PT_ACT',undefined,'var(--cyan)'); }
-  else if(kind==='RPE'){ S.rpe+=1; msg('PT_RPE',undefined,'var(--success)'); }
-  else if(kind==='ATK'){ const n=Math.trunc(R()*3+1); S.atk+=n; S.atk_max+=n; msg('PT_ATK',n,'var(--pink)'); }
-  else if(kind==='DEF'){ const n=Math.trunc(R()*3+1); S.def+=n; S.def_max+=n; msg('PT_DEF',n,'var(--lime)'); }
-  addAddP(-1); render();
-}
+function repLife(c,el,ev){ c.price=c.price||(100+S.lv*20);
+  if(S.life>=S.life_max){floatText(el,'MAX','#888',ev);return;}
+  if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
+  S.gold-=c.price; S.life=Math.min(S.life+100,S.life_max); c.price=Math.min(Math.trunc(c.price*1.5),3600);
+  msg(t('repL'),'#d29922'); floatText(el,'+100','#f5c400',ev); flash(el); paint(c);}
+function buyCap(c,kind,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
+  if(kind==='ACT'){if(S.act_max>=200){floatText(el,'MAX','#888',ev);return;}S.gold-=c.price;S.act_max++;msg(t('addAct'),'#39d0d8');}
+  else{if(S.life_max>=200){floatText(el,'MAX','#888',ev);return;}S.gold-=c.price;S.life_max++;msg(t('addLife'),'#f5c400');}
+  c.price=Math.trunc(c.price*1.05); floatText(el,'+1','#fff',ev); flash(el); paint(c);}
+function doKey(c,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
+  S.gold-=c.price; addParam('KEY',1); msg(t('buyKey'),'#f5c400'); floatText(el,'⚷+1','#f5c400',ev); flash(el); paint(c);}
+function doPoint(c,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
+  S.gold-=c.price; addAddP(1); msg(t('buyPt'),'#f5c400'); floatText(el,'+P','#f5c400',ev); flash(el); paint(c);}
+const REELS=[['$','$','$','@','@','7','*','*'],['$','$','$','@','@','7','*','$'],['$','@','7','*','$','@','7','*']];
+const PAY={'$':['GOLD',200,8],'@':['EXP',20,10],'7':['GOLD',777,20],'*':['GOLD',800,12]};
+function spin(c,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
+  S.gold-=c.price; c.reels=REELS.map(r=>r[Math.floor(R()*8)]); flash(el);
+  if(c.reels[0]===c.reels[1]&&c.reels[0]===c.reels[2]){const[k,v,n]=PAY[c.reels[0]];
+    for(let i=0;i<n;i++)addParam(k,v); msg(t('slotWin')+' '+c.reels.join('')+' '+(n*v),'#f5c400'); floatText(el,c.reels.join(''),'#f5c400',ev);}
+  else{ msg(t('slotLose')+' '+c.reels.join(''),'#888'); }
+  paint(c);}
+const BONUS={n1:{f:()=>S.life_max+=20,need:()=>S.lv>=3,l:{jp:'体力上限+20',en:'LIFE max+20'}},
+  n2:{f:()=>S.rpe*=2,need:()=>S.lv>=5,l:{jp:'回復x2',en:'RCV x2'}},
+  n3:{f:()=>S.act_max+=20,need:()=>S.e_comp>=2,l:{jp:'行動上限+20',en:'ACT max+20'}}};
+function doBonus(c,el,ev){ const b=BONUS[c.bid]; if(c.used||!b.need())return; b.f(); c.used=true; c.done=true;
+  msg(t('bonus'),'#f5c400'); floatText(el,'★','#f5c400',ev); flash(el); paint(c);}
 
 // ============================================================================
-//  布局 (忠于原版结构; 尺寸驱动 m=w×h → HP/价格/掉落)
+//  paint one cell
 // ============================================================================
-function buildWorld(){
-  S=newMain(); engaged=null;
-  repLife.price=120; capAct.price=100; capLife.price=100; buyKey.price=400; buyPt.price=200;
-  BONUS.forEach(b=>b.used=false);
-  TARGETS=[
-    mkEnemy({type:'enemy',name:{jp:'スライム',en:'Slime'},   w:60, h:24, y:120}),  // m1440 开放 HP60
-    mkEnemy({type:'enemy',name:{jp:'コウモリ',en:'Bat'},     w:100,h:24, y:160}),  // m2400 锁 HP100
-    mkEnemy({type:'enemy',name:{jp:'ゴブリン',en:'Goblin'},  w:160,h:26, y:200}),  // m4160 锁 HP160
-    mkMission({name:{jp:'税の徴収',en:'Collect Tax'},        w:80, h:12, y:150}),  // m960 开放
-    mkMission({name:{jp:'討伐依頼',en:'Bounty'},             w:180,h:16, y:240}),  // m2880 锁
-    mkEnemy({type:'enemy',name:{jp:'オーガ',en:'Ogre'},      w:240,h:28, y:250}),  // m6720 锁 HP240
-    mkEnemy({type:'boss', name:{jp:'魔王',en:'Demon Lord'},  w:300,h:40, y:320}),  // HP240 需 atk>200
-    mkEnemy({type:'last', name:{jp:'裏ボス',en:'True Boss'}, w:752,h:44, y:400}),  // HP9999
-  ];
-  FACS=[
-    mkWeapon({name:{jp:'武器',en:'Weapon'},  w:120,h:40}),
-    mkArmor ({name:{jp:'防具',en:'Armor'},   w:120,h:40}),
-    mkWeapon({name:{jp:'強武器',en:'Big Weapon'}, w:220,h:52}),
-    repLife, capAct, capLife, buyKey, buyPt, slot, ...BONUS,
-  ];
-  render();
-  log(lang==='jp'?'ゲーム開始 — 属性点(+)を割り振り、ターゲットを攻略':'Start — spend points (+), attack targets','var(--muted)');
+function paint(c){
+  const el=c.el; if(!el)return; const fill=el.children[0],lbl=el.children[1],sub=el.children[2],ic=el.children[3];
+  el.classList.toggle('done',!!c.done);
+  let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='';
+  if(c.locked){ fillPct=0; el.style.background='#0a0a0a'; icon='🔒';
+    text=(c.type==='mystery'||c.type==='lock')?'?':''; lbl.style.color='#fff'; }
+  else if(c.type==='enemy'||c.type==='boss'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
+    text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lbl.style.color='#000';
+    if(c.boss)icon='⚔'; }
+  else if(c.type==='mission'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
+    text=Math.round(c.hp/c.hpMax*100)+'%'; lbl.style.color=fillPct>40?'#000':'#fff'; }
+  else if(c.type==='weapon'||c.type==='armor'){ fillPct=0; el.style.background='#0a0a0a';
+    text='$'+c.price; subT='x'+c.buys; icon=c.type==='weapon'?'⚔':'🛡'; lbl.style.color='#fff';
+    if(c.done){text='SOLD';} }
+  else if(c.type==='repLife'){ fillPct=100; text=lang==='jp'?'体力回復':'REP LIFE'; subT='$'+(c.price||120); lbl.style.color='#000'; }
+  else if(c.type==='capAct'){ fillPct=100; text=lang==='jp'?'行動++':'ACT++'; subT='$'+c.price; lbl.style.color='#000'; }
+  else if(c.type==='capLife'){ fillPct=100; text=lang==='jp'?'体力++':'LIFE++'; subT='$'+c.price; lbl.style.color='#000'; }
+  else if(c.type==='buyKey'){ el.style.background='#0a0a0a'; text='$'+c.price; subT=lang==='jp'?'鍵':'KEY'; icon='⚷'; lbl.style.color='#fff'; }
+  else if(c.type==='buyPoint'){ fillPct=100; text=lang==='jp'?'追加':'+PT'; subT='$'+c.price; lbl.style.color='#000'; }
+  else if(c.type==='slot'){ el.style.background='#0a0a0a'; text=c.reels.join(''); subT='$'+c.price; lbl.style.color='#fff'; }
+  else if(c.type==='bonus'){ const b=BONUS[c.bid]; fillPct=100; el.style.background='#0a0a0a';
+    text='★'+b.l[lang]; lbl.style.color=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00';
+    if(!b.need()||c.used)fillPct=0; }
+  else { el.style.background='#0a0a0a'; text='?'; lbl.style.color='#fff'; }
+  fill.style.width=fillPct+'%'; fill.style.background=fillColor;
+  lbl.textContent=text; sub.textContent=subT; ic.textContent=icon;
 }
+function repaintAll(){ CELLS.forEach(paint); }
 
 // ============================================================================
-//  渲染
+//  status bar
 // ============================================================================
-function statBar(k,cur,max,color,extra){
-  return `<div class="st" ${k==='LIFE'?'id="lifeBox"':''} style="position:relative">
-    <div class="k"><span>${k}</span><span>${extra||''}</span></div>
-    <div class="v" style="color:${color}">${Math.floor(cur)}${max!==null?'<span style="color:var(--muted);font-size:10px">/'+Math.floor(max)+'</span>':''}</div>
-    ${max!==null?`<div class="bar"><i style="width:${clamp(cur/max*100,0,100)}%;background:${color}"></i></div>`:''}
-  </div>`;
-}
+function bar(id,cur,max){const i=$(id);if(i)i.style.width=clamp(cur/max*100,0,100)+'%';}
 function renderStatus(){
-  const comboPct=clamp(S.combo/C.COMBO_MAX*100,0,100);
-  $('status').innerHTML=`
-    <div class="statgrid">
-      ${statBar('LIFE',S.life,S.life_max,'var(--danger)')}
-      ${statBar('ACT',S.act,S.act_max,'var(--cyan)')}
-      ${statBar('EXP',S.exp,S.exp_max,'var(--success)','Lv.'+S.lv)}
-      ${statBar('ATK',S.atk,S.atk_max,'var(--pink)')}
-      ${statBar('DEF',S.def,S.def_max,'var(--lime)')}
-      <div class="st"><div class="k"><span>COMBO</span><span>max ${C.COMBO_MAX}</span></div>
-        <div class="v" style="color:var(--purple)">${S.combo}</div>
-        <div class="bar"><i style="width:${comboPct}%;background:var(--purple)"></i></div></div>
-    </div>
-    <div class="pts">
-      <span class="lbl">GOLD ${S.gold}</span>
-      <span class="lbl" style="color:var(--purple)">KEY ${S.key}</span>
-      <span class="lbl" style="color:var(--cyan)">KEY2 ${S.key2}</span>
-      <span class="lbl" style="color:var(--success)">RPE ${S.rpe}</span>
-      <span style="flex:1"></span>
-      <span class="lbl" style="color:var(--gold)">+P ${S.add_p}</span>
-      ${['LIFE','ACT','RPE','ATK','DEF'].map(k=>`<span class="pbtn ${S.add_p>0?'hot':'off'}" data-pt="${k}">+${k}</span>`).join('')}
-    </div>`;
-  document.querySelectorAll('[data-pt]').forEach(e=>e.onclick=()=>spendPoint(e.dataset.pt));
+  $('s_lv').textContent=(lang==='jp'?'レベル ':'LV ')+S.lv;
+  $('s_gold').textContent='$ '+S.gold; $('s_key').textContent='⚷ '+S.key; $('s_key2').textContent='⚷ '+S.key2;
+  $('s_addp').textContent='+P '+S.add_p;
+  bar('b_exp',S.exp,S.exp_max); $('t_exp').textContent=Math.floor(S.exp)+'/'+S.exp_max;
+  bar('b_life',S.life,S.life_max); $('t_life').textContent=Math.floor(S.life)+'/'+S.life_max;
+  bar('b_act',S.act,S.act_max); $('t_act').textContent=Math.floor(S.act)+'/'+S.act_max;
+  $('t_rpe').textContent=S.rpe;
+  bar('b_atk',S.atk,S.atk_max); $('t_atk').textContent=Math.floor(S.atk)+'/'+S.atk_max;
+  bar('b_def',S.def,S.def_max); $('t_def').textContent=Math.floor(S.def)+'/'+S.def_max;
+  document.querySelectorAll('.add[data-pt]').forEach(a=>{
+    if(a.dataset.pt==='none')return;
+    a.classList.toggle('off',S.add_p<=0);
+  });
 }
-function renderTargets(){
-  const col={enemy:'var(--accent)',boss:'var(--danger)',last:'var(--danger)',mission:'var(--cyan)'};
-  $('targets').innerHTML=TARGETS.map((T,i)=>{
-    const nm=T.name[lang];
-    let barW,barC=col[T.type],sub,tag;
-    if(T.done){ sub='CLEARED'; barW=0; }
-    else if(T.locked){ sub='🔒 KEY×1'; barW=100; barC='var(--border)'; }
-    else if(T.type==='mission'){ barW=T.hp/T.hpMax*100; sub=Math.floor(T.hp/T.hpMax*100)+'% · cost '+T.cost.toFixed(1); }
-    else { barW=T.hp/T.hpMax*100; sub=Math.max(0,Math.ceil(T.hp))+'/'+T.hpMax; }
-    tag={enemy:'ENEMY',boss:'BOSS·atk>200',last:'TRUE BOSS',mission:'MISSION'}[T.type];
-    const cls='target'+(T.locked?' locked':'')+(T.done?' done':'')+(engaged===T?' eng':'');
-    return `<div class="${cls}" data-ti="${i}"><div class="flash"></div>
-      <div class="row1"><span>${nm}</span><span class="tag">${tag}</span></div>
-      <div class="hpwrap"><div class="bar" style="flex:1;height:9px"><i style="width:${clamp(barW,0,100)}%;background:${barC}"></i></div>
-      <span class="hpnum">${sub}</span></div></div>`;
-  }).join('');
-  TARGETS.forEach((T,i)=>{const el=$('targets').children[i]; el.onclick=()=>clickTarget(T,el);});
+function spendPoint(kind){ if(S.add_p<=0)return;
+  if(kind==='LIFE'){S.life++;S.life_max++;} else if(kind==='ACT'){S.act++;S.act_max++;}
+  else if(kind==='RPE'){S.rpe++;} else if(kind==='ATK'){const n=Math.trunc(R()*3+1);S.atk+=n;S.atk_max+=n;}
+  else if(kind==='DEF'){const n=Math.trunc(R()*3+1);S.def+=n;S.def_max+=n;}
+  addAddP(-1); renderStatus();
 }
-function facRow(F,i){
-  let title,sub,cost,cls='fac',dis=false,extra='';
-  if(F.ftype==='weapon'||F.ftype==='armor'){
-    title=F.name[lang]+(F.ftype==='weapon'?' ⚔':' 🛡');
-    if(F.locked){sub='🔒 KEY×1';cost='';}
-    else if(F.cnt>=9){sub='SOLD OUT';cost='';dis=true;}
-    else { const gain=Math.max(1,Math.trunc(F.addP*(1-F.cnt*0.05)));
-      sub=(F.ftype==='weapon'?'ATK':'DEF')+' +'+gain+'  ('+F.cnt+'/9)'; cost='$'+F.price;
-      if(S.gold<F.price)dis=true; }
-  } else if(F.ftype==='repLife'){ title=(lang==='jp'?'体力回復 +100':'Repair Life +100'); cost='$'+repLife.price; sub='to '+S.life_max; if(S.gold<repLife.price||S.life>=S.life_max)dis=true; }
-  else if(F.ftype==='capAct'){ title=(lang==='jp'?'ACT上限 +1':'ACT max +1'); cost='$'+capAct.price; sub=S.act_max+'/200'; if(S.gold<capAct.price||S.act_max>=200)dis=true; }
-  else if(F.ftype==='capLife'){ title=(lang==='jp'?'LIFE上限 +1':'LIFE max +1'); cost='$'+capLife.price; sub=S.life_max+'/200'; if(S.gold<capLife.price||S.life_max>=200)dis=true; }
-  else if(F.ftype==='key'){ title=(lang==='jp'?'鍵を購入':'Buy Key'); cost='$'+buyKey.price; sub='KEY +1'; if(S.gold<buyKey.price)dis=true; }
-  else if(F.ftype==='point'){ title=(lang==='jp'?'ポイント購入':'Buy Point'); cost='$'+buyPt.price; sub='+P +1'; if(S.gold<buyPt.price)dis=true; }
-  else if(F.ftype==='slot'){ title=(lang==='jp'?'スロット':'Slot'); cost='$'+slot.price; sub='';
-    return `<div class="fac ${S.gold<slot.price?'off':''}" data-fi="${i}"><div class="flash"></div>
-      <div class="fr"><span>🎰 ${title} <span class="reels">${slot.reels.map(r=>`<span class="reel">${r}</span>`).join('')}</span></span><span class="cost">${cost}</span></div>
-      <div class="sub">$$$=1600 · @@@=200xp · 777=15540 · ***=9600</div></div>`; }
-  else if(F.ftype==='bonus'){ title='★ '+F.name[lang]; cost='';
-    if(F.used){sub=(lang==='jp'?'獲得済':'used');dis=true;cls+=' off';}
-    else if(!F.need()){sub=(lang==='jp'?'条件未達':'locked');dis=true;cls+=' off';}
-    else {sub=(lang==='jp'?'獲得可能!':'ready!');} }
-  if(dis&&!cls.includes('off'))cls+=' off';
-  return `<div class="${cls}" data-fi="${i}"><div class="flash"></div>
-    <div class="fr"><span>${title}</span><span class="cost">${cost}</span></div>
-    ${sub?`<div class="sub">${sub}</div>`:''}</div>`;
-}
-function renderFacs(){
-  $('facilities').innerHTML=FACS.map((F,i)=>facRow(F,i)).join('');
-  FACS.forEach((F,i)=>{const el=$('facilities').children[i]; if(!el)return; el.onclick=()=>{
-    if(F.ftype==='weapon'||F.ftype==='armor') buyItem(F,el);
-    else if(F.ftype==='repLife') buyRepLife(el);
-    else if(F.ftype==='capAct') buyCap(capAct,'ACT',el);
-    else if(F.ftype==='capLife') buyCap(capLife,'LIFE',el);
-    else if(F.ftype==='key') doBuyKey(el);
-    else if(F.ftype==='point') doBuyPt(el);
-    else if(F.ftype==='slot') spinSlot(el);
-    else if(F.ftype==='bonus') useBonus(F,el);
-  };});
-}
-function render(){ renderStatus(); renderTargets(); renderFacs(); }
-function renderStatic(){ document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t)); }
 
 // ============================================================================
-//  游戏循环 (定步长 30fps: 逐帧再生/连击衰减/交战反击)
+//  sim loop (setInterval — 不受失焦暂停;逐帧再生/连击/敌人回血)
 // ============================================================================
-let last=performance.now(), acc=0;
-function frameStep(){
-  // 逐帧再生 (封顶各 _max)
-  S.life=Math.min(S.life+0.004+S.rpe*0.002, S.life_max);
-  S.act =Math.min(S.act +0.06 +S.rpe*0.01,  S.act_max);
-  S.atk =Math.min(S.atk +0.03 +S.rpe*0.01,  S.atk_max);
-  S.def =Math.min(S.def +0.03 +S.rpe*0.01,  S.def_max);
-  // 连击衰减
-  if(S.combo_time>0){ S.combo_time-=1; if(S.combo_time<=0){ if(S.combo>=C.COMBO_MAX) log('★ '+t('C_MAX'),'var(--pink)'); S.combo=0; } }
-  // 交战敌人反击
-  if(engaged && !engaged.done && !engaged.locked) stepEnemy(engaged);
+let engaged=null, acc=0, last=performance.now();
+setInterval(()=>{
+  if(S.over)return;
+  const now=performance.now(); acc+=now-last; last=now; let steps=0;
+  while(acc>=DT && steps<8){ frame(); acc-=DT; steps++; }
+  renderStatus();
+},DT);
+function frame(){
+  S.life=Math.min(S.life+0.004+S.rpe*0.002,S.life_max);
+  S.act =Math.min(S.act +0.06 +S.rpe*0.01, S.act_max);
+  S.atk =Math.min(S.atk +0.03 +S.rpe*0.01, S.atk_max);
+  S.def =Math.min(S.def +0.03 +S.rpe*0.01, S.def_max);
+  if(S.combo_time>0){S.combo_time--; if(S.combo_time<=0)S.combo=0;}
 }
-function loop(now){
-  const dtms=now-last; last=now; acc+=dtms;
-  let steps=0;
-  while(acc>=1000/FPS && steps<6){ if(!S.over) frameStep(); acc-=1000/FPS; steps++; }
-  if(!S.over){ renderStatus(); }        // 状态条每帧刷新
-  requestAnimationFrame(loop);
+setInterval(()=>{ if(!S.over) repaintAll(); },140);
+
+// ---- win/lose ----
+function checkWin(){ if(CELLS.filter(c=>c.type==='enemy'||c.type==='boss'||c.type==='mission').every(c=>c.done||c.locked===false&&c.hp===undefined)){}
+  const targets=CELLS.filter(c=>['enemy','boss','mission'].includes(c.type));
+  if(targets.length&&targets.every(c=>c.done)){ S.over=true;S.won=true;
+    $('ovT').textContent=t('cleared'); $('ovT').style.color='#f5c400';
+    $('ovTime').textContent='TIME '+timeStr(performance.now()-S.startTime); $('overlay').style.display='flex'; }
 }
-requestAnimationFrame(loop);
-setInterval(()=>{ if(!S.over) renderFacs(); },300);  // 设施可买状态
+function gameOver(){ S.over=true; $('ovT').textContent=t('over'); $('ovT').style.color='#ff4444';
+  $('ovTime').textContent='TIME '+timeStr(performance.now()-S.startTime); $('overlay').style.display='flex'; }
 
-// ---------- 胜负/结算 ----------
-function timeStr(){ let s=Math.floor((performance.now()-S.startTime)/1000);
-  const h=String(Math.floor(s/3600)).padStart(2,'0');s%=3600;
-  return `${h}:${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-function checkWin(){
-  if(TARGETS.every(x=>x.done)){ S.over=true; S.won=true;
-    $('ovT').textContent=t('cleared'); $('ovT').style.color='var(--gold)';
-    $('ovTime').textContent='TIME '+timeStr(); $('ovSub').textContent=t('allsub');
-    $('overlay').style.display='flex'; }
-}
-function gameOver(){ S.over=true;
-  $('ovT').textContent=t('gameover'); $('ovT').style.color='var(--danger)';
-  $('ovTime').textContent='TIME '+timeStr(); $('ovSub').textContent='';
-  $('overlay').style.display='flex'; render(); }
+// ---- controls ----
+function setLang(l){lang=l;$('jp').classList.toggle('on',l==='jp');$('en').classList.toggle('on',l==='en');
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=TXT[e.dataset.t][l]);
+  renderStatus(); repaintAll();}
+$('jp').onclick=()=>setLang('jp'); $('en').onclick=()=>setLang('en'); $('rst').onclick=()=>location.reload();
+document.querySelectorAll('.add[data-pt]').forEach(a=>{if(a.dataset.pt!=='none')a.onclick=()=>spendPoint(a.dataset.pt);});
+let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{ if(!S.over) buildWorld(); },300);});
 
-// ---------- 控制 ----------
-function setLang(l){ lang=l; $('langJp').classList.toggle('on',l==='jp'); $('langEn').classList.toggle('on',l==='en'); renderStatic(); render(); }
-$('langJp').onclick=()=>setLang('jp'); $('langEn').onclick=()=>setLang('en');
-$('reset').onclick=()=>location.reload();
-
-// ---------- boot ----------
-renderStatic();
+// ---- boot ----
+setLang('en');
 buildWorld();
 </script>
 </body>
