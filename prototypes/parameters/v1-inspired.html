@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parameters — DTSV 复刻</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel2:#1c2230; --border:#30363d;
+    --accent:#58a6ff; --danger:#f85149; --success:#3fb950; --warn:#d29922;
+    --gold:#e3b341; --purple:#bc8cff; --cyan:#39d0d8; --pink:#ff6699;
+    --txt:#c9d1d9; --muted:#8b949e;
+    --mono:'JetBrains Mono','Consolas',monospace;
+    --sans:'DM Sans','Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:var(--sans);
+    display:flex;justify-content:center;padding:16px;min-height:100vh}
+  #app{width:100%;max-width:920px}
+  h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+  h1 small{color:var(--muted);font-weight:400;font-size:12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .btn{background:var(--panel2);border:1px solid var(--border);color:var(--txt);
+    font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:6px;cursor:pointer;
+    transition:.12s;user-select:none}
+  .btn:hover{border-color:var(--accent);color:#fff}
+  .btn:active{transform:translateY(1px)}
+  .btn.on{border-color:var(--accent);color:var(--accent)}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+  .grid-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+  .stat .k{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px}
+  .stat .v{font-size:16px;font-weight:700;font-family:var(--mono)}
+  .bar{height:6px;background:#0b0f16;border-radius:4px;overflow:hidden;margin-top:5px}
+  .bar > i{display:block;height:100%;width:0;transition:width .15s linear}
+  .cols{display:grid;grid-template-columns:1fr 300px;gap:12px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}.grid-stats{grid-template-columns:repeat(2,1fr)}}
+  .sect-title{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;
+    margin:2px 0 8px;text-transform:uppercase}
+  .target{background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;margin-bottom:8px;cursor:pointer;position:relative;overflow:hidden;
+    transition:.1s;user-select:none}
+  .target:hover{border-color:var(--accent)}
+  .target:active{transform:scale(.995)}
+  .target.locked{cursor:not-allowed;opacity:.7}
+  .target.locked:hover{border-color:var(--danger)}
+  .target.cleared{opacity:.35;cursor:default;filter:grayscale(1)}
+  .target .name{font-weight:600;font-size:13px;display:flex;justify-content:space-between}
+  .target .name .tag{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .target .hpwrap{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .target .hpnum{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:78px;text-align:right}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+  .shop-btn{display:flex;flex-direction:column;gap:2px;text-align:left}
+  .shop-btn .lbl{font-size:12px;font-weight:600}
+  .shop-btn .cost{font-family:var(--mono);font-size:11px;color:var(--gold)}
+  .shop-btn:disabled{opacity:.4;cursor:not-allowed}
+  .shopgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #log{height:280px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.7;
+    display:flex;flex-direction:column-reverse}
+  #log div{border-bottom:1px solid #21262d;padding:2px 0}
+  .combo-big{position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-weight:700;font-size:28px;color:var(--pink);
+    text-shadow:0 0 12px var(--pink);opacity:0;pointer-events:none;transition:.2s}
+  #overlay{position:fixed;inset:0;background:rgba(6,9,14,.92);display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50}
+  #overlay h2{font-size:32px;color:var(--gold);text-shadow:0 0 20px rgba(227,179,65,.4)}
+  #overlay .time{font-family:var(--mono);font-size:20px}
+  .float{position:absolute;font-family:var(--mono);font-size:12px;font-weight:700;
+    pointer-events:none;animation:rise .8s ease-out forwards}
+  @keyframes rise{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-26px)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>◈ PARAMETERS <small>— nekogames 复刻 · DTSV 灵感原型</small></h1>
+    <div class="row">
+      <div class="btn" id="langJp">JP</div>
+      <div class="btn on" id="langEn">EN</div>
+      <div class="btn" id="reset">RESET</div>
+    </div>
+  </div>
+
+  <div class="grid-stats" id="stats"></div>
+
+  <div class="cols">
+    <div>
+      <div class="panel" style="margin-bottom:12px">
+        <div class="sect-title" data-t="targets">TARGETS</div>
+        <div id="targets"></div>
+      </div>
+      <div class="panel">
+        <div class="sect-title" data-t="shop">SHOP / REPAIR</div>
+        <div class="shopgrid" id="shop"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="sect-title" data-t="log">MESSAGE</div>
+      <div id="log"></div>
+    </div>
+  </div>
+  <p style="color:var(--muted);font-size:11px;margin-top:10px;font-family:var(--mono)">
+    点击目标条消耗 ACT 攻击/执行 · 敌人会反击扣 LIFE · 用 GOLD/KEY 解锁与升级 · 清空全部目标即通关
+  </p>
+</div>
+
+<div class="combo-big" id="comboBig"></div>
+<div id="overlay">
+  <h2 id="ovTitle"></h2>
+  <div class="time" id="ovTime"></div>
+  <div class="btn" onclick="location.reload()">PLAY AGAIN</div>
+</div>
+
+<script>
+// ============================================================
+// Parameters — 复刻自 nekogames「パラメータ」(gid=PRM, 2008)
+// 机制依据从原 SWF 的 AS3 常量池还原的类/字段/事件:
+//   Main(life/act/atk/def/exp/lv/gold/key/combo...) · Meter · Enemy
+//   Mission · ItemAtk/ItemDef · BtnRepaierLife/Act/Key/Point · LockGold
+// 双语文案取自原游戏内建的 JP/EN 字符串表。
+// ============================================================
+
+const L = {
+  targets:{jp:'ターゲット',en:'TARGETS'}, shop:{jp:'購入 / 修復',en:'SHOP / REPAIR'},
+  log:{jp:'メッセージ',en:'MESSAGE'},
+  unlockEnemy:{jp:'敵のロックを解除した',en:'Unlock the enemy'},
+  unlockMission:{jp:'ミッションのロックを解除した',en:'Unlock the mission'},
+  unlockItem:{jp:'アイテムのロックを解除した',en:'Unlock the item'},
+  locked:{jp:'ロックされています',en:'Locked'},
+  missionDone:{jp:'ミッション完了!',en:'Mission completed'},
+  runSuccess:{jp:'ミッション実行>成功',en:'Run > Success'},
+  lackAct:{jp:'実行>行動不足',en:'Attempted > Lack of ACT.'},
+  win:{jp:'敵に勝利しました！',en:'You win!'},
+  dmgTo:{jp:'攻撃>敵に @ ダメージ',en:'Atk. > @ damage to enemy'},
+  damage:{jp:'@のダメージを受けた！',en:'@ damage taken!'},
+  levelUp:{jp:'レベル @ になりました！',en:'Level @'},
+  comboMax:{jp:'連続取得達成！',en:'MAXIMUM COMBO'},
+  buyWeapon:{jp:'武器購入>攻撃力 @ UP!',en:'BUY WEAPON > ATK. @ UP!'},
+  buyArmor:{jp:'防具購入>防御力 @ UP!',en:'BUY ARMOR > DEF. @ UP!'},
+  repairLife:{jp:'体力回復 > 成功',en:'REPAIR LIFE'},
+  getKey:{jp:'鍵購入',en:'Get key'},
+  addAct:{jp:'行動が増加！',en:'ACT. max UP!'},
+  allClear:{jp:'全ターゲット制圧!',en:'ALL TARGETS CLEARED!'},
+  cleared:{jp:'パラメータ クリア！',en:'Parameters Cleared!'},
+  needKey:{jp:'鍵が足りない',en:'Need a key'},
+  needGold:{jp:'ゴールド不足',en:'Not enough gold'},
+};
+let lang='en';
+const t=(k,v)=>{let s=L[k]?L[k][lang]:k; return v!==undefined? s.replace('@',v):s;};
+
+// ---- state ----
+const START = ()=>({
+  life:24, lifeMax:24, act:8, actMax:8, actRegen:2.4, // act / sec
+  atk:4, def:0, exp:0, expMax:12, lv:1, gold:0, key:0,
+  combo:0, comboTimer:0, comboMax:0, startTime:performance.now(),
+  price:{atk:12, def:12, life:8, actmax:20, key:15},
+  over:false,
+});
+let S = START();
+
+// ---- targets: enemy(反击) / mission(执行) / treasure(需钥匙) ----
+const mkTargets = ()=>[
+  {id:'e1',type:'enemy',  name:{jp:'スライム',en:'Slime'},     hpMax:18,  cAtk:1, gold:8,  exp:6,  locked:false},
+  {id:'m1',type:'mission',name:{jp:'税の徴収',en:'Collect Tax'},hpMax:40,  cAtk:0, gold:20, exp:8,  locked:false},
+  {id:'e2',type:'enemy',  name:{jp:'ゴブリン',en:'Goblin'},    hpMax:45,  cAtk:2, gold:16, exp:12, locked:true, ug:22},
+  {id:'t1',type:'treasure',name:{jp:'宝箱',en:'Treasure'},     hpMax:1,   cAtk:0, gold:60, exp:0,  locked:true, uk:1},
+  {id:'m2',type:'mission',name:{jp:'魔物討伐依頼',en:'Bounty Quest'},hpMax:90,cAtk:0,gold:45,exp:20,locked:true, ug:55},
+  {id:'e3',type:'enemy',  name:{jp:'オーガ',en:'Ogre'},        hpMax:130, cAtk:4, gold:40, exp:30, locked:true, ug:95},
+  {id:'t2',type:'treasure',name:{jp:'封印の箱',en:'Sealed Box'},hpMax:1,  cAtk:0, gold:0,  exp:0,  locked:true, uk:2, giveKey:0, item:'atk'},
+  {id:'e4',type:'enemy',  name:{jp:'ドラゴン',en:'Dragon'},    hpMax:240, cAtk:7, gold:90, exp:60, locked:true, ug:190},
+  {id:'b1',type:'boss',   name:{jp:'魔王',en:'Demon Lord'},    hpMax:460, cAtk:11,gold:200,exp:150,locked:true, ug:380},
+].map(o=>({...o, name:{...o.name}, hp:o.hpMax, cleared:false}));
+let T = mkTargets();
+
+// ---- helpers ----
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function log(msg,color='#c9d1d9'){
+  const d=document.createElement('div'); d.innerHTML=msg; d.style.color=color;
+  const box=$('log'); box.appendChild(d);
+  while(box.children.length>60) box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+function floatText(el,txt,color){
+  const f=document.createElement('span'); f.className='float'; f.textContent=txt;
+  f.style.color=color; f.style.left=(20+Math.random()*60)+'%'; f.style.top='6px';
+  el.appendChild(f); setTimeout(()=>f.remove(),800);
+}
+function flash(el){const f=el.querySelector('.flash');if(!f)return;
+  f.style.transition='none';f.style.opacity=.35;requestAnimationFrame(()=>{f.style.transition='opacity .25s';f.style.opacity=0;});}
+
+// ---- combo ----
+function bumpCombo(){
+  S.combo++; S.comboTimer=1.4;
+  if(S.combo>S.comboMax){S.comboMax=S.combo;}
+  if(S.combo>0 && S.combo%10===0){
+    log('★ '+t('comboMax')+' x'+S.combo, 'var(--pink)');
+  }
+  const cb=$('comboBig');
+  if(S.combo>=3){cb.textContent=S.combo+' COMBO';cb.style.opacity=1;
+    clearTimeout(cb._t);cb._t=setTimeout(()=>cb.style.opacity=0,500);}
+}
+const comboMult=()=>1+Math.min(S.combo,30)*0.06;
+
+// ---- level ----
+function gainExp(n){
+  S.exp+=n;
+  while(S.exp>=S.expMax){
+    S.exp-=S.expMax; S.lv++; S.lifeMax+=6; S.actMax+=2; S.atk+=1;
+    S.life=S.lifeMax; S.act=S.actMax; S.expMax=Math.round(S.expMax*1.6);
+    log('▲ '+t('levelUp',S.lv), 'var(--success)');
+  }
+}
+
+// ---- interact ----
+function hitTarget(tg,el){
+  if(S.over||tg.cleared) return;
+  if(tg.locked){ tryUnlock(tg); return; }
+  if(S.act<1){ log(t('lackAct'),'var(--muted)'); return; }
+  S.act-=1;
+  const dmg=Math.max(1,Math.round(S.atk*comboMult()));
+  tg.hp-=dmg; bumpCombo(); flash(el);
+  floatText(el,'-'+dmg, tg.type==='mission'?'var(--cyan)':'var(--accent)');
+  // enemy counterattack
+  if(tg.cAtk>0){
+    const taken=Math.max(0, tg.cAtk-S.def);
+    if(taken>0){ S.life-=taken; log(t('damage',taken),'var(--danger)');
+      if(S.life<=0){ S.life=0; gameOver(); return; } }
+  }
+  if(tg.hp<=0){ clearTarget(tg); }
+}
+function clearTarget(tg){
+  tg.hp=0; tg.cleared=true;
+  gainExp(tg.exp); S.gold+=tg.gold;
+  if(tg.giveKey!==undefined) S.key+=1;
+  if(tg.item==='atk'){ S.atk+=2; }
+  if(tg.type==='mission') log(t('missionDone')+' +'+tg.gold+'G','var(--purple)');
+  else if(tg.type==='treasure') log((lang==='jp'?'宝箱を開けた':'Opened treasure')+' +'+tg.gold+'G','var(--gold)');
+  else log(t('win')+' +'+tg.gold+'G / +'+tg.exp+'EXP','var(--gold)');
+  // auto-reveal next locked target as "available to unlock"
+  checkWin();
+}
+function tryUnlock(tg){
+  if(tg.uk!==undefined){ // key lock
+    if(S.key>=tg.uk){ S.key-=tg.uk; tg.locked=false; log(t('unlockItem'),'#fff'); }
+    else log(t('needKey'),'var(--danger)');
+  } else if(tg.ug!==undefined){ // gold lock
+    if(S.gold>=tg.ug){ S.gold-=tg.ug; tg.locked=false;
+      log(tg.type==='mission'?t('unlockMission'):t('unlockEnemy'),'#fff'); }
+    else log(t('needGold'),'var(--danger)');
+  }
+}
+function checkWin(){
+  if(T.every(x=>x.cleared)){
+    S.over=true;
+    $('ovTitle').textContent=t('cleared');
+    $('ovTime').textContent='TIME '+timeStr();
+    log('◈ '+t('allClear'),'var(--gold)');
+    $('overlay').style.display='flex';
+  }
+}
+function gameOver(){
+  S.over=true;
+  $('ovTitle').textContent=(lang==='jp'?'ゲームオーバー':'GAME OVER');
+  $('ovTitle').style.color='var(--danger)';
+  $('ovTime').textContent='TIME '+timeStr();
+  $('overlay').style.display='flex';
+}
+function timeStr(){
+  let s=Math.floor((performance.now()-S.startTime)/1000);
+  const h=String(Math.floor(s/3600)).padStart(2,'0');s%=3600;
+  const m=String(Math.floor(s/60)).padStart(2,'0');
+  const ss=String(s%60).padStart(2,'0');
+  return `${h}:${m}:${ss}`;
+}
+
+// ---- shop ----
+const SHOP=[
+  {id:'atk', lbl:{jp:'武器を購入',en:'Buy Weapon'}, pk:'atk',
+   act(){ S.atk+=2; S.price.atk=Math.round(S.price.atk*1.55);
+     log(t('buyWeapon',2),'var(--pink)'); }},
+  {id:'def', lbl:{jp:'防具を購入',en:'Buy Armor'}, pk:'def',
+   act(){ S.def+=1; S.price.def=Math.round(S.price.def*1.55);
+     log(t('buyArmor',1),'var(--success)'); }},
+  {id:'life',lbl:{jp:'体力を回復',en:'Repair Life'}, pk:'life',
+   act(){ S.life=clamp(S.life+Math.ceil(S.lifeMax*0.5),0,S.lifeMax);
+     S.price.life=Math.round(S.price.life*1.3); log(t('repairLife'),'var(--warn)'); }},
+  {id:'actmax',lbl:{jp:'行動上限UP',en:'ACT. Max +2'}, pk:'actmax',
+   act(){ S.actMax+=2; S.act=S.actMax; S.price.actmax=Math.round(S.price.actmax*1.6);
+     log(t('addAct'),'var(--cyan)'); }},
+  {id:'key',lbl:{jp:'鍵を購入',en:'Buy Key'}, pk:'key',
+   act(){ S.key+=1; S.price.key=Math.round(S.price.key*1.4); log(t('getKey'),'var(--purple)'); }},
+];
+function buy(item){
+  const p=S.price[item.pk];
+  if(S.gold<p){ log(t('needGold'),'var(--danger)'); return; }
+  S.gold-=p; item.act();
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function renderStats(){
+  const barsC={life:'var(--danger)',act:'var(--cyan)',exp:'var(--success)'};
+  const rows=[
+    ['LIFE',`${Math.ceil(S.life)}/${S.lifeMax}`, S.life/S.lifeMax, barsC.life],
+    ['ACT.',`${Math.floor(S.act)}/${S.actMax}`, S.act/S.actMax, barsC.act],
+    ['ATK.',`${S.atk}`, null, null],
+    ['DEF.',`${S.def}`, null, null],
+    ['LV', `${S.lv}`, null, null],
+    ['EXP',`${S.exp}/${S.expMax}`, S.exp/S.expMax, barsC.exp],
+    ['GOLD',`${S.gold}`, null, 'var(--gold)'],
+    ['KEY',`${S.key}`, null, 'var(--purple)'],
+  ];
+  $('stats').innerHTML=rows.map(([k,v,r,c])=>`
+    <div class="stat">
+      <div class="k">${k}</div>
+      <div class="v" ${c&&r===null?`style="color:${c}"`:''}>${v}</div>
+      ${r!==null?`<div class="bar"><i style="width:${clamp(r*100,0,100)}%;background:${c}"></i></div>`:''}
+    </div>`).join('');
+}
+function renderTargets(){
+  const typeColor={enemy:'var(--accent)',boss:'var(--danger)',mission:'var(--cyan)',treasure:'var(--gold)'};
+  $('targets').innerHTML=T.map((tg,i)=>{
+    const nm=tg.name[lang];
+    let sub, barW=100, barC=typeColor[tg.type];
+    if(tg.cleared){ sub='CLEARED'; barW=0; }
+    else if(tg.locked){
+      sub = tg.uk!==undefined ? `🔒 KEY ×${tg.uk}` : `🔒 ${tg.ug} G`;
+      barW=100; barC='var(--border)';
+    } else {
+      barW=tg.hp/tg.hpMax*100;
+      sub = tg.type==='treasure'? (lang==='jp'?'クリックで開封':'click to open')
+           : `${Math.max(0,Math.ceil(tg.hp))}/${tg.hpMax}`;
+    }
+    const cls='target'+(tg.locked?' locked':'')+(tg.cleared?' cleared':'');
+    const tagTxt={enemy:'ENEMY',boss:'BOSS',mission:'MISSION',treasure:'TREASURE'}[tg.type];
+    return `<div class="${cls}" data-i="${i}">
+      <div class="flash"></div>
+      <div class="name"><span>${nm}</span><span class="tag">${tagTxt} · +${tg.gold}G</span></div>
+      <div class="hpwrap">
+        <div class="bar" style="flex:1;height:9px"><i style="width:${barW}%;background:${barC};transition:width .12s"></i></div>
+        <span class="hpnum">${sub}</span>
+      </div>
+    </div>`;
+  }).join('');
+  T.forEach((tg,i)=>{
+    const el=$('targets').children[i];
+    el.onclick=()=>{ hitTarget(tg,el); renderAll(); };
+  });
+}
+function renderShop(){
+  $('shop').innerHTML=SHOP.map((it,i)=>{
+    const p=S.price[it.pk];
+    const dis=S.gold<p?'disabled':'';
+    const extra = it.id==='atk'?`ATK ${S.atk}` : it.id==='def'?`DEF ${S.def}`
+      : it.id==='actmax'?`MAX ${S.actMax}` : it.id==='key'?`×${S.key}` : `${Math.ceil(S.life)}/${S.lifeMax}`;
+    return `<button class="btn shop-btn" data-i="${i}" ${dis}>
+      <span class="lbl">${it.lbl[lang]} <span style="color:var(--muted);font-weight:400">${extra}</span></span>
+      <span class="cost">${p} G</span></button>`;
+  }).join('');
+  SHOP.forEach((it,i)=>{ $('shop').children[i].onclick=()=>{buy(it);renderAll();}; });
+}
+function renderStaticLabels(){
+  document.querySelectorAll('[data-t]').forEach(e=>{e.textContent=t(e.dataset.t);});
+}
+function renderAll(){ renderStats(); renderTargets(); renderShop(); }
+
+// ---- game loop (ACT regen + combo decay) ----
+let last=performance.now();
+function tick(now){
+  const dt=(now-last)/1000; last=now;
+  if(!S.over){
+    S.act=clamp(S.act+S.actRegen*dt,0,S.actMax);
+    if(S.comboTimer>0){ S.comboTimer-=dt; if(S.comboTimer<=0)S.combo=0; }
+    // only stat bars need continuous refresh
+    renderStats();
+    // refresh act-dependent things sparingly
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+setInterval(()=>{ if(!S.over) renderShop(); },400); // keep shop enable-state fresh
+
+// ---- controls ----
+function setLang(l){ lang=l; $('langJp').classList.toggle('on',l==='jp');
+  $('langEn').classList.toggle('on',l==='en'); renderStaticLabels(); renderAll(); }
+$('langJp').onclick=()=>setLang('jp');
+$('langEn').onclick=()=>setLang('en');
+$('reset').onclick=()=>location.reload();
+
+// ---- boot ----
+setLang('en');
+renderStaticLabels();
+renderAll();
+log(lang==='jp'?'ゲーム開始 — 目標をクリック':'Game start — click targets to attack','var(--muted)');
+</script>
+</body>
+</html>
