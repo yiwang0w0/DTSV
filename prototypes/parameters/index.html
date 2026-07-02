@@ -24,8 +24,11 @@
   .cell .sub{position:absolute;left:3px;bottom:1px;z-index:2;font-size:10px;color:#000;pointer-events:none}
   .cell .ic{position:absolute;right:3px;bottom:2px;z-index:2;font-size:11px;pointer-events:none}
   .cell.enemy .lbl{color:#000}      /* on yellow */
-  .cell.done{opacity:.5}
+  .cell.done{opacity:.6;cursor:default}
+  .cell.done .ic{color:#3fb950;font-size:14px;font-weight:700}
   .cell.locked{cursor:pointer}
+  .cell.lockcell{border-color:#8a6a1e;background:#140f05}   /* 上锁:琥珀边框 */
+  .cell.lockcell .ic{font-size:13px;right:4px;bottom:3px}
   .cell.flash .fill{filter:brightness(2)}
   .float{position:absolute;z-index:50;font-weight:700;font-size:13px;pointer-events:none;
     animation:rise .7s ease-out forwards;text-shadow:0 0 3px #000}
@@ -100,6 +103,12 @@
 <div id="rules" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;align-items:center;justify-content:center;padding:16px">
   <div style="max-width:560px;max-height:88vh;overflow:auto;background:#0d0d0d;border:1px solid #333;padding:20px 22px;line-height:1.85">
     <div style="font-size:17px;font-weight:700;color:#f5c400;margin-bottom:10px">玩法说明</div>
+    <div style="font-size:12px;color:#bbb;margin-bottom:12px;line-height:2;border:1px solid #262626;padding:8px 10px;background:#080808">
+      <b style="color:#f5c400">格子图例</b><br>
+      <b style="color:#f5c400">■ 黄条</b> 敌人(点击攻击) &nbsp; <b style="color:#39d0d8">■ 青条</b> 任务(填到 100%) &nbsp;
+      <b style="color:#3fb950">■✔ 绿</b> 已完成 &nbsp; <b style="color:#e3b341">🔒 琥珀边框</b> 上锁(需钥匙)<br>
+      <b style="color:#f5c400">$…</b> 商店(⚔武器 · 🛡防具 · 体力回复 · 上限++ · ⚷钥匙) &nbsp; ★ 里程碑奖励 &nbsp; 🎁 宝箱 &nbsp; 🎰 老虎机
+    </div>
     <div style="color:#ccc;font-size:13px">
       <p style="margin-bottom:8px"><b>目标</b>:清空所有黄色<b>敌人</b>与<b>任务</b>格即通关。上方左侧=等级/经验/体力/行动,右侧=回复/攻击/防御。</p>
       <p style="margin-bottom:8px"><b>格子越大越强</b>:每格大小就是它的价值——敌人血量=格宽,格越大越难、越贵、奖励越多。</p>
@@ -444,30 +453,31 @@ function doBonus(c,el,ev){ const b=BONUS[c.bid]; if(c.used||!b.need())return; b.
 function paint(c){
   const el=c.el; if(!el)return; const fill=el.children[0],lbl=el.children[1],sub=el.children[2],ic=el.children[3];
   el.classList.toggle('done',!!c.done);
-  let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='';
-  if(c.locked){ fillPct=0; el.style.background='#0a0a0a'; icon='🔒';
-    text=(c.type==='mystery'||c.type==='lock')?'?':''; lbl.style.color='#fff'; }
-  else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
-    text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lbl.style.color='#000';
-    if(c.boss||c.last)icon='⚔'; }
-  else if(c.type==='treasure'){ el.style.background='#0a0a0a'; text=c.done?'✓':'宝箱'; icon=c.done?'':'🎁'; lbl.style.color='#f5c400'; }
-  else if(c.type==='mission'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
-    text=Math.round(c.hp/c.hpMax*100)+'%'; lbl.style.color=fillPct>40?'#000':'#fff'; }
-  else if(c.type==='weapon'||c.type==='armor'){ fillPct=0; el.style.background='#0a0a0a';
-    text='$'+c.price; subT='x'+c.buys; icon=c.type==='weapon'?'⚔':'🛡'; lbl.style.color='#fff';
-    if(c.done){text=t('cSold');} }
-  else if(c.type==='repLife'){ fillPct=100; text=t('cRepLife'); subT='$'+(c.price||120); lbl.style.color='#000'; }
-  else if(c.type==='capAct'){ fillPct=100; text=t('cCapAct'); subT='$'+c.price; lbl.style.color='#000'; }
-  else if(c.type==='capLife'){ fillPct=100; text=t('cCapLife'); subT='$'+c.price; lbl.style.color='#000'; }
-  else if(c.type==='buyKey'){ el.style.background='#0a0a0a'; text='$'+c.price; subT=t('cBuyKey'); icon='⚷'; lbl.style.color='#fff'; }
-  else if(c.type==='buyPoint'){ fillPct=100; text=t('cBuyPt'); subT='$'+c.price; lbl.style.color='#000'; }
-  else if(c.type==='slot'){ el.style.background='#0a0a0a'; text=c.reels.join(''); subT='$'+c.price; lbl.style.color='#fff'; }
-  else if(c.type==='bonus'){ const b=BONUS[c.bid]; fillPct=100; el.style.background='#0a0a0a';
-    text='★'+b.l[lang]; lbl.style.color=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00';
-    if(!b.need()||c.used)fillPct=0; }
-  else { el.style.background='#0a0a0a'; text='?'; lbl.style.color='#fff'; }
+  el.classList.toggle('lockcell',!!(c.locked&&!c.done));
+  let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='', lc='#fff';
+  if(c.done){                                    // 已完成/已清 —— 深绿底 + 绿 ✔
+    fillPct=100; fillColor='#123a20'; icon='✔'; lc='#3fb950'; }
+  else if(c.locked){                             // 上锁 —— 明显的琥珀 🔒(边框见 CSS)
+    fillPct=0; icon='🔒'; lc='#e3b341';
+    text = (c.type==='treasure')?'宝':(c.type==='enemy'||c.type==='boss'||c.type==='last')?'敌':(c.type==='mission')?'任':(c.type==='weapon')?'武':(c.type==='armor')?'防':''; }
+  else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){  // 敌人 —— 黄色血条
+    fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='var(--cell)';
+    text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lc='#000'; if(c.boss||c.last)icon='⚔'; }
+  else if(c.type==='mission'){                    // 任务 —— 青色进度条(区别于敌人黄)
+    fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='#2bb3c0';
+    text=Math.round(c.hp/c.hpMax*100)+'%'; lc=fillPct>45?'#012':'#39d0d8'; }
+  else if(c.type==='treasure'){ text='宝箱'; icon='🎁'; lc='#f5c400'; }
+  else if(c.type==='weapon'||c.type==='armor'){ text='$'+c.price; subT='x'+c.buys; icon=c.type==='weapon'?'⚔':'🛡'; lc='#fff'; }
+  else if(c.type==='repLife'){ fillPct=100; fillColor='#3a2a12'; text=t('cRepLife'); subT='$'+(c.price||120); lc='#f5c400'; }
+  else if(c.type==='capAct'){ fillPct=100; fillColor='#3a2a12'; text=t('cCapAct'); subT='$'+c.price; lc='#f5c400'; }
+  else if(c.type==='capLife'){ fillPct=100; fillColor='#3a2a12'; text=t('cCapLife'); subT='$'+c.price; lc='#f5c400'; }
+  else if(c.type==='buyKey'){ text='$'+c.price; subT=t('cBuyKey'); icon='⚷'; lc='#bc8cff'; }
+  else if(c.type==='buyPoint'){ fillPct=100; fillColor='#3a2a12'; text=t('cBuyPt'); subT='$'+c.price; lc='#f5c400'; }
+  else if(c.type==='slot'){ text=c.reels.join(''); subT='$'+c.price; lc='#fff'; }
+  else if(c.type==='bonus'){ const b=BONUS[c.bid]; fillPct=100; text='★'+b.l[lang];
+    lc=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00'; if(!b.need()||c.used)fillPct=0; }
   fill.style.width=fillPct+'%'; fill.style.background=fillColor;
-  lbl.textContent=text; sub.textContent=subT; ic.textContent=icon;
+  lbl.textContent=text; sub.textContent=subT; ic.textContent=icon; lbl.style.color=lc;
 }
 function repaintAll(){ CELLS.forEach(paint); }
 
