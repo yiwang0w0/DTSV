@@ -310,15 +310,25 @@ function initCell(c){
 // ============================================================================
 function handleCombo(){ if(S.combo_time>0)S.combo++; else S.combo=0; S.combo_time=C.COMBO_W_TIME; }
 function addAddP(n){ S.add_p+=n; if(S.add_p<0)S.add_p=0; }
+// addParam:单次调用最多升 1 级(原版是 if 非 while),配合 award() 的分币流式发放
 function addParam(kind,amount){
   handleCombo();
   if(kind==='GOLD') S.gold+=amount;
   else if(kind==='EXP'){ S.exp+=amount; S.exp_total+=amount;
-    while(S.exp>=S.exp_max){ S.lv++; S.exp-=S.exp_max; S.exp_max=100+(S.lv-1)*(S.lv-1);
-      S.exp_total_max+=S.exp_max; addAddP(3); S.life=S.life_max; S.act=S.act_max;
+    if(S.exp>=S.exp_max){ S.lv++; S.exp-=S.exp_max; S.exp_max=100+(S.lv-1)*(S.lv-1);
+      S.exp_total_max+=S.exp_max; addAddP(3); S.life=S.life_max; S.act=S.act_max;   // 每级 +3 点(真值)
       msg(t('levelUp',S.lv),'#39d353'); }
   } else if(kind==='KEY') S.key+=1;
   else if(kind==='KEY2') S.key2+=1;
+}
+// 把奖励按面额(1000/100/50/10/1)拆成多枚,逐枚 addParam —— 还原原版 setItem 的流式发放,
+// 于是每枚最多触发 1 级,升级(和点数)节流,不再"一坨大奖爆一堆点"。
+function award(kind,total){
+  total=Math.max(0,Math.round(total));
+  for(const d of [1000,100,50,10,1]){
+    let n=Math.floor(total/d); total-=n*d;
+    for(let i=0;i<n && i<300;i++) addParam(kind,d);
+  }
 }
 function setDamage(dmg){
   const d0=Math.min(S.def,300);
@@ -356,7 +366,7 @@ function onCell(c,el,ev){
 function tryUnlock(c,el,ev){
   const kt = (c.type==='buyPoint')?2:1;   // 加点用 key2,其余用 key
   if(useKey(kt)){
-    if(c.type==='treasure'){ c.locked=false; c.done=true; addParam('GOLD',c.gold);
+    if(c.type==='treasure'){ c.locked=false; c.done=true; award('GOLD',c.gold);
       msg(t('unlockI')+' +'+c.gold+'G','#f5c400'); floatText(el,'+'+c.gold+'G','#f5c400',ev); paint(c); return; }
     c.locked=false;
     msg(t(c.type==='mission'?'unlockM':(c.type==='weapon'||c.type==='armor'?'unlockI':'unlockE')),'#fff');
@@ -377,20 +387,20 @@ function attack(c,el,ev){
 function defeat(c){
   c.hp=0; c.done=true;
   const g=Math.trunc(c.m/10), e=Math.trunc(c.m/15);
-  addParam('GOLD',g); addParam('EXP',e);
+  award('GOLD',g); award('EXP',e);
   const keyCnt=Math.trunc(c.m/1000)%4+1; for(let i=0;i<keyCnt;i++)addParam('KEY',1);
   S.e_comp++; if(engaged===c)engaged=null; msg(t('win')+' +'+g+'G','#f5c400');
   checkWin();
 }
 function work(c,el,ev){
-  if(c.complete_flg){ const g=Math.trunc(c.m/10+(R()*c.m)/100); addParam('GOLD',g);
+  if(c.complete_flg){ const g=Math.trunc(c.m/10+(R()*c.m)/100); award('GOLD',g);
     floatText(el,'+'+g+'G','#f5c400',ev); flash(el); return; }
   if(S.act<c.cost){ msg(t('mNg'),'#888'); floatText(el,'ACT!','#888',ev); return; }
   S.act-=c.cost; c.hp+=10+R()*3; handleCombo(); flash(el);
   floatText(el,Math.min(100,Math.round(c.hp/c.hpMax*100))+'%','#39d0d8',ev);
   if(c.hp>c.hpMax){ c.hp=c.hpMax; c.complete_flg=true; c.done=true; S.m_comp++; addAddP(1);
     c.gold=Math.trunc(c.gold*1.5); c.exp=Math.trunc(c.exp*1.5);
-    addParam('GOLD',c.gold); addParam('EXP',c.exp);
+    award('GOLD',c.gold); award('EXP',c.exp);
     msg(t('mComp')+' +'+c.gold+'G','#bc8cff'); checkWin(); }
   paint(c);
 }
