@@ -321,15 +321,9 @@ function addParam(kind,amount){
   } else if(kind==='KEY') S.key+=1;
   else if(kind==='KEY2') S.key2+=1;
 }
-// 把奖励按面额(1000/100/50/10/1)拆成多枚,逐枚 addParam —— 还原原版 setItem 的流式发放,
-// 于是每枚最多触发 1 级,升级(和点数)节流,不再"一坨大奖爆一堆点"。
-function award(kind,total){
-  total=Math.max(0,Math.round(total));
-  for(const d of [1000,100,50,10,1]){
-    let n=Math.floor(total/d); total-=n*d;
-    for(let i=0;i<n && i<300;i++) addParam(kind,d);
-  }
-}
+// 奖励发放:单次调用(EXP 走 addParam 的 if → 清一格最多升 1 级 = 最多 +3 点)。
+// (原先按面额拆成多枚会级联:大额 tile 把 exp 顶到远超 exp_max,后续每枚都触发一级 → 一格爆十几点。)
+function award(kind,total){ addParam(kind, Math.max(0,Math.round(total))); }
 function setDamage(dmg){
   const d0=Math.min(S.def,300);
   let d=Math.trunc(dmg*0.5*(1-d0/300)); if(d<5)d=Math.trunc(5+R()*10);
