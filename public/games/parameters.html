@@ -21,7 +21,7 @@
   .cell .fill{position:absolute;inset:0;width:0;background:var(--cell);transition:width .12s linear}
   .cell .lbl{position:absolute;left:3px;top:1px;z-index:2;color:#fff;text-shadow:0 0 2px #000;
     font-size:12px;line-height:1.1;pointer-events:none;white-space:nowrap}
-  .cell .sub{position:absolute;left:3px;bottom:1px;z-index:2;font-size:10px;color:#000;pointer-events:none}
+  .cell .sub{position:absolute;left:3px;bottom:1px;z-index:2;font-size:10px;color:#e3b341;pointer-events:none;text-shadow:0 0 2px #000}
   .cell .ic{position:absolute;right:3px;bottom:2px;z-index:2;font-size:11px;pointer-events:none}
   .cell.enemy .lbl{color:#000}      /* on yellow */
   .cell.done{opacity:.6;cursor:default}
@@ -383,13 +383,14 @@ function attack(c,el,ev){
     dmg=(a<=b)?Math.trunc(S.atk*(1-L4/2600)*0.5):Math.trunc(S.atk*0.25+R()*10-5); }
   if(dmg<1)dmg=1;
   c.hp-=dmg; handleCombo(); flash(el); floatText(el,'-'+dmg,'#c00',ev);
-  if(c.hp<=0){ defeat(c); paint(c); return; }     // 击杀 → 不反击
-  // 敌人反击:玩家每次交互(点击)收到一次(非按时间连续反击)
+  // 敌人反击:玩家每次点击都收到一次(含击杀那一下 → 清怪也要付出体力)
+  const hp0=Math.max(0,c.hp);
   let d;
-  if(c.boss) d=Math.max(1, 60 - c.hp/8);
-  else if(c.last) d=5 + (c.hpMax-c.hp)/300 + R()*8;
-  else d=8 + c.dw/8;
+  if(c.boss) d=Math.max(1, 55 - hp0/9);           // 首领:越残血越狠
+  else if(c.last) d=6 + (c.hpMax-hp0)/280 + R()*8;
+  else d=10 + c.dw/6;                              // 普通敌:随体型递增(每次点击都收到)
   setDamage(d);
+  if(!S.over && c.hp<=0){ defeat(c); }
   paint(c);
 }
 function defeat(c){
