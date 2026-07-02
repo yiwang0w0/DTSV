@@ -25,10 +25,10 @@
   .cell .ic{position:absolute;right:3px;bottom:2px;z-index:2;font-size:11px;pointer-events:none}
   .cell.enemy .lbl{color:#000}      /* on yellow */
   .cell.done{opacity:.6;cursor:default}
-  .cell.done .ic{color:#3fb950;font-size:14px;font-weight:700}
   .cell.locked{cursor:pointer}
   .cell.lockcell{border-color:#8a6a1e;background:#140f05}   /* 上锁:琥珀边框 */
-  .cell.lockcell .ic{font-size:13px;right:4px;bottom:3px}
+  .cell.bigic .ic{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);font-weight:700}
+  .cell.done .ic{color:#3fb950}
   .cell.flash .fill{filter:brightness(2)}
   .float{position:absolute;z-index:50;font-weight:700;font-size:13px;pointer-events:none;
     animation:rise .7s ease-out forwards;text-shadow:0 0 3px #000}
@@ -455,12 +455,12 @@ function paint(c){
   const el=c.el; if(!el)return; const fill=el.children[0],lbl=el.children[1],sub=el.children[2],ic=el.children[3];
   el.classList.toggle('done',!!c.done);
   el.classList.toggle('lockcell',!!(c.locked&&!c.done));
+  el.classList.toggle('bigic',!!(c.locked||c.done));      // 锁/完成:大号居中 emoji
   let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='', lc='#fff';
   if(c.done){                                    // 已完成/已清 —— 深绿底 + 绿 ✔
     fillPct=100; fillColor='#123a20'; icon='✔'; lc='#3fb950'; }
-  else if(c.locked){                             // 上锁 —— 明显的琥珀 🔒(边框见 CSS)
-    fillPct=0; icon='🔒'; lc='#e3b341';
-    text = (c.type==='treasure')?'宝':(c.type==='enemy'||c.type==='boss'||c.type==='last')?'敌':(c.type==='mission')?'任':(c.type==='weapon')?'武':(c.type==='armor')?'防':''; }
+  else if(c.locked){                             // 上锁 —— 大号居中 🔒(琥珀边框见 CSS)
+    fillPct=0; icon='🔒'; }
   else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){  // 敌人 —— 黄色血条
     fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='var(--cell)';
     text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lc='#000'; if(c.boss||c.last)icon='⚔'; }
@@ -479,6 +479,9 @@ function paint(c){
     lc=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00'; if(!b.need()||c.used)fillPct=0; }
   fill.style.width=fillPct+'%'; fill.style.background=fillColor;
   lbl.textContent=text; sub.textContent=subT; ic.textContent=icon; lbl.style.color=lc;
+  // 锁/完成 的 emoji 按格子高度放大(居中见 CSS .bigic)
+  if(c.locked||c.done){ const hh=parseFloat(el.style.height)||14; ic.style.fontSize=clamp(hh*0.55,10,26)+'px'; }
+  else ic.style.fontSize='';
 }
 function repaintAll(){ CELLS.forEach(paint); }
 
