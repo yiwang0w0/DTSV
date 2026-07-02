@@ -66,9 +66,9 @@
     <span style="color:var(--gold)" id="s_gold">$ 0</span>
     <span id="s_key">⚷ 0</span>
     <span id="s_key2" style="color:#39d0d8">⚷ 0</span>
-    <span class="langbtns"><span class="lb on" id="zh">中</span><span class="lb" id="jp">JP</span><span class="lb" id="en">EN</span><span class="lb" id="rst">RESET</span></span>
-    <span class="neko">N E K O G A M E S</span>
-    <span class="how" id="how">HOW TO PLAY</span>
+    <span class="langbtns"><span class="lb" id="rst">RESET</span></span>
+    <span class="neko">K A N A T A</span>
+    <span class="how" id="how">玩法说明</span>
   </div>
   <div class="stats">
     <div class="col">
@@ -96,6 +96,28 @@
 
 <div id="overlay"><h2 id="ovT"></h2><div class="t" id="ovTime"></div>
   <div class="how" style="font-size:14px;padding:6px 14px" onclick="location.reload()">PLAY AGAIN</div></div>
+
+<div id="rules" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div style="max-width:560px;max-height:88vh;overflow:auto;background:#0d0d0d;border:1px solid #333;padding:20px 22px;line-height:1.85">
+    <div style="font-size:17px;font-weight:700;color:#f5c400;margin-bottom:10px">玩法说明</div>
+    <div style="color:#ccc;font-size:13px">
+      <p style="margin-bottom:8px"><b>目标</b>:清空所有黄色<b>敌人</b>与<b>任务</b>格即通关。上方左侧=等级/经验/体力/行动,右侧=回复/攻击/防御。</p>
+      <p style="margin-bottom:8px"><b>格子越大越强</b>:每格大小就是它的价值——敌人血量=格宽,格越大越难、越贵、奖励越多。</p>
+      <p style="margin-bottom:8px">🟨 <b>敌人</b>:点击攻击;交战后敌人每约 0.5 秒反击扣体力,停手 1.5 秒脱离(可退回去回血)。</p>
+      <p style="margin-bottom:8px">⬛ <b>任务(0%)</b>:点击执行,消耗<b>行动(ACT)</b>,填满即完成给金币/经验。</p>
+      <p style="margin-bottom:8px"><b>行动</b>随时间回复,<b>回复(RCV)</b>越高各项恢复越快。</p>
+      <p style="margin-bottom:8px"><b>属性点 +</b>:升级/完成任务/买"加点"获得;点状态栏属性前的 <b>+</b> 分配到 体力/行动/回复/攻击/防御。</p>
+      <p style="margin-bottom:8px"><b>金币</b>买:武器(攻击)、防具(防御)、体力回复、行动/体力上限、钥匙。</p>
+      <p style="margin-bottom:8px">🔒 锁定格 与 🎁 宝箱 需<b>钥匙</b>开;🎰 老虎机花金币抽奖;★ 里程碑一次性大奖励。</p>
+      <p><b>首领</b>需攻击 &gt; 200 才破防;<b>里首领</b>(9999 血)是终盘。</p>
+    </div>
+    <div style="color:#666;font-size:11px;margin-top:14px;border-top:1px solid #222;padding-top:8px">
+      原作:nekogames《パラメータ / Parameters》(石橋 進)。本页为学习用复刻,非商用。
+    </div>
+    <div class="how" style="margin-top:14px;font-size:13px;padding:6px 16px;text-align:center;cursor:pointer"
+      onclick="document.getElementById('rules').style.display='none'">关闭</div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -508,11 +530,12 @@ function gameOver(){ S.over=true; $('ovT').textContent=t('over'); $('ovT').style
   $('ovTime').textContent='TIME '+timeStr(performance.now()-S.startTime); $('overlay').style.display='flex'; }
 
 // ---- controls ----
-function setLang(l){lang=l;$('zh').classList.toggle('on',l==='zh');$('jp').classList.toggle('on',l==='jp');$('en').classList.toggle('on',l==='en');
+function setLang(l){lang=l;
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=TXT[e.dataset.t][l]);
   $('how').textContent=t('how');
   renderStatus(); repaintAll();}
-$('zh').onclick=()=>setLang('zh'); $('jp').onclick=()=>setLang('jp'); $('en').onclick=()=>setLang('en'); $('rst').onclick=()=>location.reload();
+$('rst').onclick=()=>location.reload();
+$('how').onclick=()=>{$('rules').style.display='flex';};
 document.querySelectorAll('.add[data-pt]').forEach(a=>{if(a.dataset.pt!=='none')a.onclick=()=>spendPoint(a.dataset.pt);});
 let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{ if(!S.over) buildWorld(); },300);});
 
