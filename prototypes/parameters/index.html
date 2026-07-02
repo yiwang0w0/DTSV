@@ -374,8 +374,13 @@ function attack(c,el,ev){
     dmg=(a<=b)?Math.trunc(S.atk*(1-L4/2600)*0.5):Math.trunc(S.atk*0.25+R()*10-5); }
   if(dmg<1)dmg=1;
   c.hp-=dmg; handleCombo(); flash(el); floatText(el,'-'+dmg,'#c00',ev);
-  engaged=c; lastEng=performance.now();          // 交战:敌人会反击(见 frame())
-  if(c.hp<=0){ defeat(c); }
+  if(c.hp<=0){ defeat(c); paint(c); return; }     // 击杀 → 不反击
+  // 敌人反击:玩家每次交互(点击)收到一次(非按时间连续反击)
+  let d;
+  if(c.boss) d=Math.max(1, 60 - c.hp/8);
+  else if(c.last) d=5 + (c.hpMax-c.hp)/300 + R()*8;
+  else d=8 + c.dw/8;
+  setDamage(d);
   paint(c);
 }
 function defeat(c){
@@ -383,7 +388,7 @@ function defeat(c){
   const g=Math.trunc(c.m/10), e=Math.trunc(c.m/15);
   award('GOLD',g); award('EXP',e);
   const keyCnt=Math.trunc(c.m/1000)%4+1; for(let i=0;i<keyCnt;i++)addParam('KEY',1);
-  S.e_comp++; if(engaged===c)engaged=null; msg(t('win')+' +'+g+'G','#f5c400');
+  S.e_comp++; msg(t('win')+' +'+g+'G','#f5c400');
   checkWin();
 }
 function work(c,el,ev){
@@ -495,31 +500,19 @@ function spendPoint(kind){ if(S.add_p<=0)return;
 // ============================================================================
 //  sim loop (setInterval — 不受失焦暂停;逐帧再生/连击/敌人回血)
 // ============================================================================
-let engaged=null, lastEng=0, acc=0, last=performance.now();
+let acc=0, last=performance.now();
 setInterval(()=>{
   if(S.over)return;
   const now=performance.now(); acc+=now-last; last=now; let steps=0;
   while(acc>=DT && steps<8 && !S.over){ frame(); acc-=DT; steps++; }
-  if(engaged && now-lastEng>1500) engaged=null;   // 1.5s 不打这个敌人就脱离交战(停止挨打)
   renderStatus();
 },DT);
-function frame(){
+function frame(){   // 只做逐帧再生 + 连击衰减;敌人反击已改为"每次点击一次"(见 attack())
   S.life=Math.min(S.life+0.004+S.rpe*0.002,S.life_max);
   S.act =Math.min(S.act +0.06 +S.rpe*0.01, S.act_max);
   S.atk =Math.min(S.atk +0.03 +S.rpe*0.01, S.atk_max);
   S.def =Math.min(S.def +0.03 +S.rpe*0.01, S.def_max);
   if(S.combo_time>0){S.combo_time--; if(S.combo_time<=0)S.combo=0;}
-  // 交战中的敌人反击:每 15 帧(≈0.5s)打你一次(原版 setDamage 逻辑)
-  if(engaged && !engaged.done && !engaged.locked && (engaged.type==='enemy'||engaged.type==='boss'||engaged.type==='last')){
-    engaged.cnt=(engaged.cnt||0)+1;
-    if(engaged.cnt>=15){ engaged.cnt=0;
-      // 接触伤害:首领 100-血/4;里首领 5+(满血-当前)/200+rand*20(原版);普通敌 15+宽/4
-      const d=engaged.boss?Math.max(1,100-engaged.hp/4)
-             :engaged.last?(5+(engaged.hpMax-engaged.hp)/200+R()*20)
-             :(15+engaged.dw/4);
-      setDamage(d);
-    }
-  }
 }
 setInterval(()=>{ if(!S.over) repaintAll(); },140);
 
