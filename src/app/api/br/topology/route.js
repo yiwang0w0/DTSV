@@ -25,6 +25,11 @@ import { requireRequestUser } from '@/lib/serverSupabase'
 import { loadRooms } from '@/lib/server/br/zones'
 import { toTemplateMeta } from '@/lib/server/br/roomTemplates'
 
+// 本路由做 per-request 鉴权 + 读实时 Supabase,绝不能被静态预渲染。
+// 之前 next build 会在构建期执行 GET → requireRequestUser 读环境变量 →
+// 缺 env 时抛「Missing required environment variable」使导出失败。强制动态即修复。
+export const dynamic = 'force-dynamic'
+
 export async function GET(request) {
   const auth = await requireRequestUser(request)
   if (!auth.ok) {
