@@ -198,72 +198,79 @@ function treemap(items,X,Y,W,H){
 // ============================================================================
 //  cell roster — 类型 + 权重(决定面积)。尺寸→真实数值。
 // ============================================================================
-function roster(){
-  const L=[]; const add=(type,v,extra)=>L.push(Object.assign({type,v},extra||{}));
-  // 敌人:更多更密,权重范围收窄(少数大格),贴近原版密铺
-  [6,7,8,9,10,11,12,13,14,15,16,18,20,22,24,26,28,30,34,38,44,52,64,80].forEach((v,i)=>add('enemy',v,{tier:i}));
-  // 任务
-  [6,7,8,9,10,11,13,15,17,20,24,28,34,40].forEach(v=>add('mission',v));
-  // 武器 / 防具
-  [9,11,14,17,20,24,28].forEach(v=>add('weapon',v));
-  [9,11,13,16,19,23,27].forEach(v=>add('armor',v));
-  // 特殊设施
-  add('repLife',9); add('capAct',8); add('capLife',8); add('buyKey',7); add('buyPoint',8); add('slot',7);
-  add('bonus',7,{bid:'n1'});add('bonus',6,{bid:'n2'});add('bonus',6,{bid:'n3'});
-  // 谜团/杂锁
-  for(let i=0;i<4;i++)add('mystery',5+i);
-  for(let i=0;i<6;i++)add('lock',5+(i%3));
-  return L;
-}
+// 原版固定布局 —— 从 SWF 根时间轴 108 个 PlaceObject 逐格提取(舞台 760x600)。
+// 每格 [类型, x, y, 宽, 高](舞台像素,即原版数值尺度:敌人HP=宽、m=宽×高)。
+// 类型:e敌 m任务 b首领 L里首领 t宝箱 w武器 a防具 cA行动++ cL体力++ r回复 p加点 k钥匙 s老虎机
+const LZERO=[4,70,752,526];
+const LAYOUT=[
+["e",260,304,166,16],["e",114,396,424,16],["m",456,106,38,30],["m",36,324,74,30],["m",430,296,108,24],
+["e",314,222,82,38],["m",314,188,48,30],["m",228,188,82,18],["m",260,264,84,36],["m",172,88,40,22],
+["m",186,140,78,16],["m",186,114,54,22],["m",186,160,38,46],["m",116,114,26,92],["m",146,114,36,42],
+["e",4,524,752,72],["e",430,158,126,60],["e",516,222,40,24],["m",44,106,68,14],["m",44,124,68,14],
+["e",126,210,98,42],["e",336,106,80,30],["cA",116,70,51,40],["m",146,160,36,16],["e",146,180,36,26],
+["m",244,114,26,22],["e",268,140,94,44],["e",228,160,36,24],["r",260,210,50,50],["e",80,142,32,31],
+["e",172,70,40,14],["e",336,88,44,14],["m",216,70,54,40],["m",4,228,72,24],["e",4,106,36,32],
+["m",4,142,40,82],["m",114,416,132,16],["m",652,358,26,74],["m",516,250,92,22],["e",36,436,144,42],
+["m",184,436,62,42],["m",4,256,28,136],["m",36,256,188,20],["m",420,70,74,32],["e",536,70,46,66],
+["m",542,366,66,46],["e",312,324,226,68],["e",250,416,58,104],["e",586,122,170,14],["m",504,416,144,16],
+["m",114,324,54,69],["e",430,276,178,16],["e",80,280,88,40],["e",344,468,412,52],["m",652,158,72,44],
+["m",718,296,38,108],["m",228,210,28,162],["e",612,250,36,134],["e",4,88,108,14],["s",542,296,66,66],
+["p",430,222,50,50],["b",260,324,288,48],["t",384,70,32,32],["t",696,206,60,62],["t",708,70,48,48],
+["k",452,416,48,48],["t",80,176,32,30],["cL",172,280,52,57],["m",484,222,28,50],["m",46,500,134,20],
+["m",4,70,44,14],["m",274,70,107,14],["e",228,376,80,16],["m",652,206,40,62],["m",52,70,61,14],
+["m",504,436,74,28],["m",582,436,132,28],["e",586,104,118,14],["m",620,70,84,30],["m",498,70,34,66],
+["m",400,222,26,78],["m",728,158,28,44],["m",612,388,36,24],["m",718,272,38,20],["m",718,408,38,56],
+["m",348,264,48,36],["m",184,500,62,20],["m",312,416,28,104],["m",4,396,28,82],["m",682,358,32,74],
+["m",274,88,58,48],["m",48,142,28,82],["m",652,337,62,18],["w",366,158,60,60],["w",80,210,42,42],
+["a",560,158,88,88],["a",36,280,40,40],["a",652,272,62,62],["w",586,70,30,30],["a",420,106,32,30],
+["a",172,340,52,52],["w",36,358,74,74],["e",366,140,390,14],["m",344,416,104,28],["m",344,448,104,16],
+["e",46,482,200,14],["L",4,524,752,72],["t",4,482,38,38],
+];
 
+const CODE={e:'enemy',m:'mission',b:'boss',L:'last',t:'treasure',w:'weapon',a:'armor',
+  cA:'capAct',cL:'capLife',r:'repLife',p:'buyPoint',k:'buyKey',s:'slot'};
 let CELLS=[], byEl=new Map();
 function buildWorld(){
   S=newMain(); msgs=[]; $('log').innerHTML='';
   const field=$('field'); field.innerHTML='';
   const W=field.clientWidth||960, H=field.clientHeight||560;
-  const items=roster();
-  // 打乱顺序 → 大小格子散布(而非全堆左侧),锁也随之散开,更像原版手摆布局
-  for(let i=items.length-1;i>0;i--){const j=Math.floor(R()*(i+1));const tmp=items[i];items[i]=items[j];items[j]=tmp;}
-  const placed=treemap(items,0,0,W,H);
-  const scale=DESIGN_W/W;
+  const [ox,oy,LW,LH]=LZERO, scaleX=W/LW, scaleY=H/LH;
   CELLS=[]; byEl.clear();
-  placed.forEach(c=>{
-    const r=c.rect;
-    const dw=Math.max(6,r.w*scale), dh=Math.max(6,r.h*scale); // 设计尺度
-    c.dw=dw; c.dh=dh; c.m=dw*dh; c.dyTop=r.y*scale;
+  LAYOUT.forEach(([code,x,y,w,h])=>{
+    const type=CODE[code]; if(!type)return;
+    const c={type, dw:w, dh:h, m:w*h, dyTop:y};   // dw/dh = 原版舞台像素(真实数值尺度)
     initCell(c);
-    const el=document.createElement('div');
-    el.className='cell '+c.type;
-    el.style.left=r.x+'px'; el.style.top=r.y+'px';
-    el.style.width=(r.w-1)+'px'; el.style.height=(r.h-1)+'px';
+    const el=document.createElement('div'); el.className='cell '+type;
+    el.style.left=((x-ox)*scaleX)+'px'; el.style.top=((y-oy)*scaleY)+'px';
+    el.style.width=Math.max(1,w*scaleX-1)+'px'; el.style.height=Math.max(1,h*scaleY-1)+'px';
     el.innerHTML='<div class="fill"></div><div class="lbl"></div><div class="sub"></div><div class="ic"></div>';
     el.addEventListener('pointerdown',ev=>onCell(c,el,ev));
-    field.appendChild(el);
-    c.el=el; byEl.set(c,el);
-    CELLS.push(c);
+    field.appendChild(el); c.el=el; byEl.set(c,el); CELLS.push(c);
   });
-  // 只锁最大的 ~22% 目标格(需要钥匙解锁),其余开局即可玩 —— 贴近原版"大多可玩"
-  const lockable=CELLS.filter(c=>['enemy','boss','mission','weapon','armor'].includes(c.type));
-  const areas=lockable.map(c=>c.m).sort((a,b)=>a-b);
-  const thr=areas.length?areas[Math.floor(areas.length*0.78)]:Infinity;
-  lockable.forEach(c=>{ if(c.m>=thr){ c.locked=true; if(c.type==='enemy'||c.type==='boss')S.lock1++; } });
-  CELLS.forEach(paint);
-  renderStatus();
+  // 锁定:首领/里首领恒锁(终盘);其余按尺寸 m=宽×高,只锁较大的(开局多数可玩,贴近原版观感)
+  CELLS.forEach(c=>{
+    if(c.type==='boss'||c.type==='last'){c.locked=true;S.lock1++;}
+    else if(c.type==='enemy' && c.m>3200){c.locked=true;S.lock1++;}
+    else if(c.type==='mission' && c.m>2400) c.locked=true;
+    else if((c.type==='weapon'||c.type==='armor') && c.m>2400) c.locked=true;
+    // 宝箱/加点 恒锁(需钥匙,已在 initCell 设置)
+  });
+  CELLS.forEach(paint); renderStatus();
   msg(t('start'),'#888');
 }
 
 function initCell(c){
   c.done=false; c.cnt=0; c.nw=0; c.locked=false; c.complete_flg=false;
-  if(c.type==='enemy'||c.type==='boss'){
-    c.hpMax=Math.round(c.dw); c.hp=c.hpMax;
-    c.boss = c.v>=70;
+  if(c.type==='enemy'||c.type==='boss'||c.type==='last'){
+    c.hpMax = c.type==='boss'?240 : c.type==='last'?9999 : Math.round(c.dw);  // 首领/里首领 固定血
+    c.hp=c.hpMax; c.boss=(c.type==='boss'); c.last=(c.type==='last');
     S.total_e++;
   } else if(c.type==='mission'){
     c.hpMax=Math.round(c.dw); c.hp=0;
     c.cost=c.m*0.01; c.gold=Math.trunc(c.m*0.03*(1+R())*2); c.exp=Math.trunc(c.m*0.1*(1+R())*2);
     S.total_m++;
   } else if(c.type==='weapon'){
-    c.price=Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)+(c.dh-30)*45); c.addP=Math.trunc(c.m/100)*0.45;
+    c.price=Math.max(10,Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)+(c.dh-30)*45)); c.addP=Math.trunc(c.m/100)*0.45;
     c.buys=0;
   } else if(c.type==='armor'){
     c.price=Math.max(10,Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)-(c.dh-30)*10)); c.addP=Math.trunc(c.m/100)*0.5;
@@ -273,8 +280,7 @@ function initCell(c){
   else if(c.type==='buyKey'){ c.price=400; }
   else if(c.type==='buyPoint'){ c.price=200; c.locked=true; }
   else if(c.type==='slot'){ c.price=10; c.reels=['?','?','?']; }
-  else if(c.type==='bonus'){ c.used=false; }
-  else if(c.type==='mystery'||c.type==='lock'){ c.locked=true; c.reveal=c.type; }
+  else if(c.type==='treasure'){ c.locked=true; c.gold=Math.trunc(c.m*0.5)+50; }  // 宝箱:钥匙开→金币
 }
 
 // ============================================================================
@@ -314,7 +320,7 @@ function onCell(c,el,ev){
   if(S.over||c.done) return;
   if(c.locked){ tryUnlock(c,el,ev); return; }
   const T=c.type;
-  if(T==='enemy'||T==='boss') attack(c,el,ev);
+  if(T==='enemy'||T==='boss'||T==='last') attack(c,el,ev);
   else if(T==='mission') work(c,el,ev);
   else if(T==='weapon'||T==='armor') buyItem(c,el,ev);
   else if(T==='repLife') repLife(c,el,ev);
@@ -326,11 +332,11 @@ function onCell(c,el,ev){
   else if(T==='bonus') doBonus(c,el,ev);
 }
 function tryUnlock(c,el,ev){
-  const kt = (c.type==='mystery'||c.type==='buyPoint')?2:1;
-  if(useKey(kt)){ c.locked=false;
-    if(c.type==='mystery'||c.type==='lock'){ // 变成随机内容
-      c.type=['enemy','mission','weapon'][Math.floor(R()*3)]; c.el.className='cell '+c.type; initCell(c); c.locked=false;
-    }
+  const kt = (c.type==='buyPoint')?2:1;   // 加点用 key2,其余用 key
+  if(useKey(kt)){
+    if(c.type==='treasure'){ c.locked=false; c.done=true; addParam('GOLD',c.gold);
+      msg(t('unlockI')+' +'+c.gold+'G','#f5c400'); floatText(el,'+'+c.gold+'G','#f5c400',ev); paint(c); return; }
+    c.locked=false;
     msg(t(c.type==='mission'?'unlockM':(c.type==='weapon'||c.type==='armor'?'unlockI':'unlockE')),'#fff');
     floatText(el,'✓','#fff',ev); paint(c);
   } else { msg(t('locked'),'#ff4444'); floatText(el,'🔒','#ff4444',ev); }
@@ -410,9 +416,10 @@ function paint(c){
   let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='';
   if(c.locked){ fillPct=0; el.style.background='#0a0a0a'; icon='🔒';
     text=(c.type==='mystery'||c.type==='lock')?'?':''; lbl.style.color='#fff'; }
-  else if(c.type==='enemy'||c.type==='boss'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
+  else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
     text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lbl.style.color='#000';
-    if(c.boss)icon='⚔'; }
+    if(c.boss||c.last)icon='⚔'; }
+  else if(c.type==='treasure'){ el.style.background='#0a0a0a'; text=c.done?'✓':'宝箱'; icon=c.done?'':'🎁'; lbl.style.color='#f5c400'; }
   else if(c.type==='mission'){ fillPct=clamp(c.hp/c.hpMax*100,0,100);
     text=Math.round(c.hp/c.hpMax*100)+'%'; lbl.style.color=fillPct>40?'#000':'#fff'; }
   else if(c.type==='weapon'||c.type==='armor'){ fillPct=0; el.style.background='#0a0a0a';
@@ -477,11 +484,13 @@ function frame(){
   S.def =Math.min(S.def +0.03 +S.rpe*0.01, S.def_max);
   if(S.combo_time>0){S.combo_time--; if(S.combo_time<=0)S.combo=0;}
   // 交战中的敌人反击:每 15 帧(≈0.5s)打你一次(原版 setDamage 逻辑)
-  if(engaged && !engaged.done && !engaged.locked && (engaged.type==='enemy'||engaged.type==='boss')){
+  if(engaged && !engaged.done && !engaged.locked && (engaged.type==='enemy'||engaged.type==='boss'||engaged.type==='last')){
     engaged.cnt=(engaged.cnt||0)+1;
     if(engaged.cnt>=15){ engaged.cnt=0;
-      // 接触伤害:随敌人大小递增(小敌温和、大敌危险);格子偏方,故按宽度而非(宽+高)/2
-      const d=engaged.boss?Math.max(1,100-engaged.hp/4):(15+engaged.dw/4);
+      // 接触伤害:首领 100-血/4;里首领 5+(满血-当前)/200+rand*20(原版);普通敌 15+宽/4
+      const d=engaged.boss?Math.max(1,100-engaged.hp/4)
+             :engaged.last?(5+(engaged.hpMax-engaged.hp)/200+R()*20)
+             :(15+engaged.dw/4);
       setDamage(d);
     }
   }
@@ -490,7 +499,7 @@ setInterval(()=>{ if(!S.over) repaintAll(); },140);
 
 // ---- win/lose ----
 function checkWin(){ if(CELLS.filter(c=>c.type==='enemy'||c.type==='boss'||c.type==='mission').every(c=>c.done||c.locked===false&&c.hp===undefined)){}
-  const targets=CELLS.filter(c=>['enemy','boss','mission'].includes(c.type));
+  const targets=CELLS.filter(c=>['enemy','boss','last','mission'].includes(c.type));
   if(targets.length&&targets.every(c=>c.done)){ S.over=true;S.won=true;
     $('ovT').textContent=t('cleared'); $('ovT').style.color='#f5c400';
     $('ovTime').textContent='TIME '+timeStr(performance.now()-S.startTime); $('overlay').style.display='flex'; }
