@@ -66,7 +66,7 @@
     <span style="color:var(--gold)" id="s_gold">$ 0</span>
     <span id="s_key">⚷ 0</span>
     <span id="s_key2" style="color:#39d0d8">⚷ 0</span>
-    <span class="langbtns"><span class="lb" id="jp">JP</span><span class="lb on" id="en">EN</span><span class="lb" id="rst">RESET</span></span>
+    <span class="langbtns"><span class="lb on" id="zh">中</span><span class="lb" id="jp">JP</span><span class="lb" id="en">EN</span><span class="lb" id="rst">RESET</span></span>
     <span class="neko">N E K O G A M E S</span>
     <span class="how" id="how">HOW TO PLAY</span>
   </div>
@@ -110,30 +110,33 @@ const FPS=30, DT=1000/FPS;
 const C={COMBO_MAX:120, COMBO_W_TIME:45};
 const DESIGN_W=560;   // 设计参考宽(≈原版 stage),用于把像素尺寸换算成原版数值尺度
 
-// ---- 双语文案 ----
+// ---- 三语文案(中/日/英) ----
 const TXT={
-  EXP:{jp:'経験',en:'EXP'},LIFE:{jp:'体力',en:'LIFE'},ACT:{jp:'行動',en:'ACT'},
-  RCV:{jp:'回復',en:'RCV'},ATK:{jp:'攻撃',en:'ATK'},DEF:{jp:'防御',en:'DEF'},
-  win:{jp:'敵に勝利！',en:'You win!'}, mComp:{jp:'ミッション実行>成功',en:'Run > Success'},
-  mNg:{jp:'ミッション実行>失敗:行動不足',en:'Run > Lack of ACT.'},
-  unlockE:{jp:'敵のロックを解除した',en:'Enemy unlocked'},
-  unlockM:{jp:'ミッションのロックを解除した',en:'Mission unlocked'},
-  unlockI:{jp:'アイテムのロックを解除した',en:'Item unlocked'},
-  locked:{jp:'ロックされています',en:'Locked'},
-  levelUp:{jp:'レベル @ になりました！',en:'Level @!'},
-  dmg:{jp:'攻撃>敵に @ ダメージを与えた!',en:'@ dmg to enemy'},
-  taken:{jp:'@のダメージを受けた！',en:'@ damage!'},
-  buyW:{jp:'武器を購入>攻撃力 @ UP!',en:'Weapon > ATK @ UP'},
-  buyA:{jp:'防具を購入>防御力 @ UP!',en:'Armor > DEF @ UP'},
-  repL:{jp:'体力回復 > 成功',en:'Life repaired'},
-  addAct:{jp:'行動が増加！',en:'ACT max UP'}, addLife:{jp:'体力が増加！',en:'LIFE max UP'},
-  buyKey:{jp:'鍵購入',en:'Bought key'}, buyPt:{jp:'ポイント購入',en:'Point bought'},
-  slotWin:{jp:'スロット当り！',en:'SLOT WIN'}, slotLose:{jp:'…はずれ',en:'…miss'},
-  bonus:{jp:'ボーナス獲得！',en:'BONUS'}, limit:{jp:'所有数が上限に達しています',en:'Reached the limit'},
-  noGold:{jp:'ゴールド不足',en:'Not enough gold'}, cleared:{jp:'パラメータ クリア！',en:'Parameters Cleared!'},
-  over:{jp:'ゲームオーバー',en:'GAME OVER'},
+  EXP:{jp:'経験',en:'EXP',zh:'经验'},LIFE:{jp:'体力',en:'LIFE',zh:'体力'},ACT:{jp:'行動',en:'ACT',zh:'行动'},
+  RCV:{jp:'回復',en:'RCV',zh:'回复'},ATK:{jp:'攻撃',en:'ATK',zh:'攻击'},DEF:{jp:'防御',en:'DEF',zh:'防御'},
+  win:{jp:'敵に勝利！',en:'You win!',zh:'战胜敌人！'}, mComp:{jp:'ミッション実行>成功',en:'Run > Success',zh:'执行任务>成功'},
+  mNg:{jp:'ミッション実行>失敗:行動不足',en:'Run > Lack of ACT.',zh:'执行任务>行动不足'},
+  unlockE:{jp:'敵のロックを解除した',en:'Enemy unlocked',zh:'解锁了敌人'},
+  unlockM:{jp:'ミッションのロックを解除した',en:'Mission unlocked',zh:'解锁了任务'},
+  unlockI:{jp:'アイテムのロックを解除した',en:'Item unlocked',zh:'解锁了道具'},
+  locked:{jp:'ロックされています',en:'Locked',zh:'已锁定(需钥匙)'},
+  levelUp:{jp:'レベル @ になりました！',en:'Level @!',zh:'升到 @ 级！'},
+  dmg:{jp:'攻撃>敵に @ ダメージを与えた!',en:'@ dmg to enemy',zh:'攻击>对敌造成 @ 伤害'},
+  taken:{jp:'@のダメージを受けた！',en:'@ damage!',zh:'受到 @ 点伤害！'},
+  buyW:{jp:'武器を購入>攻撃力 @ UP!',en:'Weapon > ATK @ UP',zh:'购买武器>攻击力 +@'},
+  buyA:{jp:'防具を購入>防御力 @ UP!',en:'Armor > DEF @ UP',zh:'购买防具>防御力 +@'},
+  repL:{jp:'体力回復 > 成功',en:'Life repaired',zh:'体力回复>成功'},
+  addAct:{jp:'行動が増加！',en:'ACT max UP',zh:'行动上限+1'}, addLife:{jp:'体力が増加！',en:'LIFE max UP',zh:'体力上限+1'},
+  buyKey:{jp:'鍵購入',en:'Bought key',zh:'购买钥匙'}, buyPt:{jp:'ポイント購入',en:'Point bought',zh:'购买点数'},
+  slotWin:{jp:'スロット当り！',en:'SLOT WIN',zh:'老虎机中奖！'}, slotLose:{jp:'…はずれ',en:'…miss',zh:'…没中'},
+  bonus:{jp:'ボーナス獲得！',en:'BONUS',zh:'获得奖励！'}, limit:{jp:'所有数が上限に達しています',en:'Reached the limit',zh:'持有数已达上限'},
+  noGold:{jp:'ゴールド不足',en:'Not enough gold',zh:'金币不足'}, cleared:{jp:'パラメータ クリア！',en:'Parameters Cleared!',zh:'参数通关！'},
+  over:{jp:'ゲームオーバー',en:'GAME OVER',zh:'游戏结束'},
+  start:{jp:'ゲーム開始',en:'Game start',zh:'游戏开始'}, how:{jp:'遊び方',en:'HOW TO PLAY',zh:'玩法说明'}, lv:{jp:'レベル ',en:'LV ',zh:'等级 '},
+  cRepLife:{jp:'体力回復',en:'REP LIFE',zh:'体力回复'}, cCapAct:{jp:'行動++',en:'ACT++',zh:'行动++'},
+  cCapLife:{jp:'体力++',en:'LIFE++',zh:'体力++'}, cBuyKey:{jp:'鍵',en:'KEY',zh:'钥匙'}, cBuyPt:{jp:'追加',en:'+PT',zh:'加点'}, cSold:{jp:'売切',en:'SOLD',zh:'售罄'},
 };
-let lang='en';
+let lang='zh';
 const t=(k,v)=>{const o=TXT[k];if(!o)return k;let s=o[lang];return v!==undefined?s.replace('@',v):s;};
 
 // ---- player ----
@@ -158,7 +161,7 @@ function timeStr(ms){ms=Math.max(0,ms);let s=Math.floor(ms/1000);
 function msg(text,color){
   msgs.push('<span style="color:'+(color||'#ccc')+'">'+timeStr(performance.now()-S.startTime)+' '+text+'</span>');
   if(msgs.length>6)msgs.shift();
-  $('log').innerHTML=msgs.slice().reverse().join('');
+  $('log').innerHTML=msgs.slice().reverse().map(x=>'<div>'+x+'</div>').join('');
 }
 
 // ============================================================================
@@ -197,25 +200,19 @@ function treemap(items,X,Y,W,H){
 // ============================================================================
 function roster(){
   const L=[]; const add=(type,v,extra)=>L.push(Object.assign({type,v},extra||{}));
-  // 敌人(权重跨度大;大=Boss)
-  const eW=[6,7,8,9,10,11,12,14,16,18,20,22,26,30,36,44,55,70,90,120];
-  eW.forEach((v,i)=>add('enemy',v,{tier:i}));
+  // 敌人:更多更密,权重范围收窄(少数大格),贴近原版密铺
+  [6,7,8,9,10,11,12,13,14,15,16,18,20,22,24,26,28,30,34,38,44,52,64,80].forEach((v,i)=>add('enemy',v,{tier:i}));
   // 任务
-  [6,7,8,10,12,14,17,20,26,34,44].forEach(v=>add('mission',v));
+  [6,7,8,9,10,11,13,15,17,20,24,28,34,40].forEach(v=>add('mission',v));
   // 武器 / 防具
-  [10,14,18,24,32].forEach(v=>add('weapon',v));
-  [10,13,17,22,30].forEach(v=>add('armor',v));
+  [9,11,14,17,20,24,28].forEach(v=>add('weapon',v));
+  [9,11,13,16,19,23,27].forEach(v=>add('armor',v));
   // 特殊设施
-  add('repLife',9);         // 体力回復
-  add('capAct',8);          // 行動++
-  add('capLife',8);         // 体力++
-  add('buyKey',7);          // 鍵 $400
-  add('buyPoint',8);        // 追加(ポイント)
-  add('slot',6);            // スロット
+  add('repLife',9); add('capAct',8); add('capLife',8); add('buyKey',7); add('buyPoint',8); add('slot',7);
   add('bonus',7,{bid:'n1'});add('bonus',6,{bid:'n2'});add('bonus',6,{bid:'n3'});
   // 谜团/杂锁
-  for(let i=0;i<3;i++)add('mystery',5+i);
-  for(let i=0;i<4;i++)add('lock',5+i);
+  for(let i=0;i<4;i++)add('mystery',5+i);
+  for(let i=0;i<6;i++)add('lock',5+(i%3));
   return L;
 }
 
@@ -252,7 +249,7 @@ function buildWorld(){
   lockable.forEach(c=>{ if(c.m>=thr){ c.locked=true; if(c.type==='enemy'||c.type==='boss')S.lock1++; } });
   CELLS.forEach(paint);
   renderStatus();
-  msg(lang==='jp'?'ゲーム開始':'Game start','#888');
+  msg(t('start'),'#888');
 }
 
 function initCell(c){
@@ -397,9 +394,9 @@ function spin(c,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
     for(let i=0;i<n;i++)addParam(k,v); msg(t('slotWin')+' '+c.reels.join('')+' '+(n*v),'#f5c400'); floatText(el,c.reels.join(''),'#f5c400',ev);}
   else{ msg(t('slotLose')+' '+c.reels.join(''),'#888'); }
   paint(c);}
-const BONUS={n1:{f:()=>S.life_max+=20,need:()=>S.lv>=3,l:{jp:'体力上限+20',en:'LIFE max+20'}},
-  n2:{f:()=>S.rpe*=2,need:()=>S.lv>=5,l:{jp:'回復x2',en:'RCV x2'}},
-  n3:{f:()=>S.act_max+=20,need:()=>S.e_comp>=2,l:{jp:'行動上限+20',en:'ACT max+20'}}};
+const BONUS={n1:{f:()=>S.life_max+=20,need:()=>S.lv>=3,l:{jp:'体力上限+20',en:'LIFE max+20',zh:'体力上限+20'}},
+  n2:{f:()=>S.rpe*=2,need:()=>S.lv>=5,l:{jp:'回復x2',en:'RCV x2',zh:'回复x2'}},
+  n3:{f:()=>S.act_max+=20,need:()=>S.e_comp>=2,l:{jp:'行動上限+20',en:'ACT max+20',zh:'行动上限+20'}}};
 function doBonus(c,el,ev){ const b=BONUS[c.bid]; if(c.used||!b.need())return; b.f(); c.used=true; c.done=true;
   msg(t('bonus'),'#f5c400'); floatText(el,'★','#f5c400',ev); flash(el); paint(c);}
 
@@ -419,12 +416,12 @@ function paint(c){
     text=Math.round(c.hp/c.hpMax*100)+'%'; lbl.style.color=fillPct>40?'#000':'#fff'; }
   else if(c.type==='weapon'||c.type==='armor'){ fillPct=0; el.style.background='#0a0a0a';
     text='$'+c.price; subT='x'+c.buys; icon=c.type==='weapon'?'⚔':'🛡'; lbl.style.color='#fff';
-    if(c.done){text='SOLD';} }
-  else if(c.type==='repLife'){ fillPct=100; text=lang==='jp'?'体力回復':'REP LIFE'; subT='$'+(c.price||120); lbl.style.color='#000'; }
-  else if(c.type==='capAct'){ fillPct=100; text=lang==='jp'?'行動++':'ACT++'; subT='$'+c.price; lbl.style.color='#000'; }
-  else if(c.type==='capLife'){ fillPct=100; text=lang==='jp'?'体力++':'LIFE++'; subT='$'+c.price; lbl.style.color='#000'; }
-  else if(c.type==='buyKey'){ el.style.background='#0a0a0a'; text='$'+c.price; subT=lang==='jp'?'鍵':'KEY'; icon='⚷'; lbl.style.color='#fff'; }
-  else if(c.type==='buyPoint'){ fillPct=100; text=lang==='jp'?'追加':'+PT'; subT='$'+c.price; lbl.style.color='#000'; }
+    if(c.done){text=t('cSold');} }
+  else if(c.type==='repLife'){ fillPct=100; text=t('cRepLife'); subT='$'+(c.price||120); lbl.style.color='#000'; }
+  else if(c.type==='capAct'){ fillPct=100; text=t('cCapAct'); subT='$'+c.price; lbl.style.color='#000'; }
+  else if(c.type==='capLife'){ fillPct=100; text=t('cCapLife'); subT='$'+c.price; lbl.style.color='#000'; }
+  else if(c.type==='buyKey'){ el.style.background='#0a0a0a'; text='$'+c.price; subT=t('cBuyKey'); icon='⚷'; lbl.style.color='#fff'; }
+  else if(c.type==='buyPoint'){ fillPct=100; text=t('cBuyPt'); subT='$'+c.price; lbl.style.color='#000'; }
   else if(c.type==='slot'){ el.style.background='#0a0a0a'; text=c.reels.join(''); subT='$'+c.price; lbl.style.color='#fff'; }
   else if(c.type==='bonus'){ const b=BONUS[c.bid]; fillPct=100; el.style.background='#0a0a0a';
     text='★'+b.l[lang]; lbl.style.color=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00';
@@ -440,7 +437,7 @@ function repaintAll(){ CELLS.forEach(paint); }
 // ============================================================================
 function bar(id,cur,max){const i=$(id);if(i)i.style.width=clamp(cur/max*100,0,100)+'%';}
 function renderStatus(){
-  $('s_lv').textContent=(lang==='jp'?'レベル ':'LV ')+S.lv;
+  $('s_lv').textContent=t('lv')+S.lv;
   $('s_gold').textContent='$ '+S.gold; $('s_key').textContent='⚷ '+S.key; $('s_key2').textContent='⚷ '+S.key2;
   $('s_addp').textContent='+P '+S.add_p;
   bar('b_exp',S.exp,S.exp_max); $('t_exp').textContent=Math.floor(S.exp)+'/'+S.exp_max;
@@ -491,15 +488,16 @@ function gameOver(){ S.over=true; $('ovT').textContent=t('over'); $('ovT').style
   $('ovTime').textContent='TIME '+timeStr(performance.now()-S.startTime); $('overlay').style.display='flex'; }
 
 // ---- controls ----
-function setLang(l){lang=l;$('jp').classList.toggle('on',l==='jp');$('en').classList.toggle('on',l==='en');
+function setLang(l){lang=l;$('zh').classList.toggle('on',l==='zh');$('jp').classList.toggle('on',l==='jp');$('en').classList.toggle('on',l==='en');
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=TXT[e.dataset.t][l]);
+  $('how').textContent=t('how');
   renderStatus(); repaintAll();}
-$('jp').onclick=()=>setLang('jp'); $('en').onclick=()=>setLang('en'); $('rst').onclick=()=>location.reload();
+$('zh').onclick=()=>setLang('zh'); $('jp').onclick=()=>setLang('jp'); $('en').onclick=()=>setLang('en'); $('rst').onclick=()=>location.reload();
 document.querySelectorAll('.add[data-pt]').forEach(a=>{if(a.dataset.pt!=='none')a.onclick=()=>spendPoint(a.dataset.pt);});
 let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{ if(!S.over) buildWorld(); },300);});
 
 // ---- boot ----
-setLang('en');
+setLang('zh');
 buildWorld();
 </script>
 </body>
