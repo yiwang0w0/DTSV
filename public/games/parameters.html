@@ -415,15 +415,17 @@ function defeat(c){
   checkWin();
 }
 function work(c,el,ev){
-  if(c.complete_flg){ const g=Math.trunc(c.m/10+(R()*c.m)/100); award('GOLD',g);
+  // 原版 Mission.setItems 按 exp/10、gold/10 发放(真值),之前误发全额→小任务爆好几级
+  if(c.complete_flg){ const g=Math.round(Math.trunc(c.m/10+(R()*c.m)/100)/10); award('GOLD',g);
     floatText(el,'+'+g+'G','#f5c400',ev); flash(el); return; }
   if(S.act<c.cost){ msg(t('mNg'),'#888'); floatText(el,'ACT!','#888',ev); return; }
   S.act-=c.cost; c.hp+=10+R()*3; handleCombo(); flash(el);
   floatText(el,Math.min(100,Math.round(c.hp/c.hpMax*100))+'%','#39d0d8',ev);
   if(c.hp>c.hpMax){ c.hp=c.hpMax; c.complete_flg=true; c.done=true; S.m_comp++; addAddP(1);
     c.gold=Math.trunc(c.gold*1.5); c.exp=Math.trunc(c.exp*1.5);
-    award('GOLD',c.gold); award('EXP',c.exp);
-    msg(t('mComp')+' +'+c.gold+'G','#bc8cff'); checkWin(); }
+    const gg=Math.round(c.gold/10), ge=Math.round(c.exp/10);   // setItems 的 /10
+    award('GOLD',gg); award('EXP',ge);
+    msg(t('mComp')+' +'+gg+'G','#bc8cff'); checkWin(); }
   paint(c);
 }
 function buyItem(c,el,ev){
