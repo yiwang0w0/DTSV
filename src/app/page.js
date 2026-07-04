@@ -8,7 +8,7 @@
  *   2. 当前对局快照（如果存在）
  *   3. 4 类实体预览
  *   4. 4 装备槽预览
- *   5. 已登录侧加个人状态卡（库存 / 合同 / 撤离次数）
+ *   5. 已登录侧加个人状态卡（账户库容量）
  *   6. 底部版本注释
  */
 
@@ -78,15 +78,13 @@ export default function Home() {
   useEffect(() => {
     async function loadMe() {
       if (!user) { setMeStats(null); return }
-      const [stash, contracts, profile] = await Promise.all([
+      const [stash, profile] = await Promise.all([
         supabase.from('player_stash').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('player_contracts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
         supabase.from('profiles').select('stash_capacity').eq('id', user.id).maybeSingle(),
       ])
       setMeStats({
         stashCount: stash.count || 0,
         capacity: profile.data?.stash_capacity || 40,
-        activeContracts: contracts.count || 0,
       })
     }
     loadMe()
@@ -286,11 +284,9 @@ function PersonalStatsCard({ meStats }) {
           value={`${meStats.stashCount} / ${meStats.capacity}`}
           color={C.accent}
         />
-        <Stat label="进行中合同" value={meStats.activeContracts} color={C.yellow} />
       </div>
       <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/stash" style={miniLink}>🎒 查看账户库</Link>
-        <Link href="/contracts" style={miniLink}>📜 查看合同</Link>
       </div>
     </div>
   )

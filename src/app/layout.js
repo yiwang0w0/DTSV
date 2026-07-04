@@ -44,9 +44,6 @@ function Nav({ user, onLogout }) {
     { href: '/parameters', label: '参数' },
     // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
     ...(user ? [{ href: '/stash', label: '账户库' }] : []),
-    ...(user ? [{ href: '/archive', label: '档案库' }] : []),
-    ...(user ? [{ href: '/codex', label: '纪元档案' }] : []),
-    ...(user ? [{ href: '/contracts', label: '合同' }] : []),
     ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
     ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
   ]

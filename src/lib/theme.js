@@ -1,12 +1,12 @@
 /**
  * theme.js — DTSV / 远星函馆 全站统一主题 token（单一真源）
  *
- * GitHub-dark 基底。大厅 / 后台 / 档案 / 纪元档案 / 合同 / 对局 / BR 战场 全部共用本表，
+ * GitHub-dark 基底。大厅 / 后台 / 对局 / BR 战场 全部共用本表，
  * 消除此前「大厅(蓝 #58a6ff) → 进对局(赛博青 #00d4ff)」的主色突变割裂（用户拍板：统一到一套 token）。
  *
  * 用法：调色在此一处改即全站生效——
  *   · gameUi.js 的 T 调色板按语义引用本表（T.cyan→accent / T.red→danger / T.green→success …）
- *   · layout / archive / codex / contracts / profile / PrepareModal 的本地 C 调色板同样引用本表
+ *   · layout / profile / PrepareModal 的本地 C 调色板同样引用本表
  *
  * 命名按「语义」而非「颜色」（accent/danger/success…），故全站换肤只需改本表的值。
  */

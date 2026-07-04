@@ -4,7 +4,8 @@
  * 用法：在 gameActions.js 各死亡分支（NPC 反击致死、PvP 致死、Ω 倒计时、
  * 污染崩溃）调用 logPlayerDeath()，写入 player_death_log。
  *
- * 客户端从 /archive 页读取，按 user_id 列出最近 N 条。
+ * 写入侧（logPlayerDeath）仍在用；读取展示的 /archive 页已于 2026-07-04 下线，
+ * 现仅作遥测/DB 留存（healthcheck 与 DeathReviewModal 单局复盘另有取数路径）。
  */
 
 const REASON_TEXTS = {

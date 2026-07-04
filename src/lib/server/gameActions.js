@@ -35,7 +35,6 @@ import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, P
 import { purchaseFromCatalog } from '@/lib/server/shop'
 import { commitClassChoice, applyClassToPlayer, filterPerks } from '@/lib/server/classes'
 import { resolvePortraitUrl } from '@/lib/server/portraits'
-import { updateContractProgress } from '@/lib/server/contracts'
 import { discoverFragment } from '@/lib/server/fragments'
 import { logPlayerDeath } from '@/lib/server/deathLog'
 import { generateRaidPath, mergeUnlocksRules } from '@/lib/server/pathGenerator'
@@ -1514,7 +1513,6 @@ async function resolveSearchAction(client, room, gamevars, user) {
             : `${player.name} 找到了 ${ref.itemName}`
           appendResolutionLog(resolution, log, 'heal')
           const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
-          try { await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: ref.itemName }) } catch (e) { /* best-effort */ }
           return persisted
         }
       }
@@ -1585,14 +1583,6 @@ async function resolveSearchAction(client, room, gamevars, user) {
     }
 
     const persisted = await persistResolutionWithPollution(client, room, resolution, user.id)
-    // 合同进度：基础 + 额外抽到的每一件都推进 item_acquired（best-effort）
-    try {
-      for (const it of allPicked) {
-        await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: it.name })
-      }
-    } catch (e) {
-      console.error('[searchArea] contract progress 失败:', e?.message)
-    }
     return persisted
   }
 
@@ -1827,11 +1817,6 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       }
     } catch (e) {
       console.error('[attackNpc] fragment discovery 失败:', e?.message)
-    }
-    try {
-      await updateContractProgress(client, user.id, { type: 'npc_killed', npcName: instance.npc.name })
-    } catch (e) {
-      console.error('[attackNpc] contract progress 失败:', e?.message)
     }
   } else {
     // 实例仍存活：更新池中 HP
@@ -2307,14 +2292,6 @@ async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
     }
 
     const nextRoom = await persistRoom(client, room, working, logs)
-    // 合同进度：拾取的是普通道具时推进 find_item 目标
-    if (selected.type === 'item' && selected.name) {
-      try {
-        await updateContractProgress(client, user.id, { type: 'item_acquired', itemName: selected.name })
-      } catch (e) {
-        console.error('[lootCorpse] contract progress 失败:', e?.message)
-      }
-    }
     return nextRoom
   } catch (error) {
     await rollbackLootSideEffect(client, sideEffect)
@@ -2562,12 +2539,6 @@ export async function joinRoom(client, user, roomId, loadout = null) {
       const result = await purchaseFromCatalog(client, user.id, roomId, catalogPurchases)
       initialInventory = result.inventory
       initialLoadout = result.loadout
-      // 合同进度：首购买新手契约（purchase 目标）
-      try {
-        await updateContractProgress(client, user.id, { type: 'purchased' })
-      } catch (e) {
-        console.error('[joinRoom] contract progress 失败:', e?.message)
-      }
     }
 
     // ── Legacy fallback：旧客户端传的 items + equipmentInstanceIds（Phase 24b 前）──
@@ -3505,12 +3476,6 @@ async function extractPlayer(client, room, gamevars, user, payload) {
     })
     if (leftProbe) {
       probeLeftLog = `${player.name} 用【${partName}】留下了一座探针（HP ${probeHp}, ATK ${probeAtk}）— 7 天内其他玩家可能遭遇`
-      // 合同进度：首探针新手契约（leave_probe 目标）
-      try {
-        await updateContractProgress(client, user.id, { type: 'probe_left' })
-      } catch (e) {
-        console.error('[extractPlayer] contract progress 失败:', e?.message)
-      }
     }
   }
 
@@ -3651,17 +3616,6 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   await client.from('profiles').update({ roomid: null }).eq('id', user.id)
 
   const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
-
-  // 合同进度：撤离推进 extract / extract_at
-  try {
-    await updateContractProgress(client, user.id, {
-      type: 'extracted',
-      extractionPointId: `map_${playerMapId}`,
-      mapId: playerMapId,
-    })
-  } catch (e) {
-    console.error('[extractPlayer] contract progress 失败:', e?.message)
-  }
 
   return nextRoom
 }

@@ -746,7 +746,7 @@ export default function GameClientPage() {
     if (!fragLevelUp?.seq) return
     if (fragLevelUp.seq <= lastFragSeqRef.current) return
     lastFragSeqRef.current = fragLevelUp.seq
-    toast(`🧬 残片【${fragLevelUp.name}】解码度提升至 ${fragLevelUp.level}/3 · 详情见档案库`, 'levelup')
+    toast(`🧬 残片【${fragLevelUp.name}】解码度提升至 ${fragLevelUp.level}/3`, 'levelup')
   }, [fragLevelUp, toast])
 
   async function handleTakeLoot(option) {
@@ -1233,7 +1233,7 @@ export default function GameClientPage() {
                   ))}
                 </div>
                 <div style={{ fontSize: 10, color: T.dim2, marginTop: 4, fontStyle: 'italic' }}>
-                  这些完全解码的残片影响了本局扇区抽取权重、叙事短句、物资掉落 · 详情见档案库
+                  这些完全解码的残片影响了本局扇区抽取权重、叙事短句、物资掉落
                 </div>
               </div>
             )}
@@ -1275,19 +1275,6 @@ export default function GameClientPage() {
             {/* Phase 18.2: 引导玩家去 Archive 查看本局贡献 */}
             {/* research-2026-05-29-A: 结局=房间级兑现，4 结局为"收集所有结局"replay 钩子，外显再出勤动机 */}
             <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}`, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a
-                href="/archive"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  fontSize: 11, color: T.cyan, textDecoration: 'none',
-                  padding: '4px 10px', borderRadius: 6,
-                  background: `${T.cyan}18`, border: `1px solid ${T.cyan}40`,
-                }}
-              >
-                📡 在档案库查看本局贡献的残片 →
-              </a>
               <a
                 href="/rooms"
                 style={{
@@ -1630,7 +1617,7 @@ export default function GameClientPage() {
                       真实玩家的异步残影 · 非系统生成 · 属性已按你的实力校准
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
-                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份残片 — 击败后可夺取 1 份（详情见档案库）
+                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份残片 — 击败后可夺取 1 份
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <Btn variant="danger" loading={busyAction === 'probeAttack'} loadingText="交战中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('probeAttack')} disabled={!me?.alive || room.gamestate === 2}>
