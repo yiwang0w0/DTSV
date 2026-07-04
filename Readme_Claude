@@ -23,7 +23,7 @@
 
 **服务端核心**（`src/lib/server/`）：
 - `gameActions.js` — 上帝文件·主分发器：join/search/attackNpc/attackPlayer/move/useItem/craftItem/extract/actOnProbe/…（拆分减负 = 主对话长期债）
-- `pathGenerator.js`(chamber 路径) / `fragments.js`(残片三链发现) / `probes.js`(异步探针) / `stash.js` / `endings.js`(4 结局) / `contracts.js` / `branches.js` / `events.js` / `points.js`(4 类点数) / `shop.js` / `classes.js`(职业+perk 白名单) / `portraits.js` / `deathLog.js` / `raids.js`(Streak-breaker) / `br/`(时间跳跃 BR 9 模块)
+- `pathGenerator.js`(chamber 路径) / `fragments.js`(残片三链发现) / `probes.js`(异步探针) / `stash.js` / `endings.js`(4 结局) / `branches.js` / `events.js` / `points.js`(4 类点数) / `shop.js` / `classes.js`(职业+perk 白名单) / `portraits.js` / `deathLog.js` / `raids.js`(Streak-breaker) / `br/`(时间跳跃 BR 9 模块)
 - **预埋未激活**（设计完成·ENABLED=false 或未接线，勿当死代码删）：`nemesis.js`(宿敌) / `chamberResidue.js`(chamber 痕迹) / `newbieProtection.js`(新手返还) / `signalLock.js`(撤离信号锁) / `heat.js`(高危出勤) / `coldCases.js`(悬案) / `loadoutPresets.js`(预设) / `runGoals.js`(本局目标)
 
 **共享纯函数层**（零 import·原生 Node 可导入·各配 smoke）：
@@ -32,14 +32,26 @@
 - `src/lib/itemCraft.js` — 道具合成运行时（id↔name 桥接 string[] 背包·催化剂·fail_behavior，smoke-itemcraft.mjs 23 断言）
 - 其它：`gameEngine.js`(calcDamage/evalFormula 白名单沙箱/loadGameRules) / `equipmentEngine.js`(RARITY_META 真源/triggerPassives/executeCraft) / `eventResolver.js`(动作结算) / `roomState.js` / `pollution.js` / `constants.js`(各 ENABLED 预埋块；MAP_LIST 已 @deprecated)
 
-**客户端**：`src/app/game/[id]/`（GameClientPage + gameUi(T 色板) + CraftModal/ItemCraftModal/ExtractionModal/LootModal）；`src/app/admin/`（4 组折叠侧栏 17 入口 + 4 hub 收编 + `?tab=/?section=` URL 深链 + `_engine/` schema 驱动内容引擎 + `_shared/ui.js`(BTN/INPUT/SegTabs/Drawer)）；玩家页 rooms/archive/codex/contracts/profile/stash。
+**客户端**：`src/app/game/[id]/`（GameClientPage + gameUi(T 色板) + CraftModal/ItemCraftModal/ExtractionModal/LootModal）；`src/app/admin/`（4 组折叠侧栏 17 入口 + 4 hub 收编 + `?tab=/?section=` URL 深链 + `_engine/` schema 驱动内容引擎 + `_shared/ui.js`(BTN/INPUT/SegTabs/Drawer)）；玩家页 rooms/profile/stash（archive/codex/contracts 已于 2026-07-04 下线）。
 
 **数据库主表**：rooms(gamevars JSONB) / profiles / item_pool / npc_pool / chamber_templates / equipment_series+tiers+instances / passive_skills(**Phase 43 加 stage/priority/condition_formula**) / item_recipes+item_recipe_ingredients / item_tags / tier_recipes+recipe_ingredients / fragment_pool+player_fragments+fragment_combos / cross_room_probes / player_points+shop_catalog+shop_exchange_rates / classes+player_class_runs / player_death_log / raid_stats / portraits / player_notifications / chamber_residue / probe_encounter_pairs / fragment_cold_cases / seasonal_expeditions(空表预埋) / br_*(时间跳跃 BR)。
 ⚠ RLS 目前全关（anon 可写内容表）= 🔒 安全性轨第一棒。
 
-**核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成·主线时间轴/悬案）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 合同 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
+**核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成·主线时间轴/悬案）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
+> 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
 
 **Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
+
+## 最近变更（2026-07-04 / 剔除 档案库·纪元档案·合同 三特性）
+
+> 用户指令：把 档案库(/archive) / 纪元档案(/codex) / 合同(contracts) 完全剔除。先经 5-agent 工作流（3 逐特性足迹 + 交叉引用兜底 + 破坏风险评审）映射全足迹，再按删除顺序约束执行。
+
+- **整删 7 文件**：`src/app/{archive,codex,contracts}/page.js` + `src/app/api/contracts/route.js` + `src/app/admin/_tabs/ContractsTab.jsx` + `src/lib/server/contracts.js` + `src/lib/fragmentMeta.jsx`（DecodeBar——archive/codex 是其仅有的两个消费者，删页后成孤儿一并清）。
+- **导航/入口**：`layout.js` 删三条 nav；`page.js` 首页个人卡删「进行中合同」Stat + player_contracts 查询（Promise.all 解构同步改 `[stash, profile]` 防 profile 错位）+ 「查看合同」miniLink；`GameClientPage` 结局横幅删「在档案库查看」链接 + 三处「详情见档案库」文案。
+- **服务端**：`gameActions.js` 删 `updateContractProgress` import + 7 处 best-effort 进度钩子（search/loot/attackNpc/joinRoom 购买/extract 留探针/extract 撤离）——全 try/catch 包裹，删除不影响主流程。
+- **后台**：`NarrativeTab` 去合同子页，默认 section 从 `contracts` 改 `events`（否则空 tab）。`adminNav` 无需改（合同只是 narrative 子路由）。
+- **保留（不动）**：残片发现引擎（fragments.js / discoverFragment / fragment_pool·player_fragments·fragment_combos）—— 评审确认删三特性后残片三链、结局 totalFragmentsExtracted、探针夺残片全部自洽；coldCases「悬案」休眠预埋（被 fragments.js 门控引用·ENABLED=false）；DB 表 contracts/player_contracts/fragment_cold_cases 一律保留不 DROP（红线）。SQL 种子脚本（starter-contracts / cold-cases / migration-*-contracts）作历史存档保留。
+- 验证：全仓 grep 无 live 悬空引用（剩余均为保留文件注释）· `next build` ✓ 编译成功（静态页 30→26·少 4 条已删路由）。**玩家端 UI 变更需 PRIMARY_ADMIN 浏览器眼校（部署后）**。
 
 ## 最近变更（2026-07-04 / 全盘冗余清除 + 文档重拍 + 分支清理）
 
