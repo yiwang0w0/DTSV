@@ -1,6 +1,6 @@
 # Readme_Claude
 
-更新时间：2026-06-30（Asia/Tokyo） · 战斗钩子管线 P3+P4（接线 PvP/反击/探针 + 后台 authoring·中性） + 并行开发轨道契约就位
+更新时间：2026-07-04（Asia/Tokyo） · 战斗钩子管线 P3+P4+P4.5（全路径接线 + 后台 authoring + 攻/守方向性·中性） + 并行开发轨道契约就位
 整理方式：基于全量源码交叉验证 + Phase 0-30 改造提交记录。
 
 ## 🧭 当前状态 · 并行开发轨道（2026-06-20）
@@ -14,15 +14,26 @@
 - 战斗钩子管线 P2：玩家→NPC 主伤害接 runCombatPipeline（中性闸口 · `5e534fc`）
 - 战斗钩子管线 P3：PvP + NPC 反击 + 探针 双向接管线，6 处统一 `applyCombatPipeline` 中性闸口 helper（🧭主对话 · `07ee62b`）
 - 战斗钩子管线 P4 authoring：被动编辑器 stage/priority/condition 字段 + 职业 pipeline_modifiers 放行（🧭主对话 · `69c88d4`）
+- 战斗钩子管线 P4.5 方向性：攻/守阶段二分收集（OFFENSIVE/DEFENSIVE_STAGES）+ special 无公式硬化（🧭主对话 · `c833f25`）
 - 入场准备加入后模态不关闭修复（`aeb0501`）
 
 **4 轨一眼状态**：
 - 🔒 **安全性**：全库 RLS 收紧（anon 可写内容表 = 4/10 漏洞）+ 内容写路径服务端化 + security-review
-- 🧭 **主对话**：战斗管线 P3✅ + P4 authoring✅(被动 stage/priority/condition + 职业 pipeline_modifiers) → ⚠ 方向性精修 · P6 死事件 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
+- 🧭 **主对话**：战斗管线 P3✅ P4✅ P4.5 方向性✅（管线通 + 可配 + 方向语义定型）→ P6 死事件 / 合成 P4-P6 / 04 副本·05 集卡·06 技能树 / gameActions 治理 / 热文件仲裁
 - 🎨 **前端美化**：移动化 P1-P4（响应式 + PWA · 偏异步不碰原生）+ 视觉打磨
 - ⚙️ **游戏性优化**：P5 后端 payload 瘦身（移动真瓶颈 🔴）+ 平衡调优 + 内容产出支持
 
 **铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性 / 只改 Readme_Claude 不动 GPT / 排除 phase-25q untracked / SQL 幂等 / UI 改动连浏览器手机+桌面截图验证 / 引用 ID 不按名串。
+
+## 最近变更（2026-07-04 / 战斗管线 P4.5 方向性 — 攻/守阶段二分收集 + special 硬化 · 43）
+
+> 解决 P4 标记的「无方向合并」限制：此前攻防双方 modifier 进同一池 ⇒ 守方「加伤」会错误抬高自己受到的伤害、攻方「保命」会错误护住敌人。趁 DB 0 条 modifier 全休眠（语义变更零生产影响）定型方向模型。
+
+- **方向二分**（`combatPipeline.js` 导出·smoke 断言恰好二分 STAGES）：`OFFENSIVE_STAGES = [add, mult, seckill]`（仅当 modifier 所有者**发起攻击**时生效）/ `DEFENSIVE_STAGES = [invincible, special, limit, insurance]`（仅当其**受击**时生效）。special 归守方——与 dts 阶段链受击侧结算立场一致（无敌>特殊>限制>保命）；攻方要非线性变换自身伤害可用 add+公式（`damage` 变量可见）。
+- **收集改向**（`gameActions.applyCombatPipeline`）：攻方来源（`_pass` + `classPerks.pipeline_modifiers`）只过滤进攻型阶段、守方来源只过滤防御型；全空仍短路（守 Phase 37 中性）。探针无 `_pass` ⇒ 现在玩家的攻/守被动也只在正确方向参与探针战。
+- **special 硬化**（`runCombatPipeline`）：无 `formula` 的 special ⇒ 跳过恒等——此前 `ev(null)→0` 会把伤害清零；UI 已暴露 special 下拉后该坑可达，堵上。
+- **编辑器**：阶段下拉逐项标注「攻方/守方生效」；帮助文案补方向性 + 变量视角（`hp/maxHp`=攻方、`targetHp/targetMaxHp`=守方·视角固定不随 modifier 所有者变）。
+- 验证：smoke 21/0（+方向二分/special 硬化 4 断言）· `next build` ✓ **全绿**（`/api/br/topology` 构建错已由上游 `ce23312` 强制动态修复·非本轨改动）。`c833f25`
 
 ## 最近变更（2026-06-30 / 战斗钩子管线 P4 authoring — 被动编辑器三字段 + 职业 pipeline_modifiers · 43）
 
@@ -32,7 +43,7 @@
 - **职业** `classes.filterPerks` 白名单放行 `pipeline_modifiers`（非数值型·modifier 数组）；`applyCombatPipeline` 的 `collectModifiers` 多收双方 `classPerks.pipeline_modifiers` 一路（非数组源安全忽略）。⚠ 目前可经 DbConsole/SQL 在 `classes.perks` 写该数组；**ClassesTab 可视化编辑器 = 后续**。
 - **中性守恒**：DB 实测 0 passive 入管线 / 0 class 带 pipeline_modifiers ⇒ 6 处 helper 全短路·逐字节不变。`next build` ✓ 编译成功。admin UI 渲染待 PRIMARY_ADMIN 浏览器眼校。`69c88d4`
 
-> ⚠ **已知语义限制（建议下一步精修）**：当前 `collectModifiers(attacker 源 + defender 源)` 是**无方向合并**——攻防双方 modifier 进同一池。攻击型阶段（add/mult/special/seckill）本应只在 modifier 所有者**进攻时**生效，防御型阶段（invincible/limit/insurance）只在其**防御时**生效；今天不区分 ⇒ 防御者身上的「加伤」被动会错误抬高其受到的伤害。**现 0 条 modifier ⇒ 完全休眠、生产无影响**，正是「开始 authoring 前先定方向模型」的最佳时机。建议精修：按 stage 归属分别从 attacker/defender 源收集（offensive 仅取攻方·defensive 仅取守方），仍中性。
+> ~~⚠ 已知语义限制：无方向合并~~ → **已于 P4.5（`c833f25`）解决**：按 OFFENSIVE/DEFENSIVE_STAGES 从攻/守方分别收集，见上方 2026-07-04 段。
 
 ## 最近变更（2026-06-30 / 战斗钩子管线 P3 — PvP + NPC 反击 + 探针接管线 · 43）
 
