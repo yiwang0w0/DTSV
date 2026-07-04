@@ -1598,7 +1598,7 @@ export default function GameClientPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div>
                         <div style={{ fontSize: 11, color: T.dimB, marginBottom: 2 }}>另一位玩家留下 · {meBase.probeEncounter.ownerPseudonym || '匿名观测者'}</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🛰 残影 · 携 {meBase.probeEncounter.fragmentCount} 残片</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🛰 残影{meBase.probeEncounter.fragmentCount > 0 ? ` · 携 ${meBase.probeEncounter.fragmentCount} 残片` : ''}</div>
                       </div>
                       <div style={{ fontSize: 10, color: T.dim, fontFamily: 'monospace' }}>
                         #{String(meBase.probeEncounter.probeId).slice(-6)}
@@ -1616,9 +1616,11 @@ export default function GameClientPage() {
                     <div style={{ marginTop: 6, fontSize: 10, color: T.dim2 }}>
                       真实玩家的异步残影 · 非系统生成 · 属性已按你的实力校准
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
-                      🎁 携带 {meBase.probeEncounter.fragmentCount} 份残片 — 击败后可夺取 1 份
-                    </div>
+                    {meBase.probeEncounter.fragmentCount > 0 && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: T.purple, padding: '6px 8px', background: `${T.purple}10`, borderRadius: 6 }}>
+                        🎁 携带 {meBase.probeEncounter.fragmentCount} 份残片 — 击败后可夺取 1 份
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <Btn variant="danger" loading={busyAction === 'probeAttack'} loadingText="交战中..." sx={{ flex: 2, padding: '10px 0', fontSize: 13, fontWeight: 700 }} onClick={() => runGameAction('probeAttack')} disabled={!me?.alive || room.gamestate === 2}>
                         ⚔️ 袭击残影

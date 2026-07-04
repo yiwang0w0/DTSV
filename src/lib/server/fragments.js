@@ -5,6 +5,7 @@
 
 import { detectColdCases, resolveColdCasesForFragment } from './coldCases'
 import { weightedPick } from '@/lib/weightedPick'
+import { FRAGMENTS } from '@/lib/constants'
 
 // 28-C P0: 新玩家入口残片权重加成
 // 玩家首 3 局 raid 内，F01/F02/F03（按名称前缀匹配，三链分别覆盖 search/search/combat）的
@@ -108,6 +109,9 @@ export async function evaluateFragmentCombos(client, userId, triggeredFragmentId
  * @returns {object|null} { fragment_id, decode_level, isNew, chain, oldLevel?, leveledUp? } 或 null（无可发现残片）
  */
 export async function discoverFragment(client, userId, mapId, pollution, gamenum, opts = {}) {
+  // 残片引擎休眠（constants.FRAGMENTS.ENABLED=false）：不发现、不写 player_fragments、不触发 combo。
+  //   置于最顶（任何 DB 查询前）⇒ 零开销 early-return；三链调用点均以 `if (fragment)` 处理 null，逐值自洽。
+  if (!FRAGMENTS.ENABLED) return null
   const chain = opts.chain || 'search'
 
   // 1. 查询玩家已发现的残片 ID 列表

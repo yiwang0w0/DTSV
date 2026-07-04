@@ -393,6 +393,16 @@ export const FIRST_CONTACT_FRAMING = {
 // /codex 悬案区渲染。全部受 ENABLED 门控（默认 false）+ exception-safe，绝不阻塞残片发现。
 // 预埋不启用，等 Phase 24b 接 discoverFragment detect/resolve 钩子 + /codex 悬案卡 + 升级
 // toast，并确认回溯奖励 EV 落在通胀预算内后翻 true。
+// ── 残片引擎休眠开关（2026-07-04·用户拍板）─────────────────────────────
+// 档案库(/archive)/纪元档案(/codex) 展示页下线后，把「残片发现引擎」整体休眠（可逆·为残片系统重做清场）。
+// ENABLED=false ⇒ discoverFragment（三链发现单一入口·fragments.js）+ defeatProbe/leaveProbe 夺/带残片
+//   （probes.js）early-return ⇒ player_fragments 永不新增 ⇒ 玩家零残片 ⇒ 下游全部空转自洽：
+//   搜索命中残片带→「没发现有用的东西」、结局横幅无残片段、探针携 0 残片、combo/悬案/解码 toast 均不触发。
+// 代码与 DB 表（fragment_pool/player_fragments/fragment_combos）全保留，翻 true 即整套复活。
+export const FRAGMENTS = {
+  ENABLED: false,
+}
+
 export const COLD_CASES = {
   ENABLED: false,            // 预埋开关：true 后登记/回溯断链悬案 + /codex 显示悬案区
   REWARD_KIND: 'decode_accel', // 'decode_accel'（默认·纯叙事）| 'item_pt'（经济·需监测）

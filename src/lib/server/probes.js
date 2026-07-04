@@ -8,6 +8,7 @@
 
 import { weightedPick } from '@/lib/weightedPick'
 import { clamp } from '@/lib/num'
+import { FRAGMENTS } from '@/lib/constants'
 
 const PROBE_ENCOUNTER_CHANCE = 0.08 // 8% 进入 chamber 时遭遇探针
 const PROBE_FRAGMENTS_CARRY_LIMIT = 3 // 主人留下的可被夺残片最多 3 条
@@ -270,7 +271,7 @@ export async function leaveProbe(client, opts) {
         atk,
         def,
         equipment_snapshot: equipmentSnapshot,
-        fragments_carry: fragmentsCarry.slice(0, PROBE_FRAGMENTS_CARRY_LIMIT),
+        fragments_carry: FRAGMENTS.ENABLED ? fragmentsCarry.slice(0, PROBE_FRAGMENTS_CARRY_LIMIT) : [],
         status: 'active',
       })
       .select()
@@ -397,7 +398,8 @@ export async function defeatProbe(client, probeId, attackerId) {
     })
 
     // 抢 1 条残片 — 从 fragments_carry 随机选一条让 attacker decode +1
-    const carry = Array.isArray(probe.fragments_carry) ? probe.fragments_carry : []
+    // 残片引擎休眠（FRAGMENTS.ENABLED=false）⇒ carry 视为空 ⇒ 不夺取、不写 player_fragments（探针仍照常标记击败/回信）。
+    const carry = FRAGMENTS.ENABLED && Array.isArray(probe.fragments_carry) ? probe.fragments_carry : []
     if (carry.length === 0) return { stolenFragmentId: null, stolenFragmentName: null }
 
     const targetFragId = carry[Math.floor(Math.random() * carry.length)]
