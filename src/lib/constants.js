@@ -3,6 +3,8 @@
 // 17 号异常段 7 区域 + 4 类实体 + 5 物品分类 + 4 结局
 // ─────────────────────────────────────────────────────────────────
 
+// @deprecated Phase 19.5+ — 新对局走 chamber_templates/raidPath，此表仅供 admin 旧数据展示
+//   (ui.js/BranchesTab/EventsTab/ItemsTab/NpcsTab 仍引用)。新代码勿再依赖。
 export const MAP_LIST = [
   { id: 0,  name: '外环维护廊' },
   { id: 1,  name: '锚点走廊' },
