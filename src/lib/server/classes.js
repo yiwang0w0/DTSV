@@ -124,6 +124,25 @@ export async function forceRollLegendary(client, userId) {
  */
 export async function commitClassChoice(client, userId, roomId, classId, usedHighPt = false) {
   if (!classId) throw new Error('未选择职业')
+
+  // ── 授权闸口（安全·防越权白嫖任意职业）：classId 必须落在本玩家 pending_class_roll 的候选集内。
+  //    候选集由 /api/classes 服务端持久化为 id 数组（GET roll 写 route.js:61 / POST force 追加 :94）；
+  //    legendary 仅经 10% 自然 roll 或 forceRollLegendary（roll 时已 debit 1 class_pt）进入候选，此处不重复扣费。
+  //    ⚠ 必须在 joinRoom 清空 pending_class_roll(:2623) 之前读到 —— commitClassChoice 在清空前被调用，天然满足。
+  //    非法/无候选时抛错：joinRoom 的 try/catch 会记日志并让玩家无职业入场（优雅降级，不硬阻断合法入场）。
+  const { data: profile, error: profErr } = await client
+    .from('profiles')
+    .select('pending_class_roll')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profErr) throw new Error(`职业候选校验失败: ${profErr.message}`)
+  const rawCandidates = profile?.pending_class_roll?.candidates
+  const candidateIds = (Array.isArray(rawCandidates) ? rawCandidates : [])
+    .map(c => Number(typeof c === 'object' && c !== null ? c.id : c))
+    .filter(Number.isFinite)
+  if (candidateIds.length === 0) throw new Error('没有可选职业（请先抽取职业候选）')
+  if (!candidateIds.includes(Number(classId))) throw new Error('非法职业选择（不在候选集内）')
+
   const { data: cls, error } = await client
     .from('classes')
     .select('id, name, description, rarity, base_atk_bonus, base_def_bonus, base_hp_bonus, perks')

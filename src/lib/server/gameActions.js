@@ -2275,6 +2275,7 @@ async function dismissLootPrompt(client, room, gamevars, user) {
 async function lootCorpse(client, room, gamevars, user, corpseId, entryId) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法拾取战利品')
+  if (player.extracted) throw new Error('已撤离玩家无法拾取战利品')  // 安全：撤离免疫态不得再搜刮尸体（镜像 craftItemRecipe extracted 守卫，堵越权铸/夺装）
   if (!corpseId || !entryId) throw new Error('缺少尸体或战利品信息')
 
   let working = clearPlayerLootPrompt(normalizeGamevars(gamevars), user.id)
