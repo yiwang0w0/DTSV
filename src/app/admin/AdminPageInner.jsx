@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '../layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import { isAdmin } from '@/lib/auth'
 import { useToast, Spinner } from './_shared/ui'
 import Sidebar from './_shared/Sidebar'

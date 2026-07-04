@@ -12,7 +12,7 @@
  *   6. 底部版本注释
  */
 
-import { useAuth } from './layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'

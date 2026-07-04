@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '../../layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import { ENTITY_TYPE_META, JUMP_CONFIG, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
 import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
@@ -960,7 +960,7 @@ export default function GameClientPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
         <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.cyan, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         <span style={{ fontFamily: 'monospace', letterSpacing: 2, fontSize: 12 }}>LOADING...</span>
@@ -970,7 +970,7 @@ export default function GameClientPage() {
 
   if (!user) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg0, color: T.text }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg0, color: T.text }}>
         请先登录后再进入游戏页面。
       </div>
     )
@@ -979,7 +979,7 @@ export default function GameClientPage() {
   if (!room) return null
 
   return (
-    <div style={{ height: '100vh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
+    <div style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
       <ToastContainer />
       <CraftModal
         open={craftOpen}

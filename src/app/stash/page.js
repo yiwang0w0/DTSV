@@ -11,7 +11,7 @@ import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getGameApi } from '@/lib/gameApi'
-import { useAuth } from '../layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import { Spinner, useToast } from '../admin/_shared/ui'
 import { ITEM_KIND_META } from '@/lib/constants'
 

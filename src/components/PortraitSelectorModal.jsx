@@ -18,7 +18,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
-import { useAuth } from '@/app/layout'
+import { useAuth } from '@/app/_shell/RootShell'
 
 const C = {
   bg0: '#07090f', bg1: '#0c1018', bg2: '#111827', bg3: '#1a2335',

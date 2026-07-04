@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '../layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import { Spinner } from '../admin/_shared/ui'
 import { T, Btn, PanelTitle } from '@/app/game/[id]/gameUi'
 import { getGameApi, postGameApi } from '@/lib/gameApi'

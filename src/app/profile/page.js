@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useAuth } from '../layout'
+import { useAuth } from '@/app/_shell/RootShell'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { Spinner } from '../admin/_shared/ui'
 import PortraitSelectorModal from '@/components/PortraitSelectorModal'
