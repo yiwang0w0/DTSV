@@ -6,7 +6,7 @@
  *   modifier 池为空 ⇒ runCombatPipeline 返回的 damage 逐值 === 传入 base。
  * 另对 add/mult/invincible/limit/insurance/seckill 各阶段 + 条件门做样例断言。
  */
-import { runCombatPipeline, parseModifier, collectModifiers, STAGES } from '../src/lib/combatPipeline.js'
+import { runCombatPipeline, parseModifier, collectModifiers, STAGES, OFFENSIVE_STAGES, DEFENSIVE_STAGES } from '../src/lib/combatPipeline.js'
 
 let pass = 0, fail = 0
 function ok(cond, msg) { if (cond) { pass++ } else { fail++; console.error('  ✗ ' + msg) } }
@@ -67,6 +67,18 @@ ok(pm && pm.stage === 'add' && pm.value === 7 && pm.priority === 5, "parseModifi
 const cm = collectModifiers([{ stage: 'add', value: 1 }, { stage: null }], [{ stage: 'mult', value: 2 }])
 ok(cm.length === 2, 'collectModifiers：跨来源收集·丢弃 stage 空项')
 ok(Array.isArray(STAGES) && STAGES[0] === 'add' && STAGES[STAGES.length - 1] === 'seckill', 'STAGES 顺序：add…seckill')
+
+// ⑨ Phase 43 P4.5 方向性：OFFENSIVE/DEFENSIVE 恰好二分 STAGES（无重叠·全覆盖·仅含合法阶段）
+ok(OFFENSIVE_STAGES.every(s => STAGES.includes(s)) && DEFENSIVE_STAGES.every(s => STAGES.includes(s)), '方向集合仅含合法阶段')
+ok(
+  OFFENSIVE_STAGES.length + DEFENSIVE_STAGES.length === STAGES.length
+    && new Set([...OFFENSIVE_STAGES, ...DEFENSIVE_STAGES]).size === STAGES.length,
+  '方向集合二分 STAGES：无重叠·全覆盖',
+)
+
+// ⑩ special 硬化：无 formula 的 special ⇒ 恒等（不再 ev(null)→0 清零伤害）；有公式照常变换
+ok(runCombatPipeline({ base: 77, modifiers: [{ stage: 'special', value: 5 }] }, ev).damage === 77, 'special 无 formula ⇒ 恒等(硬化·不清 0)')
+ok(runCombatPipeline({ base: 100, modifiers: [{ stage: 'special', formula: 'damage / 2' }] }, ev).damage === 50, 'special 公式 damage/2 ⇒ 50')
 
 console.log(`smoke-pipeline: ${pass} passed, ${fail} failed`)
 process.exit(fail === 0 ? 0 : 1)

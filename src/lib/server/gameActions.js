@@ -28,7 +28,7 @@ import {
 } from '@/lib/equipmentEngine'
 import { computeCombatStats } from '@/lib/combatStats'
 import { applyItemCraft } from '@/lib/itemCraft'
-import { collectModifiers, runCombatPipeline } from '@/lib/combatPipeline'
+import { collectModifiers, runCombatPipeline, OFFENSIVE_STAGES, DEFENSIVE_STAGES } from '@/lib/combatPipeline'
 import { consumeDurabilityParallel } from '@/lib/server/equipmentDurability'
 import { consumeForLoadout, addItemsToStash } from '@/lib/server/stash'
 import { convertExtractToPoints, creditPoints, classPtForExtract, getBalances, POINT_LABEL } from '@/lib/server/points'
@@ -1635,14 +1635,15 @@ async function resolveSearchAction(client, room, gamevars, user) {
 //   defenderHp 供 insurance（保命）/seckill（秒杀）阶段 clamp；label 标注是哪条战斗路径，便于线上观测。
 //   命中 invincible/seckill/insurance/limit 时往 resolution 追一条 'buff' 日志。
 function applyCombatPipeline(damageRaw, { attacker, defender, defenderHp, resolution, label } = {}) {
-  // 收集 modifier 来源：双方装备被动 _pass + 双方职业 classPerks.pipeline_modifiers（Phase 43 P4）。
-  //   collectModifiers 对非数组源安全忽略；全空 ⇒ [] ⇒ 下方短路（守 Phase 37 中性）。
-  const mods = collectModifiers(
-    attacker?._pass || [],
-    defender?._pass || [],
-    attacker?.classPerks?.pipeline_modifiers || [],
-    defender?.classPerks?.pipeline_modifiers || [],
-  )
+  // 方向性收集（Phase 43 P4.5）：进攻型阶段仅取攻方来源（装备被动 _pass + 职业 pipeline_modifiers），
+  //   防御型阶段仅取守方来源 —— 守方的「加伤」不会抬高自己受到的伤害、攻方的「保命」不会护住敌人。
+  //   collectModifiers 对非数组源安全忽略；全空 ⇒ [] ⇒ 短路（守 Phase 37 中性）。
+  const mods = [
+    ...collectModifiers(attacker?._pass || [], attacker?.classPerks?.pipeline_modifiers || [])
+      .filter(m => OFFENSIVE_STAGES.includes(m.stage)),
+    ...collectModifiers(defender?._pass || [], defender?.classPerks?.pipeline_modifiers || [])
+      .filter(m => DEFENSIVE_STAGES.includes(m.stage)),
+  ]
   if (!mods.length) return damageRaw   // 中性短路：与未接管线逐值等价
   const piped = runCombatPipeline({
     base: damageRaw,

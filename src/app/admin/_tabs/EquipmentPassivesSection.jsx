@@ -27,13 +27,13 @@ export const EFFECT_TYPES = [
 //   parseModifier 复用下方 value / effect_formula 列作金额（公式空或 'value' ⇒ 取 value）。
 const PIPELINE_STAGES = [
   { value: '',           label: '— 不挂管线（默认·走旧触发）—' },
-  { value: 'add',        label: '加算（+ 到伤害）' },
-  { value: 'mult',       label: '乘算（× 到伤害）' },
-  { value: 'invincible', label: '无敌（伤害归 0）' },
-  { value: 'special',    label: '特殊（公式直接改伤害）' },
-  { value: 'limit',      label: '限伤（钳上限／免伤）' },
-  { value: 'insurance',  label: '保命（致死钳到 HP-1）' },
-  { value: 'seckill',    label: '秒杀（置敌当前 HP）' },
+  { value: 'add',        label: '加算（+ 到伤害）· 攻方生效' },
+  { value: 'mult',       label: '乘算（× 到伤害）· 攻方生效' },
+  { value: 'invincible', label: '无敌（伤害归 0）· 守方生效' },
+  { value: 'special',    label: '特殊（公式直接改伤害）· 守方生效' },
+  { value: 'limit',      label: '限伤（钳上限／免伤）· 守方生效' },
+  { value: 'insurance',  label: '保命（致死钳到 HP-1）· 守方生效' },
+  { value: 'seckill',    label: '秒杀（置敌当前 HP）· 攻方生效' },
   { value: 'sidecar',    label: '显式旁路（不参与管线）' },
 ]
 const EMPTY_PASSIVE = {
@@ -215,7 +215,7 @@ export default function EquipmentPassivesSection({ toast }) {
             <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(88,166,255,0.04)', border: '1px solid rgba(88,166,255,0.18)' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#58a6ff', marginBottom: 4, letterSpacing: '0.5px' }}>⚙ 战斗管线（可选 · 高级）</div>
               <div style={{ fontSize: 10.5, color: '#8b949e', marginBottom: 10, lineHeight: 1.65 }}>
-                把本被动挂到「在途主伤害」的某个阶段（玩家/NPC/PvP/探针全战斗路径生效）。<strong style={{ color: '#c9d1d9' }}>留空 = 不挂管线</strong>，走上面的旧触发逻辑（默认 · 中性）。阶段内按优先级升序结算；金额复用上面的 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>基础值 / 效果公式</span>（公式留空或填 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>value</span> ⇒ 取基础值）。
+                把本被动挂到「在途主伤害」的某个阶段（玩家/NPC/PvP/探针全战斗路径生效）。<strong style={{ color: '#c9d1d9' }}>留空 = 不挂管线</strong>，走上面的旧触发逻辑（默认 · 中性）。阶段内按优先级升序结算；金额复用上面的 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>基础值 / 效果公式</span>（公式留空或填 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>value</span> ⇒ 取基础值）。<strong style={{ color: '#c9d1d9' }}>方向性</strong>：攻方阶段仅在被动所有者发起攻击时参与，守方阶段仅在其受击时参与；变量视角固定 <span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>hp/maxHp</span>=攻方、<span style={{ fontFamily: 'monospace', color: '#bc8cff' }}>targetHp/targetMaxHp</span>=守方。
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.7fr', gap: 10 }}>
                 <div>

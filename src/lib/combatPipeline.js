@@ -29,6 +29,18 @@
 
 export const STAGES = ['add', 'mult', 'invincible', 'special', 'limit', 'insurance', 'seckill']
 
+/**
+ * Phase 43 P4.5 — 方向性二分（gameActions.applyCombatPipeline 按此从攻/守方分别收集 modifier）：
+ *   进攻型（伤害增强/终结）仅当 modifier 所有者【发起攻击】时生效；
+ *   防御型（免伤/变换/限伤/保命）仅当其【受击】时生效。
+ *   ⇒ 守方的「加伤」不会抬高自己受到的伤害、攻方的「保命」不会护住敌人。
+ *   special 归守方：与 dts 阶段链立场一致（无敌>特殊>限制>保命 都在受击侧结算）；
+ *   攻方要非线性变换自身伤害可用 add+公式（damage 变量在 vars 中可见）。
+ *   两集合恰好二分 STAGES（无重叠·全覆盖·smoke 断言）。
+ */
+export const OFFENSIVE_STAGES = ['add', 'mult', 'seckill']
+export const DEFENSIVE_STAGES = ['invincible', 'special', 'limit', 'insurance']
+
 function num(x, d = 0) {
   const n = Number(x)
   return Number.isFinite(n) ? n : d
@@ -105,8 +117,11 @@ export function runCombatPipeline(ctx, evalFn) {
   dmg = Math.round(dmg)
   // ③ 无敌(最优先·任一命中即归 0)
   if (byStage('invincible').length > 0) { dmg = 0; flags.invincible = true }
-  // ④ 特殊(预留·公式可直接改 damage)
-  for (const m of byStage('special')) dmg = Math.round(num(ev(m.formula, { ...baseVars, damage: dmg }), dmg))
+  // ④ 特殊(预留·公式可直接改 damage；无公式 ⇒ 跳过恒等——否则 ev(null)→0 会把伤害清零)
+  for (const m of byStage('special')) {
+    if (!m.formula) continue
+    dmg = Math.round(num(ev(m.formula, { ...baseVars, damage: dmg }), dmg))
+  }
   // ⑤ 限制/钳上限(免伤=cap 0)
   for (const m of byStage('limit')) {
     const cap = amount(m, dmg)
