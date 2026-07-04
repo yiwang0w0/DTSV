@@ -26,7 +26,8 @@
   .cell.enemy .lbl{color:#000}      /* on yellow */
   .cell.done{opacity:.6;cursor:default}
   .cell.locked{cursor:pointer}
-  .cell.lockcell{border-color:#8a6a1e;background:#140f05}   /* 上锁:琥珀边框 */
+  .cell.lockcell{border-color:#8a6a1e;background:#140f05}   /* 普通锁(需 ⚷ 普通钥匙):琥珀边框 */
+  .cell.lock2{border-color:#1f7a99;background:#04141d;box-shadow:inset 0 0 6px #0a3b4d}   /* 青锁(需 青⚷ 青钥匙):青色边框 */
   .cell.bigic .ic{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);font-weight:700}
   .cell.done .ic{color:#3fb950}
   .cell.flash .fill{filter:brightness(2)}
@@ -67,8 +68,8 @@
   <div class="srow srow1">
     <span class="lv" id="s_lv">レベル 1</span>
     <span style="color:var(--gold)" id="s_gold">$ 0</span>
-    <span id="s_key">⚷ 0</span>
-    <span id="s_key2" style="color:#39d0d8">⚷ 0</span>
+    <span id="s_key" style="color:#e3b341">⚷ 0</span>
+    <span id="s_key2" style="color:#39d0d8">青⚷ 0</span>
     <span class="langbtns"><span class="lb" id="rst">RESET</span></span>
     <span class="neko">K A N A T A</span>
     <span class="how" id="how">玩法说明</span>
@@ -106,7 +107,7 @@
     <div style="font-size:12px;color:#bbb;margin-bottom:12px;line-height:2;border:1px solid #262626;padding:8px 10px;background:#080808">
       <b style="color:#f5c400">格子图例</b><br>
       <b style="color:#f5c400">■ 黄条</b> 敌人(点击攻击) &nbsp; <b style="color:#39d0d8">■ 青条</b> 任务(填到 100%) &nbsp;
-      <b style="color:#3fb950">■✔ 绿</b> 已完成 &nbsp; <b style="color:#e3b341">🔒 琥珀边框</b> 上锁(需钥匙)<br>
+      <b style="color:#3fb950">■✔ 绿</b> 已完成 &nbsp; <b style="color:#e3b341">🔒 琥珀边框</b> 需 <b style="color:#e3b341">⚷普通钥匙</b> &nbsp; <b style="color:#39d0d8">🔒 青色边框</b> 需 <b style="color:#39d0d8">青⚷青钥匙</b>(仅「加点」格)<br>
       <b style="color:#f5c400">$…</b> 商店(⚔武器 · 🛡防具 · 体力回复 · 上限++ · ⚷钥匙) &nbsp; 🎁 宝箱 &nbsp; 🎰 老虎机
     </div>
     <div style="color:#ccc;font-size:13px">
@@ -474,14 +475,17 @@ function doBonus(c,el,ev){ const b=BONUS[c.bid]; if(c.used||!b.need())return; b.
 // ============================================================================
 function paint(c){
   const el=c.el; if(!el)return; const fill=el.children[0],lbl=el.children[1],sub=el.children[2],ic=el.children[3];
+  const need2=(c.locked&&!c.done&&c.type==='buyPoint');   // 加点格=青锁,需 青钥匙(key2);其余=普通锁,需普通钥匙
   el.classList.toggle('done',!!c.done);
-  el.classList.toggle('lockcell',!!(c.locked&&!c.done));
+  el.classList.toggle('lockcell',!!(c.locked&&!c.done&&!need2));
+  el.classList.toggle('lock2',!!need2);
   el.classList.toggle('bigic',!!(c.locked||c.done));      // 锁/完成:大号居中 emoji
-  let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='', lc='#fff';
+  let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='', lc='#fff', sc='';
   if(c.done){                                    // 已完成/已清 —— 深绿底 + 绿 ✔
     fillPct=100; fillColor='#123a20'; icon='✔'; lc='#3fb950'; }
-  else if(c.locked){                             // 上锁 —— 大号居中 🔒(宝箱显示 🎁;琥珀边框见 CSS)
-    fillPct=0; icon=(c.type==='treasure')?'🎁':'🔒'; }
+  else if(c.locked){                             // 上锁 —— 大号居中 🔒(宝箱显示 🎁);角标显示需哪把钥匙
+    fillPct=0; icon=(c.type==='treasure')?'🎁':'🔒';
+    if(need2){ subT='青⚷'; sc='#39d0d8'; } else { subT='⚷'; sc='#e3b341'; } }
   else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){  // 敌人 —— 黄色血条
     fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='var(--cell)';
     text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lc='#000'; if(c.boss||c.last)icon='⚔'; }
@@ -499,7 +503,7 @@ function paint(c){
   else if(c.type==='bonus'){ const b=BONUS[c.bid]; fillPct=100; text='★'+b.l[lang];
     lc=(b.need()&&!c.used)?'#f5c400':'#555'; fillColor='#5a4a00'; if(!b.need()||c.used)fillPct=0; }
   fill.style.width=fillPct+'%'; fill.style.background=fillColor;
-  lbl.textContent=text; sub.textContent=subT; ic.textContent=icon; lbl.style.color=lc;
+  lbl.textContent=text; sub.textContent=subT; ic.textContent=icon; lbl.style.color=lc; sub.style.color=sc||'';
   // 锁/完成 的 emoji 按格子高度放大(居中见 CSS .bigic)
   if(c.locked||c.done){ const hh=parseFloat(el.style.height)||14; ic.style.fontSize=clamp(hh*0.55,10,26)+'px'; }
   else ic.style.fontSize='';
@@ -512,7 +516,7 @@ function repaintAll(){ CELLS.forEach(paint); }
 function bar(id,cur,max){const i=$(id);if(i)i.style.width=clamp(cur/max*100,0,100)+'%';}
 function renderStatus(){
   $('s_lv').textContent=t('lv')+S.lv;
-  $('s_gold').textContent='$ '+S.gold; $('s_key').textContent='⚷ '+S.key; $('s_key2').textContent='⚷ '+S.key2;
+  $('s_gold').textContent='$ '+S.gold; $('s_key').textContent='⚷ '+S.key; $('s_key2').textContent='青⚷ '+S.key2;
   $('s_addp').textContent='+P '+S.add_p;
   bar('b_exp',S.exp,S.exp_max); $('t_exp').textContent=Math.floor(S.exp)+'/'+S.exp_max;
   bar('b_life',S.life,S.life_max); $('t_life').textContent=Math.floor(S.life)+'/'+S.life_max;
