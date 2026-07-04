@@ -309,6 +309,9 @@ function initCell(c){
   } else if(c.type==='mission'){
     c.hpMax=Math.round(c.dw); c.hp=0;
     c.cost=c.m*0.01; c.gold=Math.trunc(c.m*0.03*(1+R())*2); c.exp=Math.trunc(c.m*0.1*(1+R())*2);
+    c.expReward=Math.round(Math.trunc(c.exp*1.5)/10);   // 任务总经验(原版完成 *1.5 再 setItems /10 的真值)—— 按进度逐击发放
+    c.goldReward=Math.round(Math.trunc(c.gold*1.5)/10); // 任务金币(完成时结算)
+    c.expGiven=0;                                       // 已按进度发出的经验(累计,收尾补齐尾数)
     S.total_m++;
   } else if(c.type==='weapon'){
     c.price=Math.max(10,Math.round(Math.trunc(c.m/10)+Math.pow(c.dh-30,2)+(c.dh-30)*45)); c.addP=Math.trunc(c.m/100)*0.45;
@@ -415,17 +418,20 @@ function defeat(c){
   checkWin();
 }
 function work(c,el,ev){
-  // 原版 Mission.setItems 按 exp/10、gold/10 发放(真值),之前误发全额→小任务爆好几级
+  // 完成后再点:只发金币(原版 M_OK2 分支)
   if(c.complete_flg){ const g=Math.round(Math.trunc(c.m/10+(R()*c.m)/100)/10); award('GOLD',g);
     floatText(el,'+'+g+'G','#f5c400',ev); flash(el); return; }
   if(S.act<c.cost){ msg(t('mNg'),'#888'); floatText(el,'ACT!','#888',ev); return; }
   S.act-=c.cost; c.hp+=10+R()*3; handleCombo(); flash(el);
-  floatText(el,Math.min(100,Math.round(c.hp/c.hpMax*100))+'%','#39d0d8',ev);
-  if(c.hp>c.hpMax){ c.hp=c.hpMax; c.complete_flg=true; c.done=true; S.m_comp++; addAddP(1);
-    c.gold=Math.trunc(c.gold*1.5); c.exp=Math.trunc(c.exp*1.5);
-    const gg=Math.round(c.gold/10), ge=Math.round(c.exp/10);   // setItems 的 /10
-    award('GOLD',gg); award('EXP',ge);
-    msg(t('mComp')+' +'+gg+'G','#bc8cff'); checkWin(); }
+  // 每次点击按"当前累计进度"发放对应经验(逐击滴入,而非完成时一坨)→ 经验平滑爬升、升级不再爆点
+  const prog=Math.min(1,c.hp/c.hpMax);
+  const target=Math.round(c.expReward*prog), dExp=Math.max(0,target-c.expGiven);
+  if(dExp>0){ c.expGiven+=dExp; award('EXP',dExp); }
+  floatText(el,Math.round(prog*100)+'%'+(dExp>0?' +'+dExp+'xp':''),'#39d0d8',ev);
+  if(c.hp>=c.hpMax){ c.hp=c.hpMax; c.complete_flg=true; c.done=true; S.m_comp++; addAddP(1);
+    const rest=Math.max(0,c.expReward-c.expGiven); if(rest>0){ c.expGiven+=rest; award('EXP',rest); }  // 补齐经验尾数
+    award('GOLD',c.goldReward);   // 金币完成时结算(+1 技能点=原版每完成一个任务固定给)
+    msg(t('mComp')+' +'+c.goldReward+'G','#bc8cff'); checkWin(); }
   paint(c);
 }
 function buyItem(c,el,ev){
