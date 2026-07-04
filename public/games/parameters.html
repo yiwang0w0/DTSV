@@ -398,7 +398,7 @@ function attack(c,el,ev){
   let d;
   if(c.boss) d=Math.max(1, 55 - hp0/9);           // 首领:越残血越狠
   else if(c.last) d=6 + (c.hpMax-hp0)/280 + R()*8;
-  else d=10 + c.dw/6;                              // 普通敌:随体型递增(每次点击都收到)
+  else d=6 + (c.dw+c.dh)/4;                        // 普通敌:随体型(宽+高)递增 —— 还原原版 20+(w+h)/2 的结构,缩放后每点一次都收到
   setDamage(d);
   if(!S.over && c.hp<=0){ defeat(c); }
   paint(c);
