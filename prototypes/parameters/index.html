@@ -174,6 +174,7 @@ const t=(k,v)=>{const o=TXT[k];if(!o)return k;let s=o[lang];return v!==undefined
 function newMain(){return{
   lv:1,rpe:10,key:0,key2:0,life:100,act:50,atk:10,def:10,gold:0,
   life_max:100,act_max:50,atk_max:10,def_max:10,exp:0,exp_total:0,exp_max:100,exp_total_max:100,
+  pendingExp:0,   // 待发经验队列:由 frame() 逐帧滴入(还原原版飞行 tile,渐进升级、不溢出堆积)
   add_p:0,combo:0,combo_time:0,
   total_e:0,e_comp:0,total_m:0,m_comp:0,lock1:0,
   startTime:performance.now(),over:false,won:false,
@@ -340,9 +341,10 @@ function addParam(kind,amount){
   } else if(kind==='KEY') S.key+=1;
   else if(kind==='KEY2') S.key2+=1;
 }
-// 奖励发放:单次调用(EXP 走 addParam 的 if → 清一格最多升 1 级 = 最多 +3 点)。
-// (原先按面额拆成多枚会级联:大额 tile 把 exp 顶到远超 exp_max,后续每枚都触发一级 → 一格爆十几点。)
-function award(kind,total){ addParam(kind, Math.max(0,Math.round(total))); }
+// 奖励发放:金币立即到账;经验入队 pendingExp,由 frame() 逐帧滴入(≤0.4*exp_max/帧)。
+// → 单次滴入最多升 1 级、exp 永远 < exp_max(不再 1111/104 堆积),但全部经验会被逐渐消化成等级(渐进升级)。
+function award(kind,total){ total=Math.max(0,Math.round(total));
+  if(kind==='EXP') S.pendingExp+=total; else addParam(kind,total); }
 function setDamage(dmg){
   const d0=Math.min(S.def,300);
   let d=Math.trunc(dmg*0.5*(1-d0/300)); if(d<5)d=Math.trunc(5+R()*10);
@@ -450,7 +452,7 @@ const PAY={'$':['GOLD',200,8],'@':['EXP',20,10],'7':['GOLD',777,20],'*':['GOLD',
 function spin(c,el,ev){ if(S.gold<c.price){msg(t('noGold'),'#ff4444');return;}
   S.gold-=c.price; c.reels=REELS.map(r=>r[Math.floor(R()*8)]); flash(el);
   if(c.reels[0]===c.reels[1]&&c.reels[0]===c.reels[2]){const[k,v,n]=PAY[c.reels[0]];
-    for(let i=0;i<n;i++)addParam(k,v); msg(t('slotWin')+' '+c.reels.join('')+' '+(n*v),'#f5c400'); floatText(el,c.reels.join(''),'#f5c400',ev);}
+    award(k,v*n); msg(t('slotWin')+' '+c.reels.join('')+' '+(n*v),'#f5c400'); floatText(el,c.reels.join(''),'#f5c400',ev);}
   else{ msg(t('slotLose')+' '+c.reels.join(''),'#888'); }
   paint(c);}
 const BONUS={n1:{f:()=>S.life_max+=20,need:()=>S.lv>=3,l:{jp:'体力上限+20',en:'LIFE max+20',zh:'体力上限+20'}},
@@ -538,6 +540,9 @@ function frame(){   // 逐帧再生 + 连击衰减 + 敌人被动回血;敌人�
   S.atk =Math.min(S.atk +0.03 +S.rpe*0.01, S.atk_max);
   S.def =Math.min(S.def +0.03 +S.rpe*0.01, S.def_max);
   if(S.combo_time>0){S.combo_time--; if(S.combo_time<=0)S.combo=0;}
+  // 经验滴入:每帧取一小块(≤0.4*exp_max),经 addParam 的 if 单次最多升 1 级 → exp 恒 < exp_max,不再堆积溢出
+  if(S.pendingExp>0){ const chunk=Math.min(S.pendingExp, Math.max(20, Math.floor(S.exp_max*0.4)));
+    S.pendingExp-=chunk; addParam('EXP',chunk); }
   // 敌人被动回血(原版逐帧公式;上锁/已清不回;任务进度不受影响)
   for(const c of CELLS){
     if(c.done||c.locked) continue;
