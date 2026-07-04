@@ -10,7 +10,7 @@
 > Handoff / 会话重建：读 [`docs/session-checkpoint.md`](docs/session-checkpoint.md)。
 
 **4 轨一眼状态（2026-07-04）**：
-- 🧭 **主对话**：战斗管线 **P2/P3/P4/P4.5 全部完成**（全路径接线 + 后台 authoring + 攻/守方向性，空配置中性）→ 下一项 **P6 死事件派发**（on_turn_start / on_hp_below_30 / on_equip）→ 合成 P4-P6 → 04 副本 → 05 集卡 → 06 技能树 → gameActions 治理。
+- 🧭 **主对话**：战斗管线 **P2/P3/P4/P4.5 完成** + **P6 部分**（on_hp_below_30 已接·on_defend 管线覆盖）→ **P6 余项待你定设计**（on_turn_start 的 `_pass` 缓存 / on_equip 的效果落地）→ 合成 P4-P6 → 04 副本 → 05 集卡 → 06 技能树 → gameActions 治理。⚠ 整个被动系统内容休眠中（0/17 tier 绑定 passive），P6 接线中性但暂无内容可触发。
 - 🔒 **安全性**：待启动 — 全库 RLS 收紧（anon 可写内容表 = 已知漏洞）+ 内容写路径服务端化（与 RLS 同批上线）+ security-review。⚠ 动 `EquipmentPassivesSection.jsx` 保存路径前先 rebase（主对话已加管线三字段）。
 - 🎨 **前端美化**：待启动 — 移动化 P1-P4（viewport/100dvh/响应式/PWA·偏异步不碰原生）。**新增待办**：全仓色板/样式收敛（38 文件硬编码色值、RARITY_META 三处重复、BTN/INPUT 私抄多份 → 统一 theme.js / ui.js / equipmentEngine 出口，详见 2026-07-04 清理报告）。
 - ⚙️ **游戏性优化**：待启动 — P5 后端 payload 瘦身（动作只回 diff·移动真瓶颈）+ 平衡调优。**主对话 P3 已落地，gameActions.js 解锁**：rebase origin/main 后可动，改前打招呼（契约 §3）。
@@ -41,6 +41,17 @@
 > 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
 
 **Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
+
+## 最近变更（2026-07-04 / 战斗管线 P6 · on_hp_below_30 派发）
+
+> 补齐被动触发事件派发（文档 02 §4.3 的 authoring↔runtime 割裂）。**重要前提**：DB 实测 **0/17 tier 绑定 passive_skill**，整个被动系统内容休眠——P6 接线因此**中性但当前不可能触发**（补齐是为「日后内容绑定即生效」）。
+
+- **on_hp_below_30 已接**（`dispatchHpBelow30` helper）：玩家受击后 HP 从 ≥30% 跌破 <30% 且仍存活 → `triggerPassives('on_hp_below_30')`。无状态跨阈检测（每场从存储 hp 重算·愈后再破自然重触发·持续低于不重触发）。接 4 处受击点：NPC 反击 / PvP 主伤害(守方) / PvP 反击(攻方) / 探针反击（actOnProbe 补 `loadBuffPool`）。中性短路：`_pass` 空 ⇒ triggerPassives logs 空 ⇒ helper 直接 return ⇒ 逐值不变。`26566e5`
+- **on_defend**：已由战斗管线防御阶段覆盖（P3 的 `applyCombatPipeline` 收 defender 的 DEFENSIVE_STAGES），无需旁路派发。
+- **on_turn_start / on_equip 待设计决策**（文档 02 §5.1/§5.6，均需你拍板）：
+  - `on_turn_start`：`runTurnStartSettlement` 无 `_pass`，异步逐动作模型下无全局回合。选 (a) 每回合查装备 join（休眠功能加每回合查询·⚠ perf）/ (b) equip 时把 `_pass` 缓存进 `gamevars.players`（省查询·增 gamevars 体积·**推荐**，也为 on_hp_below_30 免查铺路）。
+  - `on_equip`：一次性效果落地 —— (a) 写 player 持久 stat（unequip 要对称撤销·易 bug）/ (b) 转无限时长 buff 挂 `player.buffs`（复用 processBuffs 撤销·**推荐**）。
+- 验证：`next build` ✓（26 页）。
 
 ## 最近变更（2026-07-04 / 残片引擎休眠 — 可逆单开关·为残片重做清场）
 
