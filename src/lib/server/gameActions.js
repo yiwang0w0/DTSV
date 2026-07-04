@@ -1679,6 +1679,16 @@ function dispatchHpBelow30(resolution, userId, defenderCombat, enemyCombat, prev
   })
 }
 
+// ── P6 触发事件派发 · on_turn_start（行动方在本次战斗动作起手时触发·每回合类被动）────
+//   异步逐动作模型下「你的回合 = 你的战斗动作」：在 3 条战斗动作起手（calcDamage 前）对行动方派发，
+//   用该动作已拉取的 _pass（零额外查询·不入 gamevars·避与 ⚙️ P5 瘦身冲突）。0 绑定 ⇒ _pass 空 ⇒
+//   triggerPassives 返回等值浅拷贝、logs 空 ⇒ 逐值中性。返回更新后的 actorCombat（stat_boost 可作用于随后 calcDamage）。
+function dispatchTurnStart(resolution, actorCombat, buffPool) {
+  const { attackerUpdated, logs } = triggerPassives('on_turn_start', actorCombat, null, actorCombat?._pass || [], buffPool)
+  if (logs.length) appendResolutionLogs(resolution, logs, 'buff')
+  return attackerUpdated
+}
+
 async function resolveNpcAttackAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法攻击')
@@ -1712,6 +1722,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   const weapon = myEquips.find(eq => eq.tier?.series?.slot === 'weapon')
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  me = dispatchTurnStart(resolution, me, buffPool)   // P6 on_turn_start（起手·空 _pass 中性）
 
   // ── 1. 玩家攻击的命中判定 ──
   const playerAccuracy = getRule(rules, 'player_attack_accuracy', 0.85)
@@ -1958,6 +1969,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   let me = buildCombatPlayer(attackerAfterTurn, equipMap[user.id] || [])
   let target = buildCombatPlayer(defenderAfterTurn, equipMap[targetUid] || [])
   const weapon = (equipMap[user.id] || []).find(instance => instance.tier?.series?.slot === 'weapon')
+  me = dispatchTurnStart(resolution, me, buffPool)   // P6 on_turn_start（攻击者起手·空 _pass 中性）
 
   let damage = calcDamage(me, target, rules, weapon?.tier?.sub_kind || '')
   // P3 战斗钩子管线（PvP 主伤害）：同 P2 中性闸口（空池逐值不变·守 Phase 37）；插在 on_attack 被动前，与 PvE 同序。
@@ -3299,7 +3311,8 @@ async function actOnProbe(client, room, gamevars, user, action) {
     fetchEquippedInstances(client, room.id, [user.id]),
   ])
   const myEquips = groupEquipsByOwner(probeEquippedInstances)[user.id] || []
-  const me = buildCombatPlayer(player, myEquips)
+  let me = buildCombatPlayer(player, myEquips)
+  me = dispatchTurnStart(resolution, me, buffPool)   // P6 on_turn_start（起手·空 _pass 中性）
   const probeE = computeCombatStats({
     atk: probeEnc.atk,
     def: probeEnc.def,
@@ -3814,7 +3827,7 @@ export async function executeEquipmentAction(client, user, payload) {
 
   const { data: instance } = await client
     .from('equipment_instances')
-    .select('*, tier:equipment_tiers(*, series:equipment_series(slot,name))')
+    .select('*, tier:equipment_tiers(*, passive:passive_skills(*), series:equipment_series(slot,name))')
     .eq('id', payload.instanceId)
     .eq('owner_id', user.id)
     .eq('room_id', roomId)
@@ -3842,9 +3855,31 @@ export async function executeEquipmentAction(client, user, payload) {
     }
 
     await client.from('equipment_instances').update({ is_equipped: true, equipped_slot: slot }).eq('id', instance.id)
-    const nextRoom = await persistRoom(client, room, gamevars, [
-      createLogEntry(`${getPlayer(gamevars, user.id).name} 装备了【${instance.tier?.name || '未知装备'}】`, 'system'),
-    ])
+
+    // P6 on_equip：穿戴时一次性触发（治疗/上 buff 等；「一次性」语义 ⇒ buff 走自身 duration 自然过期·无需卸下撤销）。
+    //   仅当该装备 tier 绑定了 trigger_event='on_equip' 的被动才生效 —— 当前 0/17 tier 绑定 ⇒ passive 恒 null ⇒
+    //   整块跳过、不 loadBuffPool、gamevars 逐值不变（守 Phase 37 中性）。stat_boost 不持久(atk 每战重算)故对 on_equip 无意义，治疗/buff 才有效。
+    let equipGamevars = gamevars
+    const equipLogs = [createLogEntry(`${getPlayer(gamevars, user.id).name} 装备了【${instance.tier?.name || '未知装备'}】`, 'system')]
+    const onEquipPassive = instance.tier?.passive
+    if (onEquipPassive && onEquipPassive.trigger_event === 'on_equip') {
+      const buffPool = await loadBuffPool(client)
+      const player = getPlayer(gamevars, user.id)
+      const { attackerUpdated, logs } = triggerPassives('on_equip', player, null, [onEquipPassive], buffPool)
+      equipGamevars = {
+        ...gamevars,
+        players: {
+          ...gamevars.players,
+          [user.id]: {
+            ...player,
+            hp: Math.min(player.maxHp ?? 100, attackerUpdated.hp),
+            buffs: attackerUpdated.buffs || player.buffs || [],
+          },
+        },
+      }
+      for (const m of logs) equipLogs.push(createLogEntry(m, 'buff'))
+    }
+    const nextRoom = await persistRoom(client, room, equipGamevars, equipLogs)
     return { room: nextRoom, success: true }
   }
 
