@@ -24,8 +24,9 @@
 --
 -- 幂等：ENABLE RLS 可重复；DROP POLICY IF EXISTS（含旧名 + 新名）后 CREATE，可重复执行。
 --
--- ⚠⚠ 状态：**尚未应用 · 待审**。写路径服务端化（同批联动）就绪前不要单独跑本迁移，
---          否则编辑器进入「能读不能写」窗口期。审核通过 + 联动就绪后经 postgres MCP 执行。
+-- ✅ 状态：**已应用**（2026-07-05 经 postgres MCP 执行）。写路径服务端化(feat(51)·4 条 /api/admin 路由)
+--          已先行部署上线，故无「能读不能写」窗口。实测验证：7 表 rls_enabled=true·各 2 策略；
+--          anon 写被拒(new row violates row-level security policy)、anon 读正常、service_role 写正常。
 -- ============================================================
 
 BEGIN;

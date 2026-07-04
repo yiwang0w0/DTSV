@@ -11,7 +11,7 @@
 
 **4 轨一眼状态（2026-07-04）**：
 - 🧭 **主对话**：战斗管线 **P2-P6 全部完成**（管线通 + 可配 + 方向性 + 四触发事件收口·全中性）→ 合成 P4-P6 → 04 副本 → 05 集卡 → 06 技能树 → gameActions 治理。⚠ 被动系统内容休眠中（0/17 tier 绑定 passive），P6 接线中性但暂无内容可触发 —— 真正下一步缺口 = 让 tier 能绑 passive_skill_id + 录 demo。
-- 🔒 **安全性**：待启动 — 全库 RLS 收紧（anon 可写内容表 = 已知漏洞）+ 内容写路径服务端化（与 RLS 同批上线）+ security-review。⚠ 动 `EquipmentPassivesSection.jsx` 保存路径前先 rebase（主对话已加管线三字段）。
+- 🔒 **安全性**：**phase-51 已上线（2026-07-05）** — 7 内容表（item_recipes/item_recipe_ingredients/item_tags/tier_recipes/recipe_ingredients/passive_skills/game_rules）开 RLS·公开读·写仅 service_role + 4 条 `/api/admin` 写路由（编辑器改 service_role）。实测：anon 写被拒·读正常·service_role 写正常。**下一步**：phase-52 广义扫描（其余 ~26 RLS-off 表 + buff_pool/equipment_*/item_pool/map_config/npc_pool 等 authenticated-write 表）+ /security-review + 广义鉴权/密钥审。
 - 🎨 **前端美化**：待启动 — 移动化 P1-P4（viewport/100dvh/响应式/PWA·偏异步不碰原生）。**新增待办**：全仓色板/样式收敛（38 文件硬编码色值、RARITY_META 三处重复、BTN/INPUT 私抄多份 → 统一 theme.js / ui.js / equipmentEngine 出口，详见 2026-07-04 清理报告）。
 - ⚙️ **游戏性优化**：待启动 — P5 后端 payload 瘦身（动作只回 diff·移动真瓶颈）+ 平衡调优。**主对话 P3 已落地，gameActions.js 解锁**：rebase origin/main 后可动，改前打招呼（契约 §3）。
 
@@ -35,12 +35,23 @@
 **客户端**：`src/app/game/[id]/`（GameClientPage + gameUi(T 色板) + CraftModal/ItemCraftModal/ExtractionModal/LootModal）；`src/app/admin/`（4 组折叠侧栏 17 入口 + 4 hub 收编 + `?tab=/?section=` URL 深链 + `_engine/` schema 驱动内容引擎 + `_shared/ui.js`(BTN/INPUT/SegTabs/Drawer)）；玩家页 rooms/profile/stash（archive/codex/contracts 已于 2026-07-04 下线）。
 
 **数据库主表**：rooms(gamevars JSONB) / profiles / item_pool / npc_pool / chamber_templates / equipment_series+tiers+instances / passive_skills(**Phase 43 加 stage/priority/condition_formula**) / item_recipes+item_recipe_ingredients / item_tags / tier_recipes+recipe_ingredients / fragment_pool+player_fragments+fragment_combos / cross_room_probes / player_points+shop_catalog+shop_exchange_rates / classes+player_class_runs / player_death_log / raid_stats / portraits / player_notifications / chamber_residue / probe_encounter_pairs / fragment_cold_cases / seasonal_expeditions(空表预埋) / br_*(时间跳跃 BR)。
-⚠ RLS 目前全关（anon 可写内容表）= 🔒 安全性轨第一棒。
+⚠ RLS 收紧进行中（🔒 轨）：**phase-51 已收紧 7 表**（item_recipes/item_recipe_ingredients/item_tags/tier_recipes/recipe_ingredients/passive_skills/game_rules → 公开读 + service_role 写·编辑器经 /api/admin 服务端写）；其余表仍 RLS 关或写权过宽（authenticated），phase-52 续扫。
 
 **核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成）——**2026-07-04 起休眠**（`constants.FRAGMENTS.ENABLED=false`·代码与表全留·可逆·待重做）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
 > 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
 
 **Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
+
+## 最近变更（2026-07-05 / 🔒 phase-51 内容表 RLS 收紧 + 写路径服务端化）
+
+> 安全性轨第一棒。审计（postgres MCP 实测）修正「全库 RLS 全关」旧认知为**混合态**（55 表 33 关 22 开）；对 7 张 anon / 任意登录用户可写的内容表收紧，写路径同批服务端化，零「能读不能写」窗口。
+
+- **审计**：坏模式 = `cmd=ALL, roles={public}, USING(auth.role()='authenticated')`（任意登录用户可写）；RLS 关的表 anon 直接可写。`tier_recipes/recipe_ingredients/game_rules` 有策略但 RLS 关着 = inert 失效。
+- **phase-51 迁移**（[`scripts/phase-51-content-rls.sql`](scripts/phase-51-content-rls.sql)·已应用）：7 表开 RLS + `*_public_read`(USING true) + `*_service_write`(FOR ALL TO service_role) + DROP 过宽旧策略。幂等。
+- **写路径服务端化**（`feat(51)`）：新增 `src/lib/server/adminContent.js` + 4 条路由（`/api/admin/content`·`tier-recipes`·`passive-skills`·`game-rules`，均 createServerSupabase + getRequestUser + isAdmin 三段闸口·列白名单）；编辑器（useContentCrud / EquipmentSeriesSection.saveRecipe / EquipmentPassivesSection / RulesRuleRow）改走 `postGameApi`；读仍走 anon 公开读。
+- **零窗口顺序**：先 ship 路由（表未开 RLS 时 service_role 照写）→ 部署验证（4 路由线上 401）→ 再跑迁移。
+- **实测验证**：7 表 rls_enabled=true·各 2 策略；anon 写被拒（`new row violates row-level security policy`）；anon 读正常；service_role 写正常。build + smoke ✓。
+- **未收（留 phase-52）**：其余 ~26 张 RLS-off 表（shop_catalog/chamber_templates/classes/placement_*/npc_placement_*/fragment_pool/fragment_combos/raid_stats/player_points/room_items/cross_room_probes/br_* 等）+ HIGH 档 authenticated-write 表（buff_pool/equipment_series/equipment_tiers/item_pool/map_config/npc_pool，其写路径亦需一并服务端化）。⚠ contracts/player_contracts（合同已下线·表孤立）可顺带收。
 
 ## 最近变更（2026-07-04 / 战斗管线 P6 四触发事件全部收口）
 
