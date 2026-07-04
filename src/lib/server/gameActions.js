@@ -1656,6 +1656,29 @@ function applyCombatPipeline(damageRaw, { attacker, defender, defenderHp, resolu
   return piped.damage
 }
 
+// ── P6 触发事件派发 · on_hp_below_30（受击后 HP 从 ≥30% 跌破 <30% 且仍存活时触发绝地/保命类被动）────
+//   无状态跨阈检测：每次战斗从存储 hp 重算 ⇒ 愈过 30% 再跌破自然重触发、持续低于不重触发。
+//   defenderCombat 传 buildCombat* 产物（取 _pass）。当前 0 tier 绑定被动 ⇒ _pass 空 ⇒ triggerPassives 无命中 ⇒
+//   logs 空 ⇒ 直接 return，resolution 玩家逐值不变（守 Phase 37 中性）。命中则合并 hp(治疗)/buffs/cooldowns。
+function dispatchHpBelow30(resolution, userId, defenderCombat, enemyCombat, prevHp, newHp, buffPool) {
+  const maxHp = defenderCombat?.maxHp || 1
+  if (newHp <= 0 || !(prevHp / maxHp >= 0.3 && newHp / maxHp < 0.3)) return
+  const { attackerUpdated, logs } = triggerPassives(
+    'on_hp_below_30', { ...defenderCombat, hp: newHp }, enemyCombat || null, defenderCombat?._pass || [], buffPool,
+  )
+  if (!logs.length) return   // 无被动命中（0 绑定 ⇒ 恒此路·逐值中性）
+  appendResolutionLogs(resolution, logs, 'buff')
+  const cur = getResolutionPlayer(resolution, userId)
+  if (!cur) return
+  setResolutionPlayer(resolution, userId, {
+    ...cur,
+    hp: attackerUpdated.hp,
+    alive: attackerUpdated.hp > 0,
+    buffs: attackerUpdated.buffs || cur.buffs || [],
+    passiveCooldowns: attackerUpdated.passiveCooldowns || cur.passiveCooldowns || {},
+  })
+}
+
 async function resolveNpcAttackAction(client, room, gamevars, user) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法攻击')
@@ -1857,6 +1880,8 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
           `${instance.npc.name} 反击 ${player.name}，造成 ${damageIn} 伤害（HP ${playerHpAfter}/${cur.maxHp || 100}）`,
           'damage',
         )
+        // P6 on_hp_below_30：玩家被 NPC 反击跌破 30% 时触发绝地被动（空 _pass 中性）
+        dispatchHpBelow30(resolution, user.id, playerDefender, npcAttacker, cur.hp || 0, playerHpAfter, buffPool)
         if (playerHpAfter <= 0) {
           appendResolutionLog(resolution, `${player.name} 在与 ${instance.npc.name} 的交手中倒下了`, 'death')
           await settleCorpseGeneration(resolution)
@@ -2010,6 +2035,10 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
       at: new Date().toISOString(),
     } : null,
   })
+
+  // P6 on_hp_below_30：攻/守任一方本次交手跌破 30% 时触发绝地被动（空 _pass 中性）
+  dispatchHpBelow30(resolution, user.id, me, target, me.hp, attackerHpAfter, buffPool)
+  dispatchHpBelow30(resolution, targetUid, target, me, target.hp, targetHp, buffPool)
 
   // 攻击者被反击杀死
   if (attackerHpAfter <= 0) {
@@ -3264,8 +3293,9 @@ async function actOnProbe(client, room, gamevars, user, action) {
   //     （其余分量缺省→0 → 输出逐值 == 快照 atk/def，不重复加装备）。
   //   - 双向走 calcDamage（与 PvE/PvP 同公式）。注意 calcDamage 含暴击随机 → 探针伤害数值会变
   //     （此前是确定式 atk−floor(def×0.5)），这是把探针纳入统一引擎的预期后果（任务红线 ⑥ 明确要求）。
-  const [rules, probeEquippedInstances] = await Promise.all([
+  const [rules, buffPool, probeEquippedInstances] = await Promise.all([
     loadGameRules(client),
+    loadBuffPool(client),
     fetchEquippedInstances(client, room.id, [user.id]),
   ])
   const myEquips = groupEquipsByOwner(probeEquippedInstances)[user.id] || []
@@ -3332,6 +3362,8 @@ async function actOnProbe(client, room, gamevars, user, action) {
         hp: probeHpAfter,
       },
     })
+    // P6 on_hp_below_30：玩家被探针反击跌破 30% 时触发绝地被动（空 _pass 中性）
+    dispatchHpBelow30(resolution, user.id, me, probeE, myHp, myHpAfter, buffPool)
     if (!playerAlive) {
       appendResolutionLog(resolution, `${player.name} 在与探针的交手中倒下了`, 'death')
       await settleCorpseGeneration(resolution)
