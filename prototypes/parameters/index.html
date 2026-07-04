@@ -98,7 +98,7 @@
 <div id="field"></div>
 
 <div id="overlay"><h2 id="ovT"></h2><div class="t" id="ovTime"></div>
-  <div class="how" style="font-size:14px;padding:6px 14px" onclick="location.reload()">PLAY AGAIN</div></div>
+  <div class="how" style="font-size:14px;padding:6px 14px" onclick="location.reload()">再来一局</div></div>
 
 <div id="rules" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;align-items:center;justify-content:center;padding:16px">
   <div style="max-width:560px;max-height:88vh;overflow:auto;background:#0d0d0d;border:1px solid #333;padding:20px 22px;line-height:1.85">
@@ -107,17 +107,17 @@
       <b style="color:#f5c400">格子图例</b><br>
       <b style="color:#f5c400">■ 黄条</b> 敌人(点击攻击) &nbsp; <b style="color:#39d0d8">■ 青条</b> 任务(填到 100%) &nbsp;
       <b style="color:#3fb950">■✔ 绿</b> 已完成 &nbsp; <b style="color:#e3b341">🔒 琥珀边框</b> 上锁(需钥匙)<br>
-      <b style="color:#f5c400">$…</b> 商店(⚔武器 · 🛡防具 · 体力回复 · 上限++ · ⚷钥匙) &nbsp; ★ 里程碑奖励 &nbsp; 🎁 宝箱 &nbsp; 🎰 老虎机
+      <b style="color:#f5c400">$…</b> 商店(⚔武器 · 🛡防具 · 体力回复 · 上限++ · ⚷钥匙) &nbsp; 🎁 宝箱 &nbsp; 🎰 老虎机
     </div>
     <div style="color:#ccc;font-size:13px">
       <p style="margin-bottom:8px"><b>目标</b>:清空所有黄色<b>敌人</b>与<b>任务</b>格即通关。上方左侧=等级/经验/体力/行动,右侧=回复/攻击/防御。</p>
       <p style="margin-bottom:8px"><b>格子越大越强</b>:每格大小就是它的价值——敌人血量=格宽,格越大越难、越贵、奖励越多。</p>
-      <p style="margin-bottom:8px">🟨 <b>敌人</b>:点击攻击;交战后敌人每约 0.5 秒反击扣体力,停手 1.5 秒脱离(可退回去回血)。</p>
-      <p style="margin-bottom:8px">⬛ <b>任务(0%)</b>:点击执行,消耗<b>行动(ACT)</b>,填满即完成给金币/经验。</p>
+      <p style="margin-bottom:8px">🟨 <b>敌人</b>:点击攻击;<b>每点一下都会挨一次反击</b>(击杀那一下也算),敌人还会缓慢回血——掂量好体力再动手。</p>
+      <p style="margin-bottom:8px">🟦 <b>任务(0%)</b>:点击执行,消耗<b>行动</b>(格上 ⚡ 为单次消耗),填满 100% 给金币/经验;无反击,最安全的收入。</p>
       <p style="margin-bottom:8px"><b>行动</b>随时间回复,<b>回复(RCV)</b>越高各项恢复越快。</p>
       <p style="margin-bottom:8px"><b>属性点 +</b>:升级/完成任务/买"加点"获得;点状态栏属性前的 <b>+</b> 分配到 体力/行动/回复/攻击/防御。</p>
       <p style="margin-bottom:8px"><b>金币</b>买:武器(攻击)、防具(防御)、体力回复、行动/体力上限、钥匙。</p>
-      <p style="margin-bottom:8px">🔒 锁定格 与 🎁 宝箱 需<b>钥匙</b>开;🎰 老虎机花金币抽奖;★ 里程碑一次性大奖励。</p>
+      <p style="margin-bottom:8px">🔒 锁定格 与 🎁 宝箱 需<b>钥匙</b>开(敌人掉落 / 商店 $400);<b style="color:#39d0d8">青色钥匙</b>由大型敌人掉落,用于解锁「加点」格;🎰 老虎机花金币抽奖。</p>
       <p><b>首领</b>需攻击 &gt; 200 才破防;<b>里首领</b>(9999 血)是终盘。</p>
     </div>
     <div style="color:#666;font-size:11px;margin-top:14px;border-top:1px solid #222;padding-top:8px">
@@ -229,7 +229,8 @@ function treemap(items,X,Y,W,H){
 // ============================================================================
 //  cell roster — 类型 + 权重(决定面积)。尺寸→真实数值。
 // ============================================================================
-// 原版固定布局 —— 从 SWF 根时间轴 108 个 PlaceObject 逐格提取(舞台 760x600)。
+// 原版固定布局 —— 从 SWF 根时间轴 PlaceObject 逐格提取(舞台 760x600),已去重:
+// 底部大格在原版时间轴上是同一深度"先敌人后里首领"的替换,只保留里首领(否则被盖住的敌人永远点不到→不可通关)。
 // 每格 [类型, x, y, 宽, 高](舞台像素,即原版数值尺度:敌人HP=宽、m=宽×高)。
 // 类型:e敌 m任务 b首领 L里首领 t宝箱 w武器 a防具 cA行动++ cL体力++ r回复 p加点 k钥匙 s老虎机
 const LZERO=[4,70,752,526];
@@ -237,7 +238,7 @@ const LAYOUT=[
 ["e",260,304,166,16],["e",114,396,424,16],["m",456,106,38,30],["m",36,324,74,30],["m",430,296,108,24],
 ["e",314,222,82,38],["m",314,188,48,30],["m",228,188,82,18],["m",260,264,84,36],["m",172,88,40,22],
 ["m",186,140,78,16],["m",186,114,54,22],["m",186,160,38,46],["m",116,114,26,92],["m",146,114,36,42],
-["e",4,524,752,72],["e",430,158,126,60],["e",516,222,40,24],["m",44,106,68,14],["m",44,124,68,14],
+["e",430,158,126,60],["e",516,222,40,24],["m",44,106,68,14],["m",44,124,68,14],
 ["e",126,210,98,42],["e",336,106,80,30],["cA",116,70,51,40],["m",146,160,36,16],["e",146,180,36,26],
 ["m",244,114,26,22],["e",268,140,94,44],["e",228,160,36,24],["r",260,210,50,50],["e",80,142,32,31],
 ["e",172,70,40,14],["e",336,88,44,14],["m",216,70,54,40],["m",4,228,72,24],["e",4,106,36,32],
@@ -264,20 +265,17 @@ let CELLS=[], byEl=new Map();
 function buildWorld(){
   S=newMain(); msgs=[]; $('log').innerHTML='';
   const field=$('field'); field.innerHTML='';
-  const W=field.clientWidth||960, H=field.clientHeight||560;
-  const [ox,oy,LW,LH]=LZERO, scaleX=W/LW, scaleY=H/LH;
   CELLS=[]; byEl.clear();
   LAYOUT.forEach(([code,x,y,w,h])=>{
     const type=CODE[code]; if(!type)return;
-    const c={type, dw:w, dh:h, m:w*h, dyTop:y};   // dw/dh = 原版舞台像素(真实数值尺度)
+    const c={type, lx:x, ly:y, dw:w, dh:h, m:w*h, dyTop:y};   // lx/ly/dw/dh = 原版舞台坐标与尺寸(真实数值尺度)
     initCell(c);
     const el=document.createElement('div'); el.className='cell '+type;
-    el.style.left=((x-ox)*scaleX)+'px'; el.style.top=((y-oy)*scaleY)+'px';
-    el.style.width=Math.max(1,w*scaleX-1)+'px'; el.style.height=Math.max(1,h*scaleY-1)+'px';
     el.innerHTML='<div class="fill"></div><div class="lbl"></div><div class="sub"></div><div class="ic"></div>';
     el.addEventListener('pointerdown',ev=>onCell(c,el,ev));
     field.appendChild(el); c.el=el; byEl.set(c,el); CELLS.push(c);
   });
+  relayout();   // 摆位置(与状态无关,窗口缩放时单独重排)
   // 锁定:首领/里首领恒锁(终盘);其余按尺寸 m=宽×高,只锁较大的(开局多数可玩,贴近原版观感)
   CELLS.forEach(c=>{
     if(c.type==='boss'||c.type==='last'){c.locked=true;S.lock1++;}
@@ -288,6 +286,17 @@ function buildWorld(){
   });
   CELLS.forEach(paint); renderStatus();
   msg(t('start'),'#888');
+}
+
+// 只按容器尺寸重排格子位置/大小,不碰任何游戏状态 —— 窗口缩放不再重置进度
+function relayout(){
+  const field=$('field'); const W=field.clientWidth||960, H=field.clientHeight||560;
+  const [ox,oy,LW,LH]=LZERO, sx=W/LW, sy=H/LH;
+  CELLS.forEach(c=>{ const el=c.el; if(!el)return;
+    el.style.left=((c.lx-ox)*sx)+'px'; el.style.top=((c.ly-oy)*sy)+'px';
+    el.style.width=Math.max(1,c.dw*sx-1)+'px'; el.style.height=Math.max(1,c.dh*sy-1)+'px';
+  });
+  repaintAll();   // 锁/完成的大 emoji 字号依赖格高,重排后刷新
 }
 
 function initCell(c){
@@ -326,6 +335,7 @@ function addParam(kind,amount){
   else if(kind==='EXP'){ S.exp+=amount; S.exp_total+=amount;
     if(S.exp>=S.exp_max){ S.lv++; S.exp-=S.exp_max; S.exp_max=100+(S.lv-1)*(S.lv-1);
       S.exp_total_max+=S.exp_max; addAddP(3); S.life=S.life_max; S.act=S.act_max;   // 每级 +3 点(真值)
+      const rl=CELLS.find(x=>x.type==='repLife'); if(rl)rl.price=100+S.lv*20;        // 原版:升级重置回复价
       msg(t('levelUp',S.lv),'#39d353'); }
   } else if(kind==='KEY') S.key+=1;
   else if(kind==='KEY2') S.key2+=1;
@@ -398,6 +408,7 @@ function defeat(c){
   const g=Math.trunc(c.m/10), e=Math.trunc(c.m/15);
   award('GOLD',g); award('EXP',e);
   const keyCnt=Math.trunc(c.m/1000)%4+1; for(let i=0;i<keyCnt;i++)addParam('KEY',1);
+  if(c.m>=3000||c.boss) addParam('KEY2',1);   // 大型敌/首领掉青钥匙(对应原版 ek 系敌人掉 KEY2;开「加点」格)
   S.e_comp++; msg(t('win')+' +'+g+'G','#f5c400');
   checkWin();
 }
@@ -459,14 +470,14 @@ function paint(c){
   let fillPct=0, fillColor='var(--cell)', text='', subT='', icon='', lc='#fff';
   if(c.done){                                    // 已完成/已清 —— 深绿底 + 绿 ✔
     fillPct=100; fillColor='#123a20'; icon='✔'; lc='#3fb950'; }
-  else if(c.locked){                             // 上锁 —— 大号居中 🔒(琥珀边框见 CSS)
-    fillPct=0; icon='🔒'; }
+  else if(c.locked){                             // 上锁 —— 大号居中 🔒(宝箱显示 🎁;琥珀边框见 CSS)
+    fillPct=0; icon=(c.type==='treasure')?'🎁':'🔒'; }
   else if(c.type==='enemy'||c.type==='boss'||c.type==='last'){  // 敌人 —— 黄色血条
     fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='var(--cell)';
     text=Math.max(0,Math.ceil(c.hp))+'/'+c.hpMax; lc='#000'; if(c.boss||c.last)icon='⚔'; }
   else if(c.type==='mission'){                    // 任务 —— 青色进度条(区别于敌人黄)
     fillPct=clamp(c.hp/c.hpMax*100,0,100); fillColor='#2bb3c0';
-    text=Math.round(c.hp/c.hpMax*100)+'%'; lc=fillPct>45?'#012':'#39d0d8'; }
+    text=Math.round(c.hp/c.hpMax*100)+'%'; subT='⚡'+Math.ceil(c.cost); lc=fillPct>45?'#012':'#39d0d8'; }
   else if(c.type==='treasure'){ text='宝箱'; icon='🎁'; lc='#f5c400'; }
   else if(c.type==='weapon'||c.type==='armor'){ text='$'+c.price; subT='x'+c.buys; icon=c.type==='weapon'?'⚔':'🛡'; lc='#fff'; }
   else if(c.type==='repLife'){ fillPct=100; fillColor='#3a2a12'; text=t('cRepLife'); subT='$'+(c.price||120); lc='#f5c400'; }
@@ -521,17 +532,24 @@ setInterval(()=>{
   while(acc>=DT && steps<8 && !S.over){ frame(); acc-=DT; steps++; }
   renderStatus();
 },DT);
-function frame(){   // 只做逐帧再生 + 连击衰减;敌人反击已改为"每次点击一次"(见 attack())
+function frame(){   // 逐帧再生 + 连击衰减 + 敌人被动回血;敌人反击是"每次点击一次"(见 attack())
   S.life=Math.min(S.life+0.004+S.rpe*0.002,S.life_max);
   S.act =Math.min(S.act +0.06 +S.rpe*0.01, S.act_max);
   S.atk =Math.min(S.atk +0.03 +S.rpe*0.01, S.atk_max);
   S.def =Math.min(S.def +0.03 +S.rpe*0.01, S.def_max);
   if(S.combo_time>0){S.combo_time--; if(S.combo_time<=0)S.combo=0;}
+  // 敌人被动回血(原版逐帧公式;上锁/已清不回;任务进度不受影响)
+  for(const c of CELLS){
+    if(c.done||c.locked) continue;
+    if(c.type==='enemy')      c.hp=Math.min(c.hpMax, c.hp+(c.ly-70)*0.0001*(c.hpMax/100)+S.rpe*0.01);
+    else if(c.type==='boss')  c.hp=Math.min(c.hpMax, c.hp+(c.hpMax-c.hp)*0.002+0.001);
+    else if(c.type==='last')  c.hp=Math.min(c.hpMax, c.hp+S.rpe*0.03);
+  }
 }
 setInterval(()=>{ if(!S.over) repaintAll(); },140);
 
 // ---- win/lose ----
-function checkWin(){ if(CELLS.filter(c=>c.type==='enemy'||c.type==='boss'||c.type==='mission').every(c=>c.done||c.locked===false&&c.hp===undefined)){}
+function checkWin(){
   const targets=CELLS.filter(c=>['enemy','boss','last','mission'].includes(c.type));
   if(targets.length&&targets.every(c=>c.done)){ S.over=true;S.won=true;
     $('ovT').textContent=t('cleared'); $('ovT').style.color='#f5c400';
@@ -548,7 +566,7 @@ function setLang(l){lang=l;
 $('rst').onclick=()=>location.reload();
 $('how').onclick=()=>{$('rules').style.display='flex';};
 document.querySelectorAll('.add[data-pt]').forEach(a=>{if(a.dataset.pt!=='none')a.onclick=()=>spendPoint(a.dataset.pt);});
-let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{ if(!S.over) buildWorld(); },300);});
+let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(relayout,150);});   // 只重排,进度保留
 
 // ---- boot ----
 setLang('zh');
