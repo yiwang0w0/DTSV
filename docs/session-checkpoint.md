@@ -37,6 +37,7 @@
 - 中性不变量（改动后必须保持）：`passive_skills.stage` 全 NULL + `classes.perks` 无 pipeline_modifiers ⇒ 战斗数值逐字节不变。smoke：`node scripts/smoke-pipeline.mjs`(21 断言) / `smoke-itemcraft.mjs`(23)。
 - 背包是 `string[]` 道具名数组；配方/引用一律 item_id ⇒ id↔name 桥接（itemCraft.js 范式）。
 - 预埋未激活模块（勿当死代码删）：nemesis / chamberResidue / newbieProtection / signalLock / heat / coldCases / loadoutPresets / runGoals（各 ENABLED=false 或未接线，注释可证）。
+- **2026-07-04 下线**：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统) 已删（DB 表保留不 DROP）。**残片引擎已休眠**（`constants.FRAGMENTS.ENABLED=false` → discoverFragment/defeatProbe early-return·零残片自洽·可逆）——代码与 fragment_pool/player_fragments/fragment_combos 表全留，待「残片重做」；重做前翻 true 即复活旧引擎。
 - admin 鉴权：AuthContext `loading` 门控（硬加载竞态已修）；/admin 仅 PRIMARY_ADMIN(`2949215486@qq.com`·kanata)。
 - 浏览器验证：登录该账号，经 SPA 导航（如 /rooms「进入→」）避开硬加载水合竞态；手机(≈390×844)+桌面双尺寸截图。
 - postgres MCP 已配 service-role 可直接 query；RLS 目前全关 = 🔒 轨第一棒。

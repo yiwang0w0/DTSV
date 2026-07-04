@@ -37,10 +37,21 @@
 **数据库主表**：rooms(gamevars JSONB) / profiles / item_pool / npc_pool / chamber_templates / equipment_series+tiers+instances / passive_skills(**Phase 43 加 stage/priority/condition_formula**) / item_recipes+item_recipe_ingredients / item_tags / tier_recipes+recipe_ingredients / fragment_pool+player_fragments+fragment_combos / cross_room_probes / player_points+shop_catalog+shop_exchange_rates / classes+player_class_runs / player_death_log / raid_stats / portraits / player_notifications / chamber_residue / probe_encounter_pairs / fragment_cold_cases / seasonal_expeditions(空表预埋) / br_*(时间跳跃 BR)。
 ⚠ RLS 目前全关（anon 可写内容表）= 🔒 安全性轨第一棒。
 
-**核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成·主线时间轴/悬案）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
+**核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成）——**2026-07-04 起休眠**（`constants.FRAGMENTS.ENABLED=false`·代码与表全留·可逆·待重做）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
 > 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
 
 **Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
+
+## 最近变更（2026-07-04 / 残片引擎休眠 — 可逆单开关·为残片重做清场）
+
+> 承接三特性剔除，用户拍板：残片发现引擎整体休眠（**可逆**，不删代码不删表），为「残片系统重做」清场。先摸清全部写入路径 + 耦合面再单点门控。
+
+- **单开关** `constants.FRAGMENTS.ENABLED=false`。lore 残片引擎的写入路径只有两条，全门控：
+  - `fragments.js discoverFragment`（搜/打/撤三链的单一入口）顶部 `if (!FRAGMENTS.ENABLED) return null`（置于任何 DB 查询前·零开销）——连带 `evaluateFragmentCombos`（combo 写·仅其内部调用）+ coldCases（本就 `COLD_CASES.ENABLED=false` 双重门控）全部不触发。
+  - `probes.js`：`defeatProbe` 夺残片 `carry` 视为空（不写 player_fragments）+ `leaveProbe` 新探针 `fragments_carry:[]`（不带残片）。
+- **零残片下自洽**（逐点核验）：搜索命中残片带 → 落「没发现有用的东西」（无报错）；三链调用点均 `if (fragment)` 处理 null；结局横幅无残片段（数据空）；探针卡 `fragmentCount>0` 才显「携带/可夺取」（GameClientPage 加门控）；`totalFragmentsExtracted` 数的是 `tech_fragment` **道具**（经济·与 lore 残片无关）不受影响；endings 不读残片数（critic 确认）；loreInjection 走 `decodedFragmentIds`（空 → 无注入）。
+- **保留**：`fragment_pool` / `player_fragments` / `fragment_combos` 表与全部残片代码（discoverFragment/combos/coldCases）原样保留 —— 翻 `FRAGMENTS.ENABLED=true` 即整套复活。既有玩家残片数据不动。
+- 验证：全仓 grep 确认 player_fragments 四个写手全被门控覆盖 · `next build` ✓（静态页 26 不变）。
 
 ## 最近变更（2026-07-04 / 剔除 档案库·纪元档案·合同 三特性）
 
