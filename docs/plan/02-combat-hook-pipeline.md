@@ -1,5 +1,12 @@
 # 02 · 战斗效果钩子管线 (Combat Pipeline + Skill/Effect Hook Engine)
 
+> ⚠️ **勘误（2026-07-04）：本文档的 API 细节已过时，接线一律以代码为准。**
+> 实际实现（`src/lib/combatPipeline.js` + `scripts/phase-43-combat-pipeline.sql`）：
+> - 阶段名用**短名** `add / mult / invincible / special / limit / insurance / seckill`（本文的 additive/multiplicative/invulnerable/clamp/lifesave/execute 长名作废）；
+> - 签名为 `runCombatPipeline(ctx, evalFn)`（ctx 含 base/defenderHp/modifiers/vars；本文的 `(baseDamage, ctx, modifiers)` 作废）；
+> - P4.5 新增 `OFFENSIVE_STAGES=[add,mult,seckill]` / `DEFENSIVE_STAGES=[invincible,special,limit,insurance]` 攻守方向二分（本文未涉及）。
+> **进度**：P0-P4.5 已完成（schema/纯函数/全路径接线/authoring/方向性）；剩 P6 死事件派发。本文其余部分仅作设计动机/背景参考。
+
 > 子系统：**运行地基 · 元移植**
 > 依赖：`01-content-authoring-engine`（后台编辑地基 — 本子系统的 authoring UI 寄生其中）
 > 是谁的地基：`04-技能树` / `06-PVPVE 战斗循环` 的**运行时**地基（authoring 由 01 提供，运行由 02 提供）

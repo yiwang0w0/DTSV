@@ -1,8 +1,9 @@
-# 07 · 并行开发轨道契约（2026-06-20）
+# 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-04）
 
-> 本对话将 fork 出 **4 个并行子对话**：🔒 安全性 / 🧭 主对话 / 🎨 前端美化 / ⚙️ 游戏性优化。
+> 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
 > 本文件是 4 轨**共享契约**：各轨范围、文件归属、待办、完成标准，以及**避免互相踩踏**的协作与推送协议。
-> **每个 fork 开工前必读**：本文件全文 + `Readme_Claude` 顶部「🧭 当前状态」。
+> **每个 fork 开工前必读**：本文件全文 + `Readme_Claude` 顶部「🧭 当前状态」+ `docs/session-checkpoint.md`。
+> 2026-07-04 清理注记：远端 227 条 codex 遗产分支已删、3 个死 worktree 已移除（备份 `D:/Fragments/DTSV-cleanup-backup-20260704/`）；除 4 轨 + stupefied（小游戏会话）外不应再有其它分支。
 
 ---
 
@@ -41,7 +42,8 @@
 **范围**：路线图、热文件仲裁、核心玩法系统后端、`gameActions` 上帝文件治理。
 **拥有文件**：`docs/plan/*`、`src/lib/server/gameActions.js`(主)、新系统 schema、`Readme_Claude` 的「当前状态」头部与集成节。
 **待办**（详细设计见 `docs/plan/01..06`）：
-- [ ] 战斗钩子管线 **P3**（PvP `resolvePlayerAttackAction` + NPC 反击 + 探针，同 P2 中性闸口）→ **P4** 后台 authoring（`EquipmentPassivesSection` 加 stage/priority/condition 字段 + `filterPerks` 放行 `pipeline_modifiers`）→ **P6** 4 死事件派发（on_defend 已管线覆盖 / on_turn_start / on_hp_below_30 / on_equip）。
+- [x] 战斗钩子管线 **P3** ✅(`07ee62b`·6 处统一 applyCombatPipeline 中性闸口) → **P4** authoring ✅(`69c88d4`) → **P4.5** 攻守方向性 ✅(`c833f25`·OFFENSIVE/DEFENSIVE_STAGES)。
+- [ ] 战斗钩子管线 **P6** 死事件派发（on_defend 已管线覆盖；剩 on_turn_start / on_hp_below_30 / on_equip）。
 - [ ] 合成链 **P4-P6**（gold_cost 经济决策 / catalyst 语义清洁 / 防自引用环校验；**局外回港合成用户明确不做**）。
 - [ ] **04 副本/NPC** → **05 集卡/成就** → **06 技能树**（守 roadmap 顺序：道具→…→技能树）。
 - [ ] `gameActions.js` 拆分减负（长期·上帝文件债）。
@@ -55,6 +57,7 @@
 - [ ] **P2 对局页响应式**（最大可玩性收益）：三栏（左面板/中操作/右扇区图）窄屏改竖排 + 底部 Tab 切「扇区图/日志/背包」+ `useIsNarrow` hook（建好后 admin 窄屏抽屉 E2 可复用）。
 - [ ] **P3 其余玩家页 + PrepareModal（4 栏点数+tab）窄屏堆叠**。
 - [ ] **P4 PWA**：`app/manifest.ts`(Next 原生支持) + 图标 + service worker 缓存 app shell + `apple-mobile-web-app-*` meta（装到主屏全屏无浏览器边框）。
+- [ ] **色板/样式全仓收敛**（2026-07-04 冗余复查移交）：38 文件硬编码 GitHub-dark 色值（最重 EquipmentSeriesSection 44 处）→ 统一 `theme.js`；RARITY_META 三处重复（真源 `equipmentEngine.js`·stash/page.js 与 EquipmentSeriesSection 精简副本缺 glow）→ 统一 import；BTN/INPUT/LABEL 多文件私抄 → 统一 `_shared/ui.js` / `gameUi.js` 出口（admin 与游戏内两套主题是刻意设计·不合并）。
 **完成标准**：390×844 截图各页可用、无横向溢出；可「添加到主屏」。
 
 ### ⚙️ 游戏性优化（性能 + 平衡 + 内容）
@@ -93,7 +96,8 @@
 - 🎨 P2 的 `useIsNarrow` hook 建好 → admin 窄屏抽屉(E2·deferred) 可直接复用。
 - 🧭 P4 authoring(被动 stage 字段) → 让 ⚙️ 能真正录「减伤/保命」被动并联调战斗管线。
 - ⚙️ P5 perf → 是 🎨 移动化的隐形地基（皮肤再好，6.9s 也劝退）。
-- 战斗管线接线（🧭 P3）与 perf 改 gameActions（⚙️ P5）**高概率同文件冲突** → 两轨开工前先在主对话对齐改动区。
+- ~~战斗管线接线（🧭 P3）与 perf 改 gameActions（⚙️ P5）同文件冲突~~ → **已解除（2026-07-04）**：P3/P4/P4.5 已落 main，⚙️ 动 gameActions 前 rebase origin/main 即可（改 persistResolution 返回结构前仍先报主对话）。
+- 🔒 改 `EquipmentPassivesSection.jsx` 保存路径（anon→service_role）前先 rebase：主对话 P4 已在该文件加管线三字段（stage/priority/condition_formula）。
 
 ## 6. fork 启动提示词模板（粘到每个子对话开头）
 
