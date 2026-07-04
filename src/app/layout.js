@@ -8,6 +8,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 import { THEME } from '@/lib/theme'
+import DevSourceJump from './_dev/DevSourceJump'
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -161,6 +162,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="zh">
       <body className={`${dmSans.variable} ${jetBrainsMono.variable} ${notoSansSc.variable}`}>
+        <DevSourceJump />
         <AuthContext.Provider value={{ user, loading }}>
           <Nav user={user} onLogout={handleLogout} />
           <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
