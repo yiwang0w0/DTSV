@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { collectRefTables, collectBridges } from './refIntegrity'
+import { postGameApi } from '@/lib/gameApi'
 
 /**
  * useContentCrud — 内容引擎的通用 CRUD hook（schema 驱动）。
@@ -14,28 +15,9 @@ import { collectRefTables, collectBridges } from './refIntegrity'
  * - save(draft)：主表 insert/update + 每个桥接 delete(parentKey=id)→批量 insert（同 usePlacementRules）。
  * - remove(row)：主表 delete（桥接 ON DELETE CASCADE 自动清）。
  *
- * 直连 supabase(RLS 关·authenticated 全权·同 usePlacementRules:10 惯例)；缺表静默降级 + toast。
+ * 读(load)：直连 supabase anon（内容表公开读·RLS 收紧后仍可读）。
+ * 写(save/remove)：改走服务端 /api/admin/content（service_role · phase-51 起写仅 service_role）。缺表静默降级 + toast。
  */
-// 主表 payload：仅真实列(排除桥接虚拟字段 + pk + __内部字段)，按 type 强转。模块级纯函数(非 hook 依赖)。
-function buildMainPayload(schema, draft, pk) {
-  const bridgeNames = new Set(collectBridges(schema).map((b) => b.fieldName))
-  const payload = {}
-  for (const f of schema.fields) {
-    if (bridgeNames.has(f.name) || f.name === pk) continue
-    let v = draft[f.name]
-    if (f.type === 'number') {
-      v = v === '' || v == null ? (f.nullable ? null : f.default ?? 0) : Number(v)
-    } else if (f.type === 'bool') {
-      v = !!v
-    } else if ((f.type === 'text' || f.type === 'textarea' || f.type === 'formula') && v != null) {
-      v = String(v)
-      if (v === '' && f.nullable) v = null
-    }
-    payload[f.name] = v
-  }
-  return payload
-}
-
 export function useContentCrud(schema, toast) {
   const [rows, setRows] = useState([])
   const [refs, setRefs] = useState({})
@@ -92,43 +74,14 @@ export function useContentCrud(schema, toast) {
   useEffect(() => { load() }, [load])
 
   const save = useCallback(async (draft) => {
-    const bridges = collectBridges(schema)
     const isNew = draft.__isNew || draft[pk] == null
-    let mainId = draft[pk]
-
-    const payload = buildMainPayload(schema, draft, pk)
-    if (isNew) {
-      const { data, error } = await supabase.from(schema.table).insert(payload).select(pk).single()
-      if (error) { toast?.('保存失败: ' + error.message, 'error'); return false }
-      mainId = data[pk]
-    } else {
-      const { error } = await supabase.from(schema.table).update(payload).eq(pk, mainId)
-      if (error) { toast?.('保存失败: ' + error.message, 'error'); return false }
+    // 写路径服务端化（service_role）：主表 upsert + 桥接 delete→insert 全在 /api/admin/content 内完成。
+    try {
+      await postGameApi('/api/admin/content', { table: schema.table, op: 'save', draft })
+    } catch (e) {
+      toast?.('保存失败: ' + (e.message || ''), 'error')
+      return false
     }
-
-    // 桥接：先清后插（CASCADE 仅在删主行时触发；此处仅清本父的子行）
-    for (const b of bridges) {
-      const { error: delErr } = await supabase.from(b.table).delete().eq(b.parentKey, mainId)
-      if (delErr) { toast?.('子项清理失败: ' + delErr.message, 'error'); return false }
-      const list = Array.isArray(draft[b.fieldName]) ? draft[b.fieldName] : []
-      const childRows = list
-        .map((it) => {
-          const r = { [b.parentKey]: mainId, [b.refColumn]: it[b.refColumn] }
-          for (const itf of b.itemFields) {
-            let v = it[itf.name]
-            if (itf.type === 'number') v = Number(v ?? itf.default ?? 1)
-            else if (itf.type === 'bool') v = !!v
-            r[itf.name] = v
-          }
-          return r
-        })
-        .filter((r) => r[b.refColumn] != null)
-      if (childRows.length > 0) {
-        const { error: insErr } = await supabase.from(b.table).insert(childRows)
-        if (insErr) { toast?.('子项写入失败: ' + insErr.message, 'error'); return false }
-      }
-    }
-
     toast?.(isNew ? '已添加' : '已更新')
     await load()
     return true
@@ -136,8 +89,12 @@ export function useContentCrud(schema, toast) {
 
   const remove = useCallback(async (row) => {
     if (row.__isNew || row[pk] == null) return true
-    const { error } = await supabase.from(schema.table).delete().eq(pk, row[pk])
-    if (error) { toast?.('删除失败: ' + error.message, 'error'); return false }
+    try {
+      await postGameApi('/api/admin/content', { table: schema.table, op: 'remove', row })
+    } catch (e) {
+      toast?.('删除失败: ' + (e.message || ''), 'error')
+      return false
+    }
     toast?.('已删除')
     await load()
     return true

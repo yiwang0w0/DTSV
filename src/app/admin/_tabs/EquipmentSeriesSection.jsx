@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { Drawer, DeleteBtn, BTN, CARD, TAG, RARITY_META, INPUT as SHARED_INPUT, LABEL as SHARED_LABEL } from '../_shared/ui'
 
 // 本编辑器沿用更紧凑的表单密度（padding/字号略小于 _shared 默认），以 spread 覆写在 _shared 基样式上派生，渲染等价。
@@ -232,28 +233,17 @@ export default function EquipmentSeriesSection({ toast }) {
       success_rate: editRecipe.success_rate,
       fail_behavior: editRecipe.fail_behavior,
     }
-    let recipeId = editRecipe.id
-    if (recipeId) {
-      await supabase.from('tier_recipes').update(payload).eq('id', recipeId)
-    } else {
-      const { data: inserted } = await supabase.from('tier_recipes').insert(payload).select().single()
-      recipeId = inserted?.id
-    }
-    if (!recipeId) { toast('配方保存失败', 'error'); return }
-    await supabase.from('recipe_ingredients').delete().eq('recipe_id', recipeId)
-    if (editRecipe.ingredients.length > 0) {
-      const ingPayload = editRecipe.ingredients
-        .filter(i => i.item_id || i.equipment_tier_id)
-        .map(i => ({
-          recipe_id: recipeId,
-          ingredient_type: i.ingredient_type || 'item',
-          item_id: i.ingredient_type === 'item' ? i.item_id : null,
-          equipment_tier_id: i.ingredient_type === 'equipment' ? i.equipment_tier_id : null,
-          quantity: i.quantity || 1,
-          is_consumed: i.is_consumed !== false,
-          is_catalyst: !!i.is_catalyst,
-        }))
-      await supabase.from('recipe_ingredients').insert(ingPayload)
+    // 写路径服务端化（service_role · phase-51）：tier_recipes + recipe_ingredients 保存走 /api/admin/tier-recipes。
+    try {
+      await postGameApi('/api/admin/tier-recipes', {
+        op: 'save',
+        recipeId: editRecipe.id || null,
+        recipe: payload,
+        ingredients: editRecipe.ingredients || [],
+      })
+    } catch (err) {
+      toast(err.message || '配方保存失败', 'error')
+      return
     }
     toast('配方已保存')
     setRecipeDrawer(false); loadSeriesTree(selectedSeries.id)

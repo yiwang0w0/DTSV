@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { Drawer, DeleteBtn, FormulaPreview, BTN, CARD, TAG, INPUT as SHARED_INPUT, LABEL as SHARED_LABEL } from '../_shared/ui'
 
 // 与 EquipmentSeriesSection 同口径的紧凑表单密度：在 _shared 基样式上以 spread 覆写派生，渲染等价。
@@ -72,21 +73,23 @@ export default function EquipmentPassivesSection({ toast }) {
     payload.stage = payload.stage ? payload.stage : null
     payload.condition_formula = (payload.condition_formula && String(payload.condition_formula).trim()) || null
     payload.priority = Number.isFinite(parseInt(payload.priority)) ? parseInt(payload.priority) : 100
-    if (editing.id) {
-      const id = payload.id; delete payload.id; delete payload.created_at
-      const { error } = await supabase.from('passive_skills').update(payload).eq('id', id)
-      if (error) { toast('保存失败', 'error'); return }
-    } else {
-      delete payload.id; delete payload.created_at
-      const { error } = await supabase.from('passive_skills').insert(payload)
-      if (error) { toast('保存失败', 'error'); return }
+    // 写路径服务端化（service_role · phase-51）：passive_skills 保存走 /api/admin/passive-skills。
+    delete payload.created_at
+    try {
+      await postGameApi('/api/admin/passive-skills', { op: 'save', id: editing.id || null, passive: payload })
+    } catch (e) {
+      toast('保存失败', 'error'); return
     }
     toast(editing.id ? '被动技能已更新' : '被动技能已添加')
     setDrawerOpen(false); setEditing(null); load()
   }
 
   async function remove(id) {
-    await supabase.from('passive_skills').delete().eq('id', id)
+    try {
+      await postGameApi('/api/admin/passive-skills', { op: 'delete', id })
+    } catch (e) {
+      toast('删除失败', 'error'); return
+    }
     toast('已删除'); load()
   }
 

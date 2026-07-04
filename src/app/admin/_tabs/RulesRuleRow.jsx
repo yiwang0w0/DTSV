@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, FormulaPreview } from '../_shared/ui'
 
 export default function RuleRow({ rule, onSave, toast }) {
@@ -11,9 +11,13 @@ export default function RuleRow({ rule, onSave, toast }) {
 
   async function save() {
     setSaving(true)
-    const { error } = await supabase.from('game_rules').update({ value: val }).eq('id', rule.id)
+    // 写路径服务端化（service_role · phase-51）：game_rules 只调值走 /api/admin/game-rules。
+    try {
+      await postGameApi('/api/admin/game-rules', { op: 'update', id: rule.id, value: val })
+    } catch (e) {
+      setSaving(false); toast('保存失败', 'error'); return
+    }
     setSaving(false)
-    if (error) { toast('保存失败', 'error'); return }
     toast(`「${rule.label}」已更新`)
     onSave(rule.id, val)
     setEditing(false)
