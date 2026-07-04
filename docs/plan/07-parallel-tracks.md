@@ -43,7 +43,7 @@
 **拥有文件**：`docs/plan/*`、`src/lib/server/gameActions.js`(主)、新系统 schema、`Readme_Claude` 的「当前状态」头部与集成节。
 **待办**（详细设计见 `docs/plan/01..06`）：
 - [x] 战斗钩子管线 **P3** ✅(`07ee62b`·6 处统一 applyCombatPipeline 中性闸口) → **P4** authoring ✅(`69c88d4`) → **P4.5** 攻守方向性 ✅(`c833f25`·OFFENSIVE/DEFENSIVE_STAGES)。
-- [~] 战斗钩子管线 **P6** 触发事件派发：on_hp_below_30 ✅(`26566e5`) + on_defend ✅(管线覆盖)；on_turn_start / on_equip 待设计决策（见 Readme·`_pass` 缓存 / 效果落地）。⚠ 被动系统 0/17 tier 绑定 → P6 中性但内容休眠。
+- [x] 战斗钩子管线 **P6** 四触发事件全部收口：on_hp_below_30(`26566e5`) + on_turn_start + on_equip(`d2593dc`) + on_defend(管线覆盖)·全中性。⚠ 被动系统 0/17 tier 绑定 → 全部中性但内容休眠；真正下一步 = 让 tier 绑 passive_skill_id + 录 demo。
 - [ ] 合成链 **P4-P6**（gold_cost 经济决策 / catalyst 语义清洁 / 防自引用环校验；**局外回港合成用户明确不做**）。
 - [ ] **04 副本/NPC** → **05 集卡/成就** → **06 技能树**（守 roadmap 顺序：道具→…→技能树）。
 - [ ] `gameActions.js` 拆分减负（长期·上帝文件债）。
