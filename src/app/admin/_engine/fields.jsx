@@ -175,6 +175,18 @@ function IngredientList({ field, value, onChange, refs }) {
 
 // ───────── 可编辑控件 ─────────
 export function FieldInput({ field, value, onChange, refs }) {
+  // 只读字段（如服务端强制的 provenance）：展示值 + 「服务端强制」提示，不给可编辑控件（编辑无效·避免误导）。
+  if (field.readOnly) {
+    const shown = field.type === 'json'
+      ? compactJson(value ?? field.default)
+      : (value == null || value === '' ? '—' : String(value))
+    return (
+      <div style={{ padding: '8px 10px', background: C.bg2, border: `1px dashed ${C.border}`, borderRadius: 8, color: C.dim2, fontSize: 12, fontFamily: field.type === 'json' ? 'var(--font-jetbrains-mono), monospace' : 'inherit', display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+        <span>{shown}</span>
+        <span style={{ color: C.dim, fontSize: 11, whiteSpace: 'nowrap' }}>服务端强制 · 不可改</span>
+      </div>
+    )
+  }
   switch (field.type) {
     case 'textarea':
       return <textarea style={{ ...INPUT, minHeight: 60, resize: 'vertical' }} rows={field.rows || 2} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />

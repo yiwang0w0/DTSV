@@ -44,8 +44,8 @@ const contentPool = {
       hint: 'entity_type=level 时为 Level Schema v0.3（docs/plan/kaleido/00-spec §6.1）。event_deck 的 npc/item 只放 ID 引用（不复制整行）。',
     },
     {
-      name: 'provenance', type: 'json', label: '来源 provenance', rows: 3, default: { source: 'seed', anonymized: true },
-      hint: "{ source: 'seed' | 'promoted', anonymized: true, run_id? }",
+      name: 'provenance', type: 'json', label: '来源 provenance', readOnly: true, default: { source: 'seed', anonymized: true },
+      hint: '服务端强制为 { source: "seed", anonymized: true }（安全裁决·不信客户端），此处仅展示。',
     },
     {
       name: 'live_stats', type: 'json', label: 'live 指标', rows: 3, default: {},
