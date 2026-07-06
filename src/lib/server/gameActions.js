@@ -61,7 +61,9 @@ import {
   recomputeFlags,
   getLoadoutEffects,
 } from '@/lib/pollution'
-import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG } from '@/lib/constants'
+import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
+import { sampleKaleidoPath, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
+import { emitPlayerEvents, buildDeathEvent, ACTION_VERB as KALEIDO_ACTION_VERB } from '@/lib/server/kaleido/events'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
@@ -2379,6 +2381,190 @@ export async function createRoom(client, user, payload = {}) {
   return data
 }
 
+// ═══════════════════════════════════════════════════════════════
+// KALEIDO 单人 run（KP0-S 交付物 5 · docs/plan/kaleido/02 §2.6）
+//   startKaleidoRun：runs 行 → 采样 5 关(levels) → 建房(gametype=30)+落座+startGame → 回填 room_id。
+//   advanceKaleidoProgress：路由边界每消耗性动作后跑——turnCount+1 → exit_condition 判定 →
+//     过关推进/收敛(endingResult 触 lifecycle 收房)+ 域真源(runs/levels)同步 + level_clear/death 事件。
+//   abandonKaleidoRun：显式放弃（关页 ≠ 放弃，R11）。
+//   中性：全部入口 isKaleidoRoom 守卫；多人局零行为变化。
+// ═══════════════════════════════════════════════════════════════
+
+// 消耗性动词 = 传感层已映射动作（02 §2.2：search/attack/craft/item_use/move）
+const KALEIDO_TURN_ACTIONS = new Set(Object.keys(KALEIDO_ACTION_VERB))
+
+export async function startKaleidoRun(client, user) {
+  // 幂等：已有 active run → 直接返回（uq_runs_one_active 为 DB 兜底）
+  const { data: existing } = await client
+    .from('runs')
+    .select('run_id, room_id')
+    .eq('player_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (existing?.room_id) return { roomId: existing.room_id, runId: existing.run_id }
+  if (existing) {
+    // 半成品 run（建到一半失败无 room）→ 弃置重建，防唯一索引把玩家永锁
+    await client.from('runs')
+      .update({ status: 'abandoned', converged_at: new Date().toISOString() })
+      .eq('run_id', existing.run_id)
+  }
+
+  const seed = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const { data: run, error: runErr } = await client
+    .from('runs')
+    .insert({ player_id: user.id, seed, spine: {} })
+    .select('run_id')
+    .single()
+  if (runErr || !run) throw new Error(runErr?.message || '创建 run 失败')
+
+  try {
+    // P0 极简采样：chamber_templates(enabled) 加权抽 LEVEL_COUNT 关（确定性·同 seed 同序）
+    const { data: chambers, error: chErr } = await client
+      .from('chamber_templates').select('*').eq('enabled', true)
+    if (chErr) throw new Error(chErr.message)
+    const nodes = sampleKaleidoPath(chambers || [], seed, KALEIDO.LEVEL_COUNT)
+    if (nodes.length === 0) throw new Error('无可用关卡模板（chamber_templates 为空）')
+
+    // levels ×N 批量入库（域真源），回填 level_id 到节点（§2.5：节点携带 level_id）
+    const { data: lvls, error: lvlErr } = await client
+      .from('levels').insert(buildLevelRows(run.run_id, nodes, seed)).select('level_id, seq')
+    if (lvlErr) throw new Error(lvlErr.message)
+    for (const lv of lvls || []) {
+      const node = nodes[lv.seq - 1]
+      if (node) node.levelId = lv.level_id
+    }
+
+    // 建房（gametype=KALEIDO_GAME_TYPE）→ 发起玩家默认属性落座 → startGame 一次 persist
+    const room = await createRoom(client, user, { gametype: KALEIDO_GAME_TYPE })
+    const rules = await loadGameRules(client)
+    const player = createPlayerState(user, getInitPlayerStats(rules))
+    const gamevars = normalizeGamevars(room.gamevars)
+    const nextGamevars = {
+      ...gamevars,
+      players: { ...gamevars.players, [user.id]: player },
+      raidPath: nodes,
+      kaleido: { runId: run.run_id, currentSeq: 1, clearedSeq: 0 },
+    }
+    const nextRoom = await persistRoom(client, room, nextGamevars, [
+      createLogEntry(`${getDisplayName(user)} 进入万华镜 · 第 1/${KALEIDO.LEVEL_COUNT} 关「${nodes[0].name}」`, 'system'),
+    ], { startGame: true })
+
+    await client.from('runs').update({ room_id: nextRoom.id }).eq('run_id', run.run_id)
+    return { roomId: nextRoom.id, runId: run.run_id }
+  } catch (e) {
+    // 补偿：失败弃置 run，避免 active 唯一索引卡死后续重开
+    try {
+      await client.from('runs')
+        .update({ status: 'abandoned', converged_at: new Date().toISOString() })
+        .eq('run_id', run.run_id)
+    } catch {}
+    throw e
+  }
+}
+
+// 路由边界推进（/api/game/actions 在动作成功后调用；仅 kaleido 局）。
+// 失败绝不影响动作本身（动作已落库）——吞错返回原 room，下动作重判。
+export async function advanceKaleidoProgress(client, room, user, action) {
+  try {
+    if (!isKaleidoRoom(room)) return room
+    const gamevars = normalizeGamevars(room.gamevars)
+    const kal = gamevars.kaleido
+    if (!kal?.runId) return room
+    const me = getPlayer(gamevars, user.id)
+    if (!me) return room
+
+    // 死亡收敛（R9：内容不减损，只标 run 终态；房间已由 lifecycle alivenum===0 判负）
+    if (!me.alive) {
+      await client.from('runs')
+        .update({ status: 'dead', converged_at: new Date().toISOString() })
+        .eq('run_id', kal.runId).eq('status', 'active')
+      emitPlayerEvents(client, [
+        buildDeathEvent(user.id, { runId: kal.runId, levelSeq: kal.currentSeq }),
+      ]).catch(() => {})
+      return room
+    }
+    if (room.gamestate === 2) return room
+    if (!KALEIDO_TURN_ACTIONS.has(action)) return room
+
+    // 回合 +1（R4：每消耗性动词一回合；旧档 ?? 0 兜底）
+    const nextMe = { ...me, turnCount: (me.turnCount ?? 0) + 1 }
+    const seq = (nextMe.chamberIndex ?? 0) + 1 // 当前关 = 物理位置（§2.5 level_seq ↔ chamberIndex）
+    const node = (gamevars.raidPath || [])[nextMe.chamberIndex ?? 0]
+    const logs = []
+    let nextKal = kal
+    let converged = false
+
+    if (node?.kaleidoExit && (kal.clearedSeq ?? 0) < seq
+        && evaluateExitCondition(node.kaleidoExit, nextMe, gamevars)) {
+      converged = seq >= KALEIDO.LEVEL_COUNT
+      nextKal = { ...kal, clearedSeq: seq, currentSeq: Math.min(seq + 1, KALEIDO.LEVEL_COUNT) }
+      nextMe.turnCount = 0 // per-level 回合数：过关清零（§2.2）
+      logs.push(createLogEntry(
+        converged
+          ? `✦ 第 ${seq}/${KALEIDO.LEVEL_COUNT} 关达成 —— 万华镜 run 通关`
+          : `✦ 第 ${seq}/${KALEIDO.LEVEL_COUNT} 关达成，可前进下一关`,
+        'system',
+      ))
+    }
+
+    const nextGamevars = {
+      ...gamevars,
+      players: { ...gamevars.players, [user.id]: nextMe },
+      kaleido: nextKal,
+      // 通关 → 写 endingResult 触发 applyRoomLifecycle 通用收房分支（gamestate=2）
+      ...(converged ? { endingResult: { key: 'kaleido_clear', name: '万华镜 · 通关', bannerText: `${KALEIDO.LEVEL_COUNT} 关全数达成。` } } : {}),
+    }
+    const nextRoom = await persistRoom(client, room, nextGamevars, logs, {})
+
+    // 域真源同步（runs/levels）+ level_clear 事件；失败仅记错（下动作可重判，不阻断）
+    if (nextKal !== kal) {
+      try {
+        await client.from('levels').update({ status: 'played' })
+          .eq('run_id', kal.runId).eq('seq', seq)
+        await client.from('runs').update(
+          converged
+            ? { current_seq: seq, status: 'cleared', converged_at: new Date().toISOString() }
+            : { current_seq: nextKal.currentSeq },
+        ).eq('run_id', kal.runId).eq('status', 'active')
+      } catch (e) {
+        console.error('[kaleido] 域真源同步失败:', e?.message)
+      }
+      emitPlayerEvents(client, [{
+        player_id: user.id, run_id: kal.runId, level_seq: seq, verb: 'level_clear',
+        payload: { turnCount: me.turnCount ?? 0, converged },
+      }]).catch(() => {})
+    }
+    return nextRoom
+  } catch (e) {
+    console.error('[kaleido] 推进失败:', e?.message)
+    return room
+  }
+}
+
+// 显式放弃 run（分发器动作 'abandonRun'；关页 ≠ 放弃，R11 回来接着打）
+async function abandonKaleidoRun(client, room, gamevars, user) {
+  if (!isKaleidoRoom(room)) throw new Error('非万华镜对局')
+  const kal = gamevars.kaleido
+  const nextGamevars = {
+    ...gamevars,
+    endingResult: gamevars.endingResult
+      || { key: 'kaleido_abandoned', name: '万华镜 · 放弃', bannerText: '你退出了这次探勘。' },
+  }
+  const nextRoom = await persistRoom(client, room, nextGamevars, [
+    createLogEntry(`${getDisplayName(user)} 放弃了本次 run`, 'system'),
+  ], {})
+  if (kal?.runId) {
+    try {
+      await client.from('runs')
+        .update({ status: 'abandoned', converged_at: new Date().toISOString() })
+        .eq('run_id', kal.runId).eq('status', 'active')
+    } catch (e) {
+      console.error('[kaleido] abandon 同步失败:', e?.message)
+    }
+  }
+  return nextRoom
+}
+
 /**
  * Phase 31 re-home: 首玩家初始化 BR 房层（所有新对局默认 BR，见 joinRoom isBr 判据）。
  * 幂等：若 gamevars.br.enabled 已为 true（已初始化）则原样返回（后加入玩家不重算）。
@@ -2543,6 +2729,10 @@ export async function joinRoom(client, user, roomId, loadout = null) {
   const gamevars = normalizeGamevars(room.gamevars)
   if (getPlayer(gamevars, user.id)) {
     return room
+  }
+  // KALEIDO 单人局：owner 已由 startKaleidoRun 落座（重进走上方幂等返回），他人不得加入。
+  if (isKaleidoRoom(room)) {
+    throw new Error('单人对局，无法加入')
   }
 
   // ── BR re-home（用户定调：替代原游戏的房间移动，不再是独立 gametype）：所有「新对局」默认走「100 房网格 + 大时钟」。──
@@ -2815,7 +3005,8 @@ export async function executeGameAction(client, user, payload, options = {}) {
   const me = getPlayer(gamevars, user.id)
   // 'br_tick' 须放行 lootPrompt 守卫：持战利品提示的玩家也可能正踩在即将收缩的扇区里，
   //   必须能 tick 触发服务端复核致死（否则被卡在「请先处理战利品」无法自救/被判）。
-  if (!['join', 'lootCorpse', 'dismissLootPrompt', 'br_tick'].includes(payload.action) && me?.lootPrompt) {
+  // 'abandonRun' 同理放行：持战利品提示也可放弃 kaleido run（非 kaleido 局该动作直接 throw，中性）。
+  if (!['join', 'lootCorpse', 'dismissLootPrompt', 'br_tick', 'abandonRun'].includes(payload.action) && me?.lootPrompt) {
     throw new Error('请先处理当前战利品')
   }
 
@@ -2909,6 +3100,12 @@ export async function executeGameAction(client, user, payload, options = {}) {
 
   if (payload.action === 'dismissLootPrompt') {
     return dismissLootPrompt(client, room, gamevars, user)
+  }
+
+  // KALEIDO：显式放弃 run（仅 kaleido 局有效；startKaleidoRun 走 /api/kaleido/run 独立路由——
+  //   它要「建房」，而本分发器入口强制已有 roomId）
+  if (payload.action === 'abandonRun') {
+    return abandonKaleidoRun(client, room, gamevars, user)
   }
 
   throw new Error('未知动作')

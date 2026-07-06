@@ -438,7 +438,9 @@ export function applyRoomLifecycle(room, gamevars, options = {}) {
       winner = null // 无胜者
     }
     // 击败了 BOSS → 游戏胜利
-    if (normalized.bossDefeated) {
+    // KALEIDO 豁免：run 的通关由 exit_condition/收敛自控（写 endingResult 走上方分支），
+    //   中途击杀 boss 不得抢先收房；非 kaleido 局逐字节原逻辑。
+    if (normalized.bossDefeated && !isKaleidoRoom(room)) {
       gamestate = 2
       winner = alivePlayers[0]?.name || null
     }

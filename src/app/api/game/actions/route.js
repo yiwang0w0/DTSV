@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { executeGameAction, withRetry, VersionConflictError } from '@/lib/server/gameActions'
+import { executeGameAction, advanceKaleidoProgress, withRetry, VersionConflictError } from '@/lib/server/gameActions'
 import { createServerSupabase, getRequestUser } from '@/lib/serverSupabase'
+import { isKaleidoRoom } from '@/lib/roomState'
+import { emitPlayerEvents, buildActionEvent } from '@/lib/server/kaleido/events'
 
 export async function POST(request) {
   const payload = await request.json()
@@ -26,9 +28,18 @@ export async function POST(request) {
   try {
     // 首次用预取的 room（省一往返）；重试时传 null → executeGameAction 重新 fetch 最新版本
     //   （并发下旧 version 必撞乐观锁，复用 stale room 会让 3 次重试全部白废）。
-    const room = await withRetry((attempt) =>
+    let room = await withRetry((attempt) =>
       executeGameAction(supabase, auth.user, payload, { prefetchedRoom: attempt === 0 ? roomData : null }),
     )
+    // KALEIDO（路由边界·仅 kaleido 局，多人局零行为变化）：
+    //   ① 推进：turnCount+1 → exit_condition 判定 → 过关/收敛（吞错，失败返回原 room）；
+    //   ② 传感层发射：已映射动词 → player_events（发射在推进后，事件携带最新 turnCount/currentSeq）。
+    //   sweep/branches 借道属服务端内部、绝不经路由 → 天然满足「只真实动作」。
+    if (isKaleidoRoom(room)) {
+      room = await advanceKaleidoProgress(supabase, room, auth.user, payload.action)
+      const ev = buildActionEvent(auth.user.id, room?.gamevars, payload.action)
+      if (ev) emitPlayerEvents(supabase, [ev]).catch(() => {})
+    }
     return NextResponse.json({ room })
   } catch (error) {
     if (error instanceof VersionConflictError) {
