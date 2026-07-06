@@ -19,7 +19,8 @@ export function describeExitCondition(ec) {
     case 'survive_turns':
       return `存活 ${p.turns ?? '?'} 回合`
     case 'collect':
-      return `收集 ${p.count ?? '?'} 个${p.target ? `「${p.target}」` : '目标物'}`
+      // canonical = params.itemName（服务端 evaluateExitCondition collect 读 itemName·04 §1 S6）；count 已一致。
+      return `收集 ${p.count ?? '?'} 个${p.itemName ? `「${p.itemName}」` : '目标物'}`
     default:
       return '达成关卡目标'
   }
