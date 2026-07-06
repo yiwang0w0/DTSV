@@ -111,7 +111,7 @@ export function buildLevelRows(runId, nodes, seed) {
 
 // exit_condition 三型判定（02 §2.6）。纯函数；未知类型恒 false（保守）。
 //   boss_kill      — 读 gamevars.bossDefeated（击杀 level==='boss' NPC 时置位·gameActions:1820）
-//   survive_turns  — 读 player.turnCount（每消耗性动词 +1·per-level 过关清零）
+//   survive_turns  — 读 player.turnCount（每消耗性动词 +1·per-level：movePlayer 入关时清零）
 //   collect        — 读 player.inventory 中目标道具计数（inventory 为道具名展开数组）
 export function evaluateExitCondition(cond, player, gamevars) {
   if (!cond || typeof cond !== 'object') return false

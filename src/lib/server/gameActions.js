@@ -63,7 +63,7 @@ import {
 } from '@/lib/pollution'
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
 import { sampleKaleidoPath, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
-import { emitPlayerEvents, buildDeathEvent, ACTION_VERB as KALEIDO_ACTION_VERB } from '@/lib/server/kaleido/events'
+import { emitPlayerEvents, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
@@ -1746,6 +1746,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
   let killed = false
   let instanceHpAfter = instance.hp
+  let overkillPayload = null // KALEIDO npc_overkill：块内捕获，persist 成功后再发（缺陷A·避免重试重复行）
 
   if (playerHit) {
     const npcCombat = buildCombatNpc(instance)         // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
@@ -1779,6 +1780,13 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       `${player.name} 袭击 ${instance.npc.name}，造成 ${damageOut} 伤害（HP ${instanceHpAfter}/${instance.maxHp}）`,
       'damage',
     )
+
+    // KALEIDO 传感层（KP0-R S3/S4/缺陷A）：击杀伤害溢出阈（≥2× 击杀前剩余 HP）→ npc_overkill。
+    //   块内只捕获 payload（damageOut 是本块 const）；实际发射移到函数末尾 persist 成功之后
+    //   （与 craft_attempt 同型，乐观锁重试不产重复/幻影行）。仅 kaleido 局，多人局零行为。
+    if (killed && isKaleidoRoom(room) && damageOut >= (instance.hp || 1) * 2) {
+      overkillPayload = { damage: damageOut, npc_hp: instance.hp, boss: instance.npc.level === 'boss' }
+    }
   } else {
     appendResolutionLog(resolution, `${player.name} 袭击 ${instance.npc.name} — 未命中`, 'system')
   }
@@ -1929,6 +1937,16 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
 
   const nextRoom = await persistResolutionWithPollution(client, room, resolution, user.id)
   await safeConsumeDurability(user.id, room.id, 1, client)
+  // KALEIDO npc_overkill 发射（缺陷A）：persist 成功后才发；level_seq 取物理关（缺陷B）；
+  //   await 防 Vercel 冻结丢事件（S4）。仅 kaleido 局。
+  if (overkillPayload && isKaleidoRoom(room)) {
+    const meFinal = getPlayer(nextRoom?.gamevars, user.id) || {}
+    const kalOk = nextRoom?.gamevars?.kaleido || {}
+    await emitPlayerEvents(client, [{
+      player_id: user.id, run_id: kalOk.runId ?? null, level_seq: kaleidoLevelSeq(meFinal),
+      verb: 'npc_overkill', payload: overkillPayload,
+    }])
+  }
   return nextRoom
 }
 
@@ -2266,7 +2284,20 @@ async function craftItemRecipe(client, room, gamevars, user, payload) {
     appendResolutionLog(resolution, `${player.name} 合成失败（${recipe.name}）· ${consumedTxt} 损毁`, 'damage')
   }
 
-  return persistResolution(client, room, resolution)
+  const nextRoom = await persistResolution(client, room, resolution)
+  // KALEIDO 传感层（KP0-R S3）：craft_attempt 在此发——要携带 success_rate/结果，路由边界拿不到。
+  //   persist 成功后再发（版本冲突重试不产重复行）；await 防 Vercel 冻结丢事件（S4）。
+  if (isKaleidoRoom(room)) {
+    const kal = gamevars.kaleido || {}
+    await emitPlayerEvents(client, [{
+      player_id: user.id,
+      run_id: kal.runId ?? null,
+      level_seq: kaleidoLevelSeq(player), // 物理关（缺陷B）
+      verb: 'craft_attempt',
+      payload: { success_rate: recipe.success_rate ?? null, success: !!out.success, recipe_id: recipeId },
+    }])
+  }
+  return nextRoom
 }
 
 async function dismissLootPrompt(client, room, gamevars, user) {
@@ -2390,20 +2421,51 @@ export async function createRoom(client, user, payload = {}) {
 //   中性：全部入口 isKaleidoRoom 守卫；多人局零行为变化。
 // ═══════════════════════════════════════════════════════════════
 
-// 消耗性动词 = 传感层已映射动作（02 §2.2：search/attack/craft/item_use/move）
-const KALEIDO_TURN_ACTIONS = new Set(Object.keys(KALEIDO_ACTION_VERB))
+// 消耗性动词（02 §2.2：search/attack/craft/item_use/move·真源在 events.js TURN_ACTIONS，
+//   与发射映射 ACTION_VERB 解耦——flee/spare 发射不计回合，craftItem 计回合 in-handler 发射）
+const KALEIDO_TURN_ACTIONS = new Set(KALEIDO_TURN_ACTION_LIST)
+
+// 房间已收但 run 仍 active（域真源同步失败/竞态）→ 按房间终局补收敛（KP0-R S2①③ 自愈）。
+async function repairConvergeKaleidoRun(client, runId, room) {
+  try {
+    const gv = room?.gamevars || {}
+    const key = gv.endingResult?.key
+    const anyDead = Object.values(gv.players || {}).some((p) => p && p.alive === false)
+    const status = key === 'kaleido_clear' ? 'cleared' : anyDead ? 'dead' : 'abandoned'
+    await client.from('runs')
+      .update({ status, converged_at: new Date().toISOString() })
+      .eq('run_id', runId).eq('status', 'active')
+  } catch (e) {
+    console.error('[kaleido] run 补收敛失败:', e?.message)
+  }
+}
 
 export async function startKaleidoRun(client, user) {
   // 幂等：已有 active run → 直接返回（uq_runs_one_active 为 DB 兜底）
   const { data: existing } = await client
     .from('runs')
-    .select('run_id, room_id')
+    .select('run_id, room_id, started_at')
     .eq('player_id', user.id)
     .eq('status', 'active')
     .maybeSingle()
-  if (existing?.room_id) return { roomId: existing.room_id, runId: existing.run_id }
-  if (existing) {
-    // 半成品 run（建到一半失败无 room）→ 弃置重建，防唯一索引把玩家永锁
+  if (existing?.room_id) {
+    // KP0-R S2③：幂等返回前验房间存活——房已收/已删而 run 仍 active 会把玩家永锁在死房。
+    const { data: exRoom } = await client
+      .from('rooms')
+      .select('id, gamestate, gamevars')
+      .eq('id', existing.room_id)
+      .maybeSingle()
+    if (exRoom && exRoom.gamestate !== 2) {
+      return { roomId: existing.room_id, runId: existing.run_id }
+    }
+    await repairConvergeKaleidoRun(client, existing.run_id, exRoom) // 补收敛旧 run，继续开新
+  } else if (existing) {
+    // 半成品 run（无房）：KP0-R S2②——新鲜 = 另一请求创建进行中（双击并发），不得弃置
+    //   （弃置会让双方各建一房）；陈旧（≥60s）= 建败残留 → 弃置重建，防唯一索引永锁。
+    const ageMs = Date.now() - new Date(existing.started_at || 0).getTime()
+    if (ageMs < 60_000) {
+      throw new Error('run 正在创建中，请稍候再试')
+    }
     await client.from('runs')
       .update({ status: 'abandoned', converged_at: new Date().toISOString() })
       .eq('run_id', existing.run_id)
@@ -2435,6 +2497,7 @@ export async function startKaleidoRun(client, user) {
     .single()
   if (runErr || !run) throw new Error(runErr?.message || '创建 run 失败')
 
+  let createdRoomId = null // KP0-R S7：跟踪已建房，补偿路径顺带收掉（防 gamestate=0 孤儿房挂大厅）
   try {
     // P0 极简采样：chamber_templates(enabled) 加权抽 LEVEL_COUNT 关（确定性·同 seed 同序）
     const { data: chambers, error: chErr } = await client
@@ -2454,6 +2517,7 @@ export async function startKaleidoRun(client, user) {
 
     // 建房（gametype=KALEIDO_GAME_TYPE）→ 发起玩家默认属性落座 → startGame 一次 persist
     const room = await createRoom(client, user, { gametype: KALEIDO_GAME_TYPE })
+    createdRoomId = room.id
     const rules = await loadGameRules(client)
     const player = createPlayerState(user, getInitPlayerStats(rules))
     const gamevars = normalizeGamevars(room.gamevars)
@@ -2470,12 +2534,16 @@ export async function startKaleidoRun(client, user) {
     await client.from('runs').update({ room_id: nextRoom.id }).eq('run_id', run.run_id)
     return { roomId: nextRoom.id, runId: run.run_id }
   } catch (e) {
-    // 补偿：失败弃置 run，避免 active 唯一索引卡死后续重开
+    // 补偿：失败弃置 run，避免 active 唯一索引卡死后续重开；
+    //   已建房则顺带删除（KP0-R S7：防 gamestate=0 孤儿房挂大厅，刚建的房无他人可安全删）。
     try {
       await client.from('runs')
         .update({ status: 'abandoned', converged_at: new Date().toISOString() })
         .eq('run_id', run.run_id)
     } catch {}
+    if (createdRoomId) {
+      try { await client.from('rooms').delete().eq('id', createdRoomId) } catch {}
+    }
     throw e
   }
 }
@@ -2493,15 +2561,31 @@ export async function advanceKaleidoProgress(client, room, user, action) {
 
     // 死亡收敛（R9：内容不减损，只标 run 终态；房间已由 lifecycle alivenum===0 判负）
     if (!me.alive) {
-      await client.from('runs')
+      // KP0-R S4：.select 拿实际转移行 → death 事件只在首次转移发一次（死后重复动作不再发）
+      const { data: transitioned } = await client.from('runs')
         .update({ status: 'dead', converged_at: new Date().toISOString() })
         .eq('run_id', kal.runId).eq('status', 'active')
-      emitPlayerEvents(client, [
-        buildDeathEvent(user.id, { runId: kal.runId, levelSeq: kal.currentSeq }),
-      ]).catch(() => {})
+        .select('run_id')
+      if (transitioned && transitioned.length > 0) {
+        // 死因取 deathLog 汇聚点已落的最新记录（不往共享 player 对象加字段，守逐字节中性）
+        let reason = 'other'
+        try {
+          const { data: dl } = await client.from('player_death_log')
+            .select('reason').eq('user_id', user.id).eq('room_id', room.id)
+            .order('id', { ascending: false }).limit(1).maybeSingle()
+          if (dl?.reason) reason = dl.reason
+        } catch {}
+        await emitPlayerEvents(client, [ // KP0-R S4：await——Vercel 响应后冻结会丢未决 promise
+          buildDeathEvent(user.id, { runId: kal.runId, levelSeq: kaleidoLevelSeq(me), reason }), // 物理关（缺陷B）
+        ])
+      }
       return room
     }
-    if (room.gamestate === 2) return room
+    if (room.gamestate === 2) {
+      // KP0-R S2①：房已收但 run 可能仍 active（域真源同步曾失败）→ 补收敛自愈，防永不重判
+      await repairConvergeKaleidoRun(client, kal.runId, room)
+      return room
+    }
     if (!KALEIDO_TURN_ACTIONS.has(action)) return room
 
     // 回合 +1（R4：每消耗性动词一回合；旧档 ?? 0 兜底）
@@ -2516,7 +2600,8 @@ export async function advanceKaleidoProgress(client, room, user, action) {
         && evaluateExitCondition(node.kaleidoExit, nextMe, gamevars)) {
       converged = seq >= KALEIDO.LEVEL_COUNT
       nextKal = { ...kal, clearedSeq: seq, currentSeq: Math.min(seq + 1, KALEIDO.LEVEL_COUNT) }
-      nextMe.turnCount = 0 // per-level 回合数：过关清零（§2.2）
+      // （KP0-R S1：turnCount 清零改在 movePlayer 入关处——per-level 语义的真正落点；
+      //   过关后仍留在本关的动作继续计数，但 clearedSeq 门禁已挡住重复判定。）
       logs.push(createLogEntry(
         converged
           ? `✦ 第 ${seq}/${KALEIDO.LEVEL_COUNT} 关达成 —— 万华镜 run 通关`
@@ -2547,10 +2632,10 @@ export async function advanceKaleidoProgress(client, room, user, action) {
       } catch (e) {
         console.error('[kaleido] 域真源同步失败:', e?.message)
       }
-      emitPlayerEvents(client, [{
+      await emitPlayerEvents(client, [{ // KP0-R S4：await，防 Vercel 冻结丢事件
         player_id: user.id, run_id: kal.runId, level_seq: seq, verb: 'level_clear',
-        payload: { turnCount: me.turnCount ?? 0, converged },
-      }]).catch(() => {})
+        payload: { turnCount: nextMe.turnCount ?? 0, converged },
+      }])
     }
     return nextRoom
   } catch (e) {
@@ -3147,6 +3232,16 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
     throw new Error('已到达路径终点，无法继续前进')
   }
 
+  // KALEIDO 推进门禁（KP0-R S1·HIGH）：当前关 exit_condition 未达成不得前进——
+  //   否则 move×4 + 尾关刷回合即可 7 动作速通全 run、levels 1-4 恒 'ready'。
+  //   clearedSeq 由 advanceKaleidoProgress 在判定达成时写入。非 kaleido 局零变化。
+  if (isKaleidoRoom(room)) {
+    const curSeq = currentIdx + 1
+    if (((gamevars.kaleido?.clearedSeq) ?? 0) < curSeq) {
+      throw new Error('本关目标未达成，无法前进')
+    }
+  }
+
   const nextChamber = raidPath[nextIdx]
   if (!nextChamber) throw new Error('下一段 chamber 不存在')
 
@@ -3162,6 +3257,13 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
     chamberHistory: [...(player.chamberHistory || []), currentIdx],
     map: nextChamber.templateId,   // 保留 map 字段同步为 chamber.templateId
     encounter: null,
+  }
+
+  // KALEIDO 入关状态清零（KP0-R S1/S6）：turnCount 归零（per-level 语义——防已清关刷回合
+  //   秒清下一关）；房间级 bossDefeated 复位（防跨关粘连，本关 boss_kill 只认本关击杀）。
+  if (isKaleidoRoom(room)) {
+    nextPlayer.turnCount = 0
+    resolution.gamevars = { ...resolution.gamevars, bossDefeated: false }
   }
 
   // ── Ω-段倒计时（chamber.omegaWindow > 0 视为 Ω-段，启动倒计时） ──

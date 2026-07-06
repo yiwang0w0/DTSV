@@ -10,7 +10,9 @@ import { KALEIDO } from '@/lib/constants'
 //   ③ 尺寸上限：body ≤ 8KB、单请求 ≤ 10 事件；数值域钳制（ms ≤ 24h）；
 //   ④ run_id 须为 UUID 形状（防批量 insert 被脏值毒死）；context 枚举白名单。
 // 客户端用 navigator.sendBeacon / fetch keepalive 上报；失败无害（遥测）。
-const CLIENT_VERBS = new Set(['session_end', 'ui_read_ms', 'idle_ms', 'return_latency', 'hesitation_ms'])
+// KP0-R S3 范围裁决：P0 客户端动词仅 session_end（ui_read_ms/idle_ms/return_latency/hesitation_ms
+//   延至 P1——白名单收到"当前有来源的动词"，P1 客户端接入时再逐个放行）。
+const CLIENT_VERBS = new Set(['session_end'])
 const SESSION_END_CONTEXTS = new Set(['after_death', 'after_clear', 'mid_combat', 'idle'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_EVENTS = 10
@@ -25,7 +27,8 @@ export async function POST(request) {
 
   let raw = ''
   try { raw = await request.text() } catch { raw = '' }
-  if (!raw || raw.length > MAX_BODY) {
+  // KP0-R S5：按字节算尺寸（中文/多字节下 length 会低估近 3 倍）
+  if (!raw || Buffer.byteLength(raw, 'utf8') > MAX_BODY) {
     return NextResponse.json({ error: '请求体缺失或超限' }, { status: 400 })
   }
   let payload
@@ -43,7 +46,9 @@ export async function POST(request) {
     rows.push({
       player_id: auth.user.id, // 身份只信 token
       run_id: typeof ev.runId === 'string' && UUID_RE.test(ev.runId) ? ev.runId : null,
-      level_seq: Number.isFinite(ev.levelSeq) ? Math.floor(ev.levelSeq) : null,
+      // KP0-R S5：levelSeq 钳 1..LEVEL_COUNT（域外脏值置 null，不落库）
+      level_seq: Number.isFinite(ev.levelSeq) && ev.levelSeq >= 1 && ev.levelSeq <= KALEIDO.LEVEL_COUNT
+        ? Math.floor(ev.levelSeq) : null,
       verb: ev.verb,
       payload: p,
     })

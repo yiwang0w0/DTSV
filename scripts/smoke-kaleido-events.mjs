@@ -1,26 +1,40 @@
 // KALEIDO 传感层离线 smoke：验 buildActionEvent / buildDeathEvent / emitPlayerEvents 消毒逻辑（无 DB）。
 // 跑：node scripts/smoke-kaleido-events.mjs
-import { ACTION_VERB, emitPlayerEvents, buildActionEvent, buildDeathEvent } from '../src/lib/server/kaleido/events.js'
+import { ACTION_VERB, TURN_ACTIONS, kaleidoLevelSeq, emitPlayerEvents, buildActionEvent, buildDeathEvent } from '../src/lib/server/kaleido/events.js'
 
 let pass = 0, fail = 0
 function ok(cond, msg) { if (cond) { pass++ } else { fail++; console.error('  ✗', msg) } }
 
-// ── 动词映射 ──
+// ── 动词映射（KP0-R S3 后形态）──
 ok(ACTION_VERB.search === 'search', 'search→search')
 ok(ACTION_VERB.attackNpc === 'attack', 'attackNpc→attack')
-ok(ACTION_VERB.craftItem === 'craft_attempt', 'craftItem→craft_attempt')
+ok(ACTION_VERB.craftItem === undefined, 'craftItem 不在边界映射（in-handler 发 craft_attempt）')
 ok(ACTION_VERB.useItem === 'item_use', 'useItem→item_use')
 ok(ACTION_VERB.advanceChamber === 'move', 'advanceChamber→move')
+ok(ACTION_VERB.emergencyRetreat === 'flee', 'emergencyRetreat→flee')
+ok(ACTION_VERB.releaseEncounter === 'npc_spare', 'releaseEncounter→npc_spare')
+// ── 消耗性动词（与发射映射解耦）──
+ok(JSON.stringify(TURN_ACTIONS) === JSON.stringify(['search','attackNpc','craftItem','useItem','move','advanceChamber']),
+  'TURN_ACTIONS = 02 §2.2 六动词（craftItem 计回合；flee/spare 不计）')
 
-// ── buildActionEvent（吃 gamevars，路由边界调用）──
+// ── kaleidoLevelSeq：物理关口径（缺陷B）──
+ok(kaleidoLevelSeq({ chamberIndex: 0 }) === 1, 'chamberIndex 0 → 物理关 1')
+ok(kaleidoLevelSeq({ chamberIndex: 4 }) === 5, 'chamberIndex 4 → 物理关 5')
+ok(kaleidoLevelSeq({}) === null && kaleidoLevelSeq(null) === null, '无 chamberIndex → null')
+
+// ── buildActionEvent（吃 gamevars，路由边界调用；level_seq 取物理关 chamberIndex+1，非 currentSeq）──
 const gamevars = {
-  kaleido: { runId: 'run-abc', currentSeq: 3 },
-  players: { 'u1': { turnCount: 7, hp: 42, alive: true } },
+  // 关键回归（缺陷B）：clearedSeq=1/currentSeq=2 但物理仍在第 1 关（chamberIndex=0）→ 事件应标 1
+  kaleido: { runId: 'run-abc', currentSeq: 2, clearedSeq: 1 },
+  players: { 'u1': { chamberIndex: 0, turnCount: 7, hp: 42, alive: true } },
 }
 const e1 = buildActionEvent('u1', gamevars, 'search')
 ok(e1 && e1.verb === 'search', 'buildActionEvent verb')
-ok(e1.run_id === 'run-abc' && e1.level_seq === 3, 'buildActionEvent run 关联从 gamevars.kaleido')
+ok(e1.run_id === 'run-abc', 'buildActionEvent run_id 从 gamevars.kaleido')
+ok(e1.level_seq === 1, '清关后滞留原关：level_seq=物理关 1（非 currentSeq 2·缺陷B 回归）')
 ok(e1.payload.turnCount === 7 && e1.payload.hp === 42, 'buildActionEvent payload 摘要')
+ok(e1.payload.action === 'search', 'payload.action 携带原始动作名（S3 消歧）')
+ok(buildActionEvent('u1', gamevars, 'emergencyRetreat')?.verb === 'flee', 'flee 事件可构造')
 ok(buildActionEvent('u1', gamevars, 'joinRoom') === null, '未映射动作→null（不发）')
 ok(buildActionEvent(null, gamevars, 'search') === null, '无 userId→null')
 const e2 = buildActionEvent('u1', {}, 'attackNpc')

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { executeGameAction, advanceKaleidoProgress, withRetry, VersionConflictError } from '@/lib/server/gameActions'
 import { createServerSupabase, getRequestUser } from '@/lib/serverSupabase'
 import { isKaleidoRoom } from '@/lib/roomState'
-import { emitPlayerEvents, buildActionEvent } from '@/lib/server/kaleido/events'
+import { emitPlayerEvents, buildActionEvent, kaleidoLevelSeq } from '@/lib/server/kaleido/events'
 
 export async function POST(request) {
   const payload = await request.json()
@@ -33,12 +33,28 @@ export async function POST(request) {
     )
     // KALEIDO（路由边界·仅 kaleido 局，多人局零行为变化）：
     //   ① 推进：turnCount+1 → exit_condition 判定 → 过关/收敛（吞错，失败返回原 room）；
-    //   ② 传感层发射：已映射动词 → player_events（发射在推进后，事件携带最新 turnCount/currentSeq）。
+    //   ② 传感层发射：已映射动词 → player_events（发射在推进后，事件携带最新 turnCount/currentSeq）；
+    //      fight_start = 动作前后 encounter null→有 的边界 diff（KP0-R S3；before 取预取 roomData，
+    //      重试路径 before 可能略旧——单人局并发罕见，遥测级可接受）。
     //   sweep/branches 借道属服务端内部、绝不经路由 → 天然满足「只真实动作」。
     if (isKaleidoRoom(room)) {
+      const beforeMe = roomData?.gamevars?.players?.[auth.user.id] || null
       room = await advanceKaleidoProgress(supabase, room, auth.user, payload.action)
+      const rows = []
       const ev = buildActionEvent(auth.user.id, room?.gamevars, payload.action)
-      if (ev) emitPlayerEvents(supabase, [ev]).catch(() => {})
+      if (ev) rows.push(ev)
+      const afterMe = room?.gamevars?.players?.[auth.user.id] || null
+      if (!beforeMe?.encounter && afterMe?.encounter) {
+        const kal = room?.gamevars?.kaleido || {}
+        rows.push({
+          player_id: auth.user.id,
+          run_id: kal.runId ?? null,
+          level_seq: kaleidoLevelSeq(afterMe), // 物理关（缺陷B），与 level_clear 口径合一
+          verb: 'fight_start',
+          payload: { action: payload.action },
+        })
+      }
+      if (rows.length > 0) await emitPlayerEvents(supabase, rows) // KP0-R S4：await，防 Vercel 冻结丢事件
     }
     return NextResponse.json({ room })
   } catch (error) {

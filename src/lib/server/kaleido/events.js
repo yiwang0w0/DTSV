@@ -8,16 +8,31 @@
 // 纯模块（无 @/ 别名、无 DB 依赖的顶层 import）：buildActionEvent/sanitizePayload 可被
 //   原生 Node ESM 直接 smoke（scripts/smoke-kaleido-events.mjs）。emitPlayerEvents 只在传入 client 时触库。
 
-// action 名（executeGameAction payload.action / 内部动作名）→ 规格动词（00-spec §5.6 / 02 §2.4）
+// action 名（executeGameAction payload.action）→ 规格动词（00-spec §5.6 / 02 §2.4）。
+// 路由边界据此发射。不在此表的服务端动词（KP0-R S3）：
+//   craft_attempt —— 在 craftItemRecipe 处理器内发（要携带 success_rate/结果，边界拿不到）；
+//   npc_overkill —— 在 resolveNpcAttackAction 击杀分支内发（要 damage vs 剩余HP，边界拿不到）；
+//   fight_start —— 路由边界对比动作前后 encounter（null→有 = 遭遇建立）内联发。
 export const ACTION_VERB = {
   search: 'search',
   attackNpc: 'attack',
-  craftItem: 'craft_attempt',
   useItem: 'item_use',
   move: 'move',
   advanceChamber: 'move',
-  // flee(emergencyRetreat/normalRetreat) / npc_spare / npc_overkill / fight_start：
-  //   语义需结算点细节，P0 先接主动词；后续在各结算点显式发（携 payload.kind 区分）。
+  emergencyRetreat: 'flee',        // flee（DTSV 无 normalRetreat 动作，flee=紧急撤退）
+  releaseEncounter: 'npc_spare',   // 放走遭遇 NPC = spare
+}
+
+// 消耗性动词（02 §2.2 回合模型：每动作 turnCount+1）。与 ACTION_VERB 解耦：
+//   craftItem 计回合但不在边界发射（in-handler 发）；flee/spare 发射但不计回合。
+export const TURN_ACTIONS = ['search', 'attackNpc', 'craftItem', 'useItem', 'move', 'advanceChamber']
+
+// 事件 level_seq 归因的**唯一口径**（KP0-R 缺陷B）：物理关 = player.chamberIndex + 1。
+//   不用 gamevars.kaleido.currentSeq——advance 过关后 currentSeq 已指向下一关，会把「清关那记动作」
+//   及「清关后滞留原关的动作」错标到还没进入的下一关；chamberIndex 只由 movePlayer 推进，是真实物理关。
+//   与 advanceKaleidoProgress 的 level_clear（用物理 seq=chamberIndex+1）口径合一。
+export function kaleidoLevelSeq(player) {
+  return Number.isFinite(player?.chamberIndex) ? player.chamberIndex + 1 : null
 }
 
 const VERB_MAX = 40          // verb 长度上限（防脏动词）
@@ -78,9 +93,10 @@ export function buildActionEvent(userId, gamevars, action) {
   return {
     player_id: userId,
     run_id: kal.runId ?? null,
-    level_seq: Number.isFinite(kal.currentSeq) ? kal.currentSeq : null,
+    level_seq: kaleidoLevelSeq(player), // 物理关口径（缺陷B），非 kal.currentSeq
     verb,
     payload: {
+      action, // 原始动作名（flee 的 kind / move vs advanceChamber 消歧）
       turnCount: player.turnCount ?? null,
       hp: player.hp ?? null,
       alive: player.alive ?? null,
