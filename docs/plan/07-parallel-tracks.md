@@ -1,4 +1,6 @@
-# 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-04）
+# 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-06）
+
+> 🚨 **主线切换（2026-07-06）**:核心主线 = **KALEIDO**(单人 run·AI 生成内容)。三轨当前任务以 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) 派单为准(⚙️ KP0-S 服务端核心 / 🎨 KP0-C 单人壳 UI / 🔒 KP0-X 数据层安全);本文件 §2 的旧待办中——🎨 移动化+色板收敛、🔒 phase-52 RLS 扫描**继续有效**,⚙️ P5 payload 瘦身**暂停**,🧭 的 04/05/06 子系统**冻结**。§0 红线、§1 推送协议、§3 热文件矩阵、§4 号段全部照旧;KALEIDO SQL 用独立命名空间 `scripts/kaleido-*.sql`(不占号段)。gameActions.js/roomState.js/constants.js 的 KP0-S 改动已获中控预批。
 
 > 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
 > 本文件是 4 轨**共享契约**：各轨范围、文件归属、待办、完成标准，以及**避免互相踩踏**的协作与推送协议。
