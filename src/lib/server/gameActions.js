@@ -2411,10 +2411,14 @@ export async function startKaleidoRun(client, user) {
 
   // 建 run 冷却（🔒 KP0-X #2 finding：防 abandon+create churn 刷 runs 表）。
   //   放在幂等返回之后 → 重进现有 run 不受影响；只限「开新 run」频率。
+  //   只看 room_id 非空的「真实开过的 run」（🔒 minor 修正）：半成品（建败被上方弃置·
+  //   room_id null）不计冷却 → 建败重试不被挡；蓄意 churn 的弃置 run 必有 room_id → 仍被封住。
+  //   （不能按 status 排除 abandoned——churn 产物恰是 abandoned 行，那会把防护整个打开。）
   const { data: lastRun } = await client
     .from('runs')
     .select('started_at')
     .eq('player_id', user.id)
+    .not('room_id', 'is', null)
     .order('started_at', { ascending: false })
     .limit(1)
     .maybeSingle()
