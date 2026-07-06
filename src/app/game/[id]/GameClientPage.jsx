@@ -9,7 +9,7 @@ import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
 import { calcEquippedStats, RARITY_META } from '@/lib/equipmentEngine'
-import { normalizeGamevars } from '@/lib/roomState'
+import { normalizeGamevars, isKaleidoRoom } from '@/lib/roomState'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
@@ -257,8 +257,14 @@ export default function GameClientPage() {
     loadInitial()
   }, [loadInitial])
 
+  // KP0-C ②：kaleido 单人局判定（gametype===30 · isKaleidoRoom）。
+  const isKaleido = isKaleidoRoom(room)
+
   useEffect(() => {
     if (!user) return undefined
+    // kaleido 单人局不建 realtime 订阅（无多人同步需求，动作后用 API 返回值刷新）。
+    //   多人局零回归：非 kaleido 时 isKaleido 恒 false ⇒ deps 稳定 ⇒ 本 effect 仍仅挂载时运行一次。
+    if (isKaleido) return undefined
     const channel = supabase
       .channel(`room-${roomId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, payload => {
@@ -281,7 +287,7 @@ export default function GameClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [loadTradeableNpcs, roomId, user])
+  }, [loadTradeableNpcs, roomId, user, isKaleido])
 
   // Phase 30 BR：本地秒级时钟 tick（仅 BR 模式开，驱动大时钟倒计时 + 扇区即时着色；
   //   chamber 模式不开，避免无谓 1s 重渲染）。
