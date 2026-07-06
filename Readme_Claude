@@ -61,6 +61,11 @@
 - **[`scripts/phase-52a-server-only-rls.sql`](scripts/phase-52a-server-only-rls.sql)·已应用**：14 表开 RLS·无策略 = deny anon 读写、service_role 绕过。`br_match*`(5) / chamber_residue / cross_room_probes / economy_wipe_log / fragment_cold_cases / probe_encounter_pairs / room_items / player_expedition_opt_ins / player_notifications / seasonal_expeditions。验证 14 表 rls_enabled=true·policies=0。`contracts`/`player_contracts` 早已 RLS-on（免处理）。
 - **52b 待办**（有 anon 编辑器/客户端读·需读策略或写路由，照 phase-51 范式）：br_rooms / chamber_templates / classes / fragment_pool / player_class_runs / player_points / raid_stats / shop_catalog / shop_exchange_rates / placement 四表 + authenticated-write 档（buff_pool / equipment_series / equipment_tiers / item_pool / map_config / npc_pool）。
 
+## 最近变更（2026-07-06 / 🔒 KP0-X #1 kaleido 六表 schema 审+执行 + content_pool 写路径）
+
+- **KALEIDO 六表 schema 审+执行**（`dd17323`）：审 ⚙️ 的 [`kaleido-p0-schema.sql`](scripts/kaleido-p0-schema.sql)（runs/levels/player_events/player_profile/generation_jobs/content_pool）—— 3 视角对抗式工作流（跨玩家泄漏 / 写越权+append-only / SQL 幂等）全 clean + 逐策略手工核对，无高危。经 postgres MCP 执行、标「已应用」。实测 6 表 RLS·私有五表 owner-read+service 写·player_events append-only·content_pool 公开读·owner 隔离 service_sees=1/anon_sees=0。
+- **content_pool 写路径服务端化**（修 🎨 编辑器 4xx·中控裁决归 🔒）：`adminContent.js` CONTENT_SCHEMAS 加 content_pool；**provenance 服务端强制** `{source:'seed',anonymized:true}`（不信客户端·promoted 走 P2）；payload 尺寸上限 100KB；`validateContent` 加通用 select 枚举校验（防非法 entity_type 注入）。build(31 页)+smoke ✓。
+
 ## 最近变更（2026-07-06 / 🔒 KP0-X 公式沙箱硬化 + API 密钥规范）
 
 > KALEIDO 数据层安全第一批（KP0-X #3/#4 已上线）。#1 审 kaleido schema、#2 审 beacon/防刷 待 ⚙️ 交付触发；#5 phase-52 续推。

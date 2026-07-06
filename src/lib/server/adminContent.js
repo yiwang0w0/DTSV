@@ -13,12 +13,30 @@
  */
 import itemRecipe from '@/app/admin/_engine/schemas/itemRecipe'
 import itemTag from '@/app/admin/_engine/schemas/itemTag'
+import contentPool from '@/app/admin/_engine/schemas/contentPool'
 import { collectBridges } from '@/app/admin/_engine/refIntegrity'
 
 // 允许清单：key = 表名（客户端只能指定这些表；未知表名一律拒绝）。
 export const CONTENT_SCHEMAS = {
   [itemRecipe.table]: itemRecipe, // item_recipes (+ 桥接 item_recipe_ingredients)
   [itemTag.table]: itemTag,       // item_tags
+  [contentPool.table]: contentPool, // content_pool（KALEIDO 内容池；provenance 服务端强制 + payload 尺寸上限，见 applyServerPolicy）
+}
+
+// ── content_pool 专属服务端策略（🔒 KP0-X 裁决：不信客户端 provenance）──
+const MAX_CONTENT_PAYLOAD_BYTES = 100_000
+// 对特定表施加不可绕过的服务端策略：强制/清洗字段。返回清洗后的 draft（不改原对象）。
+function applyServerPolicy(schema, draft) {
+  if (schema?.table !== 'content_pool') return draft
+  // provenance 一律服务端强制：admin 策展 = seed·anonymized；'promoted' 走 P2 服务端晋升路径，不经本编辑器。
+  const out = { ...draft, provenance: { source: 'seed', anonymized: true } }
+  // payload 尺寸上限（防超大 JSON 写入 DoS）
+  let bytes = Infinity
+  try { bytes = JSON.stringify(out.payload ?? {}).length } catch { bytes = Infinity }
+  if (bytes > MAX_CONTENT_PAYLOAD_BYTES) {
+    throw new Error(`payload 过大（上限 ${MAX_CONTENT_PAYLOAD_BYTES} 字节）`)
+  }
+  return out
 }
 
 // 主表 payload：仅真实列(排除桥接虚拟字段 + pk + __内部字段)，按 type 强转。
@@ -52,6 +70,11 @@ export function validateContent(schema, draft) {
       if (f.min != null && n < f.min) return `「${f.label}」不能小于 ${f.min}`
       if (f.max != null && n > f.max) return `「${f.label}」不能大于 ${f.max}`
     }
+    // select：值必须在声明的 options 内（防非法枚举注入，如 content_pool.entity_type）
+    if (f.type === 'select' && v != null && v !== '' && Array.isArray(f.options)) {
+      const allowed = f.options.map((o) => String(Array.isArray(o) ? o[0] : o))
+      if (!allowed.includes(String(v))) return `「${f.label}」取值非法`
+    }
     if (f.type === 'ingredient-list' && typeof f.validate === 'function') {
       const e = f.validate(Array.isArray(v) ? v : [])
       if (e) return e
@@ -66,6 +89,7 @@ export function validateContent(schema, draft) {
 
 /** 主表 insert/update + 每个桥接 delete(parentKey=id) → 批量 insert（与原 useContentCrud.save 逐值等价）。 */
 export async function saveContent(client, schema, draft) {
+  draft = applyServerPolicy(schema, draft) // content_pool: 强制 provenance + 限制 payload 尺寸（不信客户端）
   const pk = schema.pk || 'id'
   const bridges = collectBridges(schema)
   const isNew = draft.__isNew || draft[pk] == null
