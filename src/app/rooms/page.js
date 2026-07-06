@@ -8,6 +8,7 @@ import { useAuth } from '@/app/_shell/RootShell'
 import { Spinner } from '../admin/_shared/ui'
 import { POLLUTION_TIER_META } from '@/lib/constants'
 import { postGameApi } from '@/lib/gameApi'
+import { KaleidoEntryCard } from '@/app/game/[id]/kaleido/kaleidoShell'
 
 const ENDING_META = {
   collapse: { label: '崩解', icon: '💥', color: '#f85149', desc: '虚拟空间坠入视界线' },
@@ -43,6 +44,8 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState(null)
+  const [startingKaleido, setStartingKaleido] = useState(false)
+  const [kaleidoError, setKaleidoError] = useState(null)
   const loadingRef = useRef(false)
 
   useEffect(() => {
@@ -63,6 +66,27 @@ export default function RoomsPage() {
     }
     load()
   }, [])
+
+  async function handleStartKaleido() {
+    setStartingKaleido(true)
+    setKaleidoError(null)
+    try {
+      // KP0-C ①：调 ⚙️ 的 startKaleidoRun 建单人 run（gametype=KALEIDO_GAME_TYPE=30）→ 跳对局页。
+      // TODO(KP0-C↔KP0-S 联调)：端点路径 /api/kaleido/start 待与 ⚙️ 对齐（startKaleidoRun 落地后确认）。
+      const { room, roomId } = await postGameApi('/api/kaleido/start', {})
+      const id = room?.id ?? roomId
+      if (id) {
+        router.push(`/game/${id}`)
+      } else {
+        setKaleidoError('未能创建单人 run')
+        setStartingKaleido(false)
+      }
+    } catch (err) {
+      // KP0-S 服务端未落地前的优雅态（联调后此分支自然不再触发）。
+      setKaleidoError('单人 run 服务端建设中（KP0-S），联调后开放')
+      setStartingKaleido(false)
+    }
+  }
 
   async function handleStartNextRound() {
     setStarting(true)
@@ -103,6 +127,11 @@ export default function RoomsPage() {
         <p style={{ margin: '6px 0 0', fontSize: 13, color: '#8b949e' }}>
           虚拟空间内的所有探索尝试。每一次进入都是一局对局，绝大部分以撤离失败告终。
         </p>
+      </div>
+
+      {/* KP0-C ① · 单人出勤（KALEIDO 主线入口 · 置顶主 CTA）*/}
+      <div style={{ marginBottom: 24 }}>
+        <KaleidoEntryCard onStart={handleStartKaleido} starting={startingKaleido} error={kaleidoError} />
       </div>
 
       {/* 没有进行中的对局 — 显示启动 CTA */}

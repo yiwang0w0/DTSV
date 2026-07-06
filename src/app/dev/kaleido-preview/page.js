@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { T } from '@/app/game/[id]/gameUi'
 import {
+  KaleidoEntryCard,
   KaleidoLevelHeader,
   KaleidoRuleCard,
   KaleidoLevelClearBanner,
@@ -14,13 +15,24 @@ import {
 
 export default function KaleidoPreviewPage() {
   const [overlay, setOverlay] = useState(null) // 'banner' | 'cleared' | 'dead' | null
+  const [entryStarting, setEntryStarting] = useState(false)
+  const [entryError, setEntryError] = useState(null)
 
   return (
     <div style={{ background: T.bg0, color: T.text, minHeight: '100dvh', padding: 16, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480, margin: '0 auto' }}>
       <div style={{ fontSize: 12, color: T.dim }}>【dev】KALEIDO 单人壳预览 · mock 数据</div>
 
+      {/* ① 单人出勤入口卡 */}
+      <Section title="① 单人出勤卡 KaleidoEntryCard（/rooms 置顶）">
+        <KaleidoEntryCard
+          onStart={() => { setEntryError(null); setEntryStarting(true); setTimeout(() => { setEntryStarting(false); setEntryError('单人 run 服务端建设中（KP0-S），联调后开放') }, 700) }}
+          starting={entryStarting}
+          error={entryError}
+        />
+      </Section>
+
       {/* 关卡头 */}
-      <Section title="① 关卡头 KaleidoLevelHeader">
+      <Section title="② 关卡头 KaleidoLevelHeader">
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
           <KaleidoLevelHeader seq={3} levelCount={5} turnCount={12} exitCondition={{ type: 'boss_kill', params: { name: '锈蚀主锚' } }} />
         </div>
@@ -31,7 +43,7 @@ export default function KaleidoPreviewPage() {
       </Section>
 
       {/* 本关规则卡：填充态 + 空态 */}
-      <Section title="② 本关规则卡 KaleidoRuleCard（R6）">
+      <Section title="③ 本关规则卡 KaleidoRuleCard（R6）">
         <KaleidoRuleCard
           combatMode={{ template_ref: 'stance_duel', params: {} }}
           envRules={[{ rule_key: 'pollution_accel', value: 1.5 }, { rule_key: 'search_bonus', value: -0.2 }]}
@@ -43,7 +55,7 @@ export default function KaleidoPreviewPage() {
       </Section>
 
       {/* 覆盖层触发 */}
-      <Section title="③④ 覆盖层（横幅 / 收敛页）">
+      <Section title="④ 覆盖层（横幅 / 收敛页）">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <PreviewBtn onClick={() => setOverlay('banner')}>关间横幅</PreviewBtn>
           <PreviewBtn onClick={() => setOverlay('cleared')}>收敛 · 通关</PreviewBtn>

@@ -64,6 +64,53 @@ export function describeFormulaOverride(f) {
   return { label, formula: f.formula || '—' }
 }
 
+// ── 大厅「单人出勤」入口卡（KP0-C ①）──────────────────────────────────────
+//   纯展示：onStart/starting/error/disabled 由 /rooms 注入（调 startKaleidoRun）。
+//   KALEIDO 是新核心主线 → 视觉上做成大厅的主 CTA（紫色系与多人绿色 CTA 区分）。
+export function KaleidoEntryCard({ onStart, starting = false, error, disabled = false }) {
+  return (
+    <div
+      style={{
+        background: `linear-gradient(135deg, ${T.purple}14 0%, ${T.bg2} 55%)`,
+        border: `1px solid ${T.purple}55`,
+        borderLeft: `3px solid ${T.purple}`,
+        borderRadius: 14,
+        padding: '18px 20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 18 }}>🔮</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: T.text }}>单人出勤 · 万华镜</span>
+          <span style={{ padding: '1px 8px', borderRadius: 10, fontSize: 9, fontWeight: 700, background: `${T.purple}22`, color: T.purple, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            NEW
+          </span>
+        </div>
+        <div style={{ fontSize: 12, color: T.dim, lineHeight: 1.5 }}>
+          回合制 · 5 关一局 · 每次都是全新生成的单人 run。独自探索，通关或阵亡即收敛。
+        </div>
+        {error && <div style={{ marginTop: 8, fontSize: 11, color: T.yellow }}>⚠ {error}</div>}
+      </div>
+      <Btn
+        variant="primary"
+        size="lg"
+        onClick={onStart}
+        disabled={disabled}
+        loading={starting}
+        loadingText="生成中…"
+        sx={{ background: T.purple, color: '#fff', whiteSpace: 'nowrap' }}
+      >
+        ▶ 开始单人 run
+      </Btn>
+    </div>
+  )
+}
+
 // ── 关卡头（顶部 · 第 N/5 关 · 回合数 · 目标）──────────────────────────────
 export function KaleidoLevelHeader({ seq = 1, levelCount = 5, turnCount = 0, exitCondition }) {
   const pct = Math.max(0, Math.min(100, (seq / levelCount) * 100))
