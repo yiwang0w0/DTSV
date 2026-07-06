@@ -53,6 +53,13 @@
 - **旧线处置**:多人搜打撤/BR/探针维护态;装备金字塔冻结;roadmap 04/05/06 冻结;⚙️P5 暂停;🎨移动化+色板、🔒phase-52 照旧。00-roadmap / 07-parallel-tracks 已挂主线切换横幅。
 - 本次未改动任何游戏代码(纯规划轨)。
 
+## 最近变更（2026-07-06 / 🔒 KP0-X 公式沙箱硬化 + API 密钥规范）
+
+> KALEIDO 数据层安全第一批（KP0-X #3/#4 已上线）。#1 审 kaleido schema、#2 审 beacon/防刷 待 ⚙️ 交付触发；#5 phase-52 续推。
+
+- **evalFormula 白名单硬化**（`da7758c`·公式沙箱 = P2「LLM 产物语义闸」地基）：旧黑名单只禁符号，未拦 `.` 属性访问 / 裸全局标识符 / 无引号造串 → 对不可信输入(未来 LLM 产物)可 `process.exit(1)`(DoS) 或 `Function(String.fromCharCode(...))()`(RCE)。改白名单：新 [`src/lib/formulaSandbox.js`](src/lib/formulaSandbox.js)（零 import 纯函数）字符白名单 + 剔数字后标识符必须 ∈ {注入变量 ∪ 安全函数 ∪ Math 成员}，拒 process/Function/constructor/String/globalThis/new/require/this/__proto__ 等；导出 `isFormulaSafe` 静态校验（P2 写库前语义闸）；`gameEngine.js` 改 re-export（既有导入方零改）。[`scripts/smoke-evalformula-adversarial.mjs`](scripts/smoke-evalformula-adversarial.mjs) 65 断言全绿（23 逃逸用例→eval 0+unsafe / 真实 DB 公式逐值不变 / hex·科学计数不误杀）。
+- **ANTHROPIC_API_KEY 规范**（`.env.example` 占位 + 约定，P2 用）：仅服务端（`src/lib/server/generation/`）· 禁 `NEXT_PUBLIC_` 前缀 · 禁进任何客户端组件/日志/API 响应体 · 生产经 Vercel env 注入，绝不提交真值。
+
 ## 最近变更（2026-07-05 / 🔒 phase-51 内容表 RLS 收紧 + 写路径服务端化）
 
 > 安全性轨第一棒。审计（postgres MCP 实测）修正「全库 RLS 全关」旧认知为**混合态**（55 表 33 关 22 开）；对 7 张 anon / 任意登录用户可写的内容表收紧，写路径同批服务端化，零「能读不能写」窗口。
