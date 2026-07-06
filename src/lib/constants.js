@@ -36,8 +36,10 @@ export const BR_GAME_TYPE = 20
 export const KALEIDO_GAME_TYPE = 30
 // KALEIDO 单人 run 主线配置（活跃主线，ENABLED:true，非预埋休眠开关）。见 docs/plan/kaleido/02 §2.1。
 export const KALEIDO = {
-  ENABLED: true,      // 主线开关：true = 单人 run 入口/守卫生效
-  LEVEL_COUNT: 5,     // 一次 run 的关卡数（5 关 × 8-12min，规格 §4；采样参数，可后调）
+  ENABLED: true,          // 主线开关：true = 单人 run 入口/守卫生效
+  LEVEL_COUNT: 5,         // 一次 run 的关卡数（5 关 × 8-12min，规格 §4；采样参数，可后调）
+  RUN_COOLDOWN_SEC: 30,   // 开新 run 最小间隔（🔒 KP0-X #2：防 abandon+create churn 刷 runs 表）
+  BEACON_BUDGET_PER_MIN: 120, // beacon 每玩家每分钟事件预算（🔒 KP0-X #2：防写放大，超阈静默丢）
 }
 
 // ── BR 大时钟默认配置（Phase 31 re-home 进 /game 路径 · single source of truth） ──

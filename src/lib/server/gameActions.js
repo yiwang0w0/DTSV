@@ -2409,6 +2409,20 @@ export async function startKaleidoRun(client, user) {
       .eq('run_id', existing.run_id)
   }
 
+  // 建 run 冷却（🔒 KP0-X #2 finding：防 abandon+create churn 刷 runs 表）。
+  //   放在幂等返回之后 → 重进现有 run 不受影响；只限「开新 run」频率。
+  const { data: lastRun } = await client
+    .from('runs')
+    .select('started_at')
+    .eq('player_id', user.id)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (lastRun?.started_at
+      && Date.now() - new Date(lastRun.started_at).getTime() < KALEIDO.RUN_COOLDOWN_SEC * 1000) {
+    throw new Error('操作过于频繁，请稍后再开新 run')
+  }
+
   const seed = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const { data: run, error: runErr } = await client
     .from('runs')
