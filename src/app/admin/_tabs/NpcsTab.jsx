@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal, NPC_LEVEL_META, RARITY_META, SECTION_TITLE, HINT } from '../_shared/ui'
 import { ENTITY_TYPE_META } from '@/lib/constants'
 
@@ -93,22 +94,17 @@ export default function NpcsTab({ npcs, onRefresh, toast }) {
     payload.item_slots = (Array.isArray(payload.item_slots) ? payload.item_slots : [])
       .map(r => ({ item: (r.item || '').trim(), qty: Math.max(1, Number(r.qty) || 1) }))
       .filter(r => r.item)
-    if (editNpc.id) {
-      const id = payload.id; delete payload.id
-      const { error } = await supabase.from('npc_pool').update(payload).eq('id', id)
-      if (error) { toast('更新失败', 'error'); return }
-      toast('实体已更新')
-    } else {
-      delete payload.id
-      const { error } = await supabase.from('npc_pool').insert(payload)
-      if (error) { toast('添加失败', 'error'); return }
-      toast('实体已添加')
-    }
+    // 写路径服务端化（service_role · phase-53/52b）：npc_pool 保存走 /api/admin/npc-pool（列白名单；上面的槽位规整保留在编辑器侧）。
+    try {
+      await postGameApi('/api/admin/npc-pool', { op: 'save', id: editNpc.id || null, npc: payload })
+    } catch (e) { toast(editNpc.id ? '更新失败' : '添加失败', 'error'); return }
+    toast(editNpc.id ? '实体已更新' : '实体已添加')
     setModal(false); setEditNpc(null); onRefresh('npcs')
   }
   async function del(id) {
-    const { error } = await supabase.from('npc_pool').delete().eq('id', id)
-    if (error) { toast('删除失败', 'error'); return }
+    try {
+      await postGameApi('/api/admin/npc-pool', { op: 'delete', id })
+    } catch (e) { toast('删除失败', 'error'); return }
     toast('实体已删除'); setConfirmDel(null); onRefresh('npcs')
   }
   function toggleMap(arr, id) { return arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id] }

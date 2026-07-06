@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, FormulaPreview } from '../_shared/ui'
 
 export const BUFF_TYPE_META = {
@@ -22,13 +22,11 @@ export default function RulesBuffModal({ open, onClose, editBuff, onSave, toast 
 
   async function save() {
     if (!form.name.trim()) { toast('请填写 Buff 名称', 'error'); return }
-    const payload = { ...form }
-    if (form.id) {
-      const id = payload.id; delete payload.id; delete payload.created_at
-      await supabase.from('buff_pool').update(payload).eq('id', id)
-    } else {
-      delete payload.id; delete payload.created_at
-      await supabase.from('buff_pool').insert(payload)
+    // 写路径服务端化（service_role · phase-53/52b）：buff_pool 保存走 /api/admin/buff-pool。
+    try {
+      await postGameApi('/api/admin/buff-pool', { op: 'save', id: form.id || null, buff: form })
+    } catch (e) {
+      toast('保存失败', 'error'); return
     }
     toast(form.id ? 'Buff 已更新' : 'Buff 已添加')
     onSave(); onClose()

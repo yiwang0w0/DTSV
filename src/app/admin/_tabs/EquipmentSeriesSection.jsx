@@ -171,22 +171,20 @@ export default function EquipmentSeriesSection({ toast }) {
     await loadSeriesTree(s.id)
   }
 
+  // 写路径服务端化（service_role · phase-53/52b）：series/tier 增删改走 /api/admin/equipment（列白名单）。
   async function saveSeries() {
     if (!editSeries.name.trim()) { toast('请填写系列名称', 'error'); return }
-    const payload = { ...editSeries }
-    if (editSeries.id) {
-      const id = payload.id; delete payload.id; delete payload.created_at
-      await supabase.from('equipment_series').update(payload).eq('id', id)
-    } else {
-      delete payload.id; delete payload.created_at
-      await supabase.from('equipment_series').insert(payload)
-    }
+    try {
+      await postGameApi('/api/admin/equipment', { target: 'series', op: 'save', id: editSeries.id || null, row: editSeries })
+    } catch (err) { toast(err.message || '保存失败', 'error'); return }
     toast(editSeries.id ? '系列已更新' : '系列已添加')
     setSeriesDrawer(false); setEditSeries(null); loadAll()
   }
 
   async function deleteSeries(id) {
-    await supabase.from('equipment_series').delete().eq('id', id)
+    try {
+      await postGameApi('/api/admin/equipment', { target: 'series', op: 'delete', id })
+    } catch (err) { toast(err.message || '删除失败', 'error'); return }
     toast('系列已删除')
     if (selectedSeries?.id === id) { setSelectedSeries(null); setSeriesTree(null); setTiers([]) }
     loadAll()
@@ -196,19 +194,17 @@ export default function EquipmentSeriesSection({ toast }) {
     if (!editTier.name.trim()) { toast('请填写装备名称', 'error'); return }
     const payload = { ...editTier, series_id: selectedSeries.id }
     if (!payload.variant?.trim()) payload.variant = null
-    if (editTier.id) {
-      const id = payload.id; delete payload.id; delete payload.created_at
-      await supabase.from('equipment_tiers').update(payload).eq('id', id)
-    } else {
-      delete payload.id; delete payload.created_at
-      await supabase.from('equipment_tiers').insert(payload)
-    }
+    try {
+      await postGameApi('/api/admin/equipment', { target: 'tier', op: 'save', id: editTier.id || null, row: payload })
+    } catch (err) { toast(err.message || '保存失败', 'error'); return }
     toast(editTier.id ? '装备已更新' : '装备已添加')
     setTierDrawer(false); setEditTier(null); loadSeriesTree(selectedSeries.id)
   }
 
   async function deleteTier(id) {
-    await supabase.from('equipment_tiers').delete().eq('id', id)
+    try {
+      await postGameApi('/api/admin/equipment', { target: 'tier', op: 'delete', id })
+    } catch (err) { toast(err.message || '删除失败', 'error'); return }
     toast('装备已删除')
     if (selectedTier?.id === id) setSelectedTier(null)
     loadSeriesTree(selectedSeries.id)

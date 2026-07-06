@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, SegTabs, useUrlSection } from '../_shared/ui'
 import RuleRow from './RulesRuleRow'
 import RulesBuffModal, { BUFF_TYPE_META } from './RulesBuffModal'
@@ -36,7 +37,12 @@ export default function RulesTab({ toast }) {
   function updateRuleLocal(id, val) { setRules(prev => prev.map(r => r.id === id ? { ...r, value: val } : r)) }
 
   async function deleteBuffConfirm(id) {
-    await supabase.from('buff_pool').delete().eq('id', id)
+    // 写路径服务端化（service_role · phase-53/52b）：buff_pool 删除走 /api/admin/buff-pool。
+    try {
+      await postGameApi('/api/admin/buff-pool', { op: 'delete', id })
+    } catch (e) {
+      toast('删除失败', 'error'); return
+    }
     toast('Buff 已删除'); setConfirmDeleteBuff(null); loadAll()
   }
 

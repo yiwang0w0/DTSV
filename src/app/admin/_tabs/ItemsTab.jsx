@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal, ITEM_KIND_META, SECTION_TITLE as SHARED_SECTION_TITLE, HINT as SHARED_HINT } from '../_shared/ui'
 
 /* ── 子类型中文映射（远星函馆） ── */
@@ -99,25 +100,19 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
     })
     setModal(true)
   }
+  // 写路径服务端化（service_role · phase-53/52b）：item_pool 增删改走 /api/admin/item-pool（列白名单）。
   async function save() {
     if (!editItem.name.trim()) { toast('请填写道具名称', 'error'); return }
-    const payload = { ...editItem }; delete payload.created_at
-    if (editItem.id) {
-      const id = payload.id; delete payload.id
-      const { error } = await supabase.from('item_pool').update(payload).eq('id', id)
-      if (error) { toast('更新失败', 'error'); return }
-      toast('道具已更新')
-    } else {
-      delete payload.id
-      const { error } = await supabase.from('item_pool').insert(payload)
-      if (error) { toast('添加失败', 'error'); return }
-      toast('道具已添加')
-    }
+    try {
+      await postGameApi('/api/admin/item-pool', { op: 'save', id: editItem.id || null, item: editItem })
+    } catch (e) { toast(editItem.id ? '更新失败' : '添加失败', 'error'); return }
+    toast(editItem.id ? '道具已更新' : '道具已添加')
     setModal(false); setEditItem(null); onRefresh('items')
   }
   async function del(id) {
-    const { error } = await supabase.from('item_pool').delete().eq('id', id)
-    if (error) { toast('删除失败', 'error'); return }
+    try {
+      await postGameApi('/api/admin/item-pool', { op: 'delete', id })
+    } catch (e) { toast('删除失败', 'error'); return }
     toast('道具已删除'); setConfirmDel(null); onRefresh('items')
   }
   function toggleArr(arr, id) { return arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id] }
