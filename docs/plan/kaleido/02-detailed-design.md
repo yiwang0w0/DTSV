@@ -10,7 +10,7 @@
 
 | # | 决策 | 内容 | 理由 |
 |---|---|---|---|
-| D1 | **执行底盘 = 方案一** | 复用 rooms+gamevars+`/game/[id]`,新 `gametype='kaleido'`,validnum=1 | 单人生命周期分支已存在(roomState.js:424-435),改动面最小,最快到 P1 闸门 |
+| D1 | **执行底盘 = 方案一** | 复用 rooms+gamevars+`/game/[id]`,新 gametype = **整数 30**(`KALEIDO_GAME_TYPE`,照 BR=20 范式;§2.1 勘误),validnum=1 | 单人生命周期分支已存在(roomState.js:424-435),改动面最小,最快到 P1 闸门 |
 | D2 | **双层真源** | `runs`/`levels` 表 = KALEIDO 域真源(收敛/图鉴/回放的依据);rooms 行 = 一次性执行载体(runs.room_id 引用) | 规格 R8 要求版本收敛与种子回放,gamevars 会被生命周期清洗,不能当档案 |
 | D3 | **回合模型换轨** | kaleido 局停用 wall-clock 体力,改 per-level `turnCount`(每动作 +1) | 01 §1:stamina 违反 R4/R11;污染 tick 本就按动作驱动,合规保留 |
 | D4 | **种子关存 content_pool** | 种子关= content_pool 行(entity_type='level', provenance.source='seed');levels 表只存 per-run 实例 | 回落序(ready→缓存→content_pool→种子关)天然统一成一张表的查询 |
@@ -26,7 +26,7 @@
 ```
 玩家 ⇒ /rooms「单人出勤」⇒ startKaleidoRun ─┬─ runs 行(spine, status='active')
                                             ├─ levels×5(P0/P1: 采样器装配,source='sampled|seed')
-                                            └─ rooms 行(gametype='kaleido', validnum=1, raidPath←levels)
+                                            └─ rooms 行(gametype=KALEIDO_GAME_TYPE(30), validnum=1, raidPath←levels)
         ⇓
 /game/[id](kaleido 模式:无 realtime 订阅·动作返回值刷新)
         ⇓ 每动作
@@ -43,8 +43,9 @@ level_clear ⇒ 推进 seq / 第 5 关 ⇒ run 收敛(status='cleared'|'dead')
 
 ### 2.1 单人化壳(kaleido gametype)
 
-- `src/lib/constants.js`:`GAME_TYPES` 增 `kaleido`(展示名「万华镜·单人 run」暂用,代号待 Kanata 定);`KALEIDO = { ENABLED: true, LEVEL_COUNT: 5 }` 配置块。
-- 判定 helper(roomState.js):`isKaleidoRoom(room) ⇒ room?.gametype === 'kaleido'`。**所有豁免一律走这一个谓词**,禁止散落 `gametype==='kaleido'` 字符串比较。
+- ⚠ **勘误(2026-07-06 · ⚙️侦察 + Kanata 拍板)**:`rooms.gametype` 是**整数列**(createRoom 写 `Number(payload.gametype ?? 0)` gameActions.js:2358;GAME_TYPES 全整数键,BR=20)。初稿的字符串 `'kaleido'` 经 Number() 变 NaN,不可行。**定案 = 整数常量 30,照 BR=20 范式**;本节以下按定案改写。
+- `src/lib/constants.js`:`export const KALEIDO_GAME_TYPE = 30` + `GAME_TYPES[30] = '万华镜·单人 run'`(admin 房列表零改自动显示中文名;代号待 Kanata 定);`KALEIDO = { ENABLED: true, LEVEL_COUNT: 5 }` 配置块。
+- 判定 helper(roomState.js):`isKaleidoRoom(room) ⇒ Number(room?.gametype) === KALEIDO_GAME_TYPE`。**所有豁免一律走这一个谓词**,禁止散落数字比较。
 - gametype 守卫清单(kaleido 局跳过,均为一行早退):
   | 位置 | 处置 |
   |---|---|
@@ -57,7 +58,7 @@ level_clear ⇒ 推进 seq / 第 5 关 ⇒ run 收敛(status='cleared'|'dead')
 
 ### 2.2 回合模型(R4/R11 合规)
 
-- player state 增 `turnCount:number`(createPlayerState 默认 0,normalizeGamevars 补默认——旧局兼容照旧模式)。
+- player state 增 `turnCount:number`(createPlayerState 默认 0;**勘误**:normalizeGamevars 对 players 原样透传、不逐玩家改写,旧局兼容改在**递增处 `?? 0` 兜底**——⚙️实施决定,中控已批)。
 - kaleido 局每个「消耗性动词」(search/attack/craft/item_use/move)在 persistResolution 前 `turnCount+1`;纯 UI 读不计。
 - `exit_condition.survive_turns` 读 turnCount;`fight` 内回合数复用现有交换结构(一次 attack = 攻+反击,已是离散回合)。
 - 污染:保留按动作 tick(本就非计时);Ω 倒计时(omegaCountdown 按动作递减)语义合规,P1 由关数据决定是否启用。
@@ -179,7 +180,7 @@ CREATE TABLE IF NOT EXISTS content_pool (
 
 ### 2.6 新动作(gameActions 分发器注册,🧭主对话热文件 —— 由 ⚙️游戏性实施,改前打招呼即可,本次中控已预批)
 
-- `startKaleidoRun()`:活跃 run 幂等返回(单人同时至多 1 个 active run);建 runs 行(seed=uuid)→ 采样 5 关(P0 极简采样:chamber_templates 加权抽 5 + npc/item 按池;P1 换正式采样器)→ 建 rooms 行(gametype='kaleido')→ 返回 roomId/runId。
+- `startKaleidoRun()`:活跃 run 幂等返回(单人同时至多 1 个 active run);建 runs 行(seed=uuid)→ 采样 5 关(P0 极简采样:chamber_templates 加权抽 5 + npc/item 按池;P1 换正式采样器)→ 建 rooms 行(gametype=KALEIDO_GAME_TYPE)→ 返回 roomId/runId。
 - `level_clear` 判定:persistResolution 后检查当前 level 的 exit_condition(P0 支持 `boss_kill` / `survive_turns` / `collect` 三型);达成 → levels.status='played'、runs.current_seq+1、发 level_clear 事件、日志横幅;seq>5 → 收敛:runs.status='cleared'、converged_at、rooms 收尾(gamestate=2)。死亡 → status='dead' 同样收敛(R9:内容不减损)。
 - `abandonRun()`:显式放弃(status='abandoned')。注意:**关闭页面 ≠ 放弃**(R11,回来接着打)。
 

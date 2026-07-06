@@ -27,7 +27,7 @@
 - **无最少人数检查**:`roomState.js:406-409` validnum>0 即启动;`:424-435` validnum===1 的死亡/胜利分支**已存在**。单人房今天就能跑通。
 - 多人机制在单人局的处置:PvP(attackPlayer)=自然不可达;corpses=无害;**探针(tryEncounterProbe `gameActions.js:2992-3008/3141-3167`)=会主动注入他人探针遭遇,必须显式关**;结局 endings(`gameActions.js:673`)=需关(kaleido 用自己的 exit_condition);extractPlayer=需关(run 终止语义不同)。
 - raidPath 房间级共享(`gameActions.js:2654-2695`),单人即私有;BR 子系统另有 per-player 路径先例(`:2367-2531`)。
-- **结论:方案一(复用 rooms+gamevars+/game/[id],新 gametype='kaleido')**,改动面最小,P1 闸门(纯随机版可玩)最快。方案二(新 runs 表 + /run/[id] 路由)中的 runs 表**仍然要建**——作为 KALEIDO 域的真源,room 只是执行载体(见 02 §2.3)。
+- **结论:方案一(复用 rooms+gamevars+/game/[id],新 gametype=整数 30,见 02 §2.1 勘误——gametype 为整数列,字符串不可行)**,改动面最小,P1 闸门(纯随机版可玩)最快。方案二(新 runs 表 + /run/[id] 路由)中的 runs 表**仍然要建**——作为 KALEIDO 域的真源,room 只是执行载体(见 02 §2.3)。
 
 ## 3. 传感层核查
 

@@ -49,7 +49,7 @@
 
 - **新增 `docs/plan/kaleido/`**:[`00-spec-v0.3.md`](docs/plan/kaleido/00-spec-v0.3.md)(权威规格·逐字正本) / [`01-groundtruth.md`](docs/plan/kaleido/01-groundtruth.md)(核查:§10 映射基本成立;gameEngine.js/evalFormula/persistResolution 收口均实证) / [`02-detailed-design.md`](docs/plan/kaleido/02-detailed-design.md)(六表 DDL·传感层接线·单人化壳·采样器·3 战斗模板×bot·P2 概设) / [`03-track-packages.md`](docs/plan/kaleido/03-track-packages.md)(KP0-S/KP0-C/KP0-X 派单)。
 - **核查三大发现**:①单人房今天就能跑(roomState 无最少人数检查·validnum===1 分支齐全) ②**体力系统 wall-clock 违反 R4/R11** → kaleido 模式改回合计数(设计 D3) ③仓库无 LLM 调用/后台任务设施 → P2 新建(行动泵 + Vercel Cron 兜底)。
-- **总决策 D1-D6**(02 §0):执行底盘=复用 rooms+gamevars+/game/[id](gametype='kaleido');runs/levels 为域真源;种子关存 content_pool;SQL 走 `scripts/kaleido-*.sql` 独立命名空间;P0/P1 零 LLM。
+- **总决策 D1-D6**(02 §0):执行底盘=复用 rooms+gamevars+/game/[id](gametype=`KALEIDO_GAME_TYPE=30`·整数列勘误见 02 §2.1);runs/levels 为域真源;种子关存 content_pool;SQL 走 `scripts/kaleido-*.sql` 独立命名空间;P0/P1 零 LLM。
 - **旧线处置**:多人搜打撤/BR/探针维护态;装备金字塔冻结;roadmap 04/05/06 冻结;⚙️P5 暂停;🎨移动化+色板、🔒phase-52 照旧。00-roadmap / 07-parallel-tracks 已挂主线切换横幅。
 - 本次未改动任何游戏代码(纯规划轨)。
 
