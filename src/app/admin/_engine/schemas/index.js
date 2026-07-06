@@ -8,9 +8,12 @@
  *     新增一种【顶层】内容类型 = 写 schema + 在此登记一行 + 在 adminNav 的 TABS/NAV_GROUPS 加 key/label。
  */
 import itemPoolPreview from './itemPoolPreview'
+import contentPool from './contentPool'
 
 export const ENGINE_TABS = {
   engine: itemPoolPreview,
+  // KALEIDO 内容池 / 种子关策展（KP0-C ⑤）。深链 /admin?tab=contentPool 可达（暂无侧栏入口）。
+  contentPool,
 }
 
 export default ENGINE_TABS

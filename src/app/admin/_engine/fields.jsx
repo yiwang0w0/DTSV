@@ -1,6 +1,17 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { resolveLabel } from './refIntegrity'
 import { C, INPUT, BTN, FormulaPreview } from '../_shared/ui'
+
+// ── JSON 序列化助手（json 字段类型用）──
+function toJsonText(v) {
+  if (v == null) return ''
+  try { return JSON.stringify(v, null, 2) } catch { return String(v) }
+}
+function compactJson(v) {
+  if (v == null) return '—'
+  try { return JSON.stringify(v) } catch { return String(v) }
+}
 
 /**
  * fields.jsx — 字段渲染器。
@@ -59,8 +70,55 @@ export function FieldValue({ field, row, refs }) {
       </span>
     )
   }
+  if (field.type === 'json') {
+    const s = compactJson(v)
+    if (s === '—' || s === '{}' || s === '[]') return <span style={{ color: C.dim2 }}>—</span>
+    return <span style={{ fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: 11, color: C.dim }}>{s.length > 60 ? s.slice(0, 60) + '…' : s}</span>
+  }
   if (v == null || v === '') return <span style={{ color: C.dim2 }}>—</span>
   return <span>{String(v)}</span>
+}
+
+// ───────── JSON 编辑器（json 字段类型 · 本地文本态·仅合法 JSON 提交）─────────
+function JsonInput({ field, value, onChange }) {
+  const [text, setText] = useState(() => toJsonText(value))
+  const [err, setErr] = useState(null)
+
+  // 外部 value 变化（换行编辑/加载）时同步文本；自身 onChange 造成的 round-trip 不重置，避免打断输入。
+  useEffect(() => {
+    let curEqualsValue = false
+    try { curEqualsValue = JSON.stringify(JSON.parse(text)) === JSON.stringify(value) } catch { curEqualsValue = false }
+    if (!curEqualsValue) { setText(toJsonText(value)); setErr(null) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  const handle = (e) => {
+    const t = e.target.value
+    setText(t)
+    if (t.trim() === '') { setErr(null); onChange(field.nullable ? null : {}); return }
+    try {
+      onChange(JSON.parse(t))
+      setErr(null)
+    } catch (parseErr) {
+      setErr(parseErr.message)  // 非法 JSON：保留上次合法值，仅提示，不提交
+    }
+  }
+
+  return (
+    <div>
+      <textarea
+        style={{ ...INPUT, minHeight: 120, resize: 'vertical', fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: 12, lineHeight: 1.5 }}
+        rows={field.rows || 8}
+        value={text}
+        onChange={handle}
+        spellCheck={false}
+        placeholder={field.placeholder || '{ }'}
+      />
+      <div style={{ marginTop: 4, fontSize: 11, color: err ? C.red : C.dim2 }}>
+        {err ? `⚠ JSON 无效：${err}（未提交，保留上次合法值）` : 'JSON · 合法时自动提交'}
+      </div>
+    </div>
+  )
 }
 
 // ───────── 引用下拉（ref 字段 + 材料清单复用）─────────
@@ -120,6 +178,8 @@ export function FieldInput({ field, value, onChange, refs }) {
   switch (field.type) {
     case 'textarea':
       return <textarea style={{ ...INPUT, minHeight: 60, resize: 'vertical' }} rows={field.rows || 2} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+    case 'json':
+      return <JsonInput field={field} value={value} onChange={onChange} />
     case 'number':
       return <input type="number" style={INPUT} value={value ?? ''} min={field.min} max={field.max} step={field.step}
         onChange={(e) => onChange(e.target.value === '' ? (field.nullable ? null : '') : Number(e.target.value))} />
