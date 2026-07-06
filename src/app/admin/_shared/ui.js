@@ -1,7 +1,7 @@
 'use client'
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { evalFormula } from '@/lib/gameEngine'
+import { evalFormula, isFormulaSafe } from '@/lib/gameEngine'
 
 export { MAP_LIST, ITEM_KIND_META, NPC_LEVEL_META, GAME_TYPES } from '@/lib/constants'
 
@@ -111,15 +111,16 @@ export function StatCard({ label, value, icon, color, sub }) {
 export function FormulaPreview({ formula, testVars }) {
   const vars = testVars || { atk: 15, def: 8, hp: 60, maxHp: 100, targetDef: 8, targetHp: 80, targetMaxHp: 100, targetAtk: 12, atkMultiplier: 1.0, defMultiplier: 0.5, heal: 30, effect: 5, value: 5 }
   if (!formula?.trim()) return null
-  let result = null, isError = false
-  try { result = evalFormula(formula, vars) } catch { isError = true }
-  if (result === null) isError = true
+  // 🔒 KP0-X：先过白名单静态校验（isFormulaSafe），区分「安全公式=N」与「含白名单外符号/标识符→运行时被拒为 0」，
+  //   免除旧版对不安全公式静默显示「= 0」的误导（P0 闸门 04 §1 建议）。
+  const safe = isFormulaSafe(formula)
+  const result = safe ? evalFormula(formula, vars) : 0
   return (
-    <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 6, background: isError ? 'rgba(248,81,73,0.08)' : 'rgba(63,185,80,0.08)', border: `1px solid ${isError ? 'rgba(248,81,73,0.2)' : 'rgba(63,185,80,0.2)'}`, fontSize: 12 }}>
+    <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 6, background: safe ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)', border: `1px solid ${safe ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)'}`, fontSize: 12 }}>
       <span style={{ color: '#8b949e' }}>预览（atk=15, def=8, heal=30）：</span>
-      {isError
-        ? <span style={{ color: '#f85149', marginLeft: 8 }}>⚠ 公式有误</span>
-        : <span style={{ color: '#3fb950', fontFamily: 'var(--font-jetbrains-mono), monospace', marginLeft: 8, fontWeight: 700 }}>= {result}</span>}
+      {safe
+        ? <span style={{ color: '#3fb950', fontFamily: 'var(--font-jetbrains-mono), monospace', marginLeft: 8, fontWeight: 700 }}>= {result}</span>
+        : <span style={{ color: '#f85149', marginLeft: 8 }}>⚠ 含白名单外符号/标识符 · 运行时将被拒为 0</span>}
     </div>
   )
 }
