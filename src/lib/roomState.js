@@ -6,7 +6,7 @@ import {
   PHASE_SECONDS_DEFAULT,
   MAX_PHASE_DEFAULT,
 } from './server/br/clock.js'
-import { STAMINA_CONFIG } from './constants.js'
+import { STAMINA_CONFIG, KALEIDO_GAME_TYPE } from './constants.js'
 
 const LOG_LIMIT = 200
 
@@ -291,6 +291,12 @@ export function getDisplayName(user) {
     || '玩家'
 }
 
+// ── KALEIDO 单人 run 房型判定（唯一真源；所有守卫/豁免/发射统一走它，禁散落魔法数）──
+//   rooms.gametype 是整数列 → 用整数常量比较；存量房 gametype∈{0,2,11..20} → 恒 false → 逐字节零行为变化。
+export function isKaleidoRoom(room) {
+  return Number(room?.gametype) === KALEIDO_GAME_TYPE
+}
+
 export function createPlayerState(user, stats = {}) {
   return {
     id: user.id,
@@ -309,6 +315,10 @@ export function createPlayerState(user, stats = {}) {
     map: 0,                  // 旧字段：保留向后兼容；Phase 19 改用 chamberIndex；BR 下镜像当前房 templateId
     chamberIndex: 0,         // Phase 19.4: 玩家在 gamevars.raidPath 中的位置（0 = 入口）
     chamberHistory: [],      // Phase 19.4: 已走过的 chamber idx 列表
+    // ── KALEIDO 回合模型（仅 kaleido 局消费）：每个消耗性动词 +1（R4 回合制，替 wall-clock 体力）。 ──
+    //   多人局永不读 → 零行为变化；经 normalizeGamevars 对 players 原样透传持久化（同 stamina/depth 范式）；
+    //   旧存档缺字段时在递增处 `?? 0` 兜底（normalizeGamevars 不逐玩家改写，无法在那补默认）。
+    turnCount: stats.turnCount ?? 0,
     // ── Phase 31 re-home: BR「100 房网格」位置（旧 chamber 模式恒 null → 走旧分支） ──
     roomId: stats.roomId ?? null,   // BR 当前房（br.enabled 下由 joinRoom 置 startRoomId）
     depth: 0,                       // 跃迁深度（单向阶梯·只增）；effectivePhase(realPhase, depth, maxPhase) 据此让跃迁者读更深的禁区图/物资档

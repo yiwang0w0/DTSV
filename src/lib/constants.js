@@ -23,10 +23,22 @@ export const GAME_TYPES = {
   13: '4v4',
   14: '自由团战',
   20: '虚拟空间·时间跳跃',   // Phase 30 — 时间跳跃BR（build-alongside，见 docs/timejump-br-design.md）
+  30: '万华镜·单人 run',     // KALEIDO — 单人·浏览器·回合·关卡制 run（主线，见 docs/plan/kaleido/）
 }
 
 // Phase 30 — 虚拟空间·时间跳跃BR 模式标识（与现有 chamber-raid 并存，证明可玩后再切默认）
 export const BR_GAME_TYPE = 20
+
+// ── KALEIDO 主线（单人 run） · gametype 标识 + 配置 ──
+// 背景：rooms.gametype 是整数列（createRoom 写 Number(payload.gametype)），故 kaleido 局标识
+//   必须是整数，不能用字符串 'kaleido'（设计文档 00/01/02 的字符串写法已勘误为本常量）。
+// 照 BR_GAME_TYPE=20 范式取 30；判定统一走 roomState.js 的 isKaleidoRoom(room)（禁散落魔法数）。
+export const KALEIDO_GAME_TYPE = 30
+// KALEIDO 单人 run 主线配置（活跃主线，ENABLED:true，非预埋休眠开关）。见 docs/plan/kaleido/02 §2.1。
+export const KALEIDO = {
+  ENABLED: true,      // 主线开关：true = 单人 run 入口/守卫生效
+  LEVEL_COUNT: 5,     // 一次 run 的关卡数（5 关 × 8-12min，规格 §4；采样参数，可后调）
+}
 
 // ── BR 大时钟默认配置（Phase 31 re-home 进 /game 路径 · single source of truth） ──
 // 把 chamber-raid 的 Ω-段独立倒计时替换成「100 房网格 + 大时钟缩圈」时间压力。

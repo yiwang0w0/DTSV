@@ -80,6 +80,7 @@ import {
   createPlayerState,
   getCurrentChamberTemplateId,
   getDisplayName,
+  isKaleidoRoom,
   normalizeGamevars,
   normalizeCorpseEntry,
   normalizeNpcInstance,
@@ -669,10 +670,13 @@ async function persistResolutionWithPollution(client, room, resolution, userId, 
   } catch (e) {
     console.error('[branches] 评估失败:', e?.message)
   }
-  try {
-    await applyEndingIfTriggered(client, resolution)
-  } catch (e) {
-    console.error('[endings] 应用失败:', e?.message)
+  // KALEIDO 局用自己的 exit_condition/收敛，不走远星函馆四结局（守卫非 kaleido = 原逻辑，逐字节不变）。
+  if (!isKaleidoRoom(room)) {
+    try {
+      await applyEndingIfTriggered(client, resolution)
+    } catch (e) {
+      console.error('[endings] 应用失败:', e?.message)
+    }
   }
   return persistResolution(client, room, resolution, options)
 }
@@ -1326,7 +1330,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
   //   nowMs 取一次；applyStaminaCost 内部 backfill→懒回复→判够→扣除（只刷 staminaAt，不刷 lastMoveAt，避免污染 move 的 dt 锚点）。
   //   扣后体力字段（staminaResult.player）随后并入 polluted，整条产出链沿用含新体力的玩家对象。
   const nowMs = Date.now()
-  const staminaResult = applyStaminaCost(player, nowMs, STAMINA_CONFIG.SEARCH_COST)
+  const staminaResult = applyStaminaCost(player, nowMs, isKaleidoRoom(room) ? 0 : STAMINA_CONFIG.SEARCH_COST)
   if (staminaResult.blocked) {
     throw Object.assign(new Error('体力不足，无法搜索'), { code: 'no_stamina' })
   }
@@ -1698,7 +1702,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
   // ── 体力结算（平消耗 · additive · 仅主动攻击扣）：在结算伤害 / 任何 await 之前，拦截零副作用。 ──
   //   被动反击（NPC 反击玩家）不走此处，不耗体力。扣后体力字段随后并入 polluted（combat pollution 基）。
   const nowMs = Date.now()
-  const staminaResult = applyStaminaCost(player, nowMs, STAMINA_CONFIG.ATTACK_COST)
+  const staminaResult = applyStaminaCost(player, nowMs, isKaleidoRoom(room) ? 0 : STAMINA_CONFIG.ATTACK_COST)
   if (staminaResult.blocked) {
     throw Object.assign(new Error('体力不足，无法攻击'), { code: 'no_stamina' })
   }
@@ -1944,7 +1948,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
   //   与 attackNpc 对称（统一「动手即耗体力」）。被攻击方 / 被动反击不耗。
   //   若只想约束 PvE，可删此块（仅 attackNpc 接体力）。扣后字段并入末尾 attacker 的 setResolutionPlayer。
   const nowMs = Date.now()
-  const staminaResult = applyStaminaCost(attacker, nowMs, STAMINA_CONFIG.ATTACK_COST)
+  const staminaResult = applyStaminaCost(attacker, nowMs, isKaleidoRoom(room) ? 0 : STAMINA_CONFIG.ATTACK_COST)
   if (staminaResult.blocked) {
     throw Object.assign(new Error('体力不足，无法攻击'), { code: 'no_stamina' })
   }
@@ -2173,7 +2177,7 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
 
   // ── 体力回复道具（机能恢复剂等 item_pool.stamina_restore>0）：+amount clamp 到 max，刷 staminaAt（不刷 lastMoveAt） ──
   //   nowMs 取一次；restoreStamina 内部 backfill→懒回复→+amount→clamp。非 BR 旧房用此道具安静 +体力无害。
-  if (result.staminaDelta) {
+  if (result.staminaDelta && !isKaleidoRoom(room)) {
     const nowMs = Date.now()
     const r = restoreStamina(nextPlayer, nowMs, result.staminaDelta)
     nextPlayer.stamina    = r.player.stamina
@@ -2989,7 +2993,7 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
   // Phase 21.3: 进入 chamber 时 8% 概率遭遇异步探针
   try {
     // research-2026-05-29-E P0 — 传遭遇者实力，探针属性按其相对缩放 + 硬封顶（防 whale 探针碾压 / 毒包构造）
-    const probe = await tryEncounterProbe(client, user.id, nextChamber.templateId, {
+    const probe = isKaleidoRoom(room) ? null : await tryEncounterProbe(client, user.id, nextChamber.templateId, {
       hp: nextPlayer.hp,
       maxHp: nextPlayer.maxHp,
       atk: nextPlayer.atk,
@@ -3138,7 +3142,7 @@ async function moveToRoom(client, room, gamevars, user, toRoomId) {
 
   // 进入扇区时遭遇异步探针（与旧 movePlayer 同款：传遭遇者实力按其相对缩放 + 硬封顶）
   try {
-    const probe = await tryEncounterProbe(client, user.id, targetTid, {
+    const probe = isKaleidoRoom(room) ? null : await tryEncounterProbe(client, user.id, targetTid, {
       hp: nextPlayer.hp,
       maxHp: nextPlayer.maxHp,
       atk: nextPlayer.atk,
@@ -3411,6 +3415,7 @@ async function attackNpc(client, room, gamevars, user) {
 }
 
 async function attackPlayer(client, room, gamevars, user, targetUid) {
+  if (isKaleidoRoom(room)) throw new Error('本对局禁止玩家互攻')  // KALEIDO 单人，防御性
   return resolvePlayerAttackAction(client, room, gamevars, user, targetUid)
 }
 
@@ -3421,6 +3426,7 @@ async function extractPlayer(client, room, gamevars, user, payload) {
   if (!player) throw new Error('你还未加入该对局')
   if (!player.alive) throw new Error('阵亡玩家无法撤离')
   if (player.extracted) throw new Error('已经撤离')
+  if (isKaleidoRoom(room)) throw new Error('本对局无撤离机制')  // KALEIDO 用 run 收敛，非撤离
 
   // Phase 19.5: 从 gamevars.raidPath 取当前 chamber（不查 map_config）
   // gamevars 瘦身：BR 房的 is_exit/exit_cost 等来自 templateMeta（已移出 gamevars）→ 取 layout 传入。
