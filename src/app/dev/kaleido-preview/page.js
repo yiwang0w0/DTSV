@@ -64,12 +64,12 @@ export default function KaleidoPreviewPage() {
       </Section>
 
       {overlay === 'banner' && (
-        <KaleidoLevelClearBanner seq={3} nextSeq={4} levelCount={5} onContinue={() => setOverlay(null)} />
+        <KaleidoLevelClearBanner seq={3} nextSeq={4} levelCount={5} onContinue={() => setOverlay(null)} onStay={() => setOverlay(null)} />
       )}
       {overlay === 'cleared' && (
         <KaleidoConvergenceScreen
           status="cleared"
-          summary={{ levelsCleared: 5, levelCount: 5, totalTurns: 47, kills: 9, itemsFound: 14 }}
+          summary={{ levelsCleared: 5, levelCount: 5, turnCount: 7, kills: 9, itemsCarried: 14 }}
           onRestart={() => setOverlay(null)}
           onLobby={() => setOverlay(null)}
         />
@@ -77,7 +77,7 @@ export default function KaleidoPreviewPage() {
       {overlay === 'dead' && (
         <KaleidoConvergenceScreen
           status="dead"
-          summary={{ levelsCleared: 2, levelCount: 5, totalTurns: 19, kills: 3, itemsFound: 5, cause: '于第 3 关被首领击败' }}
+          summary={{ levelsCleared: 2, levelCount: 5, turnCount: 4, kills: 3, itemsCarried: 5, cause: '于第 3 关被首领击败' }}
           onRestart={() => setOverlay(null)}
           onLobby={() => setOverlay(null)}
         />

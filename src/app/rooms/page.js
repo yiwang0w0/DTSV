@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/_shell/RootShell'
 import { Spinner } from '../admin/_shared/ui'
 import { POLLUTION_TIER_META } from '@/lib/constants'
+import { isKaleidoRoom } from '@/lib/roomState'
 import { postGameApi } from '@/lib/gameApi'
 import { KaleidoEntryCard } from '@/app/game/[id]/kaleido/kaleidoShell'
 
@@ -55,10 +56,12 @@ export default function RoomsPage() {
       try {
         const { data } = await supabase
           .from('rooms')
-          .select('id,gamenum,gamestate,gamevars,validnum,alivenum,deathnum,winner,created_at')
+          .select('id,gamenum,gametype,gamestate,gamevars,validnum,alivenum,deathnum,winner,created_at')
           .order('created_at', { ascending: false })
           .limit(100)
-        setRooms(data || [])
+        // KP0-R-C C2：大厅列表过滤 kaleido 单人房（他人可见会误点加入报错；
+        //   本人续跑走入口卡的幂等 /api/kaleido/run，不靠列表）。
+        setRooms((data || []).filter(r => !isKaleidoRoom(r)))
       } finally {
         loadingRef.current = false
         setLoading(false)
@@ -71,19 +74,20 @@ export default function RoomsPage() {
     setStartingKaleido(true)
     setKaleidoError(null)
     try {
-      // KP0-C ①：调 ⚙️ 的 startKaleidoRun 建单人 run（gametype=KALEIDO_GAME_TYPE=30）→ 跳对局页。
-      // TODO(KP0-C↔KP0-S 联调)：端点路径 /api/kaleido/start 待与 ⚙️ 对齐（startKaleidoRun 落地后确认）。
-      const { room, roomId } = await postGameApi('/api/kaleido/start', {})
-      const id = room?.id ?? roomId
-      if (id) {
-        router.push(`/game/${id}`)
+      // KP0-R-C C1：契约 = POST /api/kaleido/run（Bearer·无 body）→ { roomId, runId }（幂等：
+      //   已有 active run 返回同一对）→ 跳 /game/[roomId]。
+      // KP0-R-C C3：带 ?kaleido=1 提示参数 —— GameClientPage 以此在 room 载入前跳过首帧
+      //   realtime 订阅（多人链接永不带该参数 → 多人局严格中性）。
+      const { roomId } = await postGameApi('/api/kaleido/run', {})
+      if (roomId) {
+        router.push(`/game/${roomId}?kaleido=1`)
       } else {
         setKaleidoError('未能创建单人 run')
         setStartingKaleido(false)
       }
     } catch (err) {
-      // KP0-S 服务端未落地前的优雅态（联调后此分支自然不再触发）。
-      setKaleidoError('单人 run 服务端建设中（KP0-S），联调后开放')
+      // 服务端已上线（C1 修复后）：如实透出错误（冷却/校验等服务端消息中文可读）。
+      setKaleidoError(err?.message || '启动失败，请稍后再试')
       setStartingKaleido(false)
     }
   }

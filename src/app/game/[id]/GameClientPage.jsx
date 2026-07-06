@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/_shell/RootShell'
-import { ENTITY_TYPE_META, JUMP_CONFIG, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
+import { ENTITY_TYPE_META, JUMP_CONFIG, KALEIDO, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
 import { runGoalRating } from '@/lib/server/runGoals'
 import { calcEffectivePollution } from '@/lib/pollution'
 import { loadBuffPool } from '@/lib/gameEngine'
@@ -14,6 +14,7 @@ import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import ItemCraftModal from './ItemCraftModal'
+import { KaleidoLevelHeader, KaleidoRuleCard, KaleidoLevelClearBanner, KaleidoConvergenceScreen } from './kaleido/kaleidoShell'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
@@ -260,11 +261,20 @@ export default function GameClientPage() {
   // KP0-C ②：kaleido 单人局判定（gametype===30 · isKaleidoRoom）。
   const isKaleido = isKaleidoRoom(room)
 
+  // KP0-R-C C3：?kaleido=1 提示参数 —— room 载入前（首帧）即可跳过订阅，堵「先订阅后退订」瞬态。
+  //   仅单人入口卡跳转携带；多人链接永不带 → 多人局 hint 恒 false、订阅行为逐字节不变。
+  //   自愈：room 载入后实测非 kaleido（手工拼参场景）→ 清 hint → 效果重跑、正常订阅。
+  const [kaleidoHint, setKaleidoHint] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('kaleido') === '1')
+  useEffect(() => {
+    if (kaleidoHint && room && !isKaleidoRoom(room)) setKaleidoHint(false)
+  }, [kaleidoHint, room])
+
   useEffect(() => {
     if (!user) return undefined
     // kaleido 单人局不建 realtime 订阅（无多人同步需求，动作后用 API 返回值刷新）。
-    //   多人局零回归：非 kaleido 时 isKaleido 恒 false ⇒ deps 稳定 ⇒ 本 effect 仍仅挂载时运行一次。
-    if (isKaleido) return undefined
+    //   多人局零回归：非 kaleido 时 isKaleido/kaleidoHint 恒 false ⇒ deps 稳定 ⇒ 本 effect 仍仅挂载时运行一次。
+    if (isKaleido || kaleidoHint) return undefined
     const channel = supabase
       .channel(`room-${roomId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, payload => {
@@ -287,7 +297,7 @@ export default function GameClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [loadTradeableNpcs, roomId, user, isKaleido])
+  }, [loadTradeableNpcs, roomId, user, isKaleido, kaleidoHint])
 
   // Phase 30 BR：本地秒级时钟 tick（仅 BR 模式开，驱动大时钟倒计时 + 扇区即时着色；
   //   chamber 模式不开，避免无谓 1s 重渲染）。
@@ -375,6 +385,78 @@ export default function GameClientPage() {
     return opts
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raidPath, currentChamberIdx, currentChamber?.exitCount, myDecodedIds])
+
+  // ════════════════════════════════════════════════════════════════════
+  // KALEIDO 单人局派生（KP0-R-C C4/C5 · 仅 isKaleido 时有意义，多人局全为惰性常量）
+  //   gamevars.kaleido = { runId, currentSeq, clearedSeq }（advanceKaleidoProgress 维护）；
+  //   当前关 seq = chamberIndex+1（02 §2.5 level_seq ↔ chamberIndex）；
+  //   exit_condition 快照在 raidPath 节点 kaleidoExit；per-level turnCount 过关清零。
+  // ════════════════════════════════════════════════════════════════════
+  const kal = gamevars?.kaleido || null
+  const kaleidoSeq = Math.min((meBase?.chamberIndex ?? 0) + 1, KALEIDO.LEVEL_COUNT)
+  const kaleidoNode = isKaleido ? ((gamevars?.raidPath || [])[meBase?.chamberIndex ?? 0] || null) : null
+  // 收敛态优先级：死亡 > 通关 > 放弃（死亡不写 endingResult，房间由 lifecycle 收 · R9）
+  const kaleidoEndStatus = !isKaleido ? null
+    : meBase && !meBase.alive ? 'dead'
+      : gamevars?.endingResult?.key === 'kaleido_clear' ? 'cleared'
+        : gamevars?.endingResult?.key === 'kaleido_abandoned' ? 'abandoned'
+          : null
+  // 关间横幅：本关刚达成且非终局；「留在本关」按 seq 记忆免重弹
+  const [kaleidoStaySeq, setKaleidoStaySeq] = useState(0)
+  const showKaleidoClearBanner = isKaleido && !kaleidoEndStatus && room?.gamestate !== 2
+    && kal != null && (kal.clearedSeq ?? 0) === kaleidoSeq && kaleidoSeq < KALEIDO.LEVEL_COUNT
+    && kaleidoStaySeq !== kaleidoSeq
+
+  // KP0-R-C C5：beacon 发射端 —— session_end(context) · 仅 kaleido 局。
+  //   /api/kaleido/beacon 走 requireRequestUser（要 Bearer 头），navigator.sendBeacon 发不了头
+  //   → 用 fetch keepalive（路由注释明确支持）+ token 预缓存（隐藏瞬间无 async 余地）。
+  //   每次「隐藏」只发一次（sent 标记），回到可见复位；多人局三个 effect 全部早退 = 零行为。
+  const kaleidoBeaconRef = useRef({ token: null, ctx: null, sent: false })
+  useEffect(() => {
+    if (!isKaleido || !user) return
+    supabase.auth.getSession().then(({ data }) => {
+      kaleidoBeaconRef.current.token = data?.session?.access_token || null
+    })
+  }, [isKaleido, user])
+  useEffect(() => {
+    if (!isKaleido) return
+    kaleidoBeaconRef.current.ctx = {
+      runId: kal?.runId || null,
+      levelSeq: kaleidoSeq,
+      // context 枚举固定四值：dead→after_death；cleared/abandoned→after_clear（run 已终结）；
+      //   遭遇中→mid_combat；其余→idle。
+      context: kaleidoEndStatus === 'dead' ? 'after_death'
+        : kaleidoEndStatus ? 'after_clear'
+          : meBase?.encounter ? 'mid_combat' : 'idle',
+    }
+  }, [isKaleido, kal?.runId, kaleidoSeq, kaleidoEndStatus, meBase?.encounter])
+  useEffect(() => {
+    if (!isKaleido || !user) return undefined
+    const send = () => {
+      const s = kaleidoBeaconRef.current
+      if (!s.ctx || !s.token || s.sent) return
+      s.sent = true
+      try {
+        fetch('/api/kaleido/beacon', {
+          method: 'POST',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+          body: JSON.stringify({ events: [{ verb: 'session_end', context: s.ctx.context, runId: s.ctx.runId, levelSeq: s.ctx.levelSeq }] }),
+        }).catch(() => {})
+      } catch { /* 遥测失败无害（beacon 契约） */ }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') send()
+      else kaleidoBeaconRef.current.sent = false
+    }
+    window.addEventListener('pagehide', send)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', send)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [isKaleido, user])
+
   // ════════════════════════════════════════════════════════════════════
   // Phase 30 BR — 100 房网格 + 大时钟派生（仅 gamevars.br.enabled 时有意义）
   //   契约 stateShape：客户端从 room + gamevars.br 派生 brClock/brGrid/myRoom/movable，
@@ -850,6 +932,27 @@ export default function GameClientPage() {
     }
   }
 
+  // KP0-R-C C4：关间横幅「进入下一关」= 复用既有 move 动作走真下一段（S1 门禁：过关后才放行）。
+  function handleKaleidoContinue() {
+    const opt = nextChamberOptions.find(o => o.isRealNext) || nextChamberOptions[0]
+    if (opt) runGameAction('move', { selection: opt.optionLabel })
+    else setKaleidoStaySeq(kaleidoSeq) // 无可前进选项（异常兜底）：收起横幅，玩家可继续本关
+  }
+
+  // KP0-R-C C4：收敛页「再来一次」= 幂等 /api/kaleido/run 开新 run → 跳新房（带 C3 提示参数）。
+  async function handleKaleidoRestart() {
+    try {
+      const { roomId: nextRoomId } = await postGameApi('/api/kaleido/run', {})
+      if (nextRoomId && Number(nextRoomId) !== Number(roomId)) {
+        router.push(`/game/${nextRoomId}?kaleido=1`)
+      } else if (nextRoomId) {
+        await loadInitial() // 理论不发生（本 run 已收敛）；兜底刷新
+      }
+    } catch (e) {
+      toast(e?.message || '开新 run 失败，请稍后再试', 'error')
+    }
+  }
+
   // Phase 18.4: 污染分阶段警报 — 70% 跨越时弹 toast；90% 弹强制撤离倒计时模态
   const POLLUTION_WARN_THRESHOLD = 70
   const POLLUTION_FORCE_THRESHOLD = 90
@@ -1007,7 +1110,8 @@ export default function GameClientPage() {
         onClose={handleDismissLootPrompt}
         onTake={handleTakeLoot}
       />
-      <ExtractionModal
+      {/* KP0-R-C C4：kaleido 局无撤离机制（§2.1 extractPlayer 已 throw）——连模态一并不渲染 */}
+      {!isKaleido && <ExtractionModal
         open={extractOpen}
         onClose={() => setExtractOpen(false)}
         onExtract={handleExtract}
@@ -1022,7 +1126,7 @@ export default function GameClientPage() {
           const partNames = new Set((allItems || []).filter(i => i.kind === 'platform_part').map(i => i.name))
           return (meBase?.inventory || []).filter(name => partNames.has(name)).length
         })()}
-      />
+      />}
       <PrepareModal
         open={joinLoadoutOpen}
         roomTitle={room ? `对局 #${room.gamenum || room.id}` : ''}
@@ -1033,6 +1137,34 @@ export default function GameClientPage() {
         review={deathReview}
         onClose={() => setDeathReview(null)}
       />
+
+      {/* KP0-R-C C4：kaleido 关间横幅（level_clear → 前进）+ 收敛页（通关/死亡/放弃 · R8/R9）*/}
+      {showKaleidoClearBanner && (
+        <KaleidoLevelClearBanner
+          seq={kaleidoSeq}
+          nextSeq={Math.min(kaleidoSeq + 1, KALEIDO.LEVEL_COUNT)}
+          levelCount={KALEIDO.LEVEL_COUNT}
+          busy={busy}
+          onContinue={handleKaleidoContinue}
+          onStay={() => setKaleidoStaySeq(kaleidoSeq)}
+        />
+      )}
+      {isKaleido && kaleidoEndStatus && (
+        <KaleidoConvergenceScreen
+          status={kaleidoEndStatus}
+          summary={{
+            levelsCleared: kal?.clearedSeq ?? 0,
+            levelCount: KALEIDO.LEVEL_COUNT,
+            turnCount: meBase?.turnCount ?? 0,
+            kills: meBase?.kills ?? 0,
+            itemsCarried: (meBase?.inventory || []).length,
+            cause: gamevars?.endingResult?.bannerText
+              || (kaleidoEndStatus === 'dead' ? `于第 ${kaleidoSeq} 关阵亡` : ''),
+          }}
+          onRestart={handleKaleidoRestart}
+          onLobby={() => router.push('/rooms')}
+        />
+      )}
 
       <style>{`
         *{box-sizing:border-box}
@@ -1050,6 +1182,16 @@ export default function GameClientPage() {
         @keyframes brPulse{0%,100%{opacity:1}50%{opacity:.45}}
         @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
+
+      {/* KP0-R-C C4：kaleido 关卡头（第 N/5 关 · 本关回合 · exit_condition 中文目标）*/}
+      {isKaleido && (
+        <KaleidoLevelHeader
+          seq={kaleidoSeq}
+          levelCount={KALEIDO.LEVEL_COUNT}
+          turnCount={meBase?.turnCount ?? 0}
+          exitCondition={kaleidoNode?.kaleidoExit}
+        />
+      )}
 
       {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒）。
           BR 决策（用户定「移除前台横幅」）：brEnabled 时隐藏前台污染横幅，仿
@@ -1418,6 +1560,8 @@ export default function GameClientPage() {
             </>
           )}
 
+          {/* KP0-R-C C4：kaleido 单人局隐藏 PvP/玩家列表（服务端 attackPlayer 已 throw，此处 UI 一并不渲染）*/}
+          {!isKaleido && (<>
           <PanelTitle right={<span style={{ fontSize: 10, color: T.dim, fontWeight: 400 }}>{brEnabled ? '同扇区可攻击' : '同地图可攻击'}</span>}>⚔️ PvP</PanelTitle>
           <div style={{ padding: '10px 12px' }}>
             {pvpTargets.length === 0 ? (
@@ -1460,6 +1604,7 @@ export default function GameClientPage() {
               </div>
             )}
           </div>
+          </>)}
 
           {/* ── 交易面板：当前地图的非敌对可交易实体 ── */}
           {tradeableNpcs.length > 0 && (
@@ -1726,7 +1871,8 @@ export default function GameClientPage() {
                     道具合成
                   </Btn>
                 </div>
-                {effectiveMapConfig?.is_exit && (
+                {/* KP0-R-C C4：kaleido 无撤离机制（§2.1）——撤离/紧急撤离入口一并隐藏 */}
+                {!isKaleido && effectiveMapConfig?.is_exit && (
                   <Btn
                     variant="ghost"
                     onClick={() => setExtractOpen(true)}
@@ -1741,7 +1887,7 @@ export default function GameClientPage() {
                     )}
                   </Btn>
                 )}
-                {(gamevars?.envPollution || 0) >= POLLUTION_CONFIG.EMERGENCY_UNLOCK && (
+                {!isKaleido && (gamevars?.envPollution || 0) >= POLLUTION_CONFIG.EMERGENCY_UNLOCK && (
                   <Btn
                     variant="ghost"
                     onClick={handleEmergencyRetreat}
@@ -2046,6 +2192,15 @@ export default function GameClientPage() {
             ) : null
           }>⏭ 路径前进</PanelTitle>
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+            {/* KP0-R-C C4 · R6 规则可见：入关「本关规则」卡（P0 采样恒 standard/空覆盖 → 空态容器）*/}
+            {isKaleido && kaleidoNode && (
+              <KaleidoRuleCard
+                combatMode={kaleidoNode.combatMode || { template_ref: 'standard', params: {} }}
+                envRules={kaleidoNode.envRules || []}
+                formulaOverrides={kaleidoNode.formulaOverrides || []}
+                style={{ marginBottom: 10 }}
+              />
+            )}
             {/* 当前 chamber 卡 */}
             {currentChamber && (
               <div style={{

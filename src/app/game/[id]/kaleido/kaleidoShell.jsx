@@ -192,7 +192,8 @@ export function KaleidoRuleCard({ combatMode, envRules = [], formulaOverrides = 
 }
 
 // ── 关间横幅（level_clear · 通过某关 → 进入下一关）────────────────────────────
-export function KaleidoLevelClearBanner({ seq, nextSeq, levelCount = 5, onContinue }) {
+//   onStay：留在本关继续搜刮（关闭横幅；R6 语义 —— 达成不强制离开，前进由玩家决定）。
+export function KaleidoLevelClearBanner({ seq, nextSeq, levelCount = 5, onContinue, onStay, busy = false }) {
   return (
     <div style={overlayStyle}>
       <div style={{ ...cardStyle, alignItems: 'center', textAlign: 'center', maxWidth: 340 }}>
@@ -201,25 +202,29 @@ export function KaleidoLevelClearBanner({ seq, nextSeq, levelCount = 5, onContin
         <div style={{ fontSize: 13, color: T.dim, marginBottom: 18 }}>
           接下来 · 第 <span style={{ color: T.cyan, fontWeight: 700 }}>{nextSeq}</span> / {levelCount} 关
         </div>
-        <Btn variant="primary" size="lg" onClick={onContinue} sx={{ width: '100%' }}>进入第 {nextSeq} 关 →</Btn>
+        <Btn variant="primary" size="lg" onClick={onContinue} loading={busy} loadingText="前进中…" sx={{ width: '100%' }}>进入第 {nextSeq} 关 →</Btn>
+        {onStay && (
+          <Btn variant="ghost" size="md" onClick={onStay} sx={{ width: '100%', marginTop: 8 }}>留在本关（继续搜刮）</Btn>
+        )}
       </div>
     </div>
   )
 }
 
-// ── 收敛页（版本终止 · 通关或死亡 · R8/R9）────────────────────────────────
-//   summary: { levelsCleared, levelCount, totalTurns, kills, itemsFound, cause? }
+// ── 收敛页（版本终止 · 通关/死亡/放弃 · R8/R9）────────────────────────────────
+//   summary: { levelsCleared, levelCount, turnCount(本关回合·per-level 语义), kills, itemsCarried, cause? }
 export function KaleidoConvergenceScreen({ status = 'cleared', summary = {}, onRestart, onLobby }) {
   const dead = status === 'dead'
-  const accent = dead ? T.red : T.green
+  const abandoned = status === 'abandoned'
+  const accent = dead ? T.red : abandoned ? T.yellow : T.green
   const {
-    levelsCleared = 0, levelCount = 5, totalTurns = 0, kills = 0, itemsFound = 0, cause,
+    levelsCleared = 0, levelCount = 5, turnCount = 0, kills = 0, itemsCarried = 0, cause,
   } = summary
   const stats = [
     { label: '通关进度', value: `${levelsCleared}/${levelCount}` },
-    { label: '总回合', value: totalTurns },
+    { label: '本关回合', value: turnCount },
     { label: '击败', value: kills },
-    { label: '获得道具', value: itemsFound },
+    { label: '携带道具', value: itemsCarried },
   ]
   return (
     <div style={overlayStyle}>
@@ -227,12 +232,12 @@ export function KaleidoConvergenceScreen({ status = 'cleared', summary = {}, onR
         {/* 结果头 */}
         <div style={{ textAlign: 'center', marginBottom: 4 }}>
           <div style={{ fontSize: 12, color: accent, textTransform: 'uppercase', letterSpacing: 3 }}>
-            {dead ? 'VERSION ENDED' : 'RUN CLEARED'}
+            {dead || abandoned ? 'VERSION ENDED' : 'RUN CLEARED'}
           </div>
           <div style={{ fontSize: 34, fontWeight: 800, color: accent, margin: '4px 0', textShadow: `0 0 20px ${accent}44` }}>
-            {dead ? '阵亡' : '通关'}
+            {dead ? '阵亡' : abandoned ? '已放弃' : '通关'}
           </div>
-          {dead && cause && <div style={{ fontSize: 12, color: T.dim }}>{cause}</div>}
+          {cause && <div style={{ fontSize: 12, color: T.dim }}>{cause}</div>}
         </div>
         {/* run 摘要 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, margin: '14px 0' }}>
