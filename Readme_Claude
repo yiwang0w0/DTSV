@@ -53,6 +53,14 @@
 - **旧线处置**:多人搜打撤/BR/探针维护态;装备金字塔冻结;roadmap 04/05/06 冻结;⚙️P5 暂停;🎨移动化+色板、🔒phase-52 照旧。00-roadmap / 07-parallel-tracks 已挂主线切换横幅。
 - 本次未改动任何游戏代码(纯规划轨)。
 
+## 最近变更（2026-07-06 / 🔒 phase-52a 服务端专属表 RLS 锁死）
+
+> phase-52 广义 RLS 扫描的 52a（零写路径风险·即时收口）。把 RLS-off 27 表按客户端可达性分档，锁死【仅 service_role 触达】的 14 表。
+
+- **审计**：逐表核实 anon 可达性 —— 字符 `from('x')` + **动态 `from(变量)`**（`usePlacementRules` 动态表名差点漏掉 4 张 placement 表 → 已正确归 52b）+ realtime 订阅（全仓仅 `rooms`）。
+- **[`scripts/phase-52a-server-only-rls.sql`](scripts/phase-52a-server-only-rls.sql)·已应用**：14 表开 RLS·无策略 = deny anon 读写、service_role 绕过。`br_match*`(5) / chamber_residue / cross_room_probes / economy_wipe_log / fragment_cold_cases / probe_encounter_pairs / room_items / player_expedition_opt_ins / player_notifications / seasonal_expeditions。验证 14 表 rls_enabled=true·policies=0。`contracts`/`player_contracts` 早已 RLS-on（免处理）。
+- **52b 待办**（有 anon 编辑器/客户端读·需读策略或写路由，照 phase-51 范式）：br_rooms / chamber_templates / classes / fragment_pool / player_class_runs / player_points / raid_stats / shop_catalog / shop_exchange_rates / placement 四表 + authenticated-write 档（buff_pool / equipment_series / equipment_tiers / item_pool / map_config / npc_pool）。
+
 ## 最近变更（2026-07-06 / 🔒 KP0-X 公式沙箱硬化 + API 密钥规范）
 
 > KALEIDO 数据层安全第一批（KP0-X #3/#4 已上线）。#1 审 kaleido schema、#2 审 beacon/防刷 待 ⚙️ 交付触发；#5 phase-52 续推。
