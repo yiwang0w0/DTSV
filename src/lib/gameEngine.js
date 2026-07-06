@@ -6,50 +6,12 @@
 import { supabase } from './supabase'
 
 /* ───────────────────────────────────────
-   安全的公式求值器
-   只允许: 数字、四则运算、Math函数、变量名
+   安全的公式求值器 —— 已抽到零 import 的 src/lib/formulaSandbox.js
+   （纯函数·可独立 smoke·白名单校验·KALEIDO P2「LLM 产物语义闸」地基，见 KP0-X）。
+   此处 import 供本文件内部调用 + re-export 保持既有 `from './gameEngine'` 导入方（equipmentEngine/ui）不变。
 ─────────────────────────────────────── */
-const ALLOWED_VARS = ['atk', 'def', 'hp', 'maxHp', 'effect', 'heal', 'level',
-  'targetAtk', 'targetDef', 'targetHp', 'targetMaxHp',
-  'atkMultiplier', 'defMultiplier', 'roll']
-
-export function evalFormula(formula, vars = {}) {
-  if (!formula || typeof formula !== 'string') return 0
-  try {
-    // 白名单校验：只允许数字、运算符、Math.*、已知变量名
-    const sanitized = formula.trim()
-    const forbidden = /[`${}[\]\\;'"]/g
-    if (forbidden.test(sanitized)) return 0
-
-    // 注入变量 + Math + 随机数
-    const scope = {
-      ...vars,
-      roll: Math.random(),
-      Math,
-      max: Math.max,
-      min: Math.min,
-      floor: Math.floor,
-      ceil: Math.ceil,
-      round: Math.round,
-      abs: Math.abs,
-      sqrt: Math.sqrt,
-      pow: Math.pow,
-      random: Math.random,
-    }
-
-    // 构造函数调用（沙箱化参数注入）
-    const argNames = Object.keys(scope)
-    const argValues = Object.values(scope)
-    // eslint-disable-next-line no-new-func
-    const fn = new Function(...argNames, `"use strict"; return (${sanitized})`)
-    const result = fn(...argValues)
-
-    if (typeof result !== 'number' || isNaN(result)) return 0
-    return Math.floor(result)
-  } catch {
-    return 0
-  }
-}
+import { evalFormula, isFormulaSafe, ALLOWED_VARS } from './formulaSandbox'
+export { evalFormula, isFormulaSafe, ALLOWED_VARS }
 
 /* ───────────────────────────────────────
    规则缓存（每次进入游戏时加载一次）
