@@ -21,8 +21,14 @@
 --   现有多人玩法逐字节不变。
 --
 -- ── 状态 ──
---   ⚠ 本文件由 ⚙️ 游戏性优化轨编写，**尚未执行**。待 🔒 安全性轨审阅（RLS 正确性 / owner 判定 /
---   append-only）后，经 postgres MCP 执行，并在本行上方标注「已应用」+ 日期。
+--   ✅ **已应用**（2026-07-06 · 🔒 安全性轨审阅通过后经 postgres MCP 执行）。
+--   审核：3 视角对抗式审计（跨玩家泄漏 / 写越权+append-only / SQL 正确性+幂等）全 clean + 逐策略手工核对，无高危。
+--   实测：6 表 rls_enabled=true；私有五表 owner-read(player_id=auth.uid()·anon→0) + 写仅 service_role；
+--         player_events 仅 INSERT→service_role（无 UPDATE/DELETE，append-only）；content_pool 公开读；
+--         owner 隔离实证 service_sees=1 / anon_sees=0。
+--   审计 minor（非阻断·记录）：① append-only 仅对客户端角色 DB 级强制，service_role BYPASSRLS 仍可改删（信任后端边界，
+--   真全角色 append-only 需 trigger/收 grant，P0 不做）；② content_pool 公开读对 P0 种子内容安全，P2 晋升内容须真匿名；
+--   ③ entity_type/provenance 无 DB CHECK，靠服务端 /api/admin/content 强制（content_pool 写路径归 🔒）。
 --
 -- 幂等：CREATE TABLE/INDEX IF NOT EXISTS；ENABLE RLS 可重复；DROP POLICY IF EXISTS 后 CREATE。可重复执行。
 -- ============================================================
