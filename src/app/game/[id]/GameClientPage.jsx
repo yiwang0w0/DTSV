@@ -16,6 +16,7 @@ import CraftModal from './CraftModal'
 import ItemCraftModal from './ItemCraftModal'
 import KaleidoRunView from './kaleido/KaleidoRunView'
 import { useKaleidoUiUnlocks, buildUnlockCtx } from './kaleido/useKaleidoUiUnlocks'
+import ResponsiveGameLayout from './ResponsiveGameLayout'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
@@ -1499,7 +1500,9 @@ export default function GameClientPage() {
         </div>
       )}
 
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '300px 1fr 300px', overflow: 'hidden' }}>
+      <ResponsiveGameLayout
+        badges={{ center: (encounterInstance || meBase?.probeEncounter) ? true : null }}
+        left={(
         <div style={{ borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg1 }}>
           {/* ① 常驻核心状态条：flexShrink:0 + 不内滚 ⇒ HP/体力/属性永远在视口内，
                 不再被 flex:1 挤成小滚动区。高度由内容自然撑开（约 130-160px）。 */}
@@ -1774,7 +1777,8 @@ export default function GameClientPage() {
           )}
           </div>{/* ③ 统一向下滚动区结束 */}
         </div>
-
+        )}
+        center={(
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: `1px solid ${T.border}`, background: T.bg1, flexShrink: 0 }}>
             {currentMapCorpseCount > 0 && (
@@ -2056,8 +2060,8 @@ export default function GameClientPage() {
             )}
           </div>
         </div>
-
-        {brEnabled ? (
+        )}
+        right={brEnabled ? (
           /* ════════════════════════════════════════════════════════════════
              Phase 30 BR：替换「路径前进 / 下一段 A-B / chamber」移动面板为
              100 房网格 + 大时钟 HUD。点相邻开放房 → runGameAction('move',{toRoomId})
@@ -2324,7 +2328,7 @@ export default function GameClientPage() {
           </div>
         </div>
         )}
-      </div>
+      />
     </div>
   )
 }

@@ -1,5 +1,17 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-08 · 🎨 移动化 P2 对局页响应式（三栏→窄屏竖排+底部 Tab）
+
+> 🧭 派单 P2（死码清理验收 PASS 后放行）。对局页三栏在窄屏（<768）转单列 + 底部 Tab 切换；桌面（≥768）逐字节保持现有三栏 grid。dev harness 双态实测（截图 + DOM 断言）。
+
+- **[`useIsNarrow`](src/lib/useIsNarrow.js)**（新）：视口窄屏检测钩子。SSR/首渲安全（初值 false=桌面态·无 hydration mismatch），仅 useEffect 内经 matchMedia 更新；断点默认 768。
+- **[`ResponsiveGameLayout`](src/app/game/[id]/ResponsiveGameLayout.jsx)**（新）：响应式壳。**宽屏恒等渲染现有 grid `300px 1fr 300px`**（桌面 DOM 逐字节一致）；窄屏单列（当前 Tab 栏）+ 底部 Tab 导航（状态/行动/区域·触控 52px+·active cyan 高亮·可选角标）。**底栏 `position:fixed` 锚视口底**——对局根在 RootShell `<Nav>` + padded `<main>` 之下（非全屏），in-flow 底栏会被推出视口外，故 fixed + 内容区留 56px+safe-area 底 padding 防遮挡。
+- **GameClientPage 接线**：三栏 grid 外包 `<ResponsiveGameLayout left/center/right>`（9 增 5 删·纯边界包裹 + import·**三列内容零改动**）；`badges={{ center: 遭遇/探针 → 红点 }}`（战斗中在他栏也可见）。kaleido 走 KaleidoRunView 早返回、不经此壳。
+- **[dev harness](src/app/dev/game-layout-preview/page.js)**（新·联调后可删）：mock 三栏驱动 ResponsiveGameLayout；preview_resize 切 375/1280 验两态。
+- **验证**：build+lint+类型+smoke 全过。dev 实测——桌面 1280：grid `300px 1fr 300px`、三栏全显、无底栏；窄屏 375：单列（默认 行动）+ fixed 底栏（top 754/bottom 812=视口底）、Tab 切换（状态→左栏）、零横向溢出、combat 角标。**双态截图已取**（新 dev server renderer 恢复可用）。
+- **kaleido 窄屏（🧭 P1-LIVE 更正纳入）**：KaleidoRunView 在 390×844 零横向溢出、stance 三态按钮 99×48px（触控友好）——已响应式、rules_card/stance_ui/1b 窄屏正常，无需改。
+- **遗留（P3 候选）**：移动端顶部仍有 RootShell `<Nav>`（吃 ~110px）——对局页全屏化（route group 逃逸 chrome）留 P3；PrepareModal 等模态窄屏适配 P3。
+
 ## 2026-07-07 · 🎨 KP1-C v2 渐进披露结构级改造（05 §1「UI 即进度」/ A Dark Room 式）
 
 > 恢复令 KP1-C v2 落地：kaleido 全部 UI 件改解锁物、初始态=一个搜索按钮、逐件浮现 + nar_line 落日志（文案走数据·零硬编码）。三次提交，全程 build+lint+类型+smoke 过、dev 预览按 390×844 验证、多人渲染路径零回归可证。
