@@ -51,3 +51,17 @@
 ## 3. 附:复审通过项(摘要)
 
 守卫 5+2 处逐字等价 / schema 与 DDL 草案逐列一致(4 个增强索引含 uq_runs_one_active 兜底) / R9·R11·R3(P0 采样域)合规 / 幂等+补偿主路径正确 / 采样器 mulberry32 确定性 / beacon 信任边界(除 S5)/ kaleidoShell 零副作用无 mock 泄漏 / 死亡先于过关判定(R9 优先级正确) / 异常留痕 console.error 无无声吞错。
+
+---
+
+## 5. KP1 期间 E2E 抓获记录(闸门后追记)
+
+### 5.1 LW-1 boss 关软锁(2026-07-07 · 🔴生产阻断 → 当日修复关单)
+- **链条**:LW-1(`97f3e32`)上线 seq5 boss 投放 → E2E seq5 断言更新后稳定红 → 两探针定位:attackNpc 第 5 步「清空 encounter(无论结果)」(旧搜打撤一击脱离语义)× LW-1「磨死 boss」冲突 → 第 1 拳后玩家永失 boss 目标,**boss_kill 永不可达**(smoke/build/静态复审均未捕获,唯真库 E2E 炸出)。
+- **修复**:裁决 B(`6e129c2`)——共享战斗路径零 diff,advanceKaleidoProgress 加 boss 重锁(boss 存活 ∧ 无锁定 → 静默重置);自愈存量软锁 run。复验 **23/23**(`18b26ca`)。
+- **教训入库**:引擎既有语义(encounter 生命周期/体力/lifecycle)与 kaleido 新玩法的交界处必须逐条推演,LW-2/LW-3 起「多回合 encounter 生命周期」列自测第一项。
+
+### 5.2 平衡数据点(P1 闸门输入·非缺陷)
+- 裸默认属性 vs seq5 boss(enemyMul 1.6):**8 次交换玩家死亡、boss 存活** → 无搜刮增益的玩家末关基本无解。
+- E2E 处置:状态机测试与平衡隔离(boss 战前注入 atk500/hp8000)。
+- **P1 闸门注意**:Kanata 亲测走真实资源曲线——D6 种子关/难度曲线需核「seq1-4 搜刮期望战力增益 vs boss 强度」,或给 boss 关留非硬碰硬解法(道具/公式覆盖)。
