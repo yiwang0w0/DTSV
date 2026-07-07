@@ -2,6 +2,17 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-07 / 🔧 ▶ 恢复令开工 · KP1-E step 0 ui_unlocks 接口形状定稿）
+
+- **恢复令收讫**：🧭 KP1-R 解禁,rebase 到 `473ddb4`。队列重排:ui_unlocks 提最优先(接口形状=首里程碑,🎨 结构级改造等它),其后 LW-3/D3/D5。
+- **✅ 首里程碑达成（已上 main `a06b468`·已 send 🧭 广播 🎨）**：`docs/plan/kaleido/06-ui-unlocks-contract.md` 接口契约定稿。
+  - **契约**：持久解锁集 = `room.gamevars.players[uid].uiUnlocks:string[]`(渲染=∈集合即渲染·种子 ["search_btn"]·veteran 继承);瞬态解锁事件 = 信封顶层 `unlockEvents:[{ui_key,nar_line,timing,precedes,seq}]`(否决 gamevars 内嵌=陈旧回放·幂等每键至多一次·多人局仍 {room});账号持久 = `profiles.ui_unlocks` jsonb(否决 player_profile/新表·DDL 待 🔒 审)。
+  - **方法**：2 个理解 workflow(5 子系统 map + 5 视角对抗验证)。**确认 blocker(已改契约)**:时序法则——非战斗死亡向量(污染/Ω/收缩)先于 fight_start → **hp_bar 由 fight_start 改挂首次 search/before** + 路由边界无条件求值(死亡回合亦发)。
+  - **🎨 stub(5ee35b7)对齐**:stub 与契约高度一致(已预期服务端解锁集+含 nar_line 事件),6 处小校订见 06 §8(最实质=D3 hp_bar 提前到首搜)。
+- **待决策(已报 🧭)**：nar_line 存储(A 引擎内联/B content_pool);condition 判据交 ⚙️ 对齐 seq1-2 投放;rules_card/stance_ui P1 DEAD(待 D3/LW-2)。
+- **DDL 待审**：`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ui_unlocks JSONB NOT NULL DEFAULT '[]'::jsonb`(🔒 审 owner 不可自改)。
+- **下一步(不等广播·并行)**：实现 step ①-④(uiUnlocks.js 注册表 + 路由边界判定 + applyKaleidoPostAction 共享函数[route/E2E 同调] + E2E 解锁序/时序断言);补跑对抗 L2/L4(持久化原子性/withRetry 幂等)。改状态机必跑 kaleido-e2e.mjs(本 worktree 无 .env.local,可从兄弟 worktree 取)。
+
 ## 最近变更（2026-07-07 / 🔧 ⏸ 全局同步点简报锚点 —— 仍停机待命·非恢复令）
 
 - 🧭 简报要点(`e92d0b0` 全局同步点):①KP1-E(LW-3 波次/D3 mergeGameRules/D5 R3 seed)仍有效,恢复后**可能扩编 ui_unlocks**(UI 渐进披露归 🔧:触发判定复用传感层动词·账号级持久化·解锁事件下发·E2E 增解锁序断言,接口形状+12 项 ui_key 见 05 §1);②新增必读:docs/plan/kaleido/05 全文 + 04 §5 软锁教训(自测第一项);③本轨家=Claude/engine/(README+log);④恢复后开工先读 Claude/engine/GPT.md(只读协作接口);⑤若 /compact,以 hub + Claude/engine/ + 03 KP1-E 段 + 05 + 04 重建上下文。本轨状态:干净停点(HEAD=main),继续待命。
