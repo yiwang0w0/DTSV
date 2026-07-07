@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkItemCraft } from '@/lib/itemCraft'
-import { Modal } from './gameUi'
+import { Modal, T } from './gameUi'
 import { useIsNarrow } from '@/lib/useIsNarrow'
 
 export default function ItemCraftModal({ open, onClose, player, onCraft }) {
@@ -75,7 +75,7 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
   return (
     <Modal open={open} onClose={onClose} title="道具合成">
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#8b949e', padding: 24 }}>加载配方中...</div>
+        <div style={{ textAlign: 'center', color: T.dim, padding: 24 }}>加载配方中...</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '240px 1fr', gap: 16 }}>
           {/* 配方列表 */}
@@ -85,19 +85,19 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
               return (
                 <button key={r.id} onClick={() => setSelectedId(r.id)} style={{
                   textAlign: 'left', padding: '10px 12px', borderRadius: 10,
-                  border: `1px solid ${active ? '#58a6ff' : '#30363d'}`,
-                  background: active ? '#58a6ff12' : '#161b22',
-                  color: active ? '#58a6ff' : '#e6edf3', cursor: 'pointer',
+                  border: `1px solid ${active ? T.cyan : T.border}`,
+                  background: active ? `${T.cyan}12` : T.bg2,
+                  color: active ? T.cyan : T.text, cursor: 'pointer',
                 }}>
                   <div style={{ fontWeight: 700 }}>{nameById.get(r.result_item_id) || r.name}</div>
-                  <div style={{ fontSize: 11, color: active ? '#58a6ff' : '#8b949e', marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: active ? T.cyan : T.dim, marginTop: 4 }}>
                     产出 ×{r.result_qty ?? 1} · 成功率 {Math.round((r.success_rate ?? 1) * 100)}%
                   </div>
                 </button>
               )
             })}
             {recipes.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#8b949e', padding: 20 }}>当前没有可用配方</div>
+              <div style={{ textAlign: 'center', color: T.dim, padding: 20 }}>当前没有可用配方</div>
             )}
           </div>
 
@@ -105,21 +105,21 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {selected ? (
               <>
-                <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid #30363d', background: '#161b22' }}>
+                <div style={{ padding: '14px 16px', borderRadius: 12, border: `1px solid ${T.border}`, background: T.bg2 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                     <div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: '#58a6ff' }}>{resultName} ×{selected.result_qty ?? 1}</div>
-                      {selected.description && <div style={{ marginTop: 6, fontSize: 12, color: '#8b949e' }}>{selected.description}</div>}
+                      <div style={{ fontSize: 18, fontWeight: 700, color: T.cyan }}>{resultName} ×{selected.result_qty ?? 1}</div>
+                      {selected.description && <div style={{ marginTop: 6, fontSize: 12, color: T.dim }}>{selected.description}</div>}
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: 12, color: '#8b949e' }}>
+                    <div style={{ textAlign: 'right', fontSize: 12, color: T.dim }}>
                       <div>成功率：{Math.round((selected.success_rate ?? 1) * 100)}%</div>
                       <div>{selected.fail_behavior === 'keep_materials' ? '失败保留材料' : '失败扣材料'}</div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid #30363d', background: '#161b22' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#8b949e', marginBottom: 10 }}>材料需求</div>
+                <div style={{ padding: '14px 16px', borderRadius: 12, border: `1px solid ${T.border}`, background: T.bg2 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.dim, marginBottom: 10 }}>材料需求</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {(selected.ingredients || []).map((ing, idx) => {
                       const name = nameById.get(ing.item_id) || `#${ing.item_id}`
@@ -129,40 +129,40 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
                       return (
                         <div key={idx} style={{
                           display: 'flex', justifyContent: 'space-between', gap: 12,
-                          padding: '10px 12px', borderRadius: 8, border: '1px solid #21262d', background: '#0e1117', fontSize: 12,
+                          padding: '10px 12px', borderRadius: 8, border: `1px solid ${T.bg4}`, background: T.bg0, fontSize: 12,
                         }}>
                           <span>
                             {name}
-                            {ing.is_consumed === false && <span style={{ color: '#d29922', marginLeft: 6, fontSize: 10 }}>催化剂</span>}
+                            {ing.is_consumed === false && <span style={{ color: T.yellow, marginLeft: 6, fontSize: 10 }}>催化剂</span>}
                           </span>
-                          <span style={{ color: enough ? '#3fb950' : '#f85149' }}>{have} / {need}</span>
+                          <span style={{ color: enough ? T.green : T.red }}>{have} / {need}</span>
                         </div>
                       )
                     })}
                     {(selected.ingredients || []).length === 0 && (
-                      <div style={{ color: '#8b949e', fontSize: 12 }}>该配方当前没有材料要求</div>
+                      <div style={{ color: T.dim, fontSize: 12 }}>该配方当前没有材料要求</div>
                     )}
                   </div>
                 </div>
 
                 {check && !check.canCraft && (
-                  <div style={{ color: '#f85149', fontSize: 12 }}>
+                  <div style={{ color: T.red, fontSize: 12 }}>
                     {check.levelGated ? '等级不足，无法合成此配方' : '材料不足，无法合成'}
                   </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #30363d', background: 'transparent', color: '#8b949e', cursor: 'pointer' }}>关闭</button>
+                  <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.dim, cursor: 'pointer' }}>关闭</button>
                   <button onClick={doCraft} disabled={!check?.canCraft || crafting} style={{
                     padding: '8px 16px', borderRadius: 8, border: 'none',
-                    background: check?.canCraft ? '#3fb950' : '#484f58',
+                    background: check?.canCraft ? T.green : T.dim3,
                     color: check?.canCraft ? '#000' : '#c9d1d9', fontWeight: 700,
                     cursor: check?.canCraft && !crafting ? 'pointer' : 'not-allowed',
                   }}>{crafting ? '合成中...' : '开始合成'}</button>
                 </div>
               </>
             ) : (
-              <div style={{ textAlign: 'center', color: '#8b949e', padding: 24 }}>请选择一条配方</div>
+              <div style={{ textAlign: 'center', color: T.dim, padding: 24 }}>请选择一条配方</div>
             )}
           </div>
         </div>

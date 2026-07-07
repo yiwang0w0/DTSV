@@ -123,11 +123,11 @@ async function loadBrTopology(expectedVersion = null) {
 
 // Phase 19.7: chamber 类型元数据（路径前进面板用）
 const CHAMBER_TYPE_META = {
-  scan_dense:     { label: '搜密', icon: '🔍', color: '#58a6ff' },
-  combat_dense:   { label: '打密', icon: '⚔️', color: '#f85149' },
-  fragment_dense: { label: '残密', icon: '📡', color: '#bc8cff' },
-  hazard:         { label: '危险', icon: '☢',  color: '#d29922' },
-  exit:           { label: '撤离', icon: '🚪', color: '#3fb950' },
+  scan_dense:     { label: '搜密', icon: '🔍', color: T.cyan },
+  combat_dense:   { label: '打密', icon: '⚔️', color: T.red },
+  fragment_dense: { label: '残密', icon: '📡', color: T.purple },
+  hazard:         { label: '危险', icon: '☢',  color: T.yellow },
+  exit:           { label: '撤离', icon: '🚪', color: T.green },
   milestone:      { label: '里程碑 ⚠', icon: '🏆', color: '#ff8c42' },
 }
 function chamberTypeLabel(type) {
