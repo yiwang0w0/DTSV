@@ -4,6 +4,19 @@
 >
 > **状态锚点（2026-07-07 · 停机期 · 非恢复令）**：中控全局同步点 `e92d0b0`。① 剧情线定向落定（权威见 `docs/plan/kaleido/05`：开局仅搜索按钮 / UI 渐进披露 / 失衡时代叙事 / 玩家=结构工程体）② 文档改版：本轨家 = `Claude/security/`（README+log）· hub = `Claude/Readme_Claude` · dated 段写本 log.md ③ 恢复后**开工先读** `Claude/security/GPT.md`（只读 · GPT 投放参考）④ 恢复后审点预告：**ui_unlocks 账号级持久化**（新表 / profiles 列）+ kaleido-e2e 脚本安全复核（在队）。本轨停点 = phase-52 全库收官 + KP1-X #1 resolveTurn R1 审毕。继续待命。
 
+## 最近变更（2026-07-07 / 🔒 KP1-X item 2 · `profiles.ui_unlocks` 持久化 DDL 审 —— **不通过（as-is）· 须补列级守卫**）
+
+> 🧭 转审 🔧 的账号级持久化 DDL（契约 `docs/plan/kaleido/06-ui-unlocks-contract.md` §4，Map C = profiles jsonb 列复用既有 RLS）。核心审点（🧭 提醒）：**RLS 是行级不是列级** —— profiles 若有 owner-UPDATE policy，owner 就能顺带改 ui_unlocks 伪造解锁。**实测确证正是此情形（案 ②）。**
+
+- **实测 profiles RLS（postgres MCP 只读 `pg_policies`/`pg_class`/`role_table_grants`）**：`rls_enabled=true`（未 forced）；三策略均 `roles={public}`：`profiles_select SELECT USING(true)`（**公开读·非 owner-read**）、`profiles_insert INSERT WITH CHECK(auth.uid()=id)`、**`profiles_update UPDATE USING(auth.uid()=id)·with_check=NULL`**；anon/authenticated 均持表级 UPDATE/INSERT grant。
+- **审定结论 = DDL 列定义本身通过，但「复用既有 RLS 即安全」的主张不通过**：
+  1. **owner 可自改 ui_unlocks（案 ②·伪造越权）**：任意登录 owner `UPDATE profiles SET ui_unlocks='[全部键]' WHERE id=auth.uid()` 经 `profiles_update`（USING 命中 + with_check=NULL 无出参约束）成功。**行级 RLS 无法约束列**，🔧「owner 不能自改」主张不成立。**escalation**：`startKaleidoRun`（gameActions.js ~:2642·§3.5）run 起始读 `profiles.ui_unlocks` 当**权威种子** → 伪造值被服务端信任、播入 `player.uiUnlocks` 持久生效（非纯客户端装饰）。单人局无跨玩家/经济面 → 定 **medium**（击穿功能自声明的安全不变量 + 写服务端信任态 + 若解锁将来门控任何价值即升级面）。
+  2. **profiles 为 public-read（非 owner-read）**：`profiles_select USING(true)` → ui_unlocks 随 profiles 全列对 anon 可读。ui_unlocks 无 PII/凭证/余额 → 读暴露 **info/low·可接受**，但须更正 🔧「owner-read」表述为实际的 public-read；技术上确「引入 anon 可读面」但非敏感。
+- **为何不能改策略、必须列级守卫**：`profiles_update` 是在用合法路径 —— `PrepareModal.jsx`（`'use client'`·anon 客户端）:222/:238 `update({saved_loadouts})` 依赖它 → DROP/收窄即砸载具保存。RLS `with_check` 无法引用 OLD（只见 NEW）→ 表达不了「ui_unlocks 不变」（否决候选 c）。列级 GRANT 白名单需枚举全部客户端可写列且随 schema 漂移（否决候选 b·profiles 正持续加列）。→ 唯 **BEFORE 触发器**（候选 a）可对单列做「客户端角色不可变」。
+- **补防草案（幂等·未执行·交 🧭 审）**：[`scripts/kaleido-ui-unlocks-guard.sql`](scripts/kaleido-ui-unlocks-guard.sql) —— `BEFORE INSERT OR UPDATE` 触发器（SECURITY INVOKER），default-deny 白名单 `{service_role,postgres,supabase_admin}`：客户端角色 UPDATE 改该列→RAISE(fail-loud)、INSERT 非空该列→静默强制 `'[]'`；不触碰 saved_loadouts/roomid 等其它列写路径（未改动则 NEW=OLD·放行）。
+- **实现耦合约束（交 🔧）**：§3.2 的 ui_unlocks 写入**必须用 service_role 客户端**（非用户 JWT 的 authenticated 客户端），否则合法解锁写会被本守卫拒（契约 §4「写仅 service_role」即此意）。
+- **执行顺序（批准后）**：① §4 DDL 建列 → ② 本守卫 → ③ 🔧 service_role 写路径落地 → ④ 🔒 复验（anon 伪造被拒 / service_role 写通 / PrepareModal saved_loadouts 不受影响）。**均未执行**；已 `send_message` 报 🧭。
+
 ## 最近变更（2026-07-07 / 🔒 KP1-X · `scripts/kaleido-e2e.mjs` 安全复核[只读·不改脚本]）
 
 > 恢复令 KP1-X 首项（低优）：对 `scripts/kaleido-e2e.mjs`（service-role 直驱真库的 KALEIDO 状态机 E2E 回归）做三轴安全复核 —— **凭证读取面 / 清理完备性 / 生产表写入面**。方法：三轴 finder 追调用图 + 逐条对抗验证（16 采 → **4 confirmed / 12 rejected**）。**结论：无 high/medium，脚本可继续跑；一处值得修的低危（raid_stats 清理遗漏）+ 两处稳健性建议。均只出意见、不改脚本（E2E 资产 🔧 共管）。**
