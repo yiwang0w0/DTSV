@@ -39,17 +39,18 @@ function simCombatModes(P, E) {
   return { win: ehp <= 0 && php > 0, turns, potUsed: P.potions - pot }
 }
 
-// ── 模型 B:遗留富路径语义(玩家 85% 命中 + 敌 counter 0.3×acc 0.85 ≈ 0.255/回合 + 可选污染放大)——= 现 live ──
-function simRichPath(P, E, pollutionMult = 1) {
+// ── 模型 B:遗留富路径语义(玩家 85% 命中 + 敌 counter 0.3×acc 0.85 ≈ 0.255/回合)——= 现 live(D5=乙 目标)──
+//   污染真实语义(pollution.js:251 + constants COMBAT_DAMAGE_REDUCTION_SEVERE=-0.15):
+//     severe tier(有效污染 80-99)→ **玩家出手伤害 ×0.85**(降 15%,仅玩家攻击 gameActions.js:1881;敌反击不改);
+//     meltdown(≥100)/以下 → 无战斗修正。∴ playerDmgMult=0.85 模拟 boss 关 severe 污染,=1 无污染。
+function simRichPath(P, E, playerDmgMult = 1) {
   let php = P.hp, pot = P.potions, ehp = E.hp, turns = 0
   while (php > 0 && ehp > 0 && turns < 400) {
     turns++
     if (php / P.maxHp < 0.3 && pot > 0) { pot--; php = Math.min(P.maxHp, php + P.heal); continue } // 用药动作:无敌反击(rich path useItem 独立动作)
-    if (Math.random() < 0.85) ehp -= hitDmg(P.atk, E.def)                                          // 玩家攻击 85% 命中
+    if (Math.random() < 0.85) ehp -= Math.max(1, Math.floor(hitDmg(P.atk, E.def) * playerDmgMult)) // 玩家攻击 85% 命中·污染降己伤
     if (ehp <= 0) break
-    if (Math.random() < 0.3 && Math.random() < 0.85) {                                             // 敌反击 counter×acc
-      php -= Math.floor(hitDmg(E.atk, P.def) * pollutionMult)                                       // 污染放大(sensitivity)
-    }
+    if (Math.random() < 0.3 && Math.random() < 0.85) php -= hitDmg(E.atk, P.def)                    // 敌反击(污染不改)
   }
   return { win: ehp <= 0 && php > 0, turns, potUsed: P.potions - pot }
 }
@@ -75,14 +76,12 @@ console.log(`\n=== KALEIDO D6 平衡核算 · 双战斗模型 (${TRIALS} trials/
 console.log('【0】数据点核对 — naked vs 旧 boss(102/20/3),各模型 clearRate / avgTurns:')
 {
   const cm = rate(simCombatModes, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 })
-  const rp1 = rate(simRichPath, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 }, 1)
-  const rp2 = rate(simRichPath, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 }, 2)
-  const rp3 = rate(simRichPath, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 }, 3)
-  console.log(`     combatModes(A)     : ${pct(cm.clear)}  ${cm.turns.toFixed(1)}t   ← 复现"死"(0%)`)
-  console.log(`     richPath poll×1(B) : ${pct(rp1.clear)}  ${rp1.turns.toFixed(1)}t   ← 现 live 无污染:naked 反而稳赢`)
-  console.log(`     richPath poll×2    : ${pct(rp2.clear)}  ${rp2.turns.toFixed(1)}t`)
-  console.log(`     richPath poll×3    : ${pct(rp3.clear)}  ${rp3.turns.toFixed(1)}t   ← 高污染才逼近"死"`)
-  console.log(`     → 数据点"8 交换死"只在 combatModes 或 高污染 richPath 下成立(见 08 §1 判读)\n`)
+  const rp = rate(simRichPath, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 }, 1)
+  const rpS = rate(simRichPath, PROFILES.naked, { hp: 102, maxHp: 102, atk: 20, def: 3 }, 0.85)
+  console.log(`     combatModes(A)        : ${pct(cm.clear)}  ${cm.turns.toFixed(1)}t   ← 复现"8 交换死"(0%·敌每回合)`)
+  console.log(`     richPath 无污染(B)    : ${pct(rp.clear)}  ${rp.turns.toFixed(1)}t   ← naked 稳赢(敌仅 25% 反击)`)
+  console.log(`     richPath severe 污染   : ${pct(rpS.clear)}  ${rpS.turns.toFixed(1)}t   ← 己伤−15% 也不足以让 naked 死`)
+  console.log(`     → 结论:数据点"8 交换死"= combatModes 口径产物,非 live 富路径;富路径下 naked 反而稳赢老 boss(见 08 §1.3)\n`)
 }
 
 // ── 【1】seq5 boss 反解 · 两模型对照 ──
@@ -94,7 +93,7 @@ const BOSSES = [
   { label: '260/34/8', hp: 260, atk: 34, def: 8 },
   { label: '320/44/10', hp: 320, atk: 44, def: 10 },
 ]
-for (const [name, simFn, extra] of [['模型A combatModes(迁移目标)', simCombatModes, []], ['模型B richPath poll×1(现 live)', simRichPath, [1]], ['模型B richPath poll×2', simRichPath, [2]]]) {
+for (const [name, simFn, extra] of [['模型A combatModes(甲·未采纳)', simCombatModes, []], ['模型B 富路径 无污染(乙·D5 采纳)', simRichPath, [1]], ['模型B 富路径 severe 污染(boss 关·己伤−15%)', simRichPath, [0.85]]]) {
   console.log(`【1】seq5 boss × 准备度 — ${name}:`)
   console.log('     boss        ' + PKEYS.map((k) => k.padStart(6)).join(' '))
   for (const b of BOSSES) {

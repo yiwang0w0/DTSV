@@ -195,15 +195,15 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 
 ## 4. seq3-5 全量结构(数值源 = `08-d6-balance.md`)
 
-> 数值来自 08 平衡核算(双模型 sim)。**⚠ 敌/boss 数值 model-contingent**:下表填**模型甲(combatModes)**值;若 🧭 选**模型乙(富路径)**,boss→`200/26/6`(含污染)或 `260/34/8`(无),seq4 敌→更强(08 §6)。**seq3 elite 不受选型影响**(stance_duel 已 live-faithful)。
+> 数值 = 08 平衡核算**终值(D5=乙 富路径曲线·`d828c92`)**。污染 = 次要减益(severe 降玩家己伤 15%·08 §3)。**seq3 elite** 走 combatModes(LW-2·不受 D5 影响)。
 > **⚠ SQL 未定稿**(🧭 裁决:seq3-5 SQL 待 🔧 批复 07 §1.1 payload 形状后补;本节 = 结构 + 数值设计)。
 > **引擎现状(§0.4)**:seq3(elite)/seq4(resource)的 combatSetup.enemy + event_deck 同 seq1-2 阻塞于 🔧 内容注入消费器;**唯 seq5 boss 走已有 `gameActions.js:3404` boss 分支,现引擎即可消费**(boss 是当前唯一 live 可用的种子关战斗)。
 
-| seq | archetype | mode | exit | chamber_ref | 敌数值(kaleido 尺度·08 §6)| clear 目标 | 解锁链 |
+| seq | archetype | mode | exit | chamber_ref | 敌数值终值(kaleido·08 §6)| clear 目标 | 解锁链 |
 |---|---|---|---|---|---|---|---|
-| 3 | elite | stance_duel | survive_turns=5 | id7 anchor_hazard_1 | hp80 / atk13 / def4 | ~75-80%(中段)| **stance_ui**(待 LW-2)|
-| 4 | resource | standard | survive_turns=6 | id8 eden_scan_1(max_items 7)| hp70 / atk11 / def4(消耗型·可选)| 非 kill 门 | 备战·craft 材料 |
-| 5 | boss | standard | **boss_kill** | id24 omega_milestone_1 | **hp168 / atk20 / def5** | prepared 95%·不足 0% | **convergence** |
+| 3 | elite | stance_duel | survive_turns=5 | id7 anchor_hazard_1 | **hp85 / atk14 / def4** | minimal ~75-80% | **stance_ui**(待 LW-2)|
+| 4 | resource | standard | survive_turns=6 | id8 eden_scan_1(max_items 7)| **hp90 / atk16 / def5**(消耗·非墙)| 非 kill 门 | 备战·craft 材料 |
+| 5 | boss | standard | **boss_kill** | id24 omega_milestone_1 | **hp260 / atk34 / def8** | prepared 74-86%·naked 0% | **convergence** |
 
 > **⚠ chamber_ref 名仅为 DB legacy 多人标签**(如 id24「Ω-段-终极界面」),我只按 **type + pollution 结构**选 ID;kaleido 面向的命名/lore(π-段锚点,**非** Ω-段;§8)**是 📖 的决定,不可当 canon 读**。
 
@@ -217,9 +217,9 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "elite",
     "exit_condition": { "type": "survive_turns", "params": { "turns": 5 } },
     "combat_mode": { "template_ref": "stance_duel", "params": { "counterMul": 1.6, "atkMul": 1, "defMul": 0.5 }, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 9, "name": "", "hp": 80, "maxHp": 80, "atk": 13, "def": 4, "level": "medium" } },
+    "combatSetup": { "enemy": { "npcId": 9, "name": "", "hp": 85, "maxHp": 85, "atk": 14, "def": 4, "level": "medium" } },
     "event_deck": [
-      { "type": "npc_encounter", "npc": { "id": 9, "hp": 80, "atk": 13, "def": 4 }, "weight": 3, "once": true, "guaranteed": true },  // stance 决斗
+      { "type": "npc_encounter", "npc": { "id": 9, "hp": 85, "atk": 14, "def": 4 }, "weight": 3, "once": true, "guaranteed": true },  // stance 决斗
       { "type": "item_find", "item": { "id": 24 }, "weight": 2, "once": false }   // 少量补给(kaleido 值待 ③④)
     ],
     "env_rules": [], "formula_overrides": [],
@@ -239,7 +239,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "resource",
     "exit_condition": { "type": "survive_turns", "params": { "turns": 6 } },
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 8, "name": "", "hp": 70, "maxHp": 70, "atk": 11, "def": 4, "level": "easy" } },  // 消耗型·非墙
+    "combatSetup": { "enemy": { "npcId": 8, "name": "", "hp": 90, "maxHp": 90, "atk": 16, "def": 5, "level": "medium" } },  // 消耗型·非墙(富路径·08 §6)
     "event_deck": [
       { "type": "item_find", "item": { "id": 24 }, "weight": 5, "once": true, "guaranteed": true },  // 战力增益件(占位·kaleido stat 件待 ③④)
       { "type": "item_find", "item": { "id": 13 }, "weight": 4, "once": true, "guaranteed": true },  // 合成材料(结构碎片)
@@ -263,12 +263,12 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "boss",
     "exit_condition": { "type": "boss_kill", "params": {} },
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 10, "name": "", "hp": 168, "maxHp": 168, "atk": 20, "def": 5, "level": "boss" } },  // 08 §2 平衡产物
+    "combatSetup": { "enemy": { "npcId": 10, "name": "", "hp": 260, "maxHp": 260, "atk": 34, "def": 8, "level": "boss" } },  // 08 §2 富路径终值
     "event_deck": [
-      { "type": "npc_encounter", "npc": { "id": 10, "hp": 168, "atk": 20, "def": 5 }, "weight": 3, "once": true, "guaranteed": true }
+      { "type": "npc_encounter", "npc": { "id": 10, "hp": 260, "atk": 34, "def": 8 }, "weight": 3, "once": true, "guaranteed": true }
     ],
     "env_rules": [], "formula_overrides": [],
-    "difficulty_band": { "target_clear_rate": [0.5, 0.7] },   // prepared 视角;不足者恒 0(08 §2)
+    "difficulty_band": { "target_clear_rate": [0.7, 0.85] },   // prepared 74-86%;不足者→0(08 §2)
     "chamber_ref": { "template_id": 24, "template_key": "omega_milestone_1" },
     "name": "", "description": "", "enter_text": "", "ambient": []
   },
@@ -299,15 +299,15 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 
 ---
 
-## 7. 平衡核算 → 见 `08-d6-balance.md`(KP1-G ② · 双模型 · 含阻塞决策)
+## 7. 平衡核算 → 见 `08-d6-balance.md`(KP1-G ② · D5=乙 定稿)
 
-KP1-G ② 用只读**双模型** harness(`scripts/kaleido-d6-balance-sim.mjs`)完成,产出 `08-d6-balance.md`。**关键(经对抗验证订正)**:
+KP1-G ② 用只读双模型 harness(`scripts/kaleido-d6-balance-sim.mjs`)完成,产出 `08-d6-balance.md`。**🧭 裁决 D5=乙(富路径曲线·`d828c92`)**,§4 已填终值:
 
-- **🔴 kaleido 有两套战斗模型**:combatModes(100% 命中·敌每回合·R1 净·**仅 stance_duel 现走**)vs 遗留富路径(85% 命中·反击 0.255/回合·污染·`Math.random`·**standard/boss 现走**)。伤害公式同,差异在命中/反击/污染 → boss 数值差 ~4×。
-- **难度形状随模型**:combatModes = **锐利闸门**(boss 168/20/5·prepared 95%·不足 0%);富路径 = **平滑曲线**(boss 260/34/8·naked 1%→solid 50%→prepared 86%,或含污染 200/26/6)。之前"attrition 必是断崖"是错模型产物。
-- **🔴 阻塞决策(🧭/🔧)**:D5 迁 combatModes vs 富路径 seed 化 —— 定全部 boss 数值。⚙️ 推荐富路径曲线(08 §2.3)。
-- **§4 现填模型甲(combatModes)值**;选型定后改。seq3 elite(stance_duel·live-faithful)不受影响。
-- E2E boss_kill 断言 ✅ 不受影响(`kaleido-e2e.mjs:83-88` 注入 atk500/hp8000)。
+- **战斗模型 = 乙(富路径)**:玩家 85% 命中 + 敌反击 0.255/回合 + 污染(severe 降**玩家己伤** 15%)+ seed-PRNG(🔧 D5 把 `Math.random`→seed·R1 同批修)。伤害公式 = combatModes.hit 同式。
+- **难度 = 平滑曲线**:boss `260/34/8` → naked 0-1% / solid 25-50% / prepared 74-86% / over 98-100%(每档准备度有意义)。原"combatModes 断崖"结论作废(错模型)。
+- **数据点回溯**:"裸属性 8 拳死"= combatModes 口径产物,非 live 富路径;富路径下 naked 反而稳赢老 boss(08 §7)。
+- **seq3 elite** 走 combatModes(LW-2)不受 D5 影响;seq5 boss `:3404` live 可跑;seq3/4 战斗等 🔧 内容注入。
+- E2E boss_kill ✅ 不受影响(`kaleido-e2e.mjs:83-88` 注入 atk500/hp8000)。
 
 ---
 
