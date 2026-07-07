@@ -2,11 +2,11 @@
 -- KALEIDO D6 种子关 seq3-5(⚙️ KP1-G ①/② · content_pool entity_type='level')
 -- ─────────────────────────────────────────────────────────────────
 -- 设计:docs/plan/kaleido/07-d6-seed-levels.md §4 + 08-d6-balance.md(D5=乙 富路径终值)。
--- ⚠ 状态:**未执行 · 待 🧭/🔒 审后经 postgres MCP 执行**(铁律:SQL 先审后跑)。enabled=false 惰性入库(同 seq1-2)。
+-- ✅ 已应用(2026-07-08 · 🧭 审 delta 后经 postgres MCP 执行 · 验证 3 行 · enabled=false 惰性)。点亮(UPDATE enabled=true)待 🔧 消费器 + 🧭 终审 + E2E 重跑。
 -- 🔧 形状批复(36a17c1)已并入:
 --   · combatSetup.enemy = 权威 per-chamber 战斗敌(入关注入·镜像 boss :3404);event_deck 只放 item_find(不放 npc_encounter·防双刷)。
 --   · 敌数值 = 富路径终值(08 §6):elite 85/14/4(stance_duel·combatModes-live)/ resource 90/16/5 / boss 260/34/8。
---   · name 留空由 📖 N4 填(🔧 证:空名不回落 npc_pool.name;boss 空名→硬编码'首领')。
+--   · 敌名已并入(📖 描述制定案:那家伙/那东西/黑里的那个);空名不回落 npc_pool.name(🔧 证·boss 空名→硬编码'首领')。
 --   · craft 材料判据运行时读 item_pool.kind,payload 不加字段;enabled 过滤已在 runs.js:2615。
 -- 引用 ID:npc_pool(9/8/10·数值覆盖)、item_pool(24/13/14/27)、chamber_templates(7/8/24)。
 -- 幂等:按 provenance->>'seed_key' 删旧再插。

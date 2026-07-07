@@ -2,7 +2,7 @@
 -- KALEIDO D6 种子关 seq1-2 初稿(⚙️ KP1-G ① · content_pool entity_type='level')
 -- ─────────────────────────────────────────────────────────────────
 -- 设计:docs/plan/kaleido/07-d6-seed-levels.md §2/§3。
--- ⚠ 状态:**未执行 · 待 🧭/🔒 审后经 postgres MCP 执行**(铁律:SQL 先审后跑)。
+-- ✅ 已应用(2026-07-08 · 🧭 审 delta 后经 postgres MCP 执行 · 验证 2 行 · enabled=false 惰性)。点亮(UPDATE enabled=true)待 🔧 消费器 + 🧭 终审 + E2E 重跑。
 -- ⚠⚠ 对抗验证发现(07 §0.4):运行时 gameActions.js 只消费 boss 关 combatSetup.enemy(:3404);
 --     event_deck 与非 boss 敌人注入**无运行时读者** ⟹ 本批种子关当前是惰性数据(命中即降级随机多人刷怪)。
 --     故两行均 enabled=FALSE:即便审毕执行也不入活流。启用前置 =
