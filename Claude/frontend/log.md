@@ -21,7 +21,8 @@
   - D1 解锁集读缝 → `me.uiUnlocks`（账号镜像·契约定稿字段，替换占位 `gamevars.kaleido.uiUnlocks`）；
   - **D3 时序法则修正**：hp_bar 触发 `fight_start`→`search`（🔧 对抗验证：污染/Ω/收缩死亡先于战斗 → hp_bar 首搜即显、与 combat_panel 解耦）；
   - D4/D5/D6 verb 词汇对齐（search+condition / move / cleared_seq_increased·元数据）。
-- **遗留 / 待接**：① 多人 return 内旧 kaleido 壳块（关卡头/规则卡/横幅/收敛）已被早返回架空成**死码**，待清理提交移除（含 GameClientPage 那 4 处 kaleido import）；② `craft_btn`/`rules_card`/`stance_ui` 契约 P1 DEAD（待 ⚙️ 材料投放 / D3 规则关 / LW-2 stance_duel 携 combat_mode）；③ **D2 `unlockEvents` 瞬态消费**待 🔧 route 边界落地（现 stub diff + 本地 nar_line 兜底·真集下发后停用）；④ 12 项 ui_key 前端校订意见待 send_message 回 🧭。
+- **D2 unlockEvents 客户端消费已接齐**（`🧭 验收后补·六处校订全收`）：`useKaleidoUiUnlocks` 抽 `commitUnlocks`（prevRef 去重·每 key 恰处理一次）+ `applyServerEvents`（消费响应信封顶层 `unlockEvents`·服务端 nar_line 权威）；`runGameAction` 在 `hydrateRoom` 前提交 ⇒ server 事件先于 stub-derive ⇒ server nar_line 为准、无本地副本漂移；🔧 route 未 emit 时 stub-derive 兜底，全量 live 后置 `emitNarLog=false` ⇒ 客户端零本地文案表（🧭 裁决）。dev 验证：模拟 server unlockEvents 解锁 `craft_btn`（stub 永不解锁的键）+ server nar_line 落日志恰 1 次 + 动效。至此 🔧 06 §8 **D1-D6 全收**。
+- **遗留 / 待接**：① 多人 return 内旧 kaleido 壳块（关卡头/规则卡/横幅/收敛）已被早返回架空成**死码**，待清理提交移除（含 GameClientPage 那 4 处 kaleido import）；② `craft_btn`/`rules_card`/`stance_ui` 契约 P1 DEAD（待 ⚙️ 材料投放 / D3 规则关 / LW-2 stance_duel 携 combat_mode）；③ 🔧 route 落地 emit `unlockEvents` 后一并置 `emitNarLog=false` + 删本地 nar_line 表（最终清理）；④ 收敛页 abandon 终态**不做**「值班的」末行日志（🧭 叙事口径：没人记这笔账·勿三终态对称）。
 
 ## 最近变更（2026-07-06 / 🎨 KP0-C 单人壳 UI 全五件 + KP0-R-C 修复批 C1-C5）
 

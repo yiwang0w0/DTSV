@@ -878,11 +878,16 @@ export default function GameClientPage() {
     setBusy(true)
     setBusyAction(action)
     try {
-      const { room: nextRoom } = await postGameApi('/api/game/actions', {
+      const { room: nextRoom, unlockEvents } = await postGameApi('/api/game/actions', {
         roomId: Number(roomId),
         action,
         ...payload,
       })
+      // KP1-C v2 · 🔧 06 §1.2 D2：kaleido 响应信封顶层 unlockEvents（服务端权威·含 nar_line）。
+      //   在 hydrateRoom 前提交 ⇒ server 事件先于 stub-derive ⇒ server nar_line 为准。多人局响应无此键、恒跳过。
+      if (isKaleido && Array.isArray(unlockEvents) && unlockEvents.length) {
+        kaleidoUnlocks.applyServerEvents(unlockEvents)
+      }
       await hydrateRoom(nextRoom, options)
       return nextRoom
     } catch (error) {

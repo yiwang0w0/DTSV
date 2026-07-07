@@ -61,6 +61,7 @@ export default function KaleidoPreviewPage() {
         <Ctl on={sim.movedAny} label="⑥ 前进 → level_header + turn" onClick={() => { set({ movedAny: true, seq: Math.min(sim.seq + 1, 5) }); setOverlay(null); pushLog('往前走了一段。', 'system') }} />
         <Ctl on={sim.ruleLevel} label="⑦ 进规则关 → rules_card" onClick={() => set({ ruleLevel: true, stanceLevel: false })} />
         <Ctl on={sim.stanceLevel} label="⑧ 进精英关 → stance_ui + 遭遇" onClick={() => { set({ ruleLevel: true, stanceLevel: true, encounter: true }); pushLog('这东西讲究路数。', 'system') }} />
+        <Ctl on={unlocks.unlocked.has('craft_btn')} label="⑨ 模拟 🔧 unlockEvents(craft_btn·服务端 nar_line·D2)" onClick={() => unlocks.applyServerEvents([{ ui_key: 'craft_btn', nar_line: '（服务端权威）这两样，拼得到一起。——已开放：动手做。', timing: 'after', seq: 2 }])} />
         <div style={{ height: 8 }} />
         <div style={{ fontSize: 10, color: T.dim2 }}>覆盖层</div>
         <Ctl label="收敛 · 通关" onClick={() => setOverlay('cleared')} />
