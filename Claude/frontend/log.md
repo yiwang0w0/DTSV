@@ -1,5 +1,28 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-07 · 🎨 KP1-C v2 渐进披露结构级改造（05 §1「UI 即进度」/ A Dark Room 式）
+
+> 恢复令 KP1-C v2 落地：kaleido 全部 UI 件改解锁物、初始态=一个搜索按钮、逐件浮现 + nar_line 落日志（文案走数据·零硬编码）。三次提交，全程 build+lint+类型+smoke 过、dev 预览按 390×844 验证、多人渲染路径零回归可证。
+
+- **基建**（`5ee35b7`）：
+  - [`kaleido/kaleidoUiUnlocks.js`](src/app/game/[id]/kaleido/kaleidoUiUnlocks.js)：12 项 ui_key + nar_line（📖 N3 全量·组件零硬编码）+ `deriveStubUnlocks`（前端 stub·镜像 05 §1.3 触发）+ `readServerUnlocks`（🔧 真数据读缝）+ `REVEAL_ORDER`/`KALEIDO_STATIC_LINES`（死亡登记行·N3 §4）。
+  - [`kaleido/useKaleidoUiUnlocks.js`](src/app/game/[id]/kaleido/useKaleidoUiUnlocks.js)：sticky 解锁集（只增不减·兼容 R8/R9）+ 新解锁 diff → 渐次动效 + nar_line 落披露日志；`enabled=false`（多人局）完全惰性。
+  - [`kaleido/KaleidoRunView.jsx`](src/app/game/[id]/kaleido/KaleidoRunView.jsx)：A Dark Room 渐进布局（初始仅搜索按钮 hero 态 → 逐件浮现）；复用已交付壳件（关卡头/R6 卡/横幅/收敛页）；含 **1b 三态出招**（stance_ui·`{action:'attackNpc', stance:'atk'|'def'|'skill'}`）。
+  - `globals.css`：`kaleido-reveal`/`kaleido-narline` 动效（+ `prefers-reduced-motion`）。
+  - [`/dev/kaleido-preview`](src/app/dev/kaleido-preview/page.js) 改为渐进披露谐调器（stub 驱动·390×844 取景框）。
+- **生产集成 + 对抗复审修正**（`50a9ec2`）：
+  - GameClientPage：`if (isKaleido) return <KaleidoRunView/>` **早返回**（多人 3 栏壳 return 93 行纯新增/0 删除 ⇒ 多人渲染路径字节级不变）；共享模态（Toast/合成/拾取）重挂；解锁钩子 `enabled=isKaleido`。
+  - 5-lens 对抗复审 Workflow：**多人零回归 / 硬时序法则 = PASS**；抓 3 HIGH + 1 med 全修 ——
+    - 节点战斗模板字段是 **`kaleidoMode`** 非 `combatMode`（runs.js:134）→ 三态UI/规则卡/stance解锁曾恒失效（**连既有壳代码一起错**·老规则卡恒回落 standard）；
+    - `searched` 信号改 `me.turnCount>0`（run 创建播种 1 条 log·旧 `logs.length>0` 开局误亮 log_panel）；
+    - narLog 开场行 seed 去 `enabled` 门控（room 初 null 致开场行永久丢失）；
+    - 死亡登记行改数据源（N3 §4）。
+- **对齐 🔧 06 契约 §8**（`232fd87`·D1-D6）：
+  - D1 解锁集读缝 → `me.uiUnlocks`（账号镜像·契约定稿字段，替换占位 `gamevars.kaleido.uiUnlocks`）；
+  - **D3 时序法则修正**：hp_bar 触发 `fight_start`→`search`（🔧 对抗验证：污染/Ω/收缩死亡先于战斗 → hp_bar 首搜即显、与 combat_panel 解耦）；
+  - D4/D5/D6 verb 词汇对齐（search+condition / move / cleared_seq_increased·元数据）。
+- **遗留 / 待接**：① 多人 return 内旧 kaleido 壳块（关卡头/规则卡/横幅/收敛）已被早返回架空成**死码**，待清理提交移除（含 GameClientPage 那 4 处 kaleido import）；② `craft_btn`/`rules_card`/`stance_ui` 契约 P1 DEAD（待 ⚙️ 材料投放 / D3 规则关 / LW-2 stance_duel 携 combat_mode）；③ **D2 `unlockEvents` 瞬态消费**待 🔧 route 边界落地（现 stub diff + 本地 nar_line 兜底·真集下发后停用）；④ 12 项 ui_key 前端校订意见待 send_message 回 🧭。
+
 ## 最近变更（2026-07-06 / 🎨 KP0-C 单人壳 UI 全五件 + KP0-R-C 修复批 C1-C5）
 
 > 🎨 前端轨 KALEIDO 交付汇总（含此前 P1 移动地基）。全部 UI 按 390×844 + 桌面验证、零横向溢出；多人局渲染路径零改动（全部 kaleido 件走 `isKaleido` 条件，false 分支 JSX 逐字节不变）。
