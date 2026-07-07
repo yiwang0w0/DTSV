@@ -37,7 +37,7 @@
 **客户端**：`src/app/game/[id]/`（GameClientPage + gameUi(T 色板) + CraftModal/ItemCraftModal/ExtractionModal/LootModal）；`src/app/admin/`（4 组折叠侧栏 17 入口 + 4 hub 收编 + `?tab=/?section=` URL 深链 + `_engine/` schema 驱动内容引擎 + `_shared/ui.js`(BTN/INPUT/SegTabs/Drawer)）；玩家页 rooms/profile/stash（archive/codex/contracts 已于 2026-07-04 下线）。
 
 **数据库主表**：rooms(gamevars JSONB) / profiles / item_pool / npc_pool / chamber_templates / equipment_series+tiers+instances / passive_skills(**Phase 43 加 stage/priority/condition_formula**) / item_recipes+item_recipe_ingredients / item_tags / tier_recipes+recipe_ingredients / fragment_pool+player_fragments+fragment_combos / cross_room_probes / player_points+shop_catalog+shop_exchange_rates / classes+player_class_runs / player_death_log / raid_stats / portraits / player_notifications / chamber_residue / probe_encounter_pairs / fragment_cold_cases / seasonal_expeditions(空表预埋) / br_*(时间跳跃 BR)。
-⚠ RLS 收紧进行中（🔒 轨）：**phase-51 已收紧 7 表**（item_recipes/item_recipe_ingredients/item_tags/tier_recipes/recipe_ingredients/passive_skills/game_rules → 公开读 + service_role 写·编辑器经 /api/admin 服务端写）；其余表仍 RLS 关或写权过宽（authenticated），phase-52 续扫。
+✅ **RLS 收紧完成（🔒 轨·2026-07-07）**：phase-51(7 内容表) + 52a(14 服务端专属/孤表) + 52b(6 authenticated-write 内容表 + 玩家数据 player_points/player_class_runs/raid_stats + 5 内容表 + placement 四表 + br_rooms) —— **全库「anon / 任意登录用户可写内容表」漏洞面清零**；玩家数据 owner-read（player_points 余额不再匿名可读）；所有 admin 写路径经 `/api/admin/*` service_role（content/table/placement/tier-recipes/passive-skills/game-rules/buff-pool/equipment/item-pool/npc-pool）。KALEIDO 六表另见 KP0-X。
 
 **核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成）——**2026-07-04 起休眠**（`constants.FRAGMENTS.ENABLED=false`·代码与表全留·可逆·待重做）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
 > 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
@@ -97,7 +97,8 @@
 - **实测**：`P54_PROBE service_rows=1 anon_read=0 anon_insert_ok=f` —— anon 从「可读全部余额」→ 0 行、写被拒。
 - **子批 2a（5 内容表·[`phase-55`](scripts/phase-55-content-rls-2a.sql)·已应用）**：chamber_templates/classes/fragment_pool/shop_catalog/shop_exchange_rates → 开 RLS·public read·写仅 service_role。新通用 `/api/admin/table` 扁平表写路由（表+列白名单）；5 编辑器改 postGameApi：**ChambersTab/ClassesTab/FragmentsTab/ShopTab/PointsConfigTab**（🎨 避让）。实测 anon 读 25 行·写被拒。
 - **子批 2c（placement 四表·[`phase-56`](scripts/phase-56-placement-rls.sql)·已应用）**：placement_rules/placement_rule_rooms/npc_placement_rules/npc_placement_rule_rooms → 开 RLS·public read·写仅 service_role。新 `/api/admin/placement` 路由（规则 upsert + 候选先清后插 + rule_id 服务端强制 + weight>0/去重）；**usePlacementRules**（RoomItemsTab/NpcPlacementTab 共用）改 postGameApi。实测 anon 写被拒。
-- **52b 剩余（最后一片）**：br_rooms（2b·RoomsEditorTab 对称同步循环；`/api/admin/table` 已登记 br_rooms 列白名单）。
+- **子批 2b（br_rooms·[`phase-57`](scripts/phase-57-br-rooms-rls.sql)·已应用）**：br_rooms → 开 RLS·public read·写仅 service_role；RoomsEditorTab（主写 + 对称同步双向 + remove + toggle）改 postGameApi（`/api/admin/table` br_rooms 列白名单纳入用户指派 pk room_id）。实测 rls=t·anon 读 100 房·写被拒。
+- **✅ phase-52b 全部完成** —— 至此 **phase-51 + 52a + 52b 全批**：全库「anon / 任意登录用户可写内容表」漏洞面清零；玩家数据（player_points/player_class_runs）owner-read；所有 admin 写路径经 `/api/admin/*` service_role。
 
 ## 最近变更（2026-07-06 / 🔒 phase-52b 第一批：6 内容表写权收紧 + 编辑器服务端化）
 
