@@ -1,5 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────
--- KALEIDO 渐进披露 · ui_unlocks 账号级持久化(06 契约 §4 · KP1-E step 0 ② · 待 🔒 审)
+-- KALEIDO 渐进披露 · ui_unlocks 账号级持久化(06 契约 §4 · KP1-E step 0 ② · ✅ 已应用 2026-07-07 by 🔒)
+-- ✅ 已应用(2026-07-07·🧭 批准·🔒 经 postgres MCP 执行)。列级防伪守卫见 scripts/kaleido-ui-unlocks-guard.sql(同批已应用)。
 -- ─────────────────────────────────────────────────────────────────
 -- 幂等·可重跑。写好**先不跑** → 交 🧭/🔒 审 → 批准后经 postgres MCP 执行,执行后本文件头标「已应用」。
 -- 依赖:profiles 表(Supabase auth 扩展表,已含 stash_capacity/pending_class_roll/selected_portrait_id)。

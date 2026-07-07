@@ -15,7 +15,19 @@
 - **为何不能改策略、必须列级守卫**：`profiles_update` 是在用合法路径 —— `PrepareModal.jsx`（`'use client'`·anon 客户端）:222/:238 `update({saved_loadouts})` 依赖它 → DROP/收窄即砸载具保存。RLS `with_check` 无法引用 OLD（只见 NEW）→ 表达不了「ui_unlocks 不变」（否决候选 c）。列级 GRANT 白名单需枚举全部客户端可写列且随 schema 漂移（否决候选 b·profiles 正持续加列）。→ 唯 **BEFORE 触发器**（候选 a）可对单列做「客户端角色不可变」。
 - **补防草案（幂等·未执行·交 🧭 审）**：[`scripts/kaleido-ui-unlocks-guard.sql`](scripts/kaleido-ui-unlocks-guard.sql) —— `BEFORE INSERT OR UPDATE` 触发器（SECURITY INVOKER），default-deny 白名单 `{service_role,postgres,supabase_admin}`：客户端角色 UPDATE 改该列→RAISE(fail-loud)、INSERT 非空该列→静默强制 `'[]'`；不触碰 saved_loadouts/roomid 等其它列写路径（未改动则 NEW=OLD·放行）。
 - **实现耦合约束（交 🔧）**：§3.2 的 ui_unlocks 写入**必须用 service_role 客户端**（非用户 JWT 的 authenticated 客户端），否则合法解锁写会被本守卫拒（契约 §4「写仅 service_role」即此意）。
-- **执行顺序（批准后）**：① §4 DDL 建列 → ② 本守卫 → ③ 🔧 service_role 写路径落地 → ④ 🔒 复验（anon 伪造被拒 / service_role 写通 / PrepareModal saved_loadouts 不受影响）。**均未执行**；已 `send_message` 报 🧭。
+- **执行顺序（批准后）**：① §4 DDL 建列 → ② 本守卫 → ③ 🔧 service_role 写路径落地 → ④ 🔒 复验（anon 伪造被拒 / service_role 写通 / PrepareModal saved_loadouts 不受影响）。
+
+### 追记（2026-07-07 · 🧭 执行令批准 → 🔒 执行 step ①②·经 postgres MCP·✅ 已应用）
+
+> 🧭 采纳案②·批准 BEFORE 触发器方案（🔧 回执确认写路径全走 `createServerSupabase()`=SERVICE_ROLE_KEY，满足耦合约束）。执行人 = 🔒。
+
+- **step ① DDL**（[`scripts/kaleido-ui-unlocks.sql`](scripts/kaleido-ui-unlocks.sql)·🔧 文件·🔒 执行）：`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ui_unlocks JSONB NOT NULL DEFAULT '[]'`。**核对 = 与审过的 §4 DDL 逐字一致**（先审后执行）。实测列存在：`jsonb·NOT NULL·default '[]'`。
+- **step ② 守卫**（[`scripts/kaleido-ui-unlocks-guard.sql`](scripts/kaleido-ui-unlocks-guard.sql)）：`guard_profiles_ui_unlocks()` + `trg_guard_profiles_ui_unlocks`。实测触发器：`BEFORE INSERT/UPDATE`·enabled(`O`)·**SECURITY INVOKER**（`prosecdef=false`，故 `current_user` 反映真实调用角色·守卫有效前提）。
+- **落地复验（3 探针·`SET LOCAL ROLE` + 匹配 JWT sub·末 `RAISE` 回滚·零持久改动）**：
+  1. `neg=REJECTED_OK` —— authenticated（RLS 行可见）改 `ui_unlocks` → 被守卫拒（`insufficient_privilege`）。**伪造向量已封**。
+  2. `pos=ALLOWED_OK` —— service_role 改 `ui_unlocks` → 放行。**合法写路径通**。
+  3. `OTHERCOL_ALLOWED_OK` —— authenticated 改旁列 `saved_loadouts`（PrepareModal 同列）→ 放行。**非回归确认**。
+- **状态**：step ①② ✅ 已应用并验证；**step ③（🔧 Commit B 服务端 service_role 写路径）待 🔧**；**step ④ 端到端复验（真会话 + 🔧 写路径 + PrepareModal 应用层）待 Commit B 后由 🔒 补**。已 `send_message` 报 🧭。
 
 ## 最近变更（2026-07-07 / 🔒 KP1-X · `scripts/kaleido-e2e.mjs` 安全复核[只读·不改脚本]）
 

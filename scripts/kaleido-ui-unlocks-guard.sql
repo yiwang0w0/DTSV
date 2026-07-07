@@ -39,7 +39,12 @@
 -- 幂等：CREATE OR REPLACE FUNCTION + DROP TRIGGER IF EXISTS + CREATE TRIGGER（可重跑）。
 -- 执行顺序：① 06 §4 DDL 建列 → ② 本守卫 → ③ 🔧 服务端 service_role 写路径 → ④ 🔒 复验。
 --
--- ⚠ 状态：**草案 · 未执行**（先随 DDL 交 🧭 审；批准后经 postgres MCP 执行，届时改标「已应用」）。
+-- ✅ 状态：**已应用**（2026-07-07 · 🧭 执行令批准 · 🔒 经 postgres MCP 执行·紧随 §4 DDL）。
+--   落地复验（三探针·RAISE 回滚·零持久改动）：
+--     · authenticated(匹配 JWT sub)改 ui_unlocks → REJECTED_OK(insufficient_privilege)
+--     · service_role 改 ui_unlocks → ALLOWED_OK
+--     · authenticated 改 saved_loadouts(旁列) → OTHERCOL_ALLOWED_OK(PrepareModal 不受影响)
+--   触发器实测：BEFORE INSERT/UPDATE·enabled·SECURITY INVOKER。端到端 step④(🔧 Commit B 服务端写路径 + 真会话)待 🔧 落地后补。
 -- ============================================================
 
 -- 前置（与 06 §4 DDL 同批·此处复列保幂等自足；单跑本文件亦不缺列）
