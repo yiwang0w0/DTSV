@@ -9,7 +9,7 @@
 
 > 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
 > 本文件是 4 轨**共享契约**：各轨范围、文件归属、待办、完成标准，以及**避免互相踩踏**的协作与推送协议。
-> **每个 fork 开工前必读**（2026-07-07 文档改版后）：`Claude/Readme_Claude`（hub·很短）+ **自己轨的 `Claude/<轨>/README.md` + `log.md`** + 本文件全文。不要通读他轨文件夹（省上下文正是改版目的）。根 `Readme_Claude` 已成指路存根。
+> **每个 fork 开工前必读**（2026-07-07 文档改版后）：`Claude/Readme_Claude`（hub·很短）+ **自己轨的 `Claude/<轨>/README.md` + `log.md` + `GPT.md`（GPT 投放的参考内容·只读）** + 本文件全文。不要通读他轨文件夹（省上下文正是改版目的）。根 `Readme_Claude` 已成指路存根。
 > 2026-07-04 清理注记：远端 227 条 codex 遗产分支已删、3 个死 worktree 已移除（备份 `D:/Fragments/DTSV-cleanup-backup-20260704/`）；除 4 轨 + stupefied（小游戏会话）外不应再有其它分支。
 
 ---
