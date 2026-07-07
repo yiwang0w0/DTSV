@@ -52,3 +52,30 @@
 ```
 - 冲突面:⚙️ 与 🎨 都碰 GameClientPage —— **🎨 只动渲染分支,⚙️ 不碰 UI**(新动作的客户端调用由 🎨 接);碰前互报。
 - 全轨完成后由中控做 P0 验收(02 §2.7),过闸才开 KP1。
+
+---
+
+# KP1 派单(2026-07-07 · P0 已过闸,E2E 20/20)
+
+> P1 = 回落层,规格硬闸:**无 AI 纯随机版可玩且成立,不过则终止项目**。细化设计 = 02 §3。共守:kaleido 状态机改动后必跑 `npx tsx scripts/kaleido-e2e.mjs`(临时 tsconfig paths + .env.local 凭证,脚本头注有跑法)。
+
+## ⚙️ KP1-S「回落层核心」(第一棒)
+1. **采样器正式化**(02 §3.1):5 关型 archetype(遭遇/搜索/精英/资源/首领)+ 难度曲线;优先消费 content_pool(entity_type='level') 种子关,不足才现场装配;seq=5 强制 boss_kill。难度口径按 04 语义注记(进关 move 占 1 回合)。
+2. **3 战斗模板×bot**(02 §3.3):combatModes 注册表 {paramsSchema, resolveTurn(纯函数·seed PRNG), bot, describe};standard/gauntlet/stance_duel;bot 离线跑 clear_rate 基线。
+3. **逐关规则覆盖**(02 §3.4):mergeGameRules(global, levelEnvRules, formulaOverrides) + 入关 clearRulesCache 调用点;formula_overrides 白名单 damage|defense|crit。
+4. **evalFormula 变量注入补齐**(01 §1 缺 damage;全局 bugfix,单独小提交单独验证)。
+5. **R3 收尾**:kaleido 局战斗随机改走 run seed 派生 PRNG(多人局不动)。
+6. **种子关起草 12-15 个**(entity_type='level', provenance.source='seed';ID 引用现有 npc/item/chamber;六纪元文案红线)→ Kanata 在 admin 审改定稿。
+
+## 🎨 KP1-C「模板交互 + 打磨」
+1. stance_duel 三态出招 UI(R6:入关展示克制表)+ gauntlet 波次界面(consume ⚙️ describe())。
+2. R6 规则卡接真数据(env_rules/formula_overrides/combat_mode 摘要)。
+3. 收敛页打磨(为 P4 图鉴预留结构)。
+4. 移动化 P2(对局页响应式)照旧并行。
+
+## 🔒 KP1-X「纯函数审 + 52b 铺开」
+1. resolveTurn 纯函数审(R1:同输入同输出;随机仅声明字段+seed PRNG)。
+2. **52b 剩余批铺开**(Kanata 已在主对话批准「按推荐」):placement 四表 + 客户端读写 6 表 + 仅读 3 表,照 phase-51 范式分批。
+3. kaleido-e2e.mjs 回归脚本安全复核(凭证读取面/清理完备性)。
+
+**P1 闸门**(不过不进 P2):Kanata 亲测「可玩且成立」/ 同 seed 回放 levels 逐字节一致 / 3 模板 bot clear_rate 基线产出 / R1-R12 逐条复核定稿。

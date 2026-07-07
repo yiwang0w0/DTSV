@@ -1,5 +1,9 @@
 # KALEIDO · 04 P0 闸门复审裁决(2026-07-06)
 
+> ✅ **终裁(2026-07-07 追记):P0 过闸**。KP0-R 修复批(⚙️`70c38ee` / 🎨`175cce5`+`e06625d`)落地后,由 🧭 中控以 service-role E2E 直驱真库完成 §2 复验:**20/20 断言全绿**——门禁拒未过关前进 / startKaleidoRun 幂等 / 通关 run clearedSeq 1→5 无跳变·levels 5/5 played 无空洞·runs cleared+converged_at·房间收 kaleido_clear / 死亡 run runs→dead·death 事件恰 1 条带 reason·R9 内容不减损 / player_events 与驱动侧逐条对账·level_seq 口径 1..5 正确。测试数据全清理。
+> 验收资产转正:[`scripts/kaleido-e2e.mjs`](../../../scripts/kaleido-e2e.mjs)(每次改 kaleido 状态机后必跑)。
+> **语义注记(已采纳,非缺陷)**:入关 turnCount 重置后,进关的 `move` 本身计为新关第 1 回合(02 §2.2 move=消耗动词)——即玩家进关时已花 1 回合,survive_turns(2+seq) 实际需再做 1+seq 个动作。P1 采样器调难度时按此口径。
+
 > 🧭 中控 · 对抗式复审:3 视角猎错(23 条)→ 逐条反驳验证 → **22 确认 / 1 推翻**;另独立复跑 4 份 smoke 全绿(21+29+65+21)。
 > **裁决:P0 暂不过闸**。代码基座质量良好(守卫逐处核对全部逐字等价、schema 与契约一致、R9/R11/R3 合规、幂等主路径正确),但存在 1 个 HIGH 断链 + 状态机门禁缺失,验收 #1「跑通 5 关 run 且流转正确」当前不可达。修复面小且清晰,按本文件修复批(KP0-R)执行后**复验即过**。
 
