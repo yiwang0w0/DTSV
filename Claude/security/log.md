@@ -1,6 +1,21 @@
 # 🔒 安全性轨 · 变更日志(倒序置顶)
 
-> **状态锚点（2026-07-07 · ⏸ 仍停机 · 非恢复令）**：中控全局同步点 `e92d0b0`。① 剧情线定向落定（权威见 `docs/plan/kaleido/05`：开局仅搜索按钮 / UI 渐进披露 / 失衡时代叙事 / 玩家=结构工程体）② 文档改版：本轨家 = `Claude/security/`（README+log）· hub = `Claude/Readme_Claude` · dated 段写本 log.md ③ 恢复后**开工先读** `Claude/security/GPT.md`（只读 · GPT 投放参考）④ 恢复后审点预告：**ui_unlocks 账号级持久化**（新表 / profiles 列）+ kaleido-e2e 脚本安全复核（在队）。本轨停点 = phase-52 全库收官 + KP1-X #1 resolveTurn R1 审毕。继续待命。
+> **状态锚点（2026-07-07 · ▶ 已复工 · KP1-X）**：恢复令已收（`git rebase origin/main` = `473ddb4`；读毕 `docs/plan/kaleido/03-track-packages.md` 末段「KP1-R 恢复令重排」🔒 小节）。**item 1（kaleido-e2e.mjs 安全复核）已完成 —— 见下节**；item 2/3（🔧 ui_unlocks 账号级持久化 DDL 跟审 / LW-3·D3 触发审）待 🧭 转审。原停机期锚点保留 ↓ ——
+>
+> **状态锚点（2026-07-07 · 停机期 · 非恢复令）**：中控全局同步点 `e92d0b0`。① 剧情线定向落定（权威见 `docs/plan/kaleido/05`：开局仅搜索按钮 / UI 渐进披露 / 失衡时代叙事 / 玩家=结构工程体）② 文档改版：本轨家 = `Claude/security/`（README+log）· hub = `Claude/Readme_Claude` · dated 段写本 log.md ③ 恢复后**开工先读** `Claude/security/GPT.md`（只读 · GPT 投放参考）④ 恢复后审点预告：**ui_unlocks 账号级持久化**（新表 / profiles 列）+ kaleido-e2e 脚本安全复核（在队）。本轨停点 = phase-52 全库收官 + KP1-X #1 resolveTurn R1 审毕。继续待命。
+
+## 最近变更（2026-07-07 / 🔒 KP1-X · `scripts/kaleido-e2e.mjs` 安全复核[只读·不改脚本]）
+
+> 恢复令 KP1-X 首项（低优）：对 `scripts/kaleido-e2e.mjs`（service-role 直驱真库的 KALEIDO 状态机 E2E 回归）做三轴安全复核 —— **凭证读取面 / 清理完备性 / 生产表写入面**。方法：三轴 finder 追调用图 + 逐条对抗验证（16 采 → **4 confirmed / 12 rejected**）。**结论：无 high/medium，脚本可继续跑；一处值得修的低危（raid_stats 清理遗漏）+ 两处稳健性建议。均只出意见、不改脚本（E2E 资产 🔧 共管）。**
+
+- **① 凭证读取面 = clean**：`SUPABASE_SERVICE_ROLE_KEY` 只读、绝不打印/落日志（缺凭证仅报「缺凭证」·无 KEY 值）；所有 `console.*` 与断言 detail（slice 220）不含 KEY；supabase-js 错误对象不回带 service key（KEY 只在 Authorization 头、不入 error 体）。`loadEnv` 把 `.env.local` 全部大写变量载入 env 对象但从不 dump。**零泄密面**。
+- **② 清理完备性 = 3 处低危缺口**：
+  1. **raid_stats 清理遗漏（唯一有实际复发影响 · 建议修）**：通关 run（块①）最后一步 converged → 写 `endingResult` → `persistRoom`（[`gameActions.js:743`](src/lib/server/gameActions.js:743)）检测 `gamestate 1→2` → `writeRaidStats` INSERT 一行（[:829](src/lib/server/gameActions.js:829)）。自清理（[`kaleido-e2e.mjs:157`](scripts/kaleido-e2e.mjs:157)）删 `{player_events,levels,runs,rooms}` **不含 `raid_stats`** → 每次成功通关遗留 1 行孤儿（`room_id` 指向已删房）。该表喂 PlaytestTab / ChambersTab / DbConsoleTab「最近 30 局」聚合，测试行（duration≈0s·注入 boss 属性）会拉偏内部平衡 dashboard。**非引用完整性问题**（`raid_stats.room_id` 是裸 `BIGINT`·无 FK·实读 `phase-22-1-raid-stats.sql:23-40`），纯数据质量污染；可按 `ending_key='kaleido_clear'`+`room_id` 追踪。**建议**：清理段补 `await sb.from('raid_stats').delete().in('room_id', out.ids.rooms)`（置于删 rooms 之前）。死亡 run（块②）走死亡分支提前 `return` 不调 `persistRoom` → 不产 raid_stats；故每次完整 E2E **仅 1 行**。
+  2. **部分失败级联**：157-163 为单个 `try/catch` 顺序包 4 条 `await DELETE`；中途某条抛错则后续 DELETE 被跳过 → 部分孤儿。缓解已有：catch 打 `CLEANUP_FAIL + out.ids` 到 stderr 供人工补删。**建议**：每条 DELETE 独立 `try/catch`、互不阻断。
+  3. **无 `finally`/信号处理**：清理是顶层最佳努力代码，非 `try/finally` 亦无 `process.on('SIGINT'/'SIGTERM')`；run 循环中途 Ctrl+C/kill/崩溃 → 整段清理不跑，留 rooms/runs/levels/player_events 脏行。孤儿可追踪（测试 UUID·`gametype=30` 空房·日志内 `E2E-clear/E2E-death` 显示名）。**建议**：抽 `cleanup()` 函数 + `finally { await cleanup() }` + 信号兜底。
+- **③ 生产表写入面 = 已清点 · 仅 raid_stats 一处异常**：E2E 调用图写入面 = `{ rooms(INSERT/UPDATE), runs(INSERT/UPDATE), levels(INSERT/UPDATE), player_events(INSERT), raid_stats(INSERT) }` + 脚本内直接 rooms UPDATE（[:89](scripts/kaleido-e2e.mjs:89) 注 boss 属性 · [:140](scripts/kaleido-e2e.mjs:140) 注 alive=false）。全部落 `out.ids` 可追踪、happy-path 自清理（唯 raid_stats 漏，见 ②-1）。**不写** `profiles`/`auth.users`（测试用户纯内存对象；profiles 三处写全在 joinRoom/extractPlayer，E2E 只发 search/attackNpc/move 不走）、**不写** `player_death_log`（6 处调用点全 gate 于实际战斗致死：块①买血不死 / 块② 裸改 gamevars 绕过战斗）、**不写** player_points/player_stash/classes。service key 全程留 client 内、不入日志/响应体。
+- **对抗验证驳回 12 条**（防误报）：含「无生产库守卫 = high」（全仓仅一个 Supabase 项目·「直驱真库」是脚本头注 line 2 书面既定设计·非误配；残余仅「缺硬断言兜底 cleanup 失败」= low）、「profiles 0 行 UPDATE 孤儿」（路径不执行）、「player_events 污染分析」（唯一消费者是 owner-scoped beacon `count`·无聚合 dashboard 读该表）、「cleanup 顺序 FK 级联」（`player_events.run_id` 无 FK·`levels→runs` 为 ON DELETE CASCADE）、「line 89 未版本化 race」（单进程串行·跨 run 房隔离）、「runs/levels 无事务边界」（越域批生产码·E2E 不注故障·已有补偿 catch）等。
+- **未改动任何文件**（E2E 资产 🔧 共管·仅出意见）；已 `send_message` 报 🧭。
 
 ## 最近变更（2026-07-06 / 🔒 phase-52a 服务端专属表 RLS 锁死）
 
