@@ -4,6 +4,9 @@
 
 ## 最近变更（2026-07-07 / 🔧 · step 0 里程碑通过 → KP1-E 增补工单(推进层 payload 消费统一化)）
 
+- **✅ Commit B 落地 —— ui_unlocks 全链闭合**（`6128411`·E2E 30/30·build 绿）：🔒 已执行 DDL+列级守卫(b4502b0·3 探针通过)后接账号持久化——startKaleidoRun 读 profiles.ui_unlocks 种子(service_role·缺行回落 UI_SEED)；applyKaleidoPostAction 解锁时 merged 单调全集写回 profiles(过守卫白名单·失败不阻断)。跨 run 继承真验 = 🔒 step④(合成 UUID 无 profiles FK 行·E2E 测不到·已报 🧭 调 🔒)。**接口形状→运行时机制→账号持久 三段全闭合**，仅剩 🔒 step④ 签字。
+- **✅ nar_line 全角同步**（同 6128411 前一 commit）：8 条半角标点→全角逐字取 N3 §1(36a17c1)·supersede a85bc73;全角=逐字一致规约(🎨提议🧭批),以后取稿以 N3 §1 最新表为源。
+- **✅ 回执**：hp_bar nar_line 定稿同步(全角)；敌名不回落 npc_pool 实证(boss 分支 ke.name||'首领'·normalizeNpcInstance 零 DB 查)已答 🧭 转 📖/⚙️；payload 批复+敌人单一来源修订已转 ⚙️(出 seq3-5 SQL)。
 - **✅ step 0 里程碑通过**（🧭 裁决）：06 契约(ef726b7)+§8(a06b468)+Commit A(ec38ed6) 收讫;🎨 已集成(50a9ec2)+ D2 unlockEvents 消费 landed(cdcb107)。我的方案 supersede ⚙️ 提案。nar_line 存储裁定=**方案 A(引擎内联)**(uiUnlocks.js 📖 供稿逐字·P2 迁 content_pool);hp_bar 首搜批准;命名坑广播(node.**kaleidoMode** 非 combatMode·我已用对)。
 - **⚠ 范围变更（🧭 裁决）**：LW-3 并入 **KP1-E 增补工单 = 推进层 payload 消费统一化**(⚙️ 抓到阻塞缺口:event_deck 零运行时读者·非 boss 敌人注入缺失 → 种子关 inert·inventory/craft_btn 解锁链断)。工作包 = ① event_deck 掉落消费 + 非 boss combatSetup.enemy 注入(镜像 boss 3404)② craft_btn 状态检查(已在契约)③ gauntlet 波次编排(LW-3 本体·推进层·D5=乙 富路径 live-wire)④ seq1 零战斗(安全首战法则)⑤ boss 缺 combatSetup.enemy 校验挡板 ⑥ enabled 过滤(已满足·runs.js:2615)。E2E 增「保底掉落 + 首战安全 + seq1 零战斗 + raid_stats 清理」断言。
 - **✅ 前置动作:07 §0.3 payload 形状批复=通过 + 1 结构修订**(已 send 🧭 转 ⚙️)。核实可消费(runs.js:178-189 落 node.kaleidoEnemy/kaleidoEventDeck)。**修订**:combatSetup.enemy = 权威战斗敌(入关注入·镜像 boss·gauntlet 用作 wave-1 base + params.waves);event_deck 只消费 item_find;请 ⚙️ 移除 seq2/3/5 的 npc_encounter 冗余(否则双刷)。⚙️ 可出 seq3-5 SQL(enabled=false·boss 用乙值)。
