@@ -2,6 +2,25 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 工作包设计捕获（2026-07-08 / 🔧 · hook①③④+LW-3+D5 · 两 workflow 全测绘后的可续实现蓝图）
+
+> ui_unlocks 全链闭合后转工作包。两轮 seam-mapping(wk93hy7qx gauntlet·w0iysva08 searchArea/注入/RNG/placement)完成 + D6 五关真数据查证(content_pool id2-6·⚙️ 已应用我全部修订:npc_encounter 去冗余·boss 乙值 260/34/8·seq1 无 combatSetup 键)。**下面是可直接开工的实现蓝图。**
+
+- **提交切分**：
+  - **C1(安全核·解锁链解阻·零软锁·先做)**：① hook① item_find guaranteed 排空(resolveSearchAction·isKaleidoRoom 门·1/search front-load·consumed 存 `gamevars.kaleido.consumedEventDeck[chamberIdx]=[已消费 index]`·item id→name 查 item_pool) ② hook④ kaleido 搜索零随机刷怪(npc-spawn gate 加 isKaleidoRoom skip·kaleido 战斗敌只从 combatSetup 入关注入·非搜索随机) ③ hook⑥ 校验(boss_kill 缺 combatSetup.enemy 拒 + guaranteed 预算不变式 `#guaranteed_item ≤ 可用 search 数`)。**E2E**:临时点亮 d6-seq1/seq4 → 断言 guaranteed 掉落序 + inventory/craft_btn 解锁 + seq1 零 fight_start。
+  - **C2(战斗注入·设计有 nuance)**：非 boss combatSetup.enemy 入关注入(镜像 boss `movePlayer:3488`,扩 encounter/elite/resource) + gauntlet LW-3 波次编排 + **survive_turns×encounter 交界解析**。
+  - **C3**：D5 rich-path seed 化(6 Math.random sites)。
+- **seam 锚点(w0iysva08)**：
+  - inventory-add = `gameActions.js:1573`(`[...polluted.inventory, ...addedEntries]`)·item=item_pool.**name 字符串**(非 id→需查 item_pool)。
+  - npc-spawn gate(hook④)= `1411`(`roll<npcChance && bundle.npcPool.length>0`)+`1437`(pickOrSpawnNpcInstance)→加 isKaleidoRoom skip。
+  - chamber 取 = `getCurrentChamber(gamevars,player)` roomState.js:249 → node.kaleidoEventDeck / node.kaleidoEnemy。
+  - boss 注入(C2 镜像)= `movePlayer:3488`;boss relock=`advanceKaleidoProgress:2734`;encounter step5 无条件清=`attackNpc:2039`。
+  - consumed 存 `gamevars.kaleido`(非 players·per-run;normalizeGamevars 透传·读时 `|| {}` 兜底)。
+- **⚠ survive_turns×encounter 关键事实(softlock 分析)**：`evaluateExitCondition(survive_turns)` 只读 `turnCount≥turns`·**不管 encounter**(w0iysva08 map B)→ 清 encounter 不阻过关,∴ 非 boss survive_turns 关注入 encounter **不硬软锁**(搜索推 turnCount 即过);但注入后 step5 清、非 boss 无 relock → 再 attackNpc 报「无目标」(非软锁·可搜索兜)。**C2 待定(逐条推演 + 可能问 ⚙️/🧭)**:relock 语义分档——boss=relock(现有)·elite/stance_duel=LW-2 lock-until-death(seq3·:1752)·gauntlet=LW-3 波次管(seq2)·resource/standard 弱敌可不 relock;且 gauntlet survive_turns 是否强制打完波次(vs 搜索 past)= 玩法设计问 ⚙️/🧭。
+- **D5 6 sites(C3·isKaleidoRoom 门·mulberry32(hashStr) 复用·seed=runId+chamberIndex+turnCount+seq)**：`gameActions.js:1841`(playerHit)/`1990`(counterTriggered)/`1993`(counterHit)/`1954`(fragment drop)+`gameEngine.js:89`(crit·calcDamage·被 player→npc 1859 & npc→player 1998 双调用→一 PRNG 流串)+`combatModes/index.js:157`(stance·已确定性 stepRng·不动)。PvP resolvePlayerAttackAction:2060+ 也用 calcDamage(多人·不 gate·零变化)。
+- **已答 ⚙️(09)**：atk/def 持久强化件现成(resolveUseItemAction:2321/2326 直改 nextPlayer·非 buff);maxHp 需加 `maxHpDelta` 钩子(calcItemEffect + :2296 后分支)——我可接。staminaDelta 已 `!isKaleidoRoom` 排除。
+- **待接(工作包内·排 hook① 后)**：跨 run 继承 E2E(专用 E2E-* auth 用户·固定 UUID·跑前 reset ui_unlocks='[]'·绝不碰 4 真人·断言后 🔒 复核签 ui_unlocks 关链)。
+
 ## 最近变更（2026-07-07 / 🔧 · step 0 里程碑通过 → KP1-E 增补工单(推进层 payload 消费统一化)）
 
 - **✅ Commit B 落地 —— ui_unlocks 全链闭合**（`6128411`·E2E 30/30·build 绿）：🔒 已执行 DDL+列级守卫(b4502b0·3 探针通过)后接账号持久化——startKaleidoRun 读 profiles.ui_unlocks 种子(service_role·缺行回落 UI_SEED)；applyKaleidoPostAction 解锁时 merged 单调全集写回 profiles(过守卫白名单·失败不阻断)。跨 run 继承真验 = 🔒 step④(合成 UUID 无 profiles FK 行·E2E 测不到·已报 🧭 调 🔒)。**接口形状→运行时机制→账号持久 三段全闭合**，仅剩 🔒 step④ 签字。
