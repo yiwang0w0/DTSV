@@ -1186,7 +1186,7 @@ export default function GameClientPage() {
   }
 
   return (
-    <div style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
+    <div className="game-immersive-root" style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
       <ToastContainer />
       <CraftModal
         open={craftOpen}

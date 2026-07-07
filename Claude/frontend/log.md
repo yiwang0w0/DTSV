@@ -4,7 +4,7 @@
 
 > 🧭 派单 P3（P2 桌面线上复核 PASS 后）。两件打包：① 对局页移动端全屏（逃逸 RootShell chrome·拿回 ~110px）② 模态窄屏适配。红线：桌面/多人零变化·kaleido 与多人两路径都验。
 
-- **P3-A 对局页移动全屏化**：两个对局根（kaleido 早返回根 + 多人根·GameClientPage）+ dev harness 根加 `game-immersive-root` 类；`globals.css` 加 `@media (max-width:767px){ .game-immersive-root{ position:fixed; inset:0; z-index:200; height:100dvh } }`——窄屏逃逸 RootShell `<Nav>`(sticky z100) + padded `<main>` chrome、拿回顶部 ~110px；**CSS 媒体查询首帧生效·无 JS/hydration 闪烁**。桌面(≥768)无规则 ⇒ root `position:static` 留在 chrome 内（桌面/多人零变化）。dev 实测：窄屏 375 root fixed 覆盖满视口(top0/375×812)·z200 覆盖 nav；桌面 1280 root static·nav 可见。
+- **P3-A 对局页移动全屏化**（含补丁 · 🧭 线上复核抓漏）：两个对局根（kaleido 早返回根 6 空格缩进 + 多人根 4 空格缩进·**BR 走多人根**）+ dev harness 根加 `game-immersive-root` 类。⚠ 初版 `replace_all` old_string 用 6 空格缩进只命中 kaleido 根、漏多人根 → 🧭 线上 /game/25(BR) 查无类 → 补类到多人根（1189）修复；非「第三个 BR 根」（page.js 仅 re-export GameClientPage·两游戏根已全覆盖）。`globals.css` 加 `@media (max-width:767px){ .game-immersive-root{ position:fixed; inset:0; z-index:200; height:100dvh } }`——窄屏逃逸 RootShell `<Nav>`(sticky z100) + padded `<main>` chrome、拿回顶部 ~110px；**CSS 媒体查询首帧生效·无 JS/hydration 闪烁**。桌面(≥768)无规则 ⇒ root `position:static` 留在 chrome 内（桌面/多人零变化）。dev 实测：窄屏 375 root fixed 覆盖满视口(top0/375×812)·z200 覆盖 nav；桌面 1280 root static·nav 可见。
 - **P3-B 模态窄屏适配**（`useIsNarrow` 条件切 grid·首帧桌面态·模态开在鉴权后无闪烁顾虑）：
   - `CraftModal` `260px 1fr` → 窄屏 `1fr`（列表/详情堆叠）；`ItemCraftModal` `240px 1fr` → `1fr`——二者 kaleido 也用（Kanata 手机主力形态）。
   - `PrepareModal` 4 类点数栏 `repeat(4,1fr)` → 窄屏 `repeat(2,1fr)`（多人 loadout·custom 模态）；其 loadout 网格 `auto-fit minmax(280px,1fr)` 本就响应式、不动。
