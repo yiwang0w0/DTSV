@@ -65,7 +65,7 @@
 
 ## 协作注意事项
 
-- **docs/plan/kaleido/ 号段由 🧭 分配**(2026-07-07 立规,起因:⚙️/🔧 并行各自抓 06 撞车):开新编号文档先 send_message 找 🧭 要号。已定:06=🔧 ui_unlocks 契约;07=⚙️ D6 种子关(原 06 更名);08=⚙️ 平衡核算(预留)。
+- **docs/plan/kaleido/ 号段由 🧭 分配**(2026-07-07 立规,起因:⚙️/🔧 并行各自抓 06 撞车):开新编号文档先 send_message 找 🧭 要号。已定:06=🔧 ui_unlocks 契约;07=⚙️ D6 种子关(原 06 更名);08=⚙️ 平衡核算;09=⚙️ 经济线(敌人池/道具池/掉落表/局内合成树)。
 - **双 AI 并行**:根 `Readme_GPT` 是 GPT 视角报告,Claude 绝不修改;GPT 亦不动 Claude 侧文件。
 - **scheduled tasks**(dtsv-healthcheck-daily / dtsv-research-weekly)路径指向 suspicious-solomon worktree 绝对路径。
 - **设计文档时效**:docs/plan/02(旧战斗管线篇)阶段名/签名过时,以 `src/lib/combatPipeline.js` 代码为准;KALEIDO 以 `docs/plan/kaleido/00-04` 为准。
