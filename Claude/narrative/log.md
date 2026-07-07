@@ -1,5 +1,13 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-08(凌晨)· N4 种子关文案 seq3-5 续批 + 敌名 reframe(对抗验证过)
+
+- 依 🧭 放行 + ⚙️ D6 结构(`07-d6-seed-levels.md` §4 + `08-d6-balance.md` §6 D5=乙 数值),交付 [`docs/narrative/kaleido-n4-seed-levels-seq3-5.md`](../../docs/narrative/kaleido-n4-seed-levels-seq3-5.md):seq3「再往里·裂口段」(首个三态·stance_ui·敌「那家伙」id9)+ seq4「深处·堆料段」(备战枢纽·「那东西」id8 第 2 见)+ seq5「最里头·没有图的那段」(boss·boss_kill·唯一现引擎 live·敌「黑里的那个」id10)。空间下降阶梯 外圈→往里→再往里→深处→最里头。**N4 全量 seq1-5 齐**。
+- **π 揭示前禁 + boss 无正名**:seq5 是 π-段方向最深腔,本批**不揭示 π**、boss 用 N1「系统自己都不敢看」古老感描述兜;π 揭示节点 + boss 正名 = **上交 Kanata**(连未决项 3 结局归一,期间冻结)。
+- **敌名定案(🧭 #2 + 🔧 实证)**:🔧 证实 `combatSetup.enemy.name` 留空**不回落** `npc_pool.name`(boss 空名回落硬编码「首领」,定向注入永不读 npc_pool)⟹「残响低语」不会浮现。故「那东西/那家伙/黑里的那个」由"防御占位"改定为**刻意描述制命名**(🧭 批留);**两份 N4 文档旧措辞已 reframe**(seq1-2 §2/§3 + seq3-5)。
+- **对抗验证**(两镜头):Lens A(canon/π/声线)sound·零 refutation;Lens B(结构/命名)2 minor 折入——①seq3 `ambient①`「你也换」祈使→观察「像是在试你」(双频道)②数值订正 08 §6 D5=乙 终值(seq3 85/14/4·seq4 90/16/5·boss 260/34/8)。
+- 全角标点从头写;入库走 content_pool(🧭 已裁,§4 不改)。event_deck 移除 npc_encounter(🔧)不影响文案槽。
+
 ## 2026-07-07(深夜)· hp_bar 契约修订令(🧭 · 随 N4 同步 · 对抗验证过)
 
 - 06-ui-unlocks-contract §1.3 把 `hp_bar` 从「首次遭遇前 fight_start」改挂「**首次 search/before**」(污染熔毁/Ω 超时/收缩等非战斗死亡向量可先于 fight_start 结算,挂 fight_start 漏保护)。🧭 已批,随 N4 一并修订。
