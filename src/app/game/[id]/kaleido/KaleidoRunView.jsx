@@ -16,7 +16,7 @@ import {
   KaleidoConvergenceScreen,
   describeCombatMode,
 } from './kaleidoShell'
-import { UI_KEYS } from './kaleidoUiUnlocks'
+import { UI_KEYS, KALEIDO_STATIC_LINES } from './kaleidoUiUnlocks'
 
 // 解锁槽：未解锁 → 不渲染（不产 DOM）；首现 → 挂 kaleido-reveal 浮现动效。
 function RevealSlot({ show, revealing, children, style, className = '' }) {
@@ -107,7 +107,7 @@ export default function KaleidoRunView({
               <span style={{ color: hpColor(me?.hp, me?.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me?.hp ?? '—'}</span>
               <span style={{ color: T.dim }}>{me?.maxHp ?? '—'}</span>
             </div>
-            {me && !me.alive && <div style={{ marginTop: 8, textAlign: 'center', color: T.red, fontSize: 12 }}>信号中断 · 单位登记为：失联</div>}
+            {me && !me.alive && <div style={{ marginTop: 8, textAlign: 'center', color: T.red, fontSize: 12 }}>{KALEIDO_STATIC_LINES.deathRegistered}</div>}
           </div>
         </RevealSlot>
 
@@ -141,7 +141,7 @@ export default function KaleidoRunView({
                     <Btn
                       key={s.stance}
                       variant="default"
-                      loading={busyAction === `attackNpc:${s.stance}`}
+                      loading={busyAction === 'attackNpc'}
                       sx={{ flex: 1, flexDirection: 'column', gap: 2, padding: '10px 0', background: `${s.color}18`, color: s.color, border: `1px solid ${s.color}45` }}
                       disabled={!canAct || busy}
                       onClick={() => onStanceAttack && onStanceAttack(s.stance)}

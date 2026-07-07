@@ -99,6 +99,11 @@ export const UI_UNLOCK_ENTRIES = {
   },
 }
 
+// 固定静态文本（非 ui_key 解锁物）。死亡登记行 = 📖 N3 §4 治理（登记式·不哀悼不鼓励）——走数据、组件零硬编码。
+export const KALEIDO_STATIC_LINES = {
+  deathRegistered: '信号中断。单位登记为：失联。',
+}
+
 // 披露栈序（初始 → 逐步）。渐次动效按此顺序错峰；亦供 dev 预览遍历。
 export const REVEAL_ORDER = [
   UI_KEYS.SEARCH, UI_KEYS.LOG, UI_KEYS.INVENTORY, UI_KEYS.HP, UI_KEYS.COMBAT,

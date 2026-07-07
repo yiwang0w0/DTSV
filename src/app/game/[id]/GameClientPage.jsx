@@ -15,6 +15,8 @@ import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import ItemCraftModal from './ItemCraftModal'
 import { KaleidoLevelHeader, KaleidoRuleCard, KaleidoLevelClearBanner, KaleidoConvergenceScreen } from './kaleido/kaleidoShell'
+import KaleidoRunView from './kaleido/KaleidoRunView'
+import { useKaleidoUiUnlocks, buildUnlockCtx } from './kaleido/useKaleidoUiUnlocks'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
 import PrepareModal from '@/components/PrepareModal'
@@ -406,6 +408,14 @@ export default function GameClientPage() {
   const showKaleidoClearBanner = isKaleido && !kaleidoEndStatus && room?.gamestate !== 2
     && kal != null && (kal.clearedSeq ?? 0) === kaleidoSeq && kaleidoSeq < KALEIDO.LEVEL_COUNT
     && kaleidoStaySeq !== kaleidoSeq
+
+  // KP1-C v2（05 §1 渐进披露「UI 即进度」）：kaleido 全部 UI 件的解锁集。
+  //   非 kaleido 局传 enabled=false ⇒ 钩子完全惰性（状态恒初始集、无副作用）⇒ 多人渲染路径零回归。
+  const kaleidoUnlockCtx = useMemo(
+    () => (isKaleido ? buildUnlockCtx(gamevars, me, kaleidoNode) : null),
+    [isKaleido, gamevars, me, kaleidoNode],
+  )
+  const kaleidoUnlocks = useKaleidoUiUnlocks(kaleidoUnlockCtx, { enabled: isKaleido })
 
   // KP0-R-C C5：beacon 发射端 —— session_end(context) · 仅 kaleido 局。
   //   /api/kaleido/beacon 走 requireRequestUser（要 Bearer 头），navigator.sendBeacon 发不了头
@@ -1086,6 +1096,89 @@ export default function GameClientPage() {
   }
 
   if (!room) return null
+
+  // ══════════════════════════════════════════════════════════════════════
+  // KP1-C v2（05 §1 渐进披露）：kaleido 单人局走独立 KaleidoRunView（A Dark Room 式，
+  //   初始仅搜索按钮 → 逐件解锁浮现）。早返回 ⇒ 多人局完全不经过这里、下方 3 栏壳一字不改。
+  //   共享模态（Toast/合成/拾取）在此重挂，保证 kaleido 内合成/拾取/提示可用。
+  // ══════════════════════════════════════════════════════════════════════
+  if (isKaleido) {
+    return (
+      <div style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
+        <ToastContainer />
+        <CraftModal open={craftOpen} onClose={() => setCraftOpen(false)} player={meBase} equipments={equipments} onCraft={handleCraft} />
+        <ItemCraftModal open={itemCraftOpen} onClose={() => setItemCraftOpen(false)} player={meBase} onCraft={handleCraftItem} />
+        <LootModal open={!!lootPrompt} prompt={lootPrompt} busy={busy} onClose={handleDismissLootPrompt} onTake={handleTakeLoot} />
+        <style>{`
+          *{box-sizing:border-box}
+          ::-webkit-scrollbar{width:4px}
+          ::-webkit-scrollbar-track{background:${T.bg0}}
+          ::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px}
+          .hov:hover:not(:disabled){filter:brightness(1.15)}
+          select,input{outline:none;font-family:inherit}
+          @keyframes btnLoadingFill{0%{transform:scaleX(0);opacity:.9}70%{transform:scaleX(0.9);opacity:.8}100%{transform:scaleX(1);opacity:.55}}
+          .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
+          @keyframes spin{to{transform:rotate(360deg)}}
+        `}</style>
+        <KaleidoRunView
+          unlocks={kaleidoUnlocks}
+          seq={kaleidoSeq}
+          levelCount={KALEIDO.LEVEL_COUNT}
+          turnCount={meBase?.turnCount ?? 0}
+          exitCondition={kaleidoNode?.kaleidoExit}
+          combatMode={kaleidoNode?.kaleidoMode || { template_ref: 'standard', params: {} }}
+          envRules={kaleidoNode?.envRules || []}
+          formulaOverrides={kaleidoNode?.formulaOverrides || []}
+          me={me}
+          invCount={invCount}
+          itemsByName={itemsByName}
+          encounter={encounterInstance}
+          isStanceLevel={kaleidoNode?.kaleidoMode?.template_ref === 'stance_duel'}
+          logs={gamevars?.log || []}
+          busy={busy}
+          busyAction={busyAction}
+          canAct={!!me?.alive && room.gamestate !== 2}
+          gameEnded={room.gamestate === 2 || !!kaleidoEndStatus}
+          onSearch={() => runGameAction('search')}
+          onAttack={() => runGameAction('attackNpc')}
+          onStanceAttack={(stance) => runGameAction('attackNpc', { stance })}
+          onRelease={() => runGameAction('releaseEncounter')}
+          onUseItem={(name) => runGameAction('useItem', { itemName: name })}
+          onOpenEquipCraft={() => setCraftOpen(true)}
+          onOpenItemCraft={() => setItemCraftOpen(true)}
+          onAdvance={handleKaleidoContinue}
+          canAdvance={(kal?.clearedSeq ?? 0) >= kaleidoSeq && kaleidoSeq < KALEIDO.LEVEL_COUNT}
+          banner={showKaleidoClearBanner ? {
+            show: true,
+            seq: kaleidoSeq,
+            nextSeq: Math.min(kaleidoSeq + 1, KALEIDO.LEVEL_COUNT),
+            onContinue: handleKaleidoContinue,
+            onStay: () => setKaleidoStaySeq(kaleidoSeq),
+            busy,
+          } : null}
+          convergence={kaleidoEndStatus ? {
+            status: kaleidoEndStatus,
+            summary: {
+              levelsCleared: kal?.clearedSeq ?? 0,
+              levelCount: KALEIDO.LEVEL_COUNT,
+              turnCount: meBase?.turnCount ?? 0,
+              kills: meBase?.kills ?? 0,
+              itemsCarried: (meBase?.inventory || []).length,
+              cause: gamevars?.endingResult?.bannerText
+                || (kaleidoEndStatus === 'dead' ? `于第 ${kaleidoSeq} 关阵亡` : ''),
+            },
+            codex: (gamevars?.raidPath || []).map((n, i) => ({
+              seq: i + 1,
+              name: n?.name || `第 ${i + 1} 关`,
+              cleared: (kal?.clearedSeq ?? 0) >= i + 1,
+            })),
+            onRestart: handleKaleidoRestart,
+            onLobby: () => router.push('/rooms'),
+          } : null}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>

@@ -20,17 +20,20 @@ import {
 //   ⚠ STUB 心智：这些是「近似触发」——🔧 账号级解锁事件上线后由服务端解锁集取代。
 export function buildUnlockCtx(gamevars, me, node) {
   const kal = gamevars?.kaleido || null
-  const logs = Array.isArray(gamevars?.log) ? gamevars.log : []
   const inv = Array.isArray(me?.inventory) ? me.inventory : []
   const clearedSeq = kal?.clearedSeq ?? 0
   const chamberIdx = me?.chamberIndex ?? 0
-  const cm = node?.combatMode || null
+  // 节点战斗模板在 kaleidoMode（chamberToNode·runs.js:134 = { template_ref, params, describe }）——非 combatMode。
+  const cm = node?.kaleidoMode || null
   const hasRuleOverride = !!(cm && (cm.template_ref && cm.template_ref !== 'standard'))
     || (Array.isArray(node?.envRules) && node.envRules.length > 0)
     || (Array.isArray(node?.formulaOverrides) && node.formulaOverrides.length > 0)
   return {
     gamevars,
-    searched: logs.length > 0 || (gamevars?.turn ?? 0) > 0,
+    // searched 用 per-level turnCount（run 起始=0；首个消耗动作后=1，advanceKaleidoProgress 维护）——
+    //   不用 log 长度：run 创建即播种 1 条「进入万华镜」log，会误在开局点亮 log_panel、破坏「初始仅搜索按钮」。
+    //   sticky 兜底 turnCount 每关清零（log_panel 一旦解锁不回收）。
+    searched: (me?.turnCount ?? 0) > 0,
     hasItems: inv.length > 0,
     encounter: !!me?.encounter,
     everFought: (me?.kills ?? 0) > 0,
@@ -60,8 +63,11 @@ export function useKaleidoUiUnlocks(ctx, opts = {}) {
   const [unlocked, setUnlocked] = useState(() => new Set(INITIAL_UNLOCKED))
   const [justUnlocked, setJustUnlocked] = useState([]) // 本 tick 新解锁 key（渐次动效用）
   // 初始集（search_btn）的 nar_line = 📖 N3「开场行」——run 起始即在场，播种为披露日志首行。
+  //   不用 enabled 门控 seed：room 初值 null ⇒ 首帧 isKaleido=false=enabled ⇒ 惰性初始化只跑一次会漏种，
+  //   room 载入后 enabled 翻 true 但初始化器不重跑、effect 又因 search_btn 已在初始集而不 emit ⇒ 开场行永久丢失。
+  //   seed 是纯静态数据无副作用；非 kaleido 局 narLog 根本不被消费，无条件 seed 安全。
   const [narLog, setNarLog] = useState(() =>
-    (enabled && emitNarLog)
+    emitNarLog
       ? INITIAL_UNLOCKED.map((k) => ({ key: k, time: '', text: unlockEntry(k)?.nar_line || '' })).filter((e) => e.text)
       : [])
   const prevRef = useRef(new Set(INITIAL_UNLOCKED))
