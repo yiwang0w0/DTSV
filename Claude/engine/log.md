@@ -11,7 +11,13 @@
   - **🎨 stub(5ee35b7)对齐**:stub 与契约高度一致(已预期服务端解锁集+含 nar_line 事件),6 处小校订见 06 §8(最实质=D3 hp_bar 提前到首搜)。
 - **待决策(已报 🧭)**：nar_line 存储(A 引擎内联/B content_pool);condition 判据交 ⚙️ 对齐 seq1-2 投放;rules_card/stance_ui P1 DEAD(待 D3/LW-2)。
 - **DDL 待审**：`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ui_unlocks JSONB NOT NULL DEFAULT '[]'::jsonb`(🔒 审 owner 不可自改)。
-- **下一步(不等广播·并行)**：实现 step ①-④(uiUnlocks.js 注册表 + 路由边界判定 + applyKaleidoPostAction 共享函数[route/E2E 同调] + E2E 解锁序/时序断言);补跑对抗 L2/L4(持久化原子性/withRetry 幂等)。改状态机必跑 kaleido-e2e.mjs(本 worktree 无 .env.local,可从兄弟 worktree 取)。
+- **✅ Commit A 落地（`ec38ed6` 上 main·运行时机制·无 profiles 依赖）**：
+  - `src/lib/server/kaleido/uiUnlocks.js`（12 项触发注册表 + evaluateUnlocks 纯判定 + unlockEvents payload）；`applyKaleidoPostAction`（gameActions.js·route 边界 + E2E act() 单一共享入口·消除分叉）；route.js 信封扩 unlockEvents；createPlayerState 条件展开 uiUnlocks（多人局无字段=严格中性）；startKaleidoRun 种子 `['search_btn']`；E2E +7 断言。
+  - **验证：E2E 30/30**（真库·解锁序 + hp_bar 首搜解锁·id 严格先于首 attack·幂等·镜像）+ **build 绿**（next build 全路由·先修 worktree 缺 locatorjs-nextjs-experimental 声明依赖，--no-save 装入 shared node_modules，无 tracked 改动）。
+  - **实测修正**：rules_card/stance_ui P1 **即 LIVE**（采样器出非标准 combat_mode·判定读关 node.kaleidoMode）；craft_btn 唯一 P1-DEAD（item kind 判据待接）。契约 06 §2/§7.1/§8 已更。
+  - **retry/原子性**：route 的 kaleido 块在 withRetry **之外**（恰一次）+ persist gates emit → L4 double-emit 结构排除。
+- **待办**：① **Commit B（账号持久化）阻塞于 🔒 审 `scripts/kaleido-ui-unlocks.sql`**（profiles.ui_unlocks + RLS owner 不可自改）——已报 🧭 路由；② L2/L4 补跑（确认性·非阻塞）；③ 队列续 LW-3 gauntlet / D3 mergeGameRules / D5 R3 seed。
+- **环境备忘**：本 worktree 已放 `.env.local`（从 suspicious-solomon 取·gitignored·跑 E2E 用）；E2E 跑法 = 建临时 tsconfig.json(paths @/*→src/*) + `npx --yes tsx scripts/kaleido-e2e.mjs`，跑后删 tsconfig。
 
 ## 最近变更（2026-07-07 / 🔧 ⏸ 全局同步点简报锚点 —— 仍停机待命·非恢复令）
 
