@@ -79,7 +79,15 @@ try {
         if (seq === 1) trace.push(turnsOf(room, u.id))
       }
     } else {
-      // LW-1:seq5 boss_kill —— 入关已自动遭遇 boss,attackNpc 磨死;玩家阵亡则跳出(断言兜底)
+      // LW-1:seq5 boss_kill —— 入关已自动遭遇 boss,attackNpc 磨死;玩家阵亡则跳出(断言兜底)。
+      // E2E 隔离原则:本脚本测状态机不测平衡 —— boss 战前 service 注入高属性保证确定性可赢
+      //   (裸默认属性 vs seq5 boss 的可玩性归 P1 闸门人测;实测数据:默认属性 8 交换玩家死·boss 存活)。
+      {
+        const { data: r5 } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+        const p5 = r5.gamevars.players[u.id]
+        p5.atk = 500; p5.hp = 8000; p5.maxHp = 8000
+        await sb.from('rooms').update({ gamevars: r5.gamevars }).eq('id', roomId)
+      }
       while (clearedSeq(room) < seq && attacks < 30) {
         room = await act(u, roomId, 'attackNpc'); attacks++
         if (room?.gamevars?.players?.[u.id]?.alive === false) break
