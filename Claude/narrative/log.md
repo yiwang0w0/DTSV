@@ -1,5 +1,13 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-07(深夜)· hp_bar 契约修订令(🧭 · 随 N4 同步 · 对抗验证过)
+
+- 06-ui-unlocks-contract §1.3 把 `hp_bar` 从「首次遭遇前 fight_start」改挂「**首次 search/before**」(污染熔毁/Ω 超时/收缩等非战斗死亡向量可先于 fight_start 结算,挂 fight_start 漏保护)。🧭 已批,随 N4 一并修订。
+- **N3**([kaleido-n3-static-layer.md](../../docs/narrative/kaleido-n3-static-layer.md)):hp_bar §1 行 nar_line「前面不保证安全…」→「你动起来了。往后有损耗,得盯着了。——已开放:状况读数。」(措辞"首次行动即有损耗",工程体版受伤=损耗,不点名死亡向量);§1.4 timing 复核 + nit① 更新(hp_bar/combat_panel **不再共用 fight_start**,hp_bar 挂首搜、严格早于 combat_panel);intro 加后续注。
+- **N4**([kaleido-n4-seed-levels-seq1-2.md](../../docs/narrative/kaleido-n4-seed-levels-seq1-2.md)):hp_bar 解锁链 seq2→**seq1 首搜**;seq2 enter_text 去"调出状况"改引用已开读数;seq2 硬时序段重写;§5 契约修订折入。
+- **对抗验证**(两镜头 sound·零 refutation):nar_line canon(契约意图达成/「损耗」达意/禁用词零泄漏/旧句彻底替换)+ 迁移一致性(N3/N4 处处一致/无 fight_start 残留/内容不变量呼应)双确认。
+- nar_line 存储流程(a7fd13c 裁决):我改 docs 供稿→报 🧭→🔧 同步 uiUnlocks.js(不碰引擎文件)。hp_bar 措辞改动走此流程。
+
 ## 2026-07-07(深夜)· KP1-R 队列②:N4 种子关文案 seq1-2 首批(对抗验证过)
 
 - 依 🧭 N4 kickoff(先限 seq1-2)+ ⚙️ D6 结构初稿(`06-d6-seed-levels.md` §2/§3 + seed SQL),交付 [`docs/narrative/kaleido-n4-seed-levels-seq1-2.md`](../../docs/narrative/kaleido-n4-seed-levels-seq1-2.md):seq1「外圈·停摆段」(觉醒纯搜索·点亮 log_panel/inventory/craft_btn)+ seq2「往里·承重段」(首次安全战·点亮 hp_bar/combat_panel/rules_card)的 name/description/enter_text/ambient(值班的+留下的字双声线)+ 敌名。
