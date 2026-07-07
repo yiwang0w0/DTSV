@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal, DeleteBtn } from '../_shared/ui'
 
 /**
@@ -111,28 +112,26 @@ export default function PointsConfigTab({ toast }) {
     if (edit.from_type === edit.to_type) { toast('from_type 不能等于 to_type', 'error'); return }
     if (edit.from_amount < 1 || edit.to_amount < 1) { toast('数量必须 ≥1', 'error'); return }
     const payload = { ...edit }
-    if (edit.id) {
-      const id = payload.id; delete payload.id
-      const { error } = await supabase.from('shop_exchange_rates').update(payload).eq('id', id)
-      if (error) { toast('更新失败: ' + error.message, 'error'); return }
-      toast('汇率已更新')
-    } else {
-      delete payload.id
-      const { error } = await supabase.from('shop_exchange_rates').insert(payload)
-      if (error) { toast('添加失败: ' + error.message, 'error'); return }
-      toast('汇率已添加')
-    }
+    // 写路径服务端化（service_role · phase-55/52b）：shop_exchange_rates 增删改走 /api/admin/table。
+    try {
+      await postGameApi('/api/admin/table', { table: 'shop_exchange_rates', op: 'save', id: edit.id || null, row: payload })
+    } catch (e) { toast((edit.id ? '更新失败: ' : '添加失败: ') + (e.message || ''), 'error'); return }
+    toast(edit.id ? '汇率已更新' : '汇率已添加')
     setModal(false)
     load()
   }
 
   async function remove(id) {
-    await supabase.from('shop_exchange_rates').delete().eq('id', id)
+    try {
+      await postGameApi('/api/admin/table', { table: 'shop_exchange_rates', op: 'delete', id })
+    } catch (e) { toast('删除失败', 'error'); return }
     load()
   }
 
   async function toggleEnabled(r) {
-    await supabase.from('shop_exchange_rates').update({ enabled: !r.enabled }).eq('id', r.id)
+    try {
+      await postGameApi('/api/admin/table', { table: 'shop_exchange_rates', op: 'save', id: r.id, row: { enabled: !r.enabled } })
+    } catch (e) { toast('切换失败', 'error'); return }
     load()
   }
 

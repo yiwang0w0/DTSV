@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
 
 /* Phase 19.9: chamber_templates 模板池 CRUD */
@@ -127,31 +128,28 @@ export default function ChambersTab({ toast }) {
     delete payload.created_at
     if (payload.exit_cost && !payload.exit_cost.item) payload.exit_cost = null
 
-    if (edit.id) {
-      const id = payload.id; delete payload.id
-      const { error } = await supabase.from('chamber_templates').update(payload).eq('id', id)
-      if (error) { toast('更新失败: ' + error.message, 'error'); return }
-      toast('chamber 已更新')
-    } else {
-      delete payload.id
-      const { error } = await supabase.from('chamber_templates').insert(payload)
-      if (error) { toast('添加失败: ' + error.message, 'error'); return }
-      toast('chamber 已添加')
-    }
+    // 写路径服务端化（service_role · phase-55/52b）：chamber_templates 增删改走 /api/admin/table。
+    try {
+      await postGameApi('/api/admin/table', { table: 'chamber_templates', op: 'save', id: edit.id || null, row: payload })
+    } catch (e) { toast((edit.id ? '更新失败: ' : '添加失败: ') + (e.message || ''), 'error'); return }
+    toast(edit.id ? 'chamber 已更新' : 'chamber 已添加')
     setModal(false)
     load()
   }
 
   async function remove(id) {
-    const { error } = await supabase.from('chamber_templates').delete().eq('id', id)
-    if (error) { toast('删除失败', 'error'); return }
+    try {
+      await postGameApi('/api/admin/table', { table: 'chamber_templates', op: 'delete', id })
+    } catch (e) { toast('删除失败', 'error'); return }
     toast('chamber 已删除')
     setConfirmDel(null)
     load()
   }
 
   async function toggleEnabled(c) {
-    await supabase.from('chamber_templates').update({ enabled: !c.enabled }).eq('id', c.id)
+    try {
+      await postGameApi('/api/admin/table', { table: 'chamber_templates', op: 'save', id: c.id, row: { enabled: !c.enabled } })
+    } catch (e) { toast('切换失败', 'error'); return }
     load()
   }
 

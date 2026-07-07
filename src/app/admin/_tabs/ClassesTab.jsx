@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
 
 /**
@@ -92,31 +93,28 @@ export default function ClassesTab({ toast }) {
     const payload = { ...edit, perks: cleaned }
     delete payload.created_at
 
-    if (edit.id) {
-      const id = payload.id; delete payload.id
-      const { error } = await supabase.from('classes').update(payload).eq('id', id)
-      if (error) { toast('更新失败: ' + error.message, 'error'); return }
-      toast('职业已更新')
-    } else {
-      delete payload.id
-      const { error } = await supabase.from('classes').insert(payload)
-      if (error) { toast('添加失败: ' + error.message, 'error'); return }
-      toast('职业已添加')
-    }
+    // 写路径服务端化（service_role · phase-55/52b）：classes 增删改走 /api/admin/table。
+    try {
+      await postGameApi('/api/admin/table', { table: 'classes', op: 'save', id: edit.id || null, row: payload })
+    } catch (e) { toast((edit.id ? '更新失败: ' : '添加失败: ') + (e.message || ''), 'error'); return }
+    toast(edit.id ? '职业已更新' : '职业已添加')
     setModal(false)
     load()
   }
 
   async function remove(id) {
-    const { error } = await supabase.from('classes').delete().eq('id', id)
-    if (error) { toast('删除失败 ' + error.message, 'error'); return }
+    try {
+      await postGameApi('/api/admin/table', { table: 'classes', op: 'delete', id })
+    } catch (e) { toast('删除失败 ' + (e.message || ''), 'error'); return }
     toast('职业已删除')
     setConfirmDel(null)
     load()
   }
 
   async function toggleEnabled(c) {
-    await supabase.from('classes').update({ enabled: !c.enabled }).eq('id', c.id)
+    try {
+      await postGameApi('/api/admin/table', { table: 'classes', op: 'save', id: c.id, row: { enabled: !c.enabled } })
+    } catch (e) { toast('切换失败', 'error'); return }
     load()
   }
 
