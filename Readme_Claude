@@ -96,7 +96,8 @@
 - **纯 SQL·无编辑器改动**：三表客户端只读、写全服务端；owner-read 对 PrepareModal（`.eq(user_id)` 读自己）零影响。
 - **实测**：`P54_PROBE service_rows=1 anon_read=0 anon_insert_ok=f` —— anon 从「可读全部余额」→ 0 行、写被拒。
 - **子批 2a（5 内容表·[`phase-55`](scripts/phase-55-content-rls-2a.sql)·已应用）**：chamber_templates/classes/fragment_pool/shop_catalog/shop_exchange_rates → 开 RLS·public read·写仅 service_role。新通用 `/api/admin/table` 扁平表写路由（表+列白名单）；5 编辑器改 postGameApi：**ChambersTab/ClassesTab/FragmentsTab/ShopTab/PointsConfigTab**（🎨 避让）。实测 anon 读 25 行·写被拒。
-- **52b 剩余（下批）**：br_rooms（2b·RoomsEditorTab 对称同步循环）+ placement 四表（2c·usePlacementRules 动态 from）。
+- **子批 2c（placement 四表·[`phase-56`](scripts/phase-56-placement-rls.sql)·已应用）**：placement_rules/placement_rule_rooms/npc_placement_rules/npc_placement_rule_rooms → 开 RLS·public read·写仅 service_role。新 `/api/admin/placement` 路由（规则 upsert + 候选先清后插 + rule_id 服务端强制 + weight>0/去重）；**usePlacementRules**（RoomItemsTab/NpcPlacementTab 共用）改 postGameApi。实测 anon 写被拒。
+- **52b 剩余（最后一片）**：br_rooms（2b·RoomsEditorTab 对称同步循环；`/api/admin/table` 已登记 br_rooms 列白名单）。
 
 ## 最近变更（2026-07-06 / 🔒 phase-52b 第一批：6 内容表写权收紧 + 编辑器服务端化）
 
