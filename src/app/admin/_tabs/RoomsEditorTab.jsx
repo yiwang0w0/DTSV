@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { BTN, INPUT, LABEL, Modal } from '../_shared/ui'
 import NeighborPicker from './NeighborPicker'
 
@@ -115,19 +116,15 @@ export default function RoomsEditorTab({ toast }) {
       enabled: !!edit.enabled,
     }
 
-    if (edit.__editing) {
-      const id = payload.room_id
-      delete payload.room_id
-      const { error } = await supabase.from('br_rooms').update(payload).eq('room_id', id)
-      if (error) { toast('更新失败: ' + error.message, 'error'); return }
-      toast('房间已更新 · 拓扑版本已更新，新对局生效，在飞局不受影响')
-    } else {
-      const { error } = await supabase.from('br_rooms').insert(payload)
-      if (error) { toast('添加失败: ' + error.message, 'error'); return }
-      toast('房间已添加 · 拓扑版本已更新，新对局生效，在飞局不受影响')
-    }
+    // 写路径服务端化（service_role · phase-57/52b-2b）：br_rooms 主写 + 对称同步走 /api/admin/table（pk=room_id）。
+    try {
+      await postGameApi('/api/admin/table', { table: 'br_rooms', op: 'save', id: edit.__editing ? roomId : null, row: payload })
+    } catch (e) { toast((edit.__editing ? '更新失败: ' : '添加失败: ') + (e.message || ''), 'error'); return }
+    toast(edit.__editing
+      ? '房间已更新 · 拓扑版本已更新，新对局生效，在飞局不受影响'
+      : '房间已添加 · 拓扑版本已更新，新对局生效，在飞局不受影响')
 
-    // 对称同步：只 UPDATE 对面房 neighbor_ids 单列（增/删本房号），不碰其它列
+    // 对称同步：只写对面房 neighbor_ids 单列（增/删本房号），不碰其它列
     if (symmetricSync) {
       const me = roomId
       const oldSet = new Set(edit.__origNeighbors || [])
@@ -135,21 +132,22 @@ export default function RoomsEditorTab({ toast }) {
       const added = [...newSet].filter((n) => !oldSet.has(n) && n !== me)
       const removed = [...oldSet].filter((n) => !newSet.has(n) && n !== me)
       const byId = new Map(rooms.map((r) => [r.room_id, r]))
+      const syncNeighbor = async (other, next) => {
+        try {
+          await postGameApi('/api/admin/table', { table: 'br_rooms', op: 'save', id: other, row: { neighbor_ids: next } })
+        } catch (e) { toast(`对面房 #${other} 同步失败: ${e.message || ''}`, 'error') }
+      }
       for (const other of added) {
         const o = byId.get(other); if (!o) continue          // 悬空号跳过（不创建房）
         const cur = Array.isArray(o.neighbor_ids) ? o.neighbor_ids : []
         if (cur.includes(me)) continue
-        const next = [...cur, me].sort((a, b) => a - b)
-        const { error } = await supabase.from('br_rooms').update({ neighbor_ids: next }).eq('room_id', other)
-        if (error) toast(`对面房 #${other} 同步失败: ${error.message}`, 'error')
+        await syncNeighbor(other, [...cur, me].sort((a, b) => a - b))
       }
       for (const other of removed) {
         const o = byId.get(other); if (!o) continue
         const cur = Array.isArray(o.neighbor_ids) ? o.neighbor_ids : []
         if (!cur.includes(me)) continue
-        const next = cur.filter((n) => n !== me)
-        const { error } = await supabase.from('br_rooms').update({ neighbor_ids: next }).eq('room_id', other)
-        if (error) toast(`对面房 #${other} 同步失败: ${error.message}`, 'error')
+        await syncNeighbor(other, cur.filter((n) => n !== me))
       }
     }
 
@@ -158,16 +156,18 @@ export default function RoomsEditorTab({ toast }) {
   }
 
   async function remove(roomId) {
-    const { error } = await supabase.from('br_rooms').delete().eq('room_id', roomId)
-    if (error) { toast('删除失败: ' + error.message, 'error'); return }
+    try {
+      await postGameApi('/api/admin/table', { table: 'br_rooms', op: 'delete', id: roomId })
+    } catch (e) { toast('删除失败: ' + (e.message || ''), 'error'); return }
     toast('房间已删除 · 拓扑版本已更新，新对局生效，在飞局不受影响')
     setConfirmDel(null)
     load()
   }
 
   async function toggleEnabled(r) {
-    const { error } = await supabase.from('br_rooms').update({ enabled: !r.enabled }).eq('room_id', r.room_id)
-    if (error) { toast('操作失败: ' + error.message, 'error'); return }
+    try {
+      await postGameApi('/api/admin/table', { table: 'br_rooms', op: 'save', id: r.room_id, row: { enabled: !r.enabled } })
+    } catch (e) { toast('操作失败: ' + (e.message || ''), 'error'); return }
     load()
   }
 

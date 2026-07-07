@@ -16,8 +16,8 @@ const TABLES = {
   fragment_pool: { pk: 'id', cols: ['name', 'raw_text', 'partial_1', 'partial_2', 'full_text', 'category', 'rarity', 'discover_mode', '_legacy_maps', 'min_pollution', 'requires_fragment_id', 'weight', 'enabled', 'chamber_template_ids', 'unlocks_rules', 'phase_chain', 'is_main_story'] },
   shop_catalog: { pk: 'id', cols: ['entry_kind', 'tier_id', 'item_name', 'point_type', 'cost', 'required_class_ids', 'enabled', 'display_order'] },
   shop_exchange_rates: { pk: 'id', cols: ['from_type', 'to_type', 'from_amount', 'to_amount', 'enabled', 'description', 'economy_version'] },
-  // br_rooms 已登记（列白名单就绪）；其编辑器 RoomsEditorTab 的对称同步循环待 52b-2b 改造后再启用收紧。
-  br_rooms: { pk: 'room_id', cols: ['label', 'region', 'neighbor_ids', 'grid_x', 'grid_y', 'close_phase', 'enabled'] },
+  // br_rooms：pk=room_id 为用户指派（非自增）→ room_id 纳入 cols 供 INSERT；UPDATE 时置同值无害。
+  br_rooms: { pk: 'room_id', cols: ['room_id', 'label', 'region', 'neighbor_ids', 'grid_x', 'grid_y', 'close_phase', 'enabled'] },
 }
 
 export async function POST(request) {
