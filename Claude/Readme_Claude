@@ -1,0 +1,63 @@
+# Readme_Claude(hub · 全会话必读)
+
+更新时间:2026-07-07(Asia/Tokyo) · 文档结构改版:hub + 分轨文件夹(Kanata 拍板)
+定位:Claude 视角项目状态的**路由页**。与根目录 `Readme_GPT`(GPT 视角报告)互不修改。
+> **读法(每个会话开工前)**:①本文件全文(很短) ②自己轨的 `Claude/<轨>/README.md` + `log.md` ③`docs/plan/07-parallel-tracks.md`(协议) ④主线文档 `docs/plan/kaleido/00-03`。**不要通读他轨文件夹**——那正是本次改版要省下的上下文。
+
+## 六会话结构与路由
+
+| 会话 | 职能 | 你的文件夹 |
+|---|---|---|
+| 🧭 主对话(中控) | 拆解/派单/仲裁/验收,不做具体开发 | hub 本文件 + `docs/plan/**` |
+| 🔒 DTSV 安全性 | RLS/鉴权/输入校验/密钥/越权 | `Claude/security/` |
+| 🎨 DTSV 前端美化 | 玩家端 UI/响应式/PWA/主题 | `Claude/frontend/` |
+| ⚙️ DTSV 游戏性 | **游戏内容与数值设计**(道具/敌人/数值/合成树/物品池·纯数据) | `Claude/gameplay/` |
+| 📖 DTSV 剧情 | **第二主轴**:世界观/NAR 声线/叙事结构/文案/lore 守护 | `Claude/narrative/` |
+| 🔧 DTSV 引擎 | 服务端/状态机/战斗模板运行时/管线(gameActions 主归属) | `Claude/engine/` |
+
+## 当前状态(2026-07-07 晚)
+
+- **主线 = KALEIDO**(单人·回合制·关卡 run·AI 生成内容,规格 `docs/plan/kaleido/00`)。P0 已过闸(E2E 23/23),KP1 进行中。
+- **今晚主题 = 理清剧情线:仅 📖 剧情轨运行**(处理 Kanata 共享的剧情文档),其余轨暂停待 🧭 恢复令。
+- 各轨停点/恢复起步点见各自 `README.md`。
+
+## 铁律(全轨共守)
+
+**铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性（空配置逐值不变）/ 只改 Readme_Claude 不动 Readme_GPT / `scripts/phase-25q-nemesis-pvp-death.sql` 保持 untracked / 一律 `git add <显式路径>` 严禁 `git add -A`（历史上 -A 曾把 `.claude/` 本地配置误提交进仓）/ SQL 幂等·先写后审再经 postgres MCP 执行 / UI 改动连浏览器按手机(≈390×844)+桌面截图验证（/admin 仅 PRIMARY_ADMIN `2949215486@qq.com`·kanata 可见）/ 引用一律 ID 不按名串 / 提交信息中文 + `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` / 推前 `git fetch origin && git rebase origin/main`。
+
+## 变更日志协议(本次改版新规)
+
+- 各轨 dated 变更段**写自己的 `Claude/<轨>/log.md`**(新条目倒序置顶),不再追加到本文件。
+- hub 的「当前状态」由 🧭 维护;各轨如需即时广播跨轨契约(如 API 形状),写自己 log 后 send_message 通知 🧭 决定是否提升到 hub。
+- 历史归档(改版前的 🧭 段与全部索引)见 `Claude/history.md`。
+
+## 系统总览（截至 Phase 43 · 2026-07-04）
+
+**技术栈**：Next.js 14 App Router + React 18 + Supabase（Postgres/Realtime/Auth）+ Vercel（main 直推自动部署，无 PR 门）。中文 UI，GitHub-dark 主题（#0e1117 / #58a6ff / #f85149 / #3fb950）。
+
+**服务端核心**（`src/lib/server/`）：
+- `gameActions.js` — 上帝文件·主分发器：join/search/attackNpc/attackPlayer/move/useItem/craftItem/extract/actOnProbe/…（拆分减负 = 主对话长期债）
+- `pathGenerator.js`(chamber 路径) / `fragments.js`(残片三链发现) / `probes.js`(异步探针) / `stash.js` / `endings.js`(4 结局) / `branches.js` / `events.js` / `points.js`(4 类点数) / `shop.js` / `classes.js`(职业+perk 白名单) / `portraits.js` / `deathLog.js` / `raids.js`(Streak-breaker) / `br/`(时间跳跃 BR 9 模块)
+- **预埋未激活**（设计完成·ENABLED=false 或未接线，勿当死代码删）：`nemesis.js`(宿敌) / `chamberResidue.js`(chamber 痕迹) / `newbieProtection.js`(新手返还) / `signalLock.js`(撤离信号锁) / `heat.js`(高危出勤) / `coldCases.js`(悬案) / `loadoutPresets.js`(预设) / `runGoals.js`(本局目标)
+
+**共享纯函数层**（零 import·原生 Node 可导入·各配 smoke）：
+- `src/lib/combatPipeline.js` — 战斗伤害有序阶段管线：STAGES=add/mult/invincible/special/limit/insurance/seckill + OFFENSIVE/DEFENSIVE_STAGES 方向二分 + `runCombatPipeline(ctx, evalFn)`（smoke-pipeline.mjs 21 断言）
+- `src/lib/combatStats.js` — 统一战斗数值（Phase 37：base × 职业乘区 × 装备乘区，玩家/NPC 同构）
+- `src/lib/itemCraft.js` — 道具合成运行时（id↔name 桥接 string[] 背包·催化剂·fail_behavior，smoke-itemcraft.mjs 23 断言）
+- 其它：`gameEngine.js`(calcDamage/evalFormula 白名单沙箱/loadGameRules) / `equipmentEngine.js`(RARITY_META 真源/triggerPassives/executeCraft) / `eventResolver.js`(动作结算) / `roomState.js` / `pollution.js` / `constants.js`(各 ENABLED 预埋块；MAP_LIST 已 @deprecated)
+
+**客户端**：`src/app/game/[id]/`（GameClientPage + gameUi(T 色板) + CraftModal/ItemCraftModal/ExtractionModal/LootModal）；`src/app/admin/`（4 组折叠侧栏 17 入口 + 4 hub 收编 + `?tab=/?section=` URL 深链 + `_engine/` schema 驱动内容引擎 + `_shared/ui.js`(BTN/INPUT/SegTabs/Drawer)）；玩家页 rooms/profile/stash（archive/codex/contracts 已于 2026-07-04 下线）。
+
+**数据库主表**：rooms(gamevars JSONB) / profiles / item_pool / npc_pool / chamber_templates / equipment_series+tiers+instances / passive_skills(**Phase 43 加 stage/priority/condition_formula**) / item_recipes+item_recipe_ingredients / item_tags / tier_recipes+recipe_ingredients / fragment_pool+player_fragments+fragment_combos / cross_room_probes / player_points+shop_catalog+shop_exchange_rates / classes+player_class_runs / player_death_log / raid_stats / portraits / player_notifications / chamber_residue / probe_encounter_pairs / fragment_cold_cases / seasonal_expeditions(空表预埋) / br_*(时间跳跃 BR)。
+✅ **RLS 收紧完成（🔒 轨·2026-07-07）**：phase-51(7 内容表) + 52a(14 服务端专属/孤表) + 52b(6 authenticated-write 内容表 + 玩家数据 player_points/player_class_runs/raid_stats + 5 内容表 + placement 四表 + br_rooms) —— **全库「anon / 任意登录用户可写内容表」漏洞面清零**；玩家数据 owner-read（player_points 余额不再匿名可读）；所有 admin 写路径经 `/api/admin/*` service_role（content/table/placement/tier-recipes/passive-skills/game-rules/buff-pool/equipment/item-pool/npc-pool）。KALEIDO 六表另见 KP0-X。
+
+**核心系统一句话**：搜打撤 PVE+PVPVE（chamber 路径肉鸽 + Ω-段倒计时 + 污染）；残片 F01-F15 六纪元 lore（三链发现·解码 0-3·combo 合成）——**2026-07-04 起休眠**（`constants.FRAGMENTS.ENABLED=false`·代码与表全留·可逆·待重做）；4 类点数经济（撤离折点·入场购买·商店兑换·经济版本号/wipe 工具）；职业（3 候选+legendary 保底）；装备引擎（6 稀有度·升阶合成·被动技能→战斗管线）；异步探针 PvPVE（留探针·8% 遭遇·匿名化·遥测）；4 结局 + 事件 + 分支；时间跳跃 BR（Phase 30-32 并入 /game）。
+> 2026-07-04 下线：档案库(/archive)·纪元档案(/codex)·合同(contracts 全系统)。残片发现引擎照常运行（三链 discoverFragment + 结局/探针/combo 耦合不变），仅无独立展示页；合同任务系统整体移除（DB 表 contracts/player_contracts 保留孤立·未 DROP）。coldCases「悬案」仍为休眠预埋。
+
+**Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
+
+## 协作注意事项
+
+- **双 AI 并行**:根 `Readme_GPT` 是 GPT 视角报告,Claude 绝不修改;GPT 亦不动 Claude 侧文件。
+- **scheduled tasks**(dtsv-healthcheck-daily / dtsv-research-weekly)路径指向 suspicious-solomon worktree 绝对路径。
+- **设计文档时效**:docs/plan/02(旧战斗管线篇)阶段名/签名过时,以 `src/lib/combatPipeline.js` 代码为准;KALEIDO 以 `docs/plan/kaleido/00-04` 为准。

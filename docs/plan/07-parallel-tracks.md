@@ -9,7 +9,7 @@
 
 > 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
 > 本文件是 4 轨**共享契约**：各轨范围、文件归属、待办、完成标准，以及**避免互相踩踏**的协作与推送协议。
-> **每个 fork 开工前必读**：本文件全文 + `Readme_Claude` 顶部「🧭 当前状态」+ `docs/session-checkpoint.md`。
+> **每个 fork 开工前必读**（2026-07-07 文档改版后）：`Claude/Readme_Claude`（hub·很短）+ **自己轨的 `Claude/<轨>/README.md` + `log.md`** + 本文件全文。不要通读他轨文件夹（省上下文正是改版目的）。根 `Readme_Claude` 已成指路存根。
 > 2026-07-04 清理注记：远端 227 条 codex 遗产分支已删、3 个死 worktree 已移除（备份 `D:/Fragments/DTSV-cleanup-backup-20260704/`）；除 4 轨 + stupefied（小游戏会话）外不应再有其它分支。
 
 ---
@@ -82,7 +82,7 @@
 |---|---|---|
 | `src/lib/server/gameActions.js` | 🔧 引擎(2026-07-07 自 🧭 移交) | 其它轨改动**先报 🧭 仲裁**、小步、推前 rebase |
 | `src/app/game/[id]/GameClientPage.jsx` | 🎨 前端(布局/样式) | 新动作/新 UI 入口走主对话；前端只动响应式布局 |
-| `Readme_Claude` | 🧭 主对话(头部) | 各轨**只追加自己 track 标签的 dated 段**，不改他轨段落 |
+| `Claude/Readme_Claude`(hub) | 🧭 主对话 | 各轨 dated 段一律写**自己的 `Claude/<轨>/log.md`**(倒序置顶);hub 当前状态由 🧭 维护;跨轨契约提升进 hub 找 🧭 |
 | `src/app/globals.css` / `src/lib/theme.js` | 🎨 前端 | 其它轨不碰样式 |
 | `src/lib/auth.js` / `serverSupabase.js` | 🔒 安全性 | 其它轨不碰鉴权 |
 | SQL 迁移 | 按 §4 号段分块 | 各用各号段·不复用 |
