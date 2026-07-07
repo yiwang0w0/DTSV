@@ -63,6 +63,7 @@ import {
 } from '@/lib/pollution'
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
 import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
+import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
 import { emitPlayerEvents, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
@@ -1695,7 +1696,102 @@ function dispatchTurnStart(resolution, actorCombat, buffPool) {
   return attackerUpdated
 }
 
-async function resolveNpcAttackAction(client, room, gamevars, user) {
+// ═══════════════════════════════════════════════════════════════
+// KP1 LW-2：stance_duel 关的攻击结算（裁决 C：真接 combatModes.resolveTurn）
+//   一次 attackNpc = 一次完整交换（玩家出姿态 + 敌方确定性出招 + 双向克制伤害）。
+//   驻留态（软锁教训·「多回合 encounter 生命周期」自测第一项）：
+//   - rngState/姿态计数/回合数 存 player.kaleidoDuel（按 instanceId 键控；换目标自动重建；
+//     种子 = hashStr(runId:instanceId:duel) → R3 run 派生确定性,同局同序可回放）。
+//   - 敌活着 **不清 encounter**（决斗锁定,从根上避开 attackNpc 富路径的一击脱离软锁类坑）;
+//     杀死才清 encounter + kaleidoDuel。
+//   经济等价：杀敌复用 createNpcCorpse+lootPrompt（与 standard 击杀同款掉落）。
+//   仅 kaleido ∧ stance_duel 关进入（调用点双闸）→ 多人局/其它关零变化。
+// ═══════════════════════════════════════════════════════════════
+async function resolveStanceDuelAttack(client, room, gamevars, user, payload, instance, node) {
+  const player = getPlayer(gamevars, user.id)
+  const kal = gamevars.kaleido || {}
+  const mode = getCombatMode('stance_duel')
+  const params = node.kaleidoMode?.params || {}
+
+  // 姿态白名单（缺省/脏值回落 'atk'——bot/旧客户端无 stance 也能打）
+  const stance = ['atk', 'def', 'skill'].includes(payload?.stance) ? payload.stance : 'atk'
+  const STANCE_LABEL = { atk: '攻', def: '守', skill: '技' }
+
+  // 驻留态：同一 instance 续用；换目标/首次 → 以 run+instance 派生种子重建（确定性）
+  const saved = (player.kaleidoDuel && player.kaleidoDuel.instanceId === instance.id) ? player.kaleidoDuel : null
+  const state = {
+    player: { hp: player.hp, maxHp: player.maxHp || 100, atk: player.atk || 0, def: player.def || 0, potions: 0, heal: 0 },
+    enemy: { hp: instance.hp, maxHp: instance.maxHp || instance.hp, atk: instance.npc?.atk || 8, def: instance.npc?.def || 3 },
+    turn: saved?.turn ?? 0,
+    rngState: saved?.rngState ?? kaleidoHashStr(`${kal.runId || 'run'}:${instance.id}:duel`),
+    over: false,
+    outcome: null,
+    playerStanceCounts: saved?.playerStanceCounts ?? { atk: 0, def: 0, skill: 0 },
+  }
+
+  const next = mode.resolveTurn(state, { type: `stance:${stance}` }, params)
+  const dmgDealt = Math.max(0, state.enemy.hp - next.enemy.hp)
+  const dmgTaken = Math.max(0, state.player.hp - next.player.hp)
+  const enemyStance = STANCE_LABEL[next.lastEnemyStance] || '?'
+  const enemyDead = next.enemy.hp <= 0
+  const playerDead = next.player.hp <= 0
+
+  const resolution = createActionResolution({ room, actorId: user.id, gamevars })
+  appendResolutionLog(
+    resolution,
+    `⚔ ${player.name} 出【${STANCE_LABEL[stance]}】· ${instance.npc?.name || '敌体'} 出【${enemyStance}】—— 造成 ${dmgDealt} 伤害${dmgTaken > 0 ? `，受到 ${dmgTaken} 反击` : ''}`,
+    'damage',
+  )
+
+  let nextPlayer = {
+    ...player,
+    hp: Math.max(0, next.player.hp),
+    alive: !playerDead,
+    // 敌活着保持锁定（不清 encounter）；杀死才解除
+    encounter: enemyDead ? null : { instanceId: instance.id },
+    kaleidoDuel: (enemyDead || playerDead) ? null
+      : { instanceId: instance.id, rngState: next.rngState, playerStanceCounts: next.playerStanceCounts, turn: next.turn },
+  }
+
+  if (enemyDead) {
+    nextPlayer = { ...nextPlayer, kills: (player.kills || 0) + 1, entityKills: (player.entityKills || 0) + 1 }
+    resolution.gamevars = {
+      ...resolution.gamevars,
+      npcInstances: (resolution.gamevars.npcInstances || []).filter(i => i.id !== instance.id),
+      totalEntityKills: (resolution.gamevars.totalEntityKills || 0) + 1,
+    }
+    appendResolutionLog(resolution, `${player.name} 击败了 ${instance.npc?.name || '敌体'}`, 'kill')
+    // 掉落与 standard 击杀等价（经济一致）
+    const corpseResult = await createNpcCorpse(client, resolution.gamevars, instance, player.map ?? 0)
+    resolution.gamevars = corpseResult.gamevars
+    if (corpseResult.corpse) {
+      const lootPrompt = buildLootPrompt(resolution.gamevars, corpseResult.corpse, 'kill')
+      if (lootPrompt) {
+        resolution.gamevars = setPlayerLootPrompt(resolution.gamevars, user.id, lootPrompt)
+        appendResolutionLog(resolution, `${player.name} 可以从 ${corpseResult.corpse.name} 里带走一件战利品`, 'system')
+      } else {
+        resolution.gamevars = cleanupCorpseIfEmpty(resolution.gamevars, corpseResult.corpse.id)
+      }
+    }
+    if (instance.npc?.level === 'boss') {
+      resolution.gamevars = { ...resolution.gamevars, bossDefeated: true }
+      appendResolutionLog(resolution, `🏆 BOSS ${instance.npc.name} 已被击败！`, 'kill')
+    }
+    setKilledNpcFlag(resolution, instance.npc?.name)
+  } else if (playerDead) {
+    appendResolutionLog(resolution, `${player.name} 倒在了 ${instance.npc?.name || '敌体'} 的反击之下`, 'damage')
+    // 死因入 player_death_log（advance 死亡收敛的 death 事件从此取 reason）
+    await logPlayerDeath(client, user.id, {
+      roomId: room.id, gamenum: room.gamenum, mapId: player.map ?? 0,
+      reason: 'npc_counter', context: { npc: instance.npc?.name || '敌体', mode: 'stance_duel' },
+    })
+  }
+
+  setResolutionPlayer(resolution, user.id, nextPlayer)
+  return persistResolutionWithPollution(client, room, resolution, user.id)
+}
+
+async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}) {
   const player = getPlayer(gamevars, user.id)
   if (!player?.alive) throw new Error('阵亡玩家无法攻击')
   const instanceId = player?.encounter?.instanceId
@@ -1716,6 +1812,15 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
     setResolutionPlayer(resolution, user.id, { ...player, encounter: null })
     appendResolutionLog(resolution, `${player.name} 的袭击目标已消失`, 'system')
     return persistResolution(client, room, resolution)
+  }
+
+  // ═══ KP1 LW-2：stance_duel 关的战斗改走 combatModes.resolveTurn（裁决 C·R5 走既有 attackNpc 动词）═══
+  //   双闸：isKaleidoRoom ∧ 当前关 kaleidoMode.template_ref==='stance_duel' —— 多人局/其它关走下方富路径零变化。
+  if (isKaleidoRoom(room)) {
+    const duelNode = (gamevars.raidPath || [])[player.chamberIndex ?? 0]
+    if (duelNode?.kaleidoMode?.template_ref === 'stance_duel') {
+      return resolveStanceDuelAttack(client, room, gamevars, user, payload, instance, duelNode)
+    }
   }
 
   const [rules, buffPool, equippedInstances] = await Promise.all([
@@ -3180,7 +3285,7 @@ export async function executeGameAction(client, user, payload, options = {}) {
   }
 
   if (payload.action === 'attackNpc') {
-    return attackNpc(client, room, gamevars, user)
+    return attackNpc(client, room, gamevars, user, payload) // KP1 LW-2：透传 payload.stance（stance_duel 关用）
   }
 
   if (payload.action === 'releaseEncounter') {
@@ -3772,8 +3877,8 @@ async function searchArea(client, room, gamevars, user) {
   return resolveSearchAction(client, room, gamevars, user)
 }
 
-async function attackNpc(client, room, gamevars, user) {
-  return resolveNpcAttackAction(client, room, gamevars, user)
+async function attackNpc(client, room, gamevars, user, payload = {}) {
+  return resolveNpcAttackAction(client, room, gamevars, user, payload)
 }
 
 async function attackPlayer(client, room, gamevars, user, targetUid) {
