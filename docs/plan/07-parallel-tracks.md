@@ -1,5 +1,6 @@
-# 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-06）
+# 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-07）
 
+> 🚨 **轨道扩编（2026-07-07 · Kanata 拍板）**:新增 **📖 剧情轨**(会话「DTSV 剧情」·worktree vigilant-maxwell)。**剧情 = 第二主轴**(第一主轴 = 玩法循环),此前 P0/P1 纯机制无叙事属于跑偏,纠正:KALEIDO 静态叙事层从 P3 **提前到 P1**。📖 范围:世界观定位/NAR 声线/run 叙事结构/种子关及内容文案/日志文本域/lore canon 守护;归属文件 `docs/narrative/**` + 内容文案(经 admin/SQL 审后入库),**初期不动代码**,要接口找 🧭。派单见 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) KP1-N 段。
 > 🚨 **主线切换（2026-07-06）**:核心主线 = **KALEIDO**(单人 run·AI 生成内容)。三轨当前任务以 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) 派单为准(⚙️ KP0-S 服务端核心 / 🎨 KP0-C 单人壳 UI / 🔒 KP0-X 数据层安全);本文件 §2 的旧待办中——🎨 移动化+色板收敛、🔒 phase-52 RLS 扫描**继续有效**,⚙️ P5 payload 瘦身**暂停**,🧭 的 04/05/06 子系统**冻结**。§0 红线、§1 推送协议、§3 热文件矩阵、§4 号段全部照旧;KALEIDO SQL 用独立命名空间 `scripts/kaleido-*.sql`(不占号段)。gameActions.js/roomState.js/constants.js 的 KP0-S 改动已获中控预批。
 
 > 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
