@@ -25,7 +25,7 @@
 ```
 
 - `trigger.verb` 复用传感层动词(search/fight_start/attack/level_clear/item_use/craft_attempt/death…),`timing: before|after` 表示在该事件**结算前/后**浮现(时序法则用 before)。
-- `nar_line` 走数据不硬编码(📖 供稿,入库)。
+- `nar_line` 走数据不硬编码进客户端组件(📖 供稿)。**存储裁决(2026-07-07 🧭,采 🔧 契约方案 A)**:P1 = 引擎侧 data-only 注册表(uiUnlocks.js,📖 供稿逐字进入,改文案=改数据文件不动逻辑,客户端只消费信封下发的服务端权威 nar_line);P2 迁 content_pool(admin 可改)。文案变更流:📖 改 docs 供稿 → 🧭 → 🔧 同步注册表。
 - **持久化 = 账号级跨会话**(Kanata 明确):首个 run 体验完整渐进;后续 run 继承已解锁集(收敛/permadeath 不回收 UI —— UI 是元进度,不是 run 内容,兼容 R8/R9)。落库形状(🔧 定稿):倾向 profiles 加 jsonb 列或轻表 player_ui_state。
 
 ### 1.2 硬时序法则(不可违反)
