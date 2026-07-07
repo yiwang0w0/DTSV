@@ -73,14 +73,19 @@
 
 ### 2.3 材料(🧭 裁决:新增 kaleido 专属行 · 不复用多人)
 
-**⚠ 📖 抓到 canon 泄漏**:多人材料 `深界情报`(id16)是**第六纪元概念,绝不得现于失衡时代(kaleido·第三纪元)玩家面**;`语言压缩算法/锚点稳定协议` 亦过技术、violate 背包日常词原则(05 §0.4)。**裁决:kaleido 合成材料新增专属行**(全新 📖 命名·失衡时代口吻),多人 id13-18 原样不动。本文出 **2 类 kaleido 材料**(功能;名→📖):
+**⚠ 📖 抓到 canon 泄漏**:多人材料 `深界情报`(id16)是**第六纪元概念,绝不得现于失衡时代(kaleido·第三纪元)玩家面**;`语言压缩算法/锚点稳定协议` 亦过技术、violate 背包日常词原则(05 §0.4)。**裁决:kaleido 合成材料新增专属行**(全新 📖 命名·失衡时代口吻),多人 id13-18 原样不动。📖 N5 出 **6 散件**(名 + 气质),配方语义(谁配谁)由 ⚙️ 按气质定:
 
-| 功能标签 | kind | 掉落 | 用途 |
+| 散件(📖 N5)| 气质 | kind | 配方去向(§4·📖 co-align)|
 |---|---|---|---|
-| 材料·常见 | material(kaleido)| seq1-4 多 | 基础强化件合成 |
-| 材料·稀有 | material(kaleido)| seq3-4 少 | 战术道具 + 高级合成 |
+| 碎块 | 硬/结构 | material | 强化件(加力)|
+| 卡扣 | 连接/扣紧 | material | 强化件(加防)|
+| 线圈 | 蓄劲/绷着 | material | 顶力剂(burst)|
+| 垫片 | 软/缓冲 | material | 撑住剂(减伤)|
+| 管段 | 通道/接续 | material | 扩容件 |
+| 芯子 | 核心/被围 | material | 扩容件 |
 
-craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具(🔧 运行时读 item_pool.kind·已确认)。
+- **co-align 铁律(📖)**:软/缓冲(垫片)喂减伤,蓄劲(线圈)喂 burst,硬/连接(碎块/卡扣)喂强化 —— **不让软垫拼出爆发一击**。
+- craft_btn 解锁判据 = inventory 含 `kind='material'` 道具(🔧 运行时读 item_pool.kind·已确认;⚠ 🔧/🎨 须认此新 kind 或审时改复用现有材料 kind)。
 
 ---
 
@@ -91,10 +96,10 @@ craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具
 
 | seq | guaranteed(仅解锁链)| weighted(准备度:stat/材料/恢复)| 备注 |
 |---|---|---|---|
-| 1 search | 恢复剂小 + 材料·常见×1(首道具+首材料→inventory/craft_btn)| 恢复剂小 · 材料·常见 | 解锁链兜底 |
-| 2 encounter | —(战斗关)| 恢复剂小 · 材料·常见 · 攻击件(低权)| |
-| 3 elite | — | 攻击件 · 材料·常见/稀有 · 恢复 | |
-| 4 resource | — | 攻击件 · 防御件 · 容量件 · 材料·常见/稀有 · 恢复中(高权·备战窗口)| itemBias 高·主准备度来源 |
+| 1 search | 恢复剂小 + 材料(散件)×1(首道具+首材料→inventory/craft_btn)| 恢复剂小 · 材料(散件) | 解锁链兜底 |
+| 2 encounter | —(战斗关)| 恢复剂小 · 材料(散件) · 攻击件(低权)| |
+| 3 elite | — | 攻击件 · 材料(散件) · 恢复 | |
+| 4 resource | — | 攻击件 · 防御件 · 容量件 · 材料(散件) · 恢复中(高权·备战窗口)| itemBias 高·主准备度来源 |
 | 合成(⑤)| — | 材料换强化件/战术(§4)| 第二战力路径 |
 
 - **准备度 = 玩家回合分配**(🧭 裁决):guaranteed 只兜解锁链;**stat 件全 weighted 且集中 seq4**(备战窗口高权重)。搜刮多(省下回合多搜/战斗赢得快)→ 更多 weighted stat → prepared;casual/赶路 → 少 → solid−;跳过战斗关搜刮 → naked−。**变量真实存在**(不再被 guaranteed 压平)。
@@ -110,17 +115,17 @@ craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具
 
 > 复用 `item_recipes` + `item_recipe_ingredients` 引擎(`craftItemRecipe`·gameActions.js:2353)。材料(§2.3)→ 强化件/战术道具。**新增 recipe 行 + ingredient 行**(kaleido 专属·enabled 独立)。
 
-| 产物 | 材料(item_id·is_consumed)| 成功率 | 意图 |
+| 产物(📖 名)| 材料(📖 散件·is_consumed)| 成功率 | 状态 |
 |---|---|---|---|
-| 攻击强化件 | 材料·常见×2 | 1.0 | 战力路径 A(搜刮不足靠合成补 atk)|
-| 防御强化件 | 材料·常见×2 | 1.0 | 补 def |
-| 容量扩展件 | 材料·常见×1 + 材料·稀有×1 | 1.0 | 补 hp |
-| 战术·过载脉冲 | 材料·稀有×2 | 0.8 | burst 翻盘(08 §2.1)|
-| 战术·稳定护盾 | 材料·常见×1 + 材料·稀有×1 | 0.9 | boss 减伤 |
+| 加力件(+2atk)| 碎块×2 | 1.0 | ✅ 已建(content SQL)|
+| 加防件(+2def)| 卡扣×2 | 1.0 | ✅ 已建 |
+| 扩容件(+15hp)| 管段×1 + 芯子×1 | 1.0 | ⏸ 待 🔧 maxHpDelta 钩子 |
+| 顶力剂(burst)| 线圈×2 | 0.8 | ⏸ 待 buff_pool + 战斗集成 |
+| 撑住剂(def+5×3T)| 垫片×2 | 0.9 | ⏸ 待 buff_pool + 战斗集成 |
 
-- **搜刮基底 + 合成补足**(additive·非冗余双路径):搜刮(捡强化件)给战力基底,合成(材料换强化件)补足到 prepared;彻底玩家两者兼得达 prepared,casual 者只得基底停 solid+(§3 算账)。材料掉落量校准为"彻底搜刮够 ~3 次合成"(§6 闭环校验)。
-- **合成 = craft_btn 解锁的兑现**:首材料掉落(seq1)→ craft_btn 亮(05 §1.3)→ 合成成为战力补充手段。
-- **纯数据**:recipe/ingredient 行经 SQL 入库(审后);产物指向 §2.1 新增强化件 id。
+- **co-align 守则(📖)**:碎块/卡扣(硬/连接)→ 强化;线圈(蓄劲)→ 顶力;垫片(软)→ 撑住 —— 语义相符,不软垫拼爆发。
+- **搜刮基底 + 合成补足**(additive):搜刮(捡强化件)给基底,合成(散件换强化件)补足到 prepared;彻底者两者兼得,casual 者只基底停 solid+(§3/§6.2)。
+- **纯数据**:`scripts/kaleido-d6-economy-content.sql` 已建**加力/加防 + 2 配方**(enabled=false·验证 READY-FOR-AUDIT);扩容/顶力/撑住配方待引擎钩子后补(§5)。
 
 ---
 
@@ -128,7 +133,10 @@ craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具
 
 - **给 🔧(经 🧭)**:①持久强化件的 useItem 落点(永久改 atk/def/maxHp 字段·非 buff·§2.1)——确认 kaleido useItem 走持久路径;②seq4 guaranteed 消费速率语义(§3·已转);③craft_btn kind 判据(已确认读 item_pool.kind)。
 - **给 📖**:kaleido 新道具/新敌人的**名与描述**(本文只出功能标签 + 数值);seq1-5 敌名已定(07)。
-- **给 🧭/🔒(SQL·审后·🧭 裁「四件合一批」)**:①新增 **kaleido 材料行**(常见/稀有·📖 命名·避 canon 泄漏);②新增 kaleido 道具行(强化件/恢复剂/战术·新 id);③新增 `item_recipes` + `ingredients` 行;④**回指**:seq1-2/seq4 种子关 event_deck 从多人占位 id 改指 kaleido 新 id + guaranteed/weighted 重划(§3)。**四件一批**·幂等·enabled 可控·交 🧭 审执行。依赖 📖 命名回流。
+- **给 🧭/🔒(SQL)· 🧭 裁「四件合一批」进度**:
+  - ✅ **已建**(`scripts/kaleido-d6-economy-content.sql`·enabled=false·验证 READY-FOR-AUDIT·待审执行):①6 散件材料行 ②加力/加防/修补/大补 道具行 ③加力/加防 2 配方。
+  - ⏸ **待引擎钩子**:扩容件(🔧 maxHpDelta)/顶力剂·撑住剂(buff_pool + 战斗集成)+ 各自配方。
+  - ⏸ **第 4 件 event_deck 回指**:seq1/2/4 deck 改指新 id + weight —— 待 🔧 内容注入消费器的 **weighted-pick 口径**(weight→掉率映射)定,方能把 §6.2 目标掉率反算成 weight。消费器落地后一版修订。
 - **给 Kanata**:P1 gate 亲测掉落曲线(§3)—— sim 给锚点,实际"认真玩一遍到 prepared"要人测。
 - **产出物**:本设计文档。SQL(新内容行 + recipe + 回指)随审进度出。
 
