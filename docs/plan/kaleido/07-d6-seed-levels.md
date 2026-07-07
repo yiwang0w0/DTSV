@@ -1,4 +1,4 @@
-# KALEIDO · 06 D6 种子关设计(⚙️ KP1-G ① · 结构+数值)
+# KALEIDO · 07 D6 种子关设计(⚙️ KP1-G ① · 结构+数值)
 
 > 2026-07-07 · ⚙️ 游戏性轨(内容/数值)· 恢复令 KP1-G 首单。
 > 依据:`02-detailed-design.md` §2.5/§3.1/§3.2、`03-track-packages.md`「KP1-G」+「KP1-R 重排」、`05-progressive-disclosure.md` §1.3/§2、`src/lib/server/kaleido/runs.js`(sampler 真源)、`combatModes/index.js`(战斗公式真源)。
@@ -104,7 +104,7 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 > 3. 非 boss 战斗关的 `combatSetup.enemy` 注入 —— 镜像 boss 分支 `gameActions.js:3404` 到 encounter/elite;
 > 4. `guaranteed` 排空后,剩余非保底条目 + 空位再回落现有随机 spawn。
 >
-> **这是 05 §1.3 渐进披露 + 06 seq1-2 onboarding 的硬前置**;无它,种子关 = 惰性数据,首个 run 降级随机多人刷怪(既非投放下限也非安全首战)。属 🔧 KP1-E,建议排在 ui_unlocks 引擎**同批或之前**(ui_unlocks 的解锁事件依赖这些内容真发生)。
+> **这是 05 §1.3 渐进披露 + 07 seq1-2 onboarding 的硬前置**;无它,种子关 = 惰性数据,首个 run 降级随机多人刷怪(既非投放下限也非安全首战)。属 🔧 KP1-E,建议排在 ui_unlocks 引擎**同批或之前**(ui_unlocks 的解锁事件依赖这些内容真发生)。
 
 ---
 
@@ -193,19 +193,90 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 
 ---
 
-## 4. seq3-5 骨架(结构占位 · 数值待 §7 精调)
+## 4. seq3-5 全量结构(数值源 = `08-d6-balance.md`)
 
-> 骨架目的:①给 📖 看到完整弧线(区域推进 + 模板节奏);②排好 stance_ui(seq3)与 boss 收敛(seq5)在解锁链的位置;③明确 seq4 的"备战搜刮"是关闭 boss 战力差的窗口。**seq3-5 payload 待 seq1-2 定稿 + ② 平衡核算后补全**,此处只列结构决策。
+> 数值来自 08 平衡核算(双模型 sim)。**⚠ 敌/boss 数值 model-contingent**:下表填**模型甲(combatModes)**值;若 🧭 选**模型乙(富路径)**,boss→`200/26/6`(含污染)或 `260/34/8`(无),seq4 敌→更强(08 §6)。**seq3 elite 不受选型影响**(stance_duel 已 live-faithful)。
+> **⚠ SQL 未定稿**(🧭 裁决:seq3-5 SQL 待 🔧 批复 07 §1.1 payload 形状后补;本节 = 结构 + 数值设计)。
+> **引擎现状(§0.4)**:seq3(elite)/seq4(resource)的 combatSetup.enemy + event_deck 同 seq1-2 阻塞于 🔧 内容注入消费器;**唯 seq5 boss 走已有 `gameActions.js:3404` boss 分支,现引擎即可消费**(boss 是当前唯一 live 可用的种子关战斗)。
 
-| seq | archetype | mode | exit | chamber_ref(建议) | 结构要点 | 解锁链 |
-|---|---|---|---|---|---|---|
-| 3 | elite | stance_duel | survive_turns=5 | id7 锚点-壳裂带(hazard)或 id9 伊甸港-塌陷干道 | 首个三态克制;counterMul 1.6;敌中档;rules_card 展示克制表 | **stance_ui** 点亮 |
-| 4 | resource | standard | survive_turns=6 | id8 伊甸港-堆积区(scan_dense, max_items 7)| **备战窗口**:高 itemBias,保底掉「战力增益道具 + 合成材料×2」;玩家在此攒够打 boss 的资源 | craft 链成型 |
-| 5 | boss | standard | **boss_kill** | id24 Ω-段-终极界面(milestone)| **必带 combatSetup.enemy**(见 §6 校验);boss 数值 = §7 平衡产物;可选 env_rules(污染压) | **convergence** |
+| seq | archetype | mode | exit | chamber_ref | 敌数值(kaleido 尺度·08 §6)| clear 目标 | 解锁链 |
+|---|---|---|---|---|---|---|---|
+| 3 | elite | stance_duel | survive_turns=5 | id7 anchor_hazard_1 | hp80 / atk13 / def4 | ~75-80%(中段)| **stance_ui**(待 LW-2)|
+| 4 | resource | standard | survive_turns=6 | id8 eden_scan_1(max_items 7)| hp70 / atk11 / def4(消耗型·可选)| 非 kill 门 | 备战·craft 材料 |
+| 5 | boss | standard | **boss_kill** | id24 omega_milestone_1 | **hp168 / atk20 / def5** | prepared 95%·不足 0% | **convergence** |
 
-> **⚠ chamber_ref 名仅为 DB legacy 多人标签**(如 id24「Ω-段-终极界面」),我只按 **type + pollution 结构**选 ID;kaleido 面向的命名/lore(π-段锚点,**非** Ω-段;§8)**是 📖 的决定,不可当 canon 读**。seq5 milestone 关按 type=milestone 选,以 ID/key 引用为准。
+> **⚠ chamber_ref 名仅为 DB legacy 多人标签**(如 id24「Ω-段-终极界面」),我只按 **type + pollution 结构**选 ID;kaleido 面向的命名/lore(π-段锚点,**非** Ω-段;§8)**是 📖 的决定,不可当 canon 读**。
 
-**seq4 是平衡枢纽**:数据点显示裸属性玩家 8 交换死于旧 boss。seq4 必须投放足量战力增益(道具/合成产物),使"走完 seq1-4 的玩家" vs boss 有胜算,而"跳过搜刮的裸玩家"会输 —— 让**准备**成为通关变量(§7 展开)。
+**seq4 = 平衡枢纽**(08 §3/§4):boss 固定为准备度闸门后,seq4 是主备战窗口——高 itemBias、保底投放「战力增益件 + 合成材料×2 + 恢复品」,让走完 seq1-4 的玩家攒到 prepared 战力(atk16/def9/hp130/5药)过 boss,跳过者停在 solid 以下被 boss 挡。⚠ 战力件是 kaleido 新尺度(现 item_pool 多人值不可用),待 ③④ 建。
+
+### 4.1 seq3 elite payload(stance_duel · 首个三态)
+
+```jsonc
+{
+  "payload": {
+    "archetype": "elite",
+    "exit_condition": { "type": "survive_turns", "params": { "turns": 5 } },
+    "combat_mode": { "template_ref": "stance_duel", "params": { "counterMul": 1.6, "atkMul": 1, "defMul": 0.5 }, "describe": "" },
+    "combatSetup": { "enemy": { "npcId": 9, "name": "", "hp": 80, "maxHp": 80, "atk": 13, "def": 4, "level": "medium" } },
+    "event_deck": [
+      { "type": "npc_encounter", "npc": { "id": 9, "hp": 80, "atk": 13, "def": 4 }, "weight": 3, "once": true, "guaranteed": true },  // stance 决斗
+      { "type": "item_find", "item": { "id": 24 }, "weight": 2, "once": false }   // 少量补给(kaleido 值待 ③④)
+    ],
+    "env_rules": [], "formula_overrides": [],
+    "difficulty_band": { "target_clear_rate": [0.7, 0.85] },
+    "chamber_ref": { "template_id": 7, "template_key": "anchor_hazard_1" },
+    "name": "", "description": "", "enter_text": "", "ambient": []
+  },
+  "provenance": { "source": "seed", "seed_key": "d6-seq3-elite", "archetype": "elite", "seq_hint": 3, "anonymized": true }
+}
+```
+
+### 4.2 seq4 resource payload(备战枢纽 · 高投放)
+
+```jsonc
+{
+  "payload": {
+    "archetype": "resource",
+    "exit_condition": { "type": "survive_turns", "params": { "turns": 6 } },
+    "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
+    "combatSetup": { "enemy": { "npcId": 8, "name": "", "hp": 70, "maxHp": 70, "atk": 11, "def": 4, "level": "easy" } },  // 消耗型·非墙
+    "event_deck": [
+      { "type": "item_find", "item": { "id": 24 }, "weight": 5, "once": true, "guaranteed": true },  // 战力增益件(占位·kaleido stat 件待 ③④)
+      { "type": "item_find", "item": { "id": 13 }, "weight": 4, "once": true, "guaranteed": true },  // 合成材料(结构碎片)
+      { "type": "item_find", "item": { "id": 14 }, "weight": 4, "once": true, "guaranteed": true },  // 合成材料(锚点稳定协议)
+      { "type": "item_find", "item": { "id": 27 }, "weight": 3, "once": false }                       // 恢复品补给
+    ],
+    "env_rules": [], "formula_overrides": [],
+    "difficulty_band": { "target_clear_rate": [0.85, 1.0] },
+    "chamber_ref": { "template_id": 8, "template_key": "eden_scan_1" },
+    "name": "", "description": "", "enter_text": "", "ambient": []
+  },
+  "provenance": { "source": "seed", "seed_key": "d6-seq4-resource", "archetype": "resource", "seq_hint": 4, "anonymized": true }
+}
+```
+
+### 4.3 seq5 boss payload(boss_kill · 准备度闸门 · 现引擎即可 live)
+
+```jsonc
+{
+  "payload": {
+    "archetype": "boss",
+    "exit_condition": { "type": "boss_kill", "params": {} },
+    "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
+    "combatSetup": { "enemy": { "npcId": 10, "name": "", "hp": 168, "maxHp": 168, "atk": 20, "def": 5, "level": "boss" } },  // 08 §2 平衡产物
+    "event_deck": [
+      { "type": "npc_encounter", "npc": { "id": 10, "hp": 168, "atk": 20, "def": 5 }, "weight": 3, "once": true, "guaranteed": true }
+    ],
+    "env_rules": [], "formula_overrides": [],
+    "difficulty_band": { "target_clear_rate": [0.5, 0.7] },   // prepared 视角;不足者恒 0(08 §2)
+    "chamber_ref": { "template_id": 24, "template_key": "omega_milestone_1" },
+    "name": "", "description": "", "enter_text": "", "ambient": []
+  },
+  "provenance": { "source": "seed", "seed_key": "d6-seq5-boss", "archetype": "boss", "seq_hint": 5, "anonymized": true }
+}
+```
+
+> **boss 校验(§6 钩子③)**:seq5 `boss_kill` + combatSetup.enemy 齐备 ✅ 过校验。这也是**唯一现引擎 live 可跑**的种子关(boss 分支 `:3404` 已消费 kaleidoEnemy)。seq3/seq4 战斗等 🔧 内容注入。
 
 ---
 
@@ -228,17 +299,15 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 
 ---
 
-## 7. 平衡核算大纲(KP1-G ② · 本单出框架,数值精调随后)
+## 7. 平衡核算 → 见 `08-d6-balance.md`(KP1-G ② · 双模型 · 含阻塞决策)
 
-**问题**:裸属性玩家(atk10/def5/hp100 + 2 药)vs 旧 seq5 boss(hp102/atk20/def3)→ 玩家每击 8、需 13 击;boss 每击 17、6 击杀玩家 ⟹ **8 交换内死**(数据点复现,§0.2 算术吻合)。
+KP1-G ② 用只读**双模型** harness(`scripts/kaleido-d6-balance-sim.mjs`)完成,产出 `08-d6-balance.md`。**关键(经对抗验证订正)**:
 
-**设计目标**:让**搜刮准备**成为通关变量 —— 走完 seq1-4 攒够增益的玩家能赢,跳过的裸玩家会输。
-
-**待核算(② 输出 = 数值调整方案)**:
-1. **玩家战力增益曲线**:seq1-4 通过道具/合成/(可选)属性成长能拿到多少 atk/def/有效 hp。需先定 kaleido 道具经济(③④):战力道具的 atk/def 加成档、合成产物强度、heal 道具有效性。
-2. **boss 强度反解**:给定"备战玩家"战力,反推 boss 的 hp/atk/def 使 target_clear_rate 落在 difficulty_band(建议 boss 关 [0.35, 0.6])。用 `combatModes.simulateBattle` + `botClearRate`(离线 bot)验证。
-3. **难度曲线参数**:seq3(elite)、seq5(boss)的敌人档位;是否给 boss 关加 env_rules(污染/公式覆盖)作为额外压强。
-4. **回归**:boss 数值须保证 `kaleido-e2e.mjs` 的 boss_kill 断言仍过(E2E bot 能杀 boss);改动前后 send 🧭 协调 E2E 重跑。
+- **🔴 kaleido 有两套战斗模型**:combatModes(100% 命中·敌每回合·R1 净·**仅 stance_duel 现走**)vs 遗留富路径(85% 命中·反击 0.255/回合·污染·`Math.random`·**standard/boss 现走**)。伤害公式同,差异在命中/反击/污染 → boss 数值差 ~4×。
+- **难度形状随模型**:combatModes = **锐利闸门**(boss 168/20/5·prepared 95%·不足 0%);富路径 = **平滑曲线**(boss 260/34/8·naked 1%→solid 50%→prepared 86%,或含污染 200/26/6)。之前"attrition 必是断崖"是错模型产物。
+- **🔴 阻塞决策(🧭/🔧)**:D5 迁 combatModes vs 富路径 seed 化 —— 定全部 boss 数值。⚙️ 推荐富路径曲线(08 §2.3)。
+- **§4 现填模型甲(combatModes)值**;选型定后改。seq3 elite(stance_duel·live-faithful)不受影响。
+- E2E boss_kill 断言 ✅ 不受影响(`kaleido-e2e.mjs:83-88` 注入 atk500/hp8000)。
 
 ---
 

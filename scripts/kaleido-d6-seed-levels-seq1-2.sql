@@ -1,19 +1,19 @@
 -- ─────────────────────────────────────────────────────────────────
 -- KALEIDO D6 种子关 seq1-2 初稿(⚙️ KP1-G ① · content_pool entity_type='level')
 -- ─────────────────────────────────────────────────────────────────
--- 设计:docs/plan/kaleido/06-d6-seed-levels.md §2/§3。
+-- 设计:docs/plan/kaleido/07-d6-seed-levels.md §2/§3。
 -- ⚠ 状态:**未执行 · 待 🧭/🔒 审后经 postgres MCP 执行**(铁律:SQL 先审后跑)。
--- ⚠⚠ 对抗验证发现(06 §0.4):运行时 gameActions.js 只消费 boss 关 combatSetup.enemy(:3404);
+-- ⚠⚠ 对抗验证发现(07 §0.4):运行时 gameActions.js 只消费 boss 关 combatSetup.enemy(:3404);
 --     event_deck 与非 boss 敌人注入**无运行时读者** ⟹ 本批种子关当前是惰性数据(命中即降级随机多人刷怪)。
 --     故两行均 enabled=FALSE:即便审毕执行也不入活流。启用前置 =
---       (a) 🔧 钩子① 非 boss 内容注入消费器落地(06 §1.1);
+--       (a) 🔧 钩子① 非 boss 内容注入消费器落地(07 §1.1);
 --       (b) 确认 startKaleidoRun 的 seedLevels 查询带 .eq('enabled',true)(否则 enabled 标志不 gate);
 --       (c) 启用时(UPDATE ... SET enabled=true)send 🧭 协调 kaleido-e2e.mjs 重跑。
 -- 幂等:按 provenance->>'seed_key' 删旧再插(可重复执行,不产生重复行)。
 -- 引用一律 ID:item_pool(27 机能恢复剂 / 13 结构碎片 / 22 结构修复包)、npc_pool(8 残响低语·数值覆盖)、
 --            chamber_templates(1 外环-巡查节点 / 5 锚点-残响游走区)。
 -- 文案槽(name/description/enter_text/ambient)留空 = 📖 N4 填。
--- ⚠ 依赖 🔧 钩子①:event_deck "guaranteed":true 语义(投放下限)——引擎须honor,否则解锁链退化为概率(见 06 §1.1)。
+-- ⚠ 依赖 🔧 钩子①:event_deck "guaranteed":true 语义(投放下限)——引擎须honor,否则解锁链退化为概率(见 07 §1.1)。
 -- ─────────────────────────────────────────────────────────────────
 
 BEGIN;
@@ -26,7 +26,7 @@ WHERE entity_type = 'level'
 -- ── seq1:search(纯搜索·觉醒关·pollution 0)──
 -- 解锁:log_panel(首搜)/ inventory(首道具 id27)/ craft_btn(首配方材料 id13);清关→move_btn。
 INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
-  'level', false,   -- ⚠ enabled=false:惰性入库,待 🔧 钩子① 内容注入消费器落地前不入活流(见文件头 + 06 §0.4)
+  'level', false,   -- ⚠ enabled=false:惰性入库,待 🔧 钩子① 内容注入消费器落地前不入活流(见文件头 + 07 §0.4)
   jsonb_build_object(
     'archetype', 'search',
     'exit_condition', jsonb_build_object('type','survive_turns','params', jsonb_build_object('turns', 3)),
@@ -47,9 +47,9 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
 );
 
 -- ── seq2:encounter(首次战斗·gauntlet 2 波·安全上演)──
--- 解锁:hp_bar(遭遇前)/ combat_panel(遭遇)/ rules_card(入关前);敌数值弱到必胜(06 §3.1 算术)。
+-- 解锁:hp_bar(遭遇前)/ combat_panel(遭遇)/ rules_card(入关前);敌数值弱到必胜(07 §3.1 算术)。
 INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
-  'level', false,   -- ⚠ enabled=false:惰性入库,待 🔧 钩子① 内容注入消费器落地前不入活流(见文件头 + 06 §0.4)
+  'level', false,   -- ⚠ enabled=false:惰性入库,待 🔧 钩子① 内容注入消费器落地前不入活流(见文件头 + 07 §0.4)
   jsonb_build_object(
     'archetype', 'encounter',
     'exit_condition', jsonb_build_object('type','survive_turns','params', jsonb_build_object('turns', 4)),
