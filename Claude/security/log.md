@@ -1,6 +1,8 @@
 # 🔒 安全性轨 · 变更日志(倒序置顶)
 
-> **状态锚点（2026-07-07 · ▶ 已复工 · KP1-X）**：恢复令已收（`git rebase origin/main` = `473ddb4`；读毕 `docs/plan/kaleido/03-track-packages.md` 末段「KP1-R 恢复令重排」🔒 小节）。**item 1（kaleido-e2e.mjs 安全复核）已完成 —— 见下节**；item 2/3（🔧 ui_unlocks 账号级持久化 DDL 跟审 / LW-3·D3 触发审）待 🧭 转审。原停机期锚点保留 ↓ ——
+> **状态锚点（2026-07-08 · ▶ 触发审待命 · KP1-X）**：**item 1（kaleido-e2e 复核·4 low）+ item 2（ui_unlocks DDL + 列级守卫·已应用·3 探针 PASS）均结**；**ui_unlocks 越权/伪造面 🧭 正式签字关闭**（守卫 + Commit B 继承码静态审）。待触发队列（详见 README）：① 复核 🔧 E2E 跨 run 继承断言（方案 A·专用种子测试用户·继承功能验最终签字）② 🔧 工作包触发审（hook① 消费器/LW-3 gauntlet/D5 seed 化·重点：seed PRNG 不外溢多人域 / event_deck 消费无客户端可控输入 / E2E `enabled=true` 的 finally 恢复）③ ⚙️ item_pool/item_recipes 新行 SQL 抽查 RLS 面。原复工/停机锚点保留 ↓ ——
+>
+> **状态锚点（2026-07-07 · ▶ 已复工 · KP1-X）**：恢复令已收（`git rebase origin/main` = `473ddb4`；读毕 `docs/plan/kaleido/03-track-packages.md` 末段「KP1-R 恢复令重排」🔒 小节）。原停机期锚点保留 ↓ ——
 >
 > **状态锚点（2026-07-07 · 停机期 · 非恢复令）**：中控全局同步点 `e92d0b0`。① 剧情线定向落定（权威见 `docs/plan/kaleido/05`：开局仅搜索按钮 / UI 渐进披露 / 失衡时代叙事 / 玩家=结构工程体）② 文档改版：本轨家 = `Claude/security/`（README+log）· hub = `Claude/Readme_Claude` · dated 段写本 log.md ③ 恢复后**开工先读** `Claude/security/GPT.md`（只读 · GPT 投放参考）④ 恢复后审点预告：**ui_unlocks 账号级持久化**（新表 / profiles 列）+ kaleido-e2e 脚本安全复核（在队）。本轨停点 = phase-52 全库收官 + KP1-X #1 resolveTurn R1 审毕。继续待命。
 
