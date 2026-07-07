@@ -1,5 +1,13 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-07(深夜)· KP1-R 队列②:N4 种子关文案 seq1-2 首批(对抗验证过)
+
+- 依 🧭 N4 kickoff(先限 seq1-2)+ ⚙️ D6 结构初稿(`06-d6-seed-levels.md` §2/§3 + seed SQL),交付 [`docs/narrative/kaleido-n4-seed-levels-seq1-2.md`](../../docs/narrative/kaleido-n4-seed-levels-seq1-2.md):seq1「外圈·停摆段」(觉醒纯搜索·点亮 log_panel/inventory/craft_btn)+ seq2「往里·承重段」(首次安全战·点亮 hp_bar/combat_panel/rules_card)的 name/description/enter_text/ambient(值班的+留下的字双声线)+ 敌名。
+- **敌 id8 描述制无正名**:legacy 名「残响低语」含禁用词「残响」(名随物后·见 3 次才可命名);`combatSetup.enemy.name` 填「那东西」占位**防回落**(留空会漏 `npc_pool.name`)。未来命名 payoff 已登记(seq3+/Kanata 命名)。
+- chamber legacy 名(外环-巡查节点/锚点-残响游走区)弃用,kaleido 命名归 📖(⚙️ §8);跨轨注记 5 条(入库字段填法/legacy 名弃用/敌名禁回落 npc_pool/item 名 canon 核/声线分渲结构)。
+- **对抗验证**(两镜头 canon):defects-found→折入 4 处 minor/nit(敌名口径统一防回落 / enter_text 登记式 / 残页时态锚点 / 波间去劝慰),禁用词零泄漏 + D6 结构忠实 + N3 咬合 + 硬时序双镜头确认。
+- 状态:文案就绪(声线不受引擎接线时序影响);seq1-2 结构侧 `enabled=false` 待 🔧 钩子①(非 📖 阻塞)。seq3-5 文案等 ⚙️ 结构续批。
+
 ## 2026-07-07(深夜)· KP1-R 队列①:N3 §1.4 十二项对齐自查(对抗验证过)
 
 - 依 🧭 KP1-R 恢复令 📖 队列①:N3 §1 供稿(原 11 条 nar_line)↔ 05 §1.3 十二项 ui_key 清单逐项对齐。
