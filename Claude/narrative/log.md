@@ -7,6 +7,7 @@
 - **N4**([kaleido-n4-seed-levels-seq1-2.md](../../docs/narrative/kaleido-n4-seed-levels-seq1-2.md)):hp_bar 解锁链 seq2→**seq1 首搜**;seq2 enter_text 去"调出状况"改引用已开读数;seq2 硬时序段重写;§5 契约修订折入。
 - **对抗验证**(两镜头 sound·零 refutation):nar_line canon(契约意图达成/「损耗」达意/禁用词零泄漏/旧句彻底替换)+ 迁移一致性(N3/N4 处处一致/无 fight_start 残留/内容不变量呼应)双确认。
 - nar_line 存储流程(a7fd13c 裁决):我改 docs 供稿→报 🧭→🔧 同步 uiUnlocks.js(不碰引擎文件)。hp_bar 措辞改动走此流程。
+- **全角标点统一**(🎨 提议·🧭 批,随本批 folded):N3/N4 全部 shipped 文案(nar_line/enter_text/description/ambient)半角 `,` `:` → 全角 `，` `：`,贴合游戏 UI + 使「供稿逐字进 🔧 注册表」逐字一致;**仅动「」内文案**,code/JSON/路径/prose 冒号原样(grep 验证:「」内零半角残留、`{voice:"duty"}`/`waves=2, waveHeal=15` 完好)。
 
 ## 2026-07-07(深夜)· KP1-R 队列②:N4 种子关文案 seq1-2 首批(对抗验证过)
 
