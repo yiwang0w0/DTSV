@@ -28,35 +28,37 @@ export function describeExitCondition(ec) {
 
 // combat_mode → 结构化中文规则摘要（R6 生效前展示素材）。template_ref/params 见 02 §3.3。
 //   返回 { kind, title, desc, detail? }；detail 供 KaleidoRuleCard 渲染克制表/波次等富展示。
-//   ⚠ params 形状 = 客户端占位（stance_duel.beatMult / gauntlet.waves）；⚙️ combatModes.paramsSchema
-//     落地后以其为准（本 describe 是 KP1-S describe() 未到前的 UI 侧镜像）。
+//   接线（⚙️ 建议·避免客户端 import 服务端模块）：D1 采样器把服务端 getCombatMode(ref).describe(params)
+//     预渲染文本写进 level.payload.combat_mode.describe → 本函数优先用它；本地镜像仅作 fallback。
+//   canonical（⚙️ combatModes·90e8cf3）：stance 克制环 = 攻克技/技克守/守克攻；参数 params.counterMul。
 export function describeCombatMode(cm) {
   const template = cm?.template_ref || 'standard'
   const p = cm?.params || {}
+  const serverDesc = typeof cm?.describe === 'string' && cm.describe.trim() ? cm.describe.trim() : null
   switch (template) {
     case 'gauntlet': {
       const waves = Number.isFinite(p.waves) ? p.waves : null
       return {
         kind: 'gauntlet',
         title: waves != null ? `波次战 · ${waves} 波` : '波次战',
-        desc: '连续多波敌人，波间可短暂整备。撑过全部波次即胜。',
+        desc: serverDesc || '连续多波敌人，逐波增强；波间小幅恢复。击破全部波次即胜，中途倒下即败。',
         detail: { waves },
       }
     }
     case 'stance_duel': {
-      const mult = Number.isFinite(p.beatMult) ? p.beatMult : 1.5
+      const mult = Number.isFinite(p.counterMul) ? p.counterMul : 1.6
       return {
         kind: 'stance_duel',
         title: '三态对决',
-        desc: '每回合出「攻 / 守 / 技」，克制对方则本回合伤害加成。',
-        // 猜拳环：攻>守、守>技、技>攻（R6 入关展示克制表）。
-        detail: { mult, table: [{ self: '攻', beats: '守' }, { self: '守', beats: '技' }, { self: '技', beats: '攻' }] },
+        desc: serverDesc || `三态克制（猜拳）：攻克技、技克守、守克攻；克制方伤害 ×${mult}、被克方 ÷。每回合各出一态，先清零对方 HP 者胜。`,
+        // 克制环 canonical（⚙️ combatModes）：攻>技、技>守、守>攻（R6 入关展示克制表）。
+        detail: { mult, table: [{ self: '攻', beats: '技' }, { self: '技', beats: '守' }, { self: '守', beats: '攻' }] },
       }
     }
     case 'standard':
-      return { kind: 'standard', title: '标准回合战', desc: '攻击与反击交替的标准回合制结算。' }
+      return { kind: 'standard', title: '标准回合战', desc: serverDesc || '与单个敌人轮流出手，攻击或用药，先将对方 HP 清零者胜。' }
     default:
-      return { kind: 'custom', title: template, desc: '自定义回合制变体。' }
+      return { kind: 'custom', title: template, desc: serverDesc || '自定义回合制变体。' }
   }
 }
 
@@ -71,7 +73,7 @@ export function KaleidoStanceTable({ detail }) {
   return (
     <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(88,166,255,0.06)', border: '1px solid rgba(88,166,255,0.18)', borderRadius: 8 }}>
       <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 6 }}>
-        克制表 · 克制成功伤害 ×{detail.mult}
+        克制表 · 克制方 ×{detail.mult}、被克方 ÷
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px' }}>
         {table.map((r, i) => (

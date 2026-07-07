@@ -45,13 +45,16 @@ export default function KaleidoPreviewPage() {
       {/* 本关规则卡：填充态 + 空态 */}
       <Section title="③ 本关规则卡 KaleidoRuleCard（R6）">
         <KaleidoRuleCard
-          combatMode={{ template_ref: 'stance_duel', params: { beatMult: 1.6 } }}
+          combatMode={{ template_ref: 'stance_duel', params: { counterMul: 1.6 } }}
           envRules={[{ rule_key: 'pollution_accel', value: 1.5 }, { rule_key: 'search_bonus', value: -0.2 }]}
           formulaOverrides={[{ target: 'damage', formula: 'atk * 1.3 - def' }]}
         />
         <div style={{ height: 8 }} />
         <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>gauntlet 波次:</div>
         <KaleidoRuleCard combatMode={{ template_ref: 'gauntlet', params: { waves: 3 } }} envRules={[]} formulaOverrides={[]} />
+        <div style={{ height: 8 }} />
+        <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>服务端预渲染 describe 优先（level.payload.combat_mode.describe）:</div>
+        <KaleidoRuleCard combatMode={{ template_ref: 'stance_duel', params: { counterMul: 1.6 }, describe: '三态克制（猜拳）：攻 克 技、技 克 守、守 克 攻；克制方伤害 ×1.6、被克方 ÷。每回合双方各出一态，先清零对方 HP 者胜。' }} envRules={[]} formulaOverrides={[]} />
         <div style={{ height: 8 }} />
         <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>P0 空态（数据多为空 → 优雅容器）:</div>
         <KaleidoRuleCard combatMode={{ template_ref: 'standard' }} envRules={[]} formulaOverrides={[]} />
