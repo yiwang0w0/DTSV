@@ -2,6 +2,15 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-07 / 🔧 · step 0 里程碑通过 → KP1-E 增补工单(推进层 payload 消费统一化)）
+
+- **✅ step 0 里程碑通过**（🧭 裁决）：06 契约(ef726b7)+§8(a06b468)+Commit A(ec38ed6) 收讫;🎨 已集成(50a9ec2)+ D2 unlockEvents 消费 landed(cdcb107)。我的方案 supersede ⚙️ 提案。nar_line 存储裁定=**方案 A(引擎内联)**(uiUnlocks.js 📖 供稿逐字·P2 迁 content_pool);hp_bar 首搜批准;命名坑广播(node.**kaleidoMode** 非 combatMode·我已用对)。
+- **⚠ 范围变更（🧭 裁决）**：LW-3 并入 **KP1-E 增补工单 = 推进层 payload 消费统一化**(⚙️ 抓到阻塞缺口:event_deck 零运行时读者·非 boss 敌人注入缺失 → 种子关 inert·inventory/craft_btn 解锁链断)。工作包 = ① event_deck 掉落消费 + 非 boss combatSetup.enemy 注入(镜像 boss 3404)② craft_btn 状态检查(已在契约)③ gauntlet 波次编排(LW-3 本体·推进层·D5=乙 富路径 live-wire)④ seq1 零战斗(安全首战法则)⑤ boss 缺 combatSetup.enemy 校验挡板 ⑥ enabled 过滤(已满足·runs.js:2615)。E2E 增「保底掉落 + 首战安全 + seq1 零战斗 + raid_stats 清理」断言。
+- **✅ 前置动作:07 §0.3 payload 形状批复=通过 + 1 结构修订**(已 send 🧭 转 ⚙️)。核实可消费(runs.js:178-189 落 node.kaleidoEnemy/kaleidoEventDeck)。**修订**:combatSetup.enemy = 权威战斗敌(入关注入·镜像 boss·gauntlet 用作 wave-1 base + params.waves);event_deck 只消费 item_find;请 ⚙️ 移除 seq2/3/5 的 npc_encounter 冗余(否则双刷)。⚙️ 可出 seq3-5 SQL(enabled=false·boss 用乙值)。
+- **LW-3 gauntlet 理解(wk93hy7qx·4 map)**：gauntlet 模板 resolveTurn **自带波次逻辑**(combatModes/index.js:116·敌死∧有余波→scale^(w-1) 造下波+waveHeal 续) = **离线 bot sim 路径**;裁决 C 的 LIVE 路径 = 推进层编排富战斗(D5=乙),**不走** resolveTurn。软锁点:advance 重入需先 reset wave/enemy/outcome 才推进,否则 resolveTurn 早返回不变态。gauntlet 未接 live(attackNpc 只有 stance_duel 分支 1822·零 gauntlet 分支)。
+- **🔒 DDL(31f5265)**：列级守卫方案已接受(BEFORE 触发器令 ui_unlocks 客户端不可变·kaleido-ui-unlocks-guard.sql);createServerSupabase()=service_role 确认过守卫;06 §4 已更正(public-read 非 owner-read·案②)。执行顺序 🧭 定(🔒 exec DDL+守卫 → 我 Commit B → 🔒 复验),待 🧭 令。
+- **下一步**：实现增补工作包(hook ①③④ + gauntlet LW-3 + seq1 零战斗 + boss 校验)——软锁风险类(遭遇/体力/lifecycle 逐条推演),机制对 sampled 关即可 E2E 测(不必等种子关 enable);改状态机必跑 kaleido-e2e。D3/D5 顺延。Commit B(账号持久)待 🧭 DDL 执行令。
+
 ## 最近变更（2026-07-07 / 🔧 ▶ 恢复令开工 · KP1-E step 0 ui_unlocks 接口形状定稿）
 
 - **恢复令收讫**：🧭 KP1-R 解禁,rebase 到 `473ddb4`。队列重排:ui_unlocks 提最优先(接口形状=首里程碑,🎨 结构级改造等它),其后 LW-3/D3/D5。
