@@ -249,8 +249,8 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 **给 🔧(经 🧭 排期 · 已按 file:line 定位)**:
 - **①(#1 阻塞)非 boss 内容注入消费器**(§1.1):运行时排空 event_deck 定向投放 guaranteed item/npc + 非 boss combatSetup.enemy 注入(镜像 boss `gameActions.js:3404`)。无它 seq1-2 惰性。
 - **② craft_btn 触发改状态检查**(inventory 首含 recipe-material 类道具),废除"拾取动词"依赖 + 循环(craft_attempt 需 UI 已开)。
-- **③ hp_bar gate 前移到 seq2 入关**(combat_mode≠standard / combatSetup≠null 的关 movePlayer 时),而非 fight_start(它在遭遇建立后才发,`route.js:47`)——保 timing=before 硬法则。
-- **④ seq1 运行时零战斗**:强制 seq1 chamber `max_npcs=0` 且 combatSetup=null 时 searchArea 跳过 npc 分支(防首遭遇误落 seq1、破 hp_bar 序)。
+- **③ hp_bar 时序**:本单验证发现 fight_start 在遭遇后才发(`route.js:47`)→ **已由 🔧 契约 supersede**(hp_bar 改挂**首次 search**,覆盖污染/Ω/收缩等非战斗死亡向量,见 §9)。无需 ⚙️ 动作。
+- **④ seq1 运行时零战斗**(为**安全首战**法则,非 hp_bar 时序 —— 后者 🔧 已用 search-hp_bar 覆盖):防 seq1 随机刷出多人巨兽当首战(chamber id1 `max_npcs=1`)。强制 seq1 `max_npcs=0`,或 combatSetup=null 时 searchArea 跳 npc 分支,或首战强制走 hook① 注入的手写弱敌。
 - **⑤ 种子关 seed 洗牌选择**(§5,run 间变体,seq3+;seq1-2 固定关不受影响)。**另**:startKaleidoRun 的 seedLevels 查询须 `.eq('enabled',true)`,否则本 SQL 的 `enabled=false` 不 gate。
 - **⑥ boss_kill 缺 enemy 校验 + 引用存在性校验**(§6)。
 - **E2E(上线后)**:加「解锁序 + hp_bar 先于首害 + seq1 无 fight_start/attack」断言。
@@ -262,3 +262,22 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 - **R4 道具/敌人多人标定**:引用现有 id 是结构占位,效果数值待 ③④ 校准。
 
 **产出物**:本文档 + `scripts/kaleido-d6-seed-levels-seq1-2.sql`(幂等 · `enabled=false` · **未执行 · 待 🧭/🔒 审 + 🔧 钩子 ①**)。经 5-lens 对抗验证:payload shape / SQL 幂等 / combat-math 结论均 PASS;阻塞项 = 引擎内容注入缺口(已精确定位交 🔧)。
+
+---
+
+## 9. 与 🔧 `06-ui-unlocks-contract.md` 对账(2026-07-07 · 两轨独立验证收敛)
+
+🔧 的 ui_unlocks 契约同日落地(`ef726b7`)。其独立 5 视角对抗验证与本单验证**高度收敛**,数处 supersede 本文临时提案:
+
+| 议题 | 本单验证 finding | 🔧 契约决定 | 结论 |
+|---|---|---|---|
+| hp_bar 时序 | fight_start 在遭遇后发,须前移 | **hp_bar 挂首次 search**(覆盖污染/Ω/收缩等非战斗死亡向量,比"seq2 入关"更强) | **采 🔧**;§1「hp_bar 前移」以 🔧 为准 |
+| craft_btn 触发 | 废"拾取动词",改状态检查「inventory 含 recipe-material」 | `craft_material_gained` = after 新持有 item kind ∈ 配方材料 | **完全一致** ✅ |
+| combat_panel/LW-1 | 遭遇瞬态,解锁标记勿存 encounter | 存 `player.uiUnlocks`,首次 null→present 判定 | **一致** ✅ |
+| inventory | survive_turns 可零掉落清关 → 概率 stall | `inventory_gained`=inventory 数组增长(state diff);LIVE 但需 ⚙️ 保证 seq1-2 搜得出 | **投放下限 = ⚙️ 耦合点**(下条) |
+
+**核心待决(🔧 line 103/168 明确回问 ⚙️)**:🔧 引擎"只在条件满足时解锁,**不制造内容**"。inventory 挂 `inventory.length` 增长、craft_btn 挂"获得 recipe-material 类道具"——但**现有随机搜索路径不保证** seq1-2 必然产出(可能 3 搜零掉落;更可能永不掉 recipe-material 类)。∴ **投放下限需一个"保证产出"机制** = §1.1 event_deck 消费器(定向投放 id27 消耗品 + id13 tech_fragment 材料),或等效的 seq1-2 curated 保证掉落。**回答 🔧 的"确认投放下限能点燃 inventory/craft_btn":当前随机路径不能,需引擎侧保证机制(hook ①),请 🧭 裁决落点。**
+
+**回 🔧 的两个内容不变量确认**:
+- ✅ **seq1 污染基线**:seq1 用 chamber id1(outer_ring_scan_1,`pollution_base=0`),满足 🔧 §1.3「seq1 首关非即死、无 turn-1 强制伤害」。
+- ⚠ **安全首战**:🔧 line 82 承认 search 可生成遭遇(combat 非 boss 独有)。若 seq1 随机刷出多人敌,首战不安全(多人 atk 一击秒杀)。∴ hook ④(seq1 零战斗 / 首战强制手写弱敌)仍需——但已**不为 hp_bar 时序**(🔧 search-hp_bar 覆盖),而纯为「安全首战」法则。
