@@ -98,7 +98,7 @@ craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具
 | 合成(⑤)| — | 材料换强化件/战术(§4)| 第二战力路径 |
 
 - **准备度 = 玩家回合分配**(🧭 裁决):guaranteed 只兜解锁链;**stat 件全 weighted 且集中 seq4**(备战窗口高权重)。搜刮多(省下回合多搜/战斗赢得快)→ 更多 weighted stat → prepared;casual/赶路 → 少 → solid−;跳过战斗关搜刮 → naked−。**变量真实存在**(不再被 guaranteed 压平)。
-- **达 prepared 路径**(additive:搜刮 weighted + 合成补足):seq3-4 攻击件 + seq4 防御/容量 + 合成(§4)→ +6atk/+4def/+30hp;药 seq1-2 + 恢复中 → ~5。**weighted 概率 + 回合分配 → 准备度分布,待 §6 harness 定**(依赖 🔧 3 机制答复)。
+- **达 prepared 路径**(additive:搜刮 weighted + 合成补足):seq3-4 攻击件 + seq4 防御/容量 + 合成(§4)→ +6atk/+4def/+30hp;药 seq1-2 + 恢复中 → ~5。**weighted 概率已解**(§6.2 harness·🔧 3 机制核实后):`pStat=0.30`/pMat=0.30/pHeal=0.20 → balanced→prepared(boss 83%)、rush→5%、hoarder→100%(污染前)。event_deck weight 由 🔧 反算达 per-seq 有效掉率。
 - **投放预算不变式**:guaranteed 大减后天然满足(seq1 `2≤3`·seq2-5 `0`)。
 - **guaranteed 语义(🔧 定稿 · 2026-07-08)**:每次 `search` 消费 **1 件** guaranteed(deck 顺序 **front-load**,优先于非保底 roll);`once` = 全关一次;**硬保证**(非概率)。
 - **投放预算不变式**(出关卡/掉落表时自查 · 🔧 hook⑥ 入库校验按此**拒关**):`#guaranteed_item_find ≤ survive_turns − (首关 0 / 非首关 1)`(减 1 = 进关 move 占 1 回合)。**seq1-5 自查全达标**(§6.0 后 stat 件转 weighted·seq2-5 guaranteed=0):seq1 `2≤3` ✓ / seq2 `0≤3` ✓ / seq3 `0≤4` ✓ / seq4 `0≤5` ✓ / seq5 boss(无 guaranteed·boss_kill)✓。**新增关或加保底掉落必守此上限**,否则饿死解锁链 → 被 🔧 校验钉死。
@@ -158,6 +158,21 @@ craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具
 - 掉落数值精算:material 掉落量 vs 合成需求(§3↔§4 闭环校验)——并入 6.0 harness。
 - 敌人变体池(每档 2-3 个)补全,供 12-15 seed 关变体(待 🔧 钩子② seed 洗牌)。
 - 战术道具(过载脉冲/护盾)对 boss 曲线的影响(08 §2.1 软化杠杆)——是否让 solid 档 boss 胜率上抬到可接受,harness 复核。
+
+### 6.2 harness 结果:weighted 概率解(`scripts/kaleido-d6-economy-sim.mjs` · 🔧 机制核实后)
+
+3 画像(每关 search 次数·下限=survive_turns·上限开放·🔧 核):rush `[3,1,1,2]` / balanced `[3,4,5,6]` / hoarder `[5,6,8,14]`。boss 260/34/8·severe:
+
+| pStat | rush | balanced | hoarder | balanced avgStatEquiv(prepared=7)|
+|---|---|---|---|---|
+| 0.20 | 4% | 66% | 99% | 5.8 |
+| **0.30** | **5%** | **83%** | 100% | **7.4** |
+| 0.40 | 6% | 88% | 100% | 9.0 |
+| 0.50 | 9% | 92% | 100% | 10.3 |
+
+- **推荐 `pStat=0.30`**(`pMat=0.30`·`pHeal=0.20`·per-seq `statW=[0,0.3,1.0,1.6]`):balanced avgStatEquiv 7.4 ≈ prepared(7)→ boss **83%**(落 08 prepared 带 74-86%);rush 5%(欠准备必输);curve 平滑单调。**准备度=玩家变量成立** ✓。
+- **per-seq 有效掉率**(pStat×statW):seq2 `0.09` / seq3 `0.30` / seq4 `0.48`;pMat `0.30`·pHeal `0.20`。→ event_deck `weight` 由 🔧 按引擎 weighted-pick 口径反算达此有效掉率(harness 给**目标概率**,weight 数值 🔧 校)。
+- **⚠ hoarder 100% 是"污染前"值**:over-search 每次 +2 personal 污染(`SEARCH_PERSONAL`)→ 到 boss 时 hoarder 污染显著高于 rush/balanced → 触 severe(−15% 己伤)甚至 meltdown(≥100 死亡计时)→ **真实 hoarder 胜率被污染拉低**。这是**过量囤货的自限机制**(好设计:囤货有污染代价,防无脑刷)。精确曲线 = 下一迭代(需 env 污染@boss 累积模型:`effective=0.6·env+0.4·personal`·omega chamber base 100)。
 
 ---
 
