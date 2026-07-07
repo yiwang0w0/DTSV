@@ -2640,9 +2640,16 @@ export async function startKaleidoRun(client, user) {
     const room = await createRoom(client, user, { gametype: KALEIDO_GAME_TYPE })
     createdRoomId = room.id
     const rules = await loadGameRules(client)
-    // KALEIDO 渐进披露 seed(06 §3.5)：run 起始镜像账号级已解锁集。
-    //   Commit A：仅种子 UI_SEED(['search_btn'])；账号级 profiles.ui_unlocks 继承在 Commit B(待 🔒 审 DDL)接入。
-    const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: [...UI_SEED] })
+    // KALEIDO 渐进披露 seed(06 §3.5)：run 起始镜像账号级已解锁集(跨 run 继承·元进度·兼容 R8/R9)。
+    //   Commit B：读 profiles.ui_unlocks(缺行/空则回落)并 UI_SEED(['search_btn'])。client=createServerSupabase()=service_role
+    //   → 过 kaleido-ui-unlocks-guard.sql 列级守卫白名单(此处只读;写在 applyKaleidoPostAction)。
+    let accountUnlocks = []
+    try {
+      const { data: prof } = await client.from('profiles').select('ui_unlocks').eq('id', user.id).maybeSingle()
+      if (Array.isArray(prof?.ui_unlocks)) accountUnlocks = prof.ui_unlocks.filter((k) => typeof k === 'string')
+    } catch (e) { console.error('[kaleido] profiles.ui_unlocks 读取失败(回落种子):', e?.message) }
+    const seedUnlocks = Array.from(new Set([...UI_SEED, ...accountUnlocks])).sort()
+    const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: seedUnlocks })
     const gamevars = normalizeGamevars(room.gamevars)
     const nextGamevars = {
       ...gamevars,
@@ -2835,7 +2842,12 @@ export async function applyKaleidoPostAction(client, room, user, action, preCont
           })
         }
         unlockEvents = buildUnlockEventsPayload(newKeys, seq)
-        // TODO(Commit B·待 🔒 审 DDL)：profiles.ui_unlocks 追加(账号持久·跨 run 继承)——见 scripts/kaleido-ui-unlocks.sql。
+        // Commit B：账号持久 —— merged(账号种子 ∪ 本 run 已解锁 ∪ 新键·单调只增)写回 profiles.ui_unlocks。
+        //   client=service_role → 过列级守卫(kaleido-ui-unlocks-guard.sql:authenticated 改此列拒/service_role 通)。
+        //   全集覆盖(非增量读改写)天然幂等·永不缩;失败仅记错不阻断(下解锁动作以 merged 再写补上)。
+        try {
+          await client.from('profiles').update({ ui_unlocks: merged }).eq('id', user.id)
+        } catch (e) { console.error('[kaleido] profiles.ui_unlocks 持久化失败(不阻断·下动作补写):', e?.message) }
       } catch (e) {
         console.error('[kaleido] uiUnlocks 持久化失败(下动作重判):', e?.message)
         // 不发 unlock 事件/不下发 unlockEvents → 幂等,下动作重新检测+持久化。
