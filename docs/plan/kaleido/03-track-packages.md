@@ -161,3 +161,10 @@
 2. **新审点登记**:🔧 ui_unlocks 持久化(新列/新表 + RLS:owner-read、写路径仅 service_role)落地后触发审;LW-3/D3 照旧触发审。
 
 **P1 闸门现为 6 条**(00/03 原 4 条 + 第 5「不哑」+ 第 6「到第二个 UI 元素的时间」,见 05 §2)。
+
+## KP1-R 裁决追记(2026-07-07 深夜后段 · 🧭)
+
+1. **D5 选型 = 乙(富路径 seed 化)**:kaleido standard/boss 战斗**保留**遗留富路径(命中 0.85/反击 0.255/污染放大),仅把其 `Math.random` 换成 run seed 派生 PRNG(isKaleidoRoom 域内,多人局照旧 Math.random 逐字节不动)。理由:①与裁决 C「standard=富路径原样」一致 ②平滑难度曲线(每档准备度有意义,⚙️ 08 双模型 8000 trials 实证)优于 combatModes 锐利闸门,直接服务 P1「可玩且成立」 ③污染系统复用给 boss 战张力 ④不悄改 Kanata 已在玩的手感。combatModes 仍只服务 stance_duel(+gauntlet 波次编排)。boss/敌人终值按富路径口径(⚙️ 08,260/34/8 族)。附带:现 kaleido 用 Math.random 违 R1,本项同批修复。
+2. **ui_unlocks DDL+列级守卫执行令**:🔒 审定(31f5265)成立——profiles owner-UPDATE(with_check=NULL)使行级 RLS 挡不住列级伪造,BEFORE 触发器守卫(default-deny 白名单)是唯一不砸 PrepareModal 的方案。执行顺序:①DDL 建列 ②守卫触发器(均 🔒 经 postgres MCP 执行)→ ③🔧 Commit B(startKaleidoRun 读种子 + applyKaleidoPostAction service_role 写)→ ④🔒 复验(anon 伪造拒/service_role 写通/PrepareModal 无损)。
+3. **N4 文案入库渠道**:种子关关卡文案(name/description/enter_text/ambient/敌名)走 content_pool level payload——📖 供稿、⚙️ D6 SQL 合稿入库;ui_key 的 nar_line 走 🔧 引擎注册表(05 §1.1 裁决)。两渠道并行不混。
+4. 字段命名对照(🎨 实证·🧭 复核):运行时 raidPath 节点 `kaleidoMode`/`kaleidoEventDeck` ↔ DB 列 `combat_mode`/`event_deck`;禁止现阶段重命名,🔧 在 06 契约补注记。
