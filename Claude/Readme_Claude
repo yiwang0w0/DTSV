@@ -25,6 +25,10 @@
 
 **铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性（空配置逐值不变）/ 只改 Readme_Claude 不动 Readme_GPT / `scripts/phase-25q-nemesis-pvp-death.sql` 保持 untracked / 一律 `git add <显式路径>` 严禁 `git add -A`（历史上 -A 曾把 `.claude/` 本地配置误提交进仓）/ SQL 幂等·先写后审再经 postgres MCP 执行 / UI 改动连浏览器按手机(≈390×844)+桌面截图验证（/admin 仅 PRIMARY_ADMIN `2949215486@qq.com`·kanata 可见）/ 引用一律 ID 不按名串 / 提交信息中文 + `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` / 推前 `git fetch origin && git rebase origin/main`。
 
+## GPT 侧对称文件(2026-07-07 · 勿动)
+
+- GPT 协作者正在镜像本结构:根 `Readme_GPT`(GPT hub)+ 各 `Claude/<轨>/GPT.md`(GPT 侧协作文档)。**Claude 各轨一律不修改这些文件**(对称于「不动 Readme_GPT」铁律);读它们了解 GPT 侧约定是允许且推荐的。
+
 ## 变更日志协议(本次改版新规)
 
 - 各轨 dated 变更段**写自己的 `Claude/<轨>/log.md`**(新条目倒序置顶),不再追加到本文件。
