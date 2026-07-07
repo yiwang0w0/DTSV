@@ -65,6 +65,7 @@
 ## 3. ④ 掉落表(event_deck 权重 + 资源曲线)
 
 > 目标:彻底搜刮 seq1-4 → prepared(+6atk/+4def/+30hp/+3药);赶路/跳过 → 停在 solid 以下。event_deck 用 `item_find`(guaranteed 定向 / 非 guaranteed 加权)。
+> **⚠ 待改(§6.0 发现)**:本表 stat 件暂放 guaranteed,但 `guaranteed × survive_turns` 会**压平准备度变量**(人人清关即拿满)→ **stat 件须改 weighted**(§6.0);guaranteed 只留解锁链必需(首道具/首材料)。下方算账为**设计意图**,weighted 概率待 harness + 🔧 机制澄清后定。
 
 | seq | 保底(guaranteed)| 加权(非保底)| 累计战力(彻底)|
 |---|---|---|---|
@@ -112,7 +113,24 @@
 
 ## 6. 待核(本轨后续)
 
-- 掉落数值精算:material 掉落量 vs 合成需求(§3↔§4 闭环校验),用扩展 harness 模拟"搜刮 N 次 → 战力分布"。
+### 6.0 🔴 准备度变量性风险(§6 harness 前置发现 · 须先解决)
+
+**推 §6 harness 时发现一个设计矛盾**:08 §3 假设"准备度随搜刮投入而变"(彻底→prepared / 跳过→naked)。但 guaranteed 语义(🔧:每次 search 消费 1 件·硬保证)× survive_turns(强制 N 个消耗动作)会**压平这个变量**:
+
+- 纯搜索关(seq1)清关**只能靠 search** → 必然搜 survive_turns 次 → **必然吃到 guaranteed 掉落**。若把 stat 件(攻击/防御/容量)放 guaranteed,**人人清关即拿满 stat → 准备度不再是变量,boss 不再是准备度闸门**(与 08 §3 矛盾)。
+- **∴ 掉落设计修正**:guaranteed **只放解锁链必需**(seq1 首道具 + 首材料·为 inventory/craft_btn);**stat 件走 weighted**(概率掉·搜得多/战斗赢得快→省下回合多搜→更多 stat)。变量来自"搜刮 vs 战斗 vs 赶路"的回合分配,不是 guaranteed。
+- **⚠ 这改 §3 掉落表**:seq3/seq4 的 stat 件从 guaranteed 改 weighted(seq4 保底只留材料×?为 craft_btn/合成路径,stat 走 weighted)。改后仍守投放预算不变式。**待 harness 定 weighted 概率**。
+
+**给 🔧 的机制澄清(harness 保真度依赖·经 🧭)**:
+1. 战斗关有 active encounter 时**能否 search**(还是必须先杀敌/逃)?决定"边打边搜"是否可行。
+2. 玩家能否在 survive_turns **达成前多搜**(超额囤货),还是达标即自动清关?决定搜刮量上限。
+3. 清关是 survive_turns 自动触发还是玩家选择推进?
+
+**harness 计划**(机制澄清后):模型"每关回合分配(search/fight)→ 掉落(guaranteed 固定 + weighted 概率)→ 合成 → 战力分布 → boss clear 分布",验证准备度曲线(naked→prepared 对应 boss 0→86%)。现 seed 关 SQL 用占位 id·enabled=false,不受此设计迭代影响(回指新 id 时一并调 guaranteed/weighted 划分)。
+
+### 6.1 其余待核
+
+- 掉落数值精算:material 掉落量 vs 合成需求(§3↔§4 闭环校验)——并入 6.0 harness。
 - 敌人变体池(每档 2-3 个)补全,供 12-15 seed 关变体(待 🔧 钩子② seed 洗牌)。
 - 战术道具(过载脉冲/护盾)对 boss 曲线的影响(08 §2.1 软化杠杆)——是否让 solid 档 boss 胜率上抬到可接受,harness 复核。
 
