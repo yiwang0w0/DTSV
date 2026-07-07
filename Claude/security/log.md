@@ -1,5 +1,7 @@
 # 🔒 安全性轨 · 变更日志(倒序置顶)
 
+> **状态锚点（2026-07-07 · ⏸ 仍停机 · 非恢复令）**：中控全局同步点 `e92d0b0`。① 剧情线定向落定（权威见 `docs/plan/kaleido/05`：开局仅搜索按钮 / UI 渐进披露 / 失衡时代叙事 / 玩家=结构工程体）② 文档改版：本轨家 = `Claude/security/`（README+log）· hub = `Claude/Readme_Claude` · dated 段写本 log.md ③ 恢复后**开工先读** `Claude/security/GPT.md`（只读 · GPT 投放参考）④ 恢复后审点预告：**ui_unlocks 账号级持久化**（新表 / profiles 列）+ kaleido-e2e 脚本安全复核（在队）。本轨停点 = phase-52 全库收官 + KP1-X #1 resolveTurn R1 审毕。继续待命。
+
 ## 最近变更（2026-07-06 / 🔒 phase-52a 服务端专属表 RLS 锁死）
 
 > phase-52 广义 RLS 扫描的 52a（零写路径风险·即时收口）。把 RLS-off 27 表按客户端可达性分档，锁死【仅 service_role 触达】的 14 表。
