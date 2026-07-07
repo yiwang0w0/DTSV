@@ -154,9 +154,14 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS ui_unlocks JSONB NOT NULL DEFAULT '[]'::jsonb;
 ```
 
-- **选型**(Map C):`profiles` jsonb 列——账号级天然(1 账号 1 行)、复用 profiles 既有 RLS(owner-read + service-write)、与 `pending_class_roll`/`stash_capacity` 同范式、最少活动件。**否决** `player_profile`(版本化 ML 表 `unique(player_id,version)`,语义错,代码零读写);**否决**新 `player_ui_state` 轻表(多一表 + 一套 RLS,无收益)。
-- **RLS(🔒 审点)**:owner 只读自己(`id = auth.uid()`,profiles 既有);写仅 `service_role`(解锁只经服务端路由边界)。无需新策略(继承 profiles),但请 🔒 确认 profiles 现有 RLS 覆盖新列写路径、且 owner 不能自改 `ui_unlocks`(防客户端伪造解锁)。
-- 幂等(`ADD COLUMN IF NOT EXISTS`);写好**先交 🧭/🔒 审**,批准后经 postgres MCP 执行,文件头标「已应用」。
+- **选型**(Map C):`profiles` jsonb 列——账号级天然(1 账号 1 行)、与 `pending_class_roll`/`stash_capacity` 同范式、最少活动件。**否决** `player_profile`(版本化 ML 表 `unique(player_id,version)`,语义错,代码零读写);**否决**新 `player_ui_state` 轻表(多一表 + 一套 RLS,无收益)。
+- **RLS 实情(🔒 KP1-X item 2 实测·`31f5265`·⚠ 修正我此前两处错判)**:
+  - profiles 实为 **public-read**(`profiles_select USING(true)`),**非** owner-read → ui_unlocks 随 profiles 全列 anon 可读(无 PII/凭证 → info/low·可接受)。
+  - profiles 有 **owner-UPDATE**(`profiles_update USING(auth.uid()=id)`·`with_check=NULL`)→ owner **可自改任意列含 ui_unlocks**(行级 RLS 不能约束列)→ 我「owner 不能自改」主张**不成立**(案②·medium:owner 可 `UPDATE profiles SET ui_unlocks='[全键]'` 伪造整套解锁,而 `startKaleidoRun` 读它当权威种子被服务端信任)。
+- **必须列级守卫(🔒 定·不能改策略)**:`profiles_update` 是 `PrepareModal` 存载具的合法路径,不能 DROP/收窄;RLS `with_check` 见不到 OLD,列 GRANT 白名单随 schema 漂移 → 唯 **`BEFORE INSERT OR UPDATE` 触发器**可令单列对客户端不可变。守卫已由 🔒 起草:[`scripts/kaleido-ui-unlocks-guard.sql`](../../../scripts/kaleido-ui-unlocks-guard.sql)(default-deny 白名单 `{service_role,postgres,supabase_admin}`;客户端 UPDATE 改该列→RAISE、INSERT 非空→强制 `'[]'`;不碰其它列)。
+- **实现耦合(🔧·Commit B)**:ui_unlocks 写入**必须用 service_role 客户端**——已确认路由的 `createServerSupabase()` 用 `SUPABASE_SERVICE_ROLE_KEY`(service_role),`applyKaleidoPostAction`/`startKaleidoRun` 经此 client 读写 → `current_user='service_role'` 过守卫。合法解锁写不被拒 ✓。
+- **执行顺序(🔒 定·待 🧭 批)**:① §4 DDL 建列 → ② 守卫触发器 → ③ 🔧 service_role 写路径落地(Commit B)→ ④ 🔒 复验(anon 伪造被拒/service_role 写通/PrepareModal 不受影响)。幂等·均未执行。
+- **Commit A 不受影响**:Commit A 全程不碰 profiles(每 run 种子 `['search_btn']`),守卫/DDL 落地前后 Commit A 行为不变;账号继承(Commit B)在 ②守卫+①DDL 应用后接入。
 
 ---
 
