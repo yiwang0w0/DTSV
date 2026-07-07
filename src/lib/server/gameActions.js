@@ -62,7 +62,7 @@ import {
   getLoadoutEffects,
 } from '@/lib/pollution'
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
-import { sampleKaleidoPath, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
+import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
 import { emitPlayerEvents, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
@@ -2501,11 +2501,24 @@ export async function startKaleidoRun(client, user) {
 
   let createdRoomId = null // KP0-R S7：跟踪已建房，补偿路径顺带收掉（防 gamestate=0 孤儿房挂大厅）
   try {
-    // P0 极简采样：chamber_templates(enabled) 加权抽 LEVEL_COUNT 关（确定性·同 seed 同序）
-    const { data: chambers, error: chErr } = await client
-      .from('chamber_templates').select('*').eq('enabled', true)
-    if (chErr) throw new Error(chErr.message)
-    const nodes = sampleKaleidoPath(chambers || [], seed, KALEIDO.LEVEL_COUNT)
+    // KP1-S D1 正式采样：拉 pools（chamber/npc/item + content_pool 种子关）喂纯函数 sampleRun
+    //   → 5 archetype + 难度曲线 + 三模板 + 种子关优先 + seq=末关 boss_kill（确定性·同 seed 同序）。
+    const [chRes, npcRes, itemRes, seedRes] = await Promise.all([
+      client.from('chamber_templates').select('*').eq('enabled', true),
+      client.from('npc_pool').select('id, name, hp, atk, def, level, spawn_weight'),
+      client.from('item_pool').select('id, name'),
+      client.from('content_pool').select('id, payload, provenance').eq('entity_type', 'level').eq('enabled', true),
+    ])
+    if (chRes.error) throw new Error(chRes.error.message)
+    const nodes = sampleRun(seed, {
+      levelCount: KALEIDO.LEVEL_COUNT,
+      pools: {
+        chambers: chRes.data || [],
+        npcs: npcRes.data || [],
+        items: itemRes.data || [],
+        seedLevels: seedRes.data || [],
+      },
+    })
     if (nodes.length === 0) throw new Error('无可用关卡模板（chamber_templates 为空）')
 
     // levels ×N 批量入库（域真源），回填 level_id 到节点（§2.5：节点携带 level_id）

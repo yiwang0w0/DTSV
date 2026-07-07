@@ -1,12 +1,13 @@
 // ─────────────────────────────────────────────────────────────────
-// KALEIDO run 纯逻辑：P0 极简采样（chamber_templates 加权抽 N → raidPath 节点）
-//   + exit_condition 三型判定。依据 docs/plan/kaleido/02 §2.5/§2.6 + 00-spec §6.1。
+// KALEIDO run 采样器（KP1-S D1 正式化 · 02 §3.1）+ exit_condition 三型判定。
 // ─────────────────────────────────────────────────────────────────
-// 纯模块（相对导入 weightedPick，无 DB/别名依赖）：可被原生 Node ESM 直接 smoke
-//   （scripts/smoke-kaleido-runs.mjs）。DB 读写归 gameActions.startKaleidoRun。
-// 确定性（规格 §3.1 精神，P0 先行）：同 seed 同输出 —— 禁 Math.random，
-//   PRNG = mulberry32(hashStr(seed))，喂给 weightedPick 第三参。
+// 纯模块（相对导入 weightedPick/combatModes，无 DB/别名依赖）：可被原生 Node ESM 直接 smoke。
+//   DB 读写归 gameActions.startKaleidoRun（它拉 pools 后喂纯函数 sampleRun）。
+// 确定性（§3.1）：同 seed 同输出 —— 禁 Math.random，PRNG = mulberry32(hashStr(seed))。
+// 正式化要点：5 archetype（搜索/遭遇/精英/资源/首领）+ 难度曲线（seq 单调抬）+ 三模板保证出现
+//   （C 裁决：standard/gauntlet/stance_duel）+ content_pool 种子关优先消费 + seq=末关强制 boss_kill。
 import { weightedPick } from '../../weightedPick.js'
+import { getCombatMode } from './combatModes/index.js'
 
 // 字符串 → uint32 种子（FNV-1a 简版；自包含以保 smoke 可原生导入）
 export function hashStr(str) {
@@ -31,17 +32,84 @@ export function mulberry32(seed) {
   }
 }
 
-// P0 exit_condition 采样：极简采样无法保证 boss NPC 必然投放在被抽 chamber
-//   ⇒ 全部用 survive_turns（恒可达成，回合数随 seq 递增）；判定器支持三型（下方），
-//   P1 战斗模板保证 boss 后 seq=N 换 'boss_kill'（§3.1）。
-function exitConditionForSeq(seq, levelCount) {
+// ── 5 关型 archetype（§3.1）：结构配置 + combat_mode 分配（C 裁决：一个 5 关 run 内三模板都出现） ──
+//   mode：standard=富路径（现有 calcDamage+pipeline，机械默认层）/ gauntlet=波次（推进层编排）/
+//         stance_duel=三态克制（attackNpc 加 stance 参真接 combatModes）。
+//   chamberTypes：优先挑此类 chamber（chamber_templates.type）；itemBias/npcBias：event_deck 权重偏置。
+export const ARCHETYPES = {
+  search:    { label: '搜索', mode: 'standard',    exit: 'survive_turns', chamberTypes: ['scan_dense', 'fragment_dense'], enemyMul: 0.85, itemBias: 1.5, npcBias: 0.6 },
+  encounter: { label: '遭遇', mode: 'gauntlet',    exit: 'survive_turns', chamberTypes: ['combat_dense'],                enemyMul: 1.0,  itemBias: 0.8, npcBias: 1.6 },
+  elite:     { label: '精英', mode: 'stance_duel', exit: 'survive_turns', chamberTypes: ['combat_dense', 'hazard'],       enemyMul: 1.25, itemBias: 0.9, npcBias: 1.0 },
+  resource:  { label: '资源', mode: 'standard',    exit: 'survive_turns', chamberTypes: ['scan_dense'],                  enemyMul: 0.9,  itemBias: 1.7, npcBias: 0.6 },
+  boss:      { label: '首领', mode: 'standard',    exit: 'boss_kill',     chamberTypes: ['milestone', 'exit', 'hazard'], enemyMul: 1.6,  itemBias: 1.0, npcBias: 1.0 },
+}
+
+// 一个 run 的 archetype 序列：末关恒 boss；前段循环含 encounter(gauntlet)+elite(stance_duel)
+//   → levelCount≥4 时三模板必全出现（C 裁决 P1 闸门「3 模板均出现」）。levelCount=5 得
+//   [搜索, 遭遇, 精英, 资源, 首领]。
+export function archetypeSequence(levelCount = 5) {
+  const n = Math.max(1, Math.floor(levelCount))
+  if (n === 1) return ['boss']
+  const mid = ['search', 'encounter', 'elite', 'resource']
+  const seq = []
+  for (let i = 0; i < n - 1; i++) seq.push(mid[i % mid.length])
+  seq.push('boss')
+  return seq
+}
+
+// 难度曲线：敌人属性随 seq 单调抬（t=0..1 线性）× archetype enemyMul。boss 末关最强。
+function scaleEnemy(baseNpc, seq, levelCount, archMul) {
+  const t = (seq - 1) / Math.max(1, levelCount - 1)
+  const m = (1 + 0.6 * t) * archMul
+  return {
+    npcId: baseNpc?.id ?? null,
+    name: baseNpc?.name || '未知敌体',
+    hp: Math.max(10, Math.floor((baseNpc?.hp ?? 40) * m)),
+    maxHp: Math.max(10, Math.floor((baseNpc?.hp ?? 40) * m)),
+    atk: Math.max(1, Math.floor((baseNpc?.atk ?? 8) * m)),
+    def: Math.max(0, Math.floor((baseNpc?.def ?? 3) * (1 + 0.3 * t))),
+    level: archMul >= 1.6 ? 'boss' : (baseNpc?.level || 'normal'),
+  }
+}
+
+// combat_mode.params + exit_condition + 预渲染 describe（R6·§3.3；🎨 R6 卡直接读，免 import 服务端）。
+function combatModeFor(arch, seq, levelCount) {
+  if (arch.mode === 'gauntlet') {
+    const waves = 2 + Math.floor(seq / 2) // 波数随 seq 抬（推进层编排·裁决 3）
+    const params = { waves, atkMul: 1, defMul: 0.5 }
+    return { template_ref: 'gauntlet', params, describe: getCombatMode('gauntlet').describe(params) }
+  }
+  if (arch.mode === 'stance_duel') {
+    const params = { counterMul: 1.6, atkMul: 1, defMul: 0.5 }
+    return { template_ref: 'stance_duel', params, describe: getCombatMode('stance_duel').describe(params) }
+  }
+  const params = {}
+  return { template_ref: 'standard', params, describe: getCombatMode('standard').describe(params) }
+}
+
+// boss_kill 生效开关：live boss **投放**接线前保持 false —— 否则 seq5 boss 关无 boss 可杀 → run 卡死、
+//   E2E「search 清关路径」在 seq5 断（生产上 🎨 入口卡已上线，用户 run 会卡）。boss 投放接好翻 true +
+//   连 kaleido-e2e.mjs 复验（live-wiring 单元一起做）。翻前 boss 关退化为更长 survive_turns（仍 search 可清）。
+export const BOSS_KILL_LIVE = false
+function exitFor(arch, seq) {
+  if (arch.exit === 'boss_kill' && BOSS_KILL_LIVE) return { type: 'boss_kill', params: {} }
+  // 全部 survive_turns 统一 2+seq（含 boss 回落）——与 kaleido-e2e.mjs「每关 2+seq」断言一致，保 search 清关 20/20。
+  //   口径含「进关 move 占 1 回合」(04 语义注记)。boss_kill 待 BOSS_KILL_LIVE 翻 true（连 boss 投放 + E2E 复验）。
   return { type: 'survive_turns', params: { turns: 2 + seq } }
 }
 
-// chamber 行 → raidPath 节点（字段契约照 pathGenerator.js:174-191 逐 key 对齐——
-//   getChamberForPlayer/搜索/战斗/污染 tick 全按这些 key 读，缺一不可）。
-// kaleido 增量字段：kaleidoExit（exit_condition 快照·判定零查询）+ levelId（§2.5 注记·入库后回填）。
-function chamberToNode(chamber, idx, seq, levelCount) {
+// event_deck：archetype 加权的 npc/item ID 引用（§2.5 铁律：只 ID 引用，运行时以覆盖后实体结算）。
+function buildEventDeck(arch, enemy, itemPool, rng) {
+  const deck = []
+  if (enemy?.npcId != null) deck.push({ type: 'npc_encounter', npc: { id: enemy.npcId, hp: enemy.hp, atk: enemy.atk, def: enemy.def }, weight: 3, once: arch.exit === 'boss_kill' })
+  const item = itemPool.length ? weightedPick(itemPool, () => 1, rng) : null
+  if (item) deck.push({ type: 'item_find', item: { id: item.id }, weight: Math.max(1, Math.round(3 * arch.itemBias)) })
+  return deck
+}
+
+// chamber 行 → raidPath 节点（字段契约照 pathGenerator.js:174-191 逐 key 对齐，下游搜索/战斗/污染必读）。
+// kaleido 增量字段：kaleidoExit / kaleidoMode(combat_mode) / kaleidoEnemy(combatSetup) / archetype / levelId。
+function chamberToNode(chamber, idx, seq, levelCount, ctx) {
   return {
     idx,
     templateId: chamber.id,
@@ -49,7 +117,7 @@ function chamberToNode(chamber, idx, seq, levelCount) {
     name: chamber.name,
     type: chamber.type,
     description: chamber.description || '',
-    loreInjections: [], // 残片引擎休眠（FRAGMENTS.ENABLED=false）·P0 不注入
+    loreInjections: [],
     regionLabel: chamber.region_label || null,
     pollutionBase: chamber.pollution_base || 0,
     pollutionAccel: chamber.pollution_accel || 0,
@@ -59,47 +127,102 @@ function chamberToNode(chamber, idx, seq, levelCount) {
     maxItems: chamber.max_items || 5,
     maxNpcs: chamber.max_npcs || 2,
     exitCount: chamber.exit_count || 2,
-    kaleidoExit: exitConditionForSeq(seq, levelCount),
-    levelId: null, // startKaleidoRun 在 levels 入库后回填
+    // ── kaleido 正式化字段 ──
+    archetype: ctx.archKey,
+    kaleidoExit: ctx.exit,
+    kaleidoMode: ctx.combatMode,      // { template_ref, params, describe }
+    kaleidoEnemy: ctx.enemy,          // combatSetup（gauntlet/stance_duel live + 离线 sim 用）
+    kaleidoEventDeck: ctx.eventDeck,
+    seedLevelId: ctx.seedLevelId || null, // 命中 content_pool 种子关时的来源 id（buildLevelRows gen_meta.source）
+    levelId: null,
   }
 }
 
-// P0 极简采样：enabled 模板加权（spawn_weight）无放回抽 levelCount 个 → raidPath 节点数组。
-// 候选不足 levelCount 时允许放回（小库也能开 run）；candidates 为空返回 []（调用方报错）。
-export function sampleKaleidoPath(chambers, seed, levelCount = 5) {
-  const candidates = (Array.isArray(chambers) ? chambers : []).filter((c) => c && c.enabled !== false)
-  if (candidates.length === 0) return []
-  const rng = mulberry32(hashStr(`${seed}:kaleido-path`))
-  const used = new Set()
+// 从候选池按 archetype 偏好挑 chamber（type 匹配优先，加权 spawn_weight）；无匹配回落全池。
+function pickChamber(chambers, arch, used, rng) {
+  const avail = chambers.filter((c) => !used.has(c.id))
+  const pool = avail.length ? avail : chambers
+  const typed = pool.filter((c) => arch.chamberTypes.includes(c.type))
+  const from = typed.length ? typed : pool
+  return weightedPick(from, (c) => c.spawn_weight || 1, rng)
+}
+
+// ── 正式采样器（§3.1）：sampleRun(seed, {levelCount, pools}) → nodes[]。纯函数、同 seed 同输出。 ──
+//   pools = { chambers, npcs, items, seedLevels }。优先消费 content_pool 种子关（seedLevels），
+//   不足才从 chamber_templates + npc_pool + item_pool 现场装配（套 archetype）。
+export function sampleRun(seed, { levelCount = 5, pools = {} } = {}) {
+  const chambers = (pools.chambers || []).filter((c) => c && c.enabled !== false)
+  const npcs = (pools.npcs || []).filter(Boolean)
+  const items = (pools.items || []).filter(Boolean)
+  const seedLevels = (pools.seedLevels || []).filter(Boolean) // content_pool entity_type='level'
+  if (chambers.length === 0) return []
+
+  const rng = mulberry32(hashStr(`${seed}:kaleido-run`))
+  const seq = archetypeSequence(levelCount)
+  const usedChambers = new Set()
+  const usedSeedLevels = new Set()
   const nodes = []
-  for (let i = 0; i < levelCount; i++) {
-    const pool = candidates.filter((c) => !used.has(c.id))
-    const from = pool.length > 0 ? pool : candidates // 无放回优先，候选耗尽再放回
-    const picked = weightedPick(from, (c) => c.spawn_weight || 1, rng)
-    if (!picked) break
-    used.add(picked.id)
-    nodes.push(chamberToNode(picked, i, i + 1, levelCount))
+
+  for (let i = 0; i < seq.length; i++) {
+    const archKey = seq[i]
+    const arch = ARCHETYPES[archKey]
+    const s = i + 1
+    const chamber = pickChamber(chambers, arch, usedChambers, rng)
+    if (!chamber) break
+    usedChambers.add(chamber.id)
+
+    // 优先消费匹配 archetype 的种子关（provenance.source='seed'）——payload 直接沿用其 combat_mode/exit。
+    const seedMatch = seedLevels.find((sl) => !usedSeedLevels.has(sl.id)
+      && (sl.payload?.archetype === archKey || sl.provenance?.archetype === archKey))
+    if (seedMatch) {
+      usedSeedLevels.add(seedMatch.id)
+      const p = seedMatch.payload || {}
+      nodes.push(chamberToNode(chamber, i, s, levelCount, {
+        archKey,
+        exit: p.exit_condition || exitFor(arch, s),
+        combatMode: p.combat_mode || combatModeFor(arch, s, levelCount),
+        enemy: p.combatSetup?.enemy || null,
+        eventDeck: p.event_deck || [],
+        seedLevelId: seedMatch.id,
+      }))
+      continue
+    }
+
+    // 现场装配：采一个 npc 作敌体基 → 按 seq/archetype 缩放。
+    const baseNpc = npcs.length ? weightedPick(npcs, (n) => n.spawn_weight || 1, rng) : null
+    const enemy = scaleEnemy(baseNpc, s, levelCount, arch.enemyMul)
+    const combatMode = combatModeFor(arch, s, levelCount)
+    const eventDeck = buildEventDeck(arch, enemy, items, rng)
+    nodes.push(chamberToNode(chamber, i, s, levelCount, {
+      archKey, exit: exitFor(arch, s), combatMode, enemy, eventDeck,
+    }))
   }
   return nodes
 }
 
-// levels 表行（Level Schema v0.3 最小落法·00-spec §6.1 + 02 §2.5 两条绑定注记：
-//   event_deck 只 ID 引用（P0 空 = 用 chamber 既有投放）；combat_mode 只有 'standard'；
-//   env_rules/formula_overrides 空 = 中性不覆盖）。
+// 向后兼容包装（startKaleidoRun 旧签名）：只传 chambers 时退化为仅 chamber 池的现场装配。
+export function sampleKaleidoPath(chambers, seed, levelCount = 5) {
+  return sampleRun(seed, { levelCount, pools: { chambers } })
+}
+
+// levels 表行（Level Schema v0.3·00-spec §6.1 + 02 §2.5）：combat_mode/exit/event_deck 取自 node（正式化）。
+//   env_rules/formula_overrides 空 = 中性（逐关覆盖在 D3 接线；P1 采样默认不覆盖）。
 export function buildLevelRows(runId, nodes, seed) {
   return (nodes || []).map((node, i) => ({
     run_id: runId,
     seq: i + 1,
-    gen_meta: { source: 'sampled', seed, template_key: node.templateKey },
+    gen_meta: { source: node.seedLevelId ? 'seed' : 'sampled', seed, template_key: node.templateKey, archetype: node.archetype },
     payload: {
       run_id: runId,
       seq: i + 1,
+      archetype: node.archetype,
       spine_ref: null,
-      gen_meta: { source: 'sampled', seed },
-      combat_mode: { template_ref: 'standard', params: {} },
+      gen_meta: { source: node.seedLevelId ? 'seed' : 'sampled', seed },
+      combat_mode: node.kaleidoMode || { template_ref: 'standard', params: {}, describe: '' },
+      combatSetup: node.kaleidoEnemy ? { enemy: node.kaleidoEnemy } : null,
       env_rules: [],
       formula_overrides: [],
-      event_deck: [],
+      event_deck: node.kaleidoEventDeck || [],
       exit_condition: node.kaleidoExit,
       difficulty_band: { target_clear_rate: [0.4, 0.7] },
       validation: {},
