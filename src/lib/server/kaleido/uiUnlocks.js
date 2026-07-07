@@ -30,7 +30,7 @@ export const KALEIDO_UI_UNLOCKS = [
   },
   {
     ui_key: 'hp_bar', timing: 'before', precedes: ['首次可受伤'],
-    nar_line: '前面不保证安全。——已开放:状况读数。', // 待 📖 复核(挂点由遭遇前改首搜)
+    nar_line: '你动起来了。往后有损耗,得盯着了。——已开放:状况读数。', // 📖 定稿(首搜挂点·d828c92 后经 🧭 同步)
     match: (c) => c.action === 'search', // 时序法则:首次 search 即解锁,先于一切伤害/死亡向量
   },
   {
