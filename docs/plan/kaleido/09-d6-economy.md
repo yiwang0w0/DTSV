@@ -31,6 +31,21 @@
 - **archetype 战斗模型绑定**:elite=stance_duel(combatModes·LW-2)、encounter=gauntlet(LW-3 待)、其余=standard(富路径)。敌数值同档跨模型可复用(伤害公式一致)。
 - **def 上限守则**:敌 def 勿超玩家 atk×2(否则玩家每击回落 min dmg=1,战斗拖沓)。T2 def≤6(玩家 atk≥12 时每击≥9);boss def8(prepared atk16 每击≥12)。
 
+### 1.1 变体池(每档 2-3 个 · 供 12-15 seed 关 run 间变体 · 待 🔧 钩子② seed 洗牌)
+
+> 数值变体(±10% 邻域);**名 → 📖**(§7.2)。seq1-5 固定关各用已定敌;变体供 seq3+/后续 run 轮换。
+
+| 档 | 变体(hp / atk / def)| 已定+命名(seq)|
+|---|---|---|
+| T0 微弱 | 16/5/1 · **18/6/2** · 20/7/2 | 那东西(seq2)|
+| T1 轻 | 40/9/3 · 48/11/3 · 55/12/4 | —(全待命名)|
+| T2 中 | **85/14/4** · **90/16/5** · 98/17/6 | 那家伙(seq3)· 那东西(seq4)|
+| T3 重 | 115/18/6 · 128/20/7 · 140/22/8 | —(全待命名)|
+| Tboss 首领 | 245/32/7 · **260/34/8** · 275/36/9 | 黑里的那个(seq5)|
+
+- 加粗 = seq1-5 已用+已命名;其余待 📖 命名 + 🔧 seed 洗牌接入后进种子关池。
+- 变体守 §1 def 上限守则;跨模型(standard/gauntlet/stance_duel)数值可复用(伤害公式一致)。T3 140/22/8:玩家需 atk≥16 才每击≥12(seq4 solid+ 达标)。
+
 ---
 
 ## 2. ④ kaleido 道具池(战力源 · 效果值)
@@ -45,7 +60,7 @@
 | 防御强化件 | 同 | +2 def | 2 件 → +4 def |
 | 容量扩展件 | 同 | +15 maxHp(并补满 15)| 2 件 → +30 hp |
 
-- **⚠ 持久增益的落点需 🔧 确认**:kaleido 玩家 state 有 atk/def/maxHp 字段(createPlayerState)。持久件 = useItem 时永久改这些字段(非 buff 计时)。现 `calcItemEffect`(gameEngine.js:103)支持 atkDelta/defDelta/hpDelta —— 若是永久加,需确认 kaleido useItem 走持久路径(**引擎钩子·经 🧭 问 🔧**;本文先定数值,机制待接)。
+- **持久增益机制(🔧 答复定稿·2026-07-08)**:**atk/def 永久强化现成** —— item_pool 的 atk/def 字段经 `resolveUseItemAction`(gameActions.js:2321/2326)直改玩家属性(非计时 buff);攻击/防御强化件即用此,**可定稿**。**maxHp 需新字段 `maxHpDelta` + 引擎钩子**(🔧 已接入工作包)→ 容量扩展件待此落地。**恢复件走 `hpDelta`**(非 staminaDelta —— kaleido 已排除体力)。
 
 ### 2.2 消耗品(kaleido 尺度)
 
@@ -56,29 +71,37 @@
 | 战术·过载脉冲 | consumable | effect: 一次性 +100% 本回合伤害(burst)| 合成产物(§4)·给"差一口气"玩家翻盘(08 §2.1 软化杠杆)|
 | 战术·稳定护盾 | consumable | def +5 计时 3 回合(buff)| 合成产物·boss 战减伤 |
 
-### 2.3 材料(复用现有 · kaleido 可用)
+### 2.3 材料(🧭 裁决:新增 kaleido 专属行 · 不复用多人)
 
-现有 `tech_fragment`(id13-16)/`platform_part`(id17-19)amount 小、无战斗数值 → **kaleido 直接复用作合成材料**(不需新增)。craft_btn 解锁判据 = inventory 含 kind∈{tech_fragment,platform_part} 道具(🔧 运行时读 item_pool.kind·已确认)。
+**⚠ 📖 抓到 canon 泄漏**:多人材料 `深界情报`(id16)是**第六纪元概念,绝不得现于失衡时代(kaleido·第三纪元)玩家面**;`语言压缩算法/锚点稳定协议` 亦过技术、violate 背包日常词原则(05 §0.4)。**裁决:kaleido 合成材料新增专属行**(全新 📖 命名·失衡时代口吻),多人 id13-18 原样不动。本文出 **2 类 kaleido 材料**(功能;名→📖):
+
+| 功能标签 | kind | 掉落 | 用途 |
+|---|---|---|---|
+| 材料·常见 | material(kaleido)| seq1-4 多 | 基础强化件合成 |
+| 材料·稀有 | material(kaleido)| seq3-4 少 | 战术道具 + 高级合成 |
+
+craft_btn 解锁判据 = inventory 含 `kind='material'`(kaleido 新 kind)道具(🔧 运行时读 item_pool.kind·已确认)。
 
 ---
 
 ## 3. ④ 掉落表(event_deck 权重 + 资源曲线)
 
-> 目标:彻底搜刮 seq1-4 → prepared(+6atk/+4def/+30hp/+3药);赶路/跳过 → 停在 solid 以下。event_deck 用 `item_find`(guaranteed 定向 / 非 guaranteed 加权)。
-> **⚠ 待改(§6.0 发现)**:本表 stat 件暂放 guaranteed,但 `guaranteed × survive_turns` 会**压平准备度变量**(人人清关即拿满)→ **stat 件须改 weighted**(§6.0);guaranteed 只留解锁链必需(首道具/首材料)。下方算账为**设计意图**,weighted 概率待 harness + 🔧 机制澄清后定。
+> 目标:彻底搜刮 seq1-4 → prepared(+6atk/+4def/+30hp/+3药);赶路/跳过 → 停在 solid 以下。event_deck 用 `item_find`(guaranteed 定向 / weighted 加权)。
+> **🧭 裁决(§6.0 背书)**:guaranteed **只放解锁链必需**(seq1 首道具+首材料);**stat 件全 weighted**(否则 guaranteed×survive_turns 压平准备度)。变量 = 玩家回合分配。
 
-| seq | 保底(guaranteed)| 加权(非保底)| 累计战力(彻底)|
+| seq | guaranteed(仅解锁链)| weighted(准备度:stat/材料/恢复)| 备注 |
 |---|---|---|---|
-| 1 search | 恢复剂小 + 材料×1 | 恢复剂小 | +0 战力·2 材料·药+1 |
-| 2 encounter | — | 恢复剂小 · 材料×1 | 药+1·材料 |
-| 3 elite | 攻击强化件×1 | 材料×1 | **+2 atk**·材料 |
-| 4 resource | 攻击强化件×1 + 防御强化件×1 + 容量扩展×1 + 材料×2 | 恢复剂中 | **+2atk/+2def/+15hp**·材料 |
-| 合成(⑤)| — | — | 攻击/防御/容量 各再 +1(材料换)|
+| 1 search | 恢复剂小 + 材料·常见×1(首道具+首材料→inventory/craft_btn)| 恢复剂小 · 材料·常见 | 解锁链兜底 |
+| 2 encounter | —(战斗关)| 恢复剂小 · 材料·常见 · 攻击件(低权)| |
+| 3 elite | — | 攻击件 · 材料·常见/稀有 · 恢复 | |
+| 4 resource | — | 攻击件 · 防御件 · 容量件 · 材料·常见/稀有 · 恢复中(高权·备战窗口)| itemBias 高·主准备度来源 |
+| 合成(⑤)| — | 材料换强化件/战术(§4)| 第二战力路径 |
 
-- **算账(additive:搜刮基底 + 合成补足)**:atk = seq3 攻击件(+2)+ seq4 攻击件(+2)+ 合成攻击(+2)= **+6** ✓;def = seq4 防御(+2)+ 合成防御(+2)= **+4** ✓;hp = seq4 容量(+15)+ 合成容量(+15)= **+30** ✓;药 ~5(起始 2 + seq1/2 各 +1 + 恢复中)✓ → **达 prepared**。⚠ 3 次合成需 ~6 材料(guaranteed seq1(1)+seq4(2)= 3 基底 + seq2/3 weighted 2-3):**彻底搜刮者够 3 craft → prepared;casual 者 ~2 craft 停 solid+**。材料量↔合成需求闭环由 §6 harness 校验。
-- **跳过搜刮者**:只吃 seq1-2 保底(2 材料·1-2 药)→ 停在 ~minimal → boss 挡下(08 §2:minimal 4-21%)。**准备成为变量** ✓。
+- **准备度 = 玩家回合分配**(🧭 裁决):guaranteed 只兜解锁链;**stat 件全 weighted 且集中 seq4**(备战窗口高权重)。搜刮多(省下回合多搜/战斗赢得快)→ 更多 weighted stat → prepared;casual/赶路 → 少 → solid−;跳过战斗关搜刮 → naked−。**变量真实存在**(不再被 guaranteed 压平)。
+- **达 prepared 路径**(additive:搜刮 weighted + 合成补足):seq3-4 攻击件 + seq4 防御/容量 + 合成(§4)→ +6atk/+4def/+30hp;药 seq1-2 + 恢复中 → ~5。**weighted 概率 + 回合分配 → 准备度分布,待 §6 harness 定**(依赖 🔧 3 机制答复)。
+- **投放预算不变式**:guaranteed 大减后天然满足(seq1 `2≤3`·seq2-5 `0`)。
 - **guaranteed 语义(🔧 定稿 · 2026-07-08)**:每次 `search` 消费 **1 件** guaranteed(deck 顺序 **front-load**,优先于非保底 roll);`once` = 全关一次;**硬保证**(非概率)。
-- **投放预算不变式**(出关卡/掉落表时自查 · 🔧 hook⑥ 入库校验按此**拒关**):`#guaranteed_item_find ≤ survive_turns − (首关 0 / 非首关 1)`(减 1 = 进关 move 占 1 回合)。**seq1-5 自查全达标**:seq1 `2≤3` ✓ / seq2 `0≤3` ✓ / seq3 `0≤4` ✓ / seq4 `3≤5` ✓ / seq5 boss(无 guaranteed·boss_kill)✓。**新增关或加保底掉落必守此上限**,否则饿死解锁链 → 被 🔧 校验钉死。
+- **投放预算不变式**(出关卡/掉落表时自查 · 🔧 hook⑥ 入库校验按此**拒关**):`#guaranteed_item_find ≤ survive_turns − (首关 0 / 非首关 1)`(减 1 = 进关 move 占 1 回合)。**seq1-5 自查全达标**(§6.0 后 stat 件转 weighted·seq2-5 guaranteed=0):seq1 `2≤3` ✓ / seq2 `0≤3` ✓ / seq3 `0≤4` ✓ / seq4 `0≤5` ✓ / seq5 boss(无 guaranteed·boss_kill)✓。**新增关或加保底掉落必守此上限**,否则饿死解锁链 → 被 🔧 校验钉死。
 - **权重实现**:seed 关 event_deck `item_find` 的 `guaranteed:true`(保底)/ `weight`(加权池)。boss 关(seq5)无掉落。
 
 ---
@@ -89,11 +112,11 @@
 
 | 产物 | 材料(item_id·is_consumed)| 成功率 | 意图 |
 |---|---|---|---|
-| 攻击强化件 | 结构碎片(13)×1 + 锚点稳定协议(14)×1 | 1.0 | 战力路径 A(搜刮不足靠合成补 atk)|
-| 防御强化件 | 环段部件(17)×1 + 缓冲材料(18)×1 | 1.0 | 补 def |
-| 容量扩展件 | 结构碎片(13)×1 + 环段部件(17)×1 | 1.0 | 补 hp |
-| 战术·过载脉冲 | 语言压缩算法(15)×1 + 深界情报(16)×1 | 0.8 | burst 翻盘(08 §2.1)|
-| 战术·稳定护盾 | 缓冲材料(18)×2 | 0.9 | boss 减伤 |
+| 攻击强化件 | 材料·常见×2 | 1.0 | 战力路径 A(搜刮不足靠合成补 atk)|
+| 防御强化件 | 材料·常见×2 | 1.0 | 补 def |
+| 容量扩展件 | 材料·常见×1 + 材料·稀有×1 | 1.0 | 补 hp |
+| 战术·过载脉冲 | 材料·稀有×2 | 0.8 | burst 翻盘(08 §2.1)|
+| 战术·稳定护盾 | 材料·常见×1 + 材料·稀有×1 | 0.9 | boss 减伤 |
 
 - **搜刮基底 + 合成补足**(additive·非冗余双路径):搜刮(捡强化件)给战力基底,合成(材料换强化件)补足到 prepared;彻底玩家两者兼得达 prepared,casual 者只得基底停 solid+(§3 算账)。材料掉落量校准为"彻底搜刮够 ~3 次合成"(§6 闭环校验)。
 - **合成 = craft_btn 解锁的兑现**:首材料掉落(seq1)→ craft_btn 亮(05 §1.3)→ 合成成为战力补充手段。
@@ -105,7 +128,7 @@
 
 - **给 🔧(经 🧭)**:①持久强化件的 useItem 落点(永久改 atk/def/maxHp 字段·非 buff·§2.1)——确认 kaleido useItem 走持久路径;②seq4 guaranteed 消费速率语义(§3·已转);③craft_btn kind 判据(已确认读 item_pool.kind)。
 - **给 📖**:kaleido 新道具/新敌人的**名与描述**(本文只出功能标签 + 数值);seq1-5 敌名已定(07)。
-- **给 🧭/🔒(SQL·审后)**:①新增 kaleido item_pool 行(强化件/恢复剂/战术·新 id);②新增 item_recipes + ingredients 行;③**回指**:seq1-2/seq4 种子关 event_deck 从多人占位 id 改指 kaleido 新 id(一版 SQL 修订)。全部幂等·enabled 可控。
+- **给 🧭/🔒(SQL·审后·🧭 裁「四件合一批」)**:①新增 **kaleido 材料行**(常见/稀有·📖 命名·避 canon 泄漏);②新增 kaleido 道具行(强化件/恢复剂/战术·新 id);③新增 `item_recipes` + `ingredients` 行;④**回指**:seq1-2/seq4 种子关 event_deck 从多人占位 id 改指 kaleido 新 id + guaranteed/weighted 重划(§3)。**四件一批**·幂等·enabled 可控·交 🧭 审执行。依赖 📖 命名回流。
 - **给 Kanata**:P1 gate 亲测掉落曲线(§3)—— sim 给锚点,实际"认真玩一遍到 prepared"要人测。
 - **产出物**:本设计文档。SQL(新内容行 + recipe + 回指)随审进度出。
 
@@ -113,13 +136,15 @@
 
 ## 6. 待核(本轨后续)
 
-### 6.0 🔴 准备度变量性风险(§6 harness 前置发现 · 须先解决)
+### 6.0 准备度变量性风险(§6 harness 前置发现 · 🧭 裁决背书)
+
+> **🧭 裁决(2026-07-08)**:本发现成立且重要,采纳修正 —— guaranteed 只放解锁链、**stat 件全 weighted**(§3 已改);准备度变量 = 玩家回合分配。3 机制问题已转 🔧(答复到再建 harness 定 weighted 概率)。
 
 **推 §6 harness 时发现一个设计矛盾**:08 §3 假设"准备度随搜刮投入而变"(彻底→prepared / 跳过→naked)。但 guaranteed 语义(🔧:每次 search 消费 1 件·硬保证)× survive_turns(强制 N 个消耗动作)会**压平这个变量**:
 
 - 纯搜索关(seq1)清关**只能靠 search** → 必然搜 survive_turns 次 → **必然吃到 guaranteed 掉落**。若把 stat 件(攻击/防御/容量)放 guaranteed,**人人清关即拿满 stat → 准备度不再是变量,boss 不再是准备度闸门**(与 08 §3 矛盾)。
 - **∴ 掉落设计修正**:guaranteed **只放解锁链必需**(seq1 首道具 + 首材料·为 inventory/craft_btn);**stat 件走 weighted**(概率掉·搜得多/战斗赢得快→省下回合多搜→更多 stat)。变量来自"搜刮 vs 战斗 vs 赶路"的回合分配,不是 guaranteed。
-- **⚠ 这改 §3 掉落表**:seq3/seq4 的 stat 件从 guaranteed 改 weighted(seq4 保底只留材料×?为 craft_btn/合成路径,stat 走 weighted)。改后仍守投放预算不变式。**待 harness 定 weighted 概率**。
+- **§3 已改**:seq3/seq4 的 stat 件 guaranteed→weighted;**seq4 保底=0**(解锁链已在 seq1 满足·首道具+首材料;材料/stat 全 weighted)。守投放预算不变式(seq2-5 guaranteed=0)。**weighted 概率待 harness**(依赖 🔧 3 机制答复)。
 
 **给 🔧 的机制澄清(harness 保真度依赖·经 🧭)**:
 1. 战斗关有 active encounter 时**能否 search**(还是必须先杀敌/逃)?决定"边打边搜"是否可行。
@@ -162,4 +187,4 @@
 | T3 重 | 后段硬杂兵 | 110-140 / 18-22 / 6-8 | 变体待补 |
 | Tboss 首领 | 收敛 boss·准备度闸门 | 240-280 / 32-36 / 7-9 | 黑里的那个(seq5)|
 
-> 变体命名可等本轨补全变体池后批量供;seq1-5 固定关敌名已足本阶段。持久强化件的 useItem 落点待 🔧 答复(§5),不阻塞命名。
+> **变体池已列 §1.1**(每档 2-3·加粗=已命名)。待 📖 命名:T1/T3 全档 + T0/T2/Tboss 各余 1-2 变体。持久件 useItem 落点 🔧 已答(§2.1),不阻塞命名。
