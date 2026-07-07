@@ -29,9 +29,9 @@ function RevealSlot({ show, revealing, children, style, className = '' }) {
 }
 
 const STANCE_BTNS = [
-  { stance: 'atk', label: '攻', color: '#f85149', hint: '克技' },
-  { stance: 'def', label: '守', color: '#58a6ff', hint: '克攻' },
-  { stance: 'skill', label: '技', color: '#bc8cff', hint: '克守' },
+  { stance: 'atk', label: '攻', color: T.red, hint: '克技' },
+  { stance: 'def', label: '守', color: T.cyan, hint: '克攻' },
+  { stance: 'skill', label: '技', color: T.purple, hint: '克守' },
 ]
 
 export default function KaleidoRunView({

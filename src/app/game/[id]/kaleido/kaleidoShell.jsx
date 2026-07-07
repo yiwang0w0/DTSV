@@ -66,18 +66,18 @@ export function describeCombatMode(cm) {
 export function KaleidoStanceTable({ detail }) {
   const table = detail?.table || []
   if (table.length === 0) return null
-  const STANCE_COLOR = { 攻: '#f85149', 守: '#58a6ff', 技: '#bc8cff' }
+  const STANCE_COLOR = { 攻: T.red, 守: T.cyan, 技: T.purple }
   const chip = (s) => (
-    <span style={{ padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${STANCE_COLOR[s] || '#8b949e'}22`, color: STANCE_COLOR[s] || '#8b949e' }}>{s}</span>
+    <span style={{ padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${STANCE_COLOR[s] || T.dim}22`, color: STANCE_COLOR[s] || T.dim }}>{s}</span>
   )
   return (
     <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(88,166,255,0.06)', border: '1px solid rgba(88,166,255,0.18)', borderRadius: 8 }}>
-      <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 6 }}>
+      <div style={{ fontSize: 10, color: T.dim, marginBottom: 6 }}>
         克制表 · 克制方 ×{detail.mult}、被克方 ÷
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px' }}>
         {table.map((r, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e' }}>
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: T.dim }}>
             {chip(r.self)} <span style={{ opacity: 0.7 }}>克</span> {chip(r.beats)}
           </span>
         ))}
