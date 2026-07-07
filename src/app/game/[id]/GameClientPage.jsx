@@ -1161,6 +1161,12 @@ export default function GameClientPage() {
             cause: gamevars?.endingResult?.bannerText
               || (kaleidoEndStatus === 'dead' ? `于第 ${kaleidoSeq} 关阵亡` : ''),
           }}
+          // 逐关图鉴容器（P4 填生成物翻阅）：raidPath 逐节点 → {seq,name,cleared}
+          codex={(gamevars?.raidPath || []).map((n, i) => ({
+            seq: i + 1,
+            name: n?.name || `第 ${i + 1} 关`,
+            cleared: (kal?.clearedSeq ?? 0) >= i + 1,
+          }))}
           onRestart={handleKaleidoRestart}
           onLobby={() => router.push('/rooms')}
         />

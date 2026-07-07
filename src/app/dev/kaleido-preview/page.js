@@ -45,10 +45,13 @@ export default function KaleidoPreviewPage() {
       {/* 本关规则卡：填充态 + 空态 */}
       <Section title="③ 本关规则卡 KaleidoRuleCard（R6）">
         <KaleidoRuleCard
-          combatMode={{ template_ref: 'stance_duel', params: {} }}
+          combatMode={{ template_ref: 'stance_duel', params: { beatMult: 1.6 } }}
           envRules={[{ rule_key: 'pollution_accel', value: 1.5 }, { rule_key: 'search_bonus', value: -0.2 }]}
           formulaOverrides={[{ target: 'damage', formula: 'atk * 1.3 - def' }]}
         />
+        <div style={{ height: 8 }} />
+        <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>gauntlet 波次:</div>
+        <KaleidoRuleCard combatMode={{ template_ref: 'gauntlet', params: { waves: 3 } }} envRules={[]} formulaOverrides={[]} />
         <div style={{ height: 8 }} />
         <div style={{ fontSize: 11, color: T.dim, marginBottom: 4 }}>P0 空态（数据多为空 → 优雅容器）:</div>
         <KaleidoRuleCard combatMode={{ template_ref: 'standard' }} envRules={[]} formulaOverrides={[]} />
@@ -70,6 +73,13 @@ export default function KaleidoPreviewPage() {
         <KaleidoConvergenceScreen
           status="cleared"
           summary={{ levelsCleared: 5, levelCount: 5, turnCount: 7, kills: 9, itemsCarried: 14 }}
+          codex={[
+            { seq: 1, name: '锈蚀回廊', cleared: true },
+            { seq: 2, name: '静默资源舱', cleared: true },
+            { seq: 3, name: '精英遭遇区', cleared: true },
+            { seq: 4, name: '污染剪切带', cleared: true },
+            { seq: 5, name: 'Ω-段首领室', cleared: true },
+          ]}
           onRestart={() => setOverlay(null)}
           onLobby={() => setOverlay(null)}
         />

@@ -26,20 +26,62 @@ export function describeExitCondition(ec) {
   }
 }
 
-// combat_mode → 中文规则摘要（R6 生效前展示素材）。template_ref 见 §3.3。
+// combat_mode → 结构化中文规则摘要（R6 生效前展示素材）。template_ref/params 见 02 §3.3。
+//   返回 { kind, title, desc, detail? }；detail 供 KaleidoRuleCard 渲染克制表/波次等富展示。
+//   ⚠ params 形状 = 客户端占位（stance_duel.beatMult / gauntlet.waves）；⚙️ combatModes.paramsSchema
+//     落地后以其为准（本 describe 是 KP1-S describe() 未到前的 UI 侧镜像）。
 export function describeCombatMode(cm) {
-  if (!cm || !cm.template_ref) return { title: '标准回合战', desc: '攻击与反击交替的标准回合制结算。' }
-  const p = cm.params || {}
-  switch (cm.template_ref) {
+  const template = cm?.template_ref || 'standard'
+  const p = cm?.params || {}
+  switch (template) {
+    case 'gauntlet': {
+      const waves = Number.isFinite(p.waves) ? p.waves : null
+      return {
+        kind: 'gauntlet',
+        title: waves != null ? `波次战 · ${waves} 波` : '波次战',
+        desc: '连续多波敌人，波间可短暂整备。撑过全部波次即胜。',
+        detail: { waves },
+      }
+    }
+    case 'stance_duel': {
+      const mult = Number.isFinite(p.beatMult) ? p.beatMult : 1.5
+      return {
+        kind: 'stance_duel',
+        title: '三态对决',
+        desc: '每回合出「攻 / 守 / 技」，克制对方则本回合伤害加成。',
+        // 猜拳环：攻>守、守>技、技>攻（R6 入关展示克制表）。
+        detail: { mult, table: [{ self: '攻', beats: '守' }, { self: '守', beats: '技' }, { self: '技', beats: '攻' }] },
+      }
+    }
     case 'standard':
-      return { title: '标准回合战', desc: '攻击与反击交替的标准回合制结算。' }
-    case 'gauntlet':
-      return { title: `波次战 · ${p.waves ?? '?'} 波`, desc: '连续多波敌人，波间可整备。撑过全部波次即胜。' }
-    case 'stance_duel':
-      return { title: '三态对决', desc: '攻 / 守 / 技 三态互相克制，猜中加成。入关前可查看克制表。' }
+      return { kind: 'standard', title: '标准回合战', desc: '攻击与反击交替的标准回合制结算。' }
     default:
-      return { title: cm.template_ref, desc: '自定义回合制变体。' }
+      return { kind: 'custom', title: template, desc: '自定义回合制变体。' }
   }
+}
+
+// 三态克制表（R6 生效前展示 · stance_duel 用）。纯展示。
+export function KaleidoStanceTable({ detail }) {
+  const table = detail?.table || []
+  if (table.length === 0) return null
+  const STANCE_COLOR = { 攻: '#f85149', 守: '#58a6ff', 技: '#bc8cff' }
+  const chip = (s) => (
+    <span style={{ padding: '1px 7px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: `${STANCE_COLOR[s] || '#8b949e'}22`, color: STANCE_COLOR[s] || '#8b949e' }}>{s}</span>
+  )
+  return (
+    <div style={{ marginTop: 6, padding: '8px 10px', background: 'rgba(88,166,255,0.06)', border: '1px solid rgba(88,166,255,0.18)', borderRadius: 8 }}>
+      <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 6 }}>
+        克制表 · 克制成功伤害 ×{detail.mult}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px' }}>
+        {table.map((r, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e' }}>
+            {chip(r.self)} <span style={{ opacity: 0.7 }}>克</span> {chip(r.beats)}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // env_rule → 中文条目。已知键给友好名，未知键回退「键 = 值」。
@@ -151,11 +193,15 @@ export function KaleidoRuleCard({ combatMode, envRules = [], formulaOverrides = 
         📋 本关规则
       </PanelTitle>
       <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* 战斗模式 */}
+        {/* 战斗模式（+ stance_duel 克制表 / gauntlet 波次 · R6 生效前展示）*/}
         <div>
           <div style={{ fontSize: 10, color: T.dim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>战斗模式</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan }}>{mode.title}</div>
           <div style={{ fontSize: 12, color: T.dimB, marginTop: 2, lineHeight: 1.5 }}>{mode.desc}</div>
+          {mode.kind === 'stance_duel' && <KaleidoStanceTable detail={mode.detail} />}
+          {mode.kind === 'gauntlet' && mode.detail?.waves != null && (
+            <div style={{ marginTop: 6, fontSize: 12, color: T.yellow }}>共 {mode.detail.waves} 波 · 波间可短暂整备</div>
+          )}
         </div>
         {/* 环境规则 */}
         <div>
@@ -214,7 +260,8 @@ export function KaleidoLevelClearBanner({ seq, nextSeq, levelCount = 5, onContin
 
 // ── 收敛页（版本终止 · 通关/死亡/放弃 · R8/R9）────────────────────────────────
 //   summary: { levelsCleared, levelCount, turnCount(本关回合·per-level 语义), kills, itemsCarried, cause? }
-export function KaleidoConvergenceScreen({ status = 'cleared', summary = {}, onRestart, onLobby }) {
+//   codex: [{ seq, name, cleared }]（本 run 逐关·§5.10 收敛图鉴的 P4 可翻阅容器占位；空则回退圆点栅格）。
+export function KaleidoConvergenceScreen({ status = 'cleared', summary = {}, codex = [], onRestart, onLobby }) {
   const dead = status === 'dead'
   const abandoned = status === 'abandoned'
   const accent = dead ? T.red : abandoned ? T.yellow : T.green
@@ -249,17 +296,32 @@ export function KaleidoConvergenceScreen({ status = 'cleared', summary = {}, onR
             </div>
           ))}
         </div>
-        {/* 图鉴占位（收敛图鉴 · §5.10；P0 先占位）*/}
+        {/* 收敛图鉴（§5.10）：本 run 逐关生成物容器 —— P4 填「可翻阅生成内容」，P0/P1 先占位 */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, color: T.dim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>收敛图鉴</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} style={{ aspectRatio: '1 / 1', borderRadius: 6, background: T.bg2, border: `1px dashed ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.dim, fontSize: 16 }}>
-                {i < levelsCleared ? '◆' : '◇'}
-              </div>
-            ))}
+          <div style={{ fontSize: 10, color: T.dim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <span>收敛图鉴</span>
+            <span style={{ textTransform: 'none', letterSpacing: 0, fontStyle: 'italic' }}>P4 开放翻阅</span>
           </div>
-          <div style={{ fontSize: 11, color: T.dim, marginTop: 6, fontStyle: 'italic' }}>本 run 生成内容图鉴 · 即将开放</div>
+          {codex.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 172, overflowY: 'auto' }}>
+              {codex.map((lv, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 8, opacity: lv.cleared ? 1 : 0.5 }}>
+                  <span style={{ fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: 11, color: lv.cleared ? T.green : T.dim, whiteSpace: 'nowrap' }}>{lv.cleared ? '◆' : '◇'} {lv.seq}</span>
+                  <span style={{ flex: 1, fontSize: 12, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lv.name || `第 ${lv.seq} 关`}</span>
+                  <span style={{ fontSize: 10, color: T.dim, fontStyle: 'italic', whiteSpace: 'nowrap' }}>内容即将开放</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${levelCount}, 1fr)`, gap: 6 }}>
+              {Array.from({ length: levelCount }).map((_, i) => (
+                <div key={i} style={{ aspectRatio: '1 / 1', borderRadius: 6, background: T.bg2, border: `1px dashed ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.dim, fontSize: 16 }}>
+                  {i < levelsCleared ? '◆' : '◇'}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: T.dim, marginTop: 6, fontStyle: 'italic' }}>本 run 全部生成物图鉴（含未到场分支）· P4 开放</div>
         </div>
         {/* 动作 */}
         <div style={{ display: 'flex', gap: 8 }}>
