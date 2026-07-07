@@ -2611,6 +2611,18 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     let nextKal = kal
     let converged = false
 
+    // KP1 LW-1 修复（🧭裁决 B·E2E 抓的生产软锁）：attackNpc 第 5 步「无论结果清空 encounter」
+    //   （旧搜打撤一击脱离语义·共享路径不动）→ boss 第 1 拳后失锁、boss_kill 永不可达。
+    //   推进层「boss 重锁」：boss 关 ∧ boss 实例存活 ∧ 无 encounter → 静默重置锁定。
+    //   每个消耗性动作后必经此处 → 拳后自动重锁；也自愈已软锁的存量 run（下个动作即重锁）。
+    //   多人局在函数顶 isKaleidoRoom 早退、非 boss 关不满足条件 → 零变化。
+    if (node?.archetype === 'boss' && !nextMe.encounter) {
+      const bossInst = (gamevars.npcInstances || []).find(
+        (i) => i && i.hp > 0 && i.npc?.level === 'boss' && i.mapId === node.templateId,
+      )
+      if (bossInst) nextMe.encounter = { instanceId: bossInst.id }
+    }
+
     if (node?.kaleidoExit && (kal.clearedSeq ?? 0) < seq
         && evaluateExitCondition(node.kaleidoExit, nextMe, gamevars)) {
       converged = seq >= KALEIDO.LEVEL_COUNT
