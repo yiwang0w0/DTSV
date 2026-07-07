@@ -38,7 +38,7 @@ payload = {
   "archetype": "search",                          // ← sampler 匹配键(必填)
   "exit_condition": { "type":"survive_turns", "params":{ "turns":3 } },
   "combat_mode":    { "template_ref":"standard", "params":{}, "describe":"" },  // describe 空 = 运行时回落 getCombatMode().describe()
-  "combatSetup":    null,                          // 无战斗关 = null;boss/encounter 关 = { "enemy":{…} }
+  // combatSetup:无战斗关**省略此键**(🧭 审:JSON null≠缺键·验证用 `payload ? 'combatSetup'`);战斗关 = "combatSetup": { "enemy":{…} }
   "event_deck":     [ … ],                         // 见 §2/§3
   "env_rules":        [],                          // D3 逐关覆盖(🔧);种子关默认中性
   "formula_overrides":[],                          // 同上
@@ -121,7 +121,7 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
     "archetype": "search",
     "exit_condition": { "type": "survive_turns", "params": { "turns": 3 } },   // = 2+seq1;E2E「每关 2+seq」对齐
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
-    "combatSetup": null,                                                        // 无战斗
+    // seq1 无战斗:省略 combatSetup 键(🧭 审·JSON null≠缺键)
     "event_deck": [
       { "type": "item_find", "item": { "id": 27 }, "weight": 5, "once": true, "guaranteed": true },  // 机能恢复剂 → 首道具/inventory
       { "type": "item_find", "item": { "id": 13 }, "weight": 5, "once": true, "guaranteed": true },  // 结构碎片(tech_fragment)→ 首配方材料/craft_btn
@@ -160,8 +160,8 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
       "describe": ""                                                            // 空 = 运行时回落 gauntlet.describe(params)(R6 卡料)
     },
     "combatSetup": {
-      "enemy": { "npcId": 8, "name": "", "hp": 18, "maxHp": 18, "atk": 6, "def": 2, "level": "easy" }
-      // ↑ 权威首战敌(入关注入·→hp_bar/combat_panel)。npcId=8 仅记来源;name 留空由 📖 N4 填(🔧 证:空名不回落 npc_pool.name·定向注入永不读它)
+      "enemy": { "npcId": 8, "name": "那东西", "hp": 18, "maxHp": 18, "atk": 6, "def": 2, "level": "easy" }
+      // ↑ 权威首战敌(入关注入·→hp_bar/combat_panel)。name = 📖 描述制命名(已定案·空名不回落 npc_pool.name)
     },
     "event_deck": [
       { "type": "item_find", "item": { "id": 27 }, "weight": 2, "once": false }  // 战后补给(非保底);首遭遇由 combatSetup.enemy 注入,不放 npc_encounter(🔧 裁·防双刷)
@@ -216,7 +216,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "elite",
     "exit_condition": { "type": "survive_turns", "params": { "turns": 5 } },
     "combat_mode": { "template_ref": "stance_duel", "params": { "counterMul": 1.6, "atkMul": 1, "defMul": 0.5 }, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 9, "name": "", "hp": 85, "maxHp": 85, "atk": 14, "def": 4, "level": "medium" } },
+    "combatSetup": { "enemy": { "npcId": 9, "name": "那家伙", "hp": 85, "maxHp": 85, "atk": 14, "def": 4, "level": "medium" } },
     "event_deck": [
       { "type": "item_find", "item": { "id": 24 }, "weight": 2, "once": false }   // 少量补给(kaleido 值待 ③④);stance 决斗敌由 combatSetup.enemy 注入
     ],
@@ -237,7 +237,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "resource",
     "exit_condition": { "type": "survive_turns", "params": { "turns": 6 } },
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 8, "name": "", "hp": 90, "maxHp": 90, "atk": 16, "def": 5, "level": "medium" } },  // 消耗型·非墙(富路径·08 §6)
+    "combatSetup": { "enemy": { "npcId": 8, "name": "那东西", "hp": 90, "maxHp": 90, "atk": 16, "def": 5, "level": "medium" } },  // 消耗型·非墙(富路径·08 §6)
     "event_deck": [
       { "type": "item_find", "item": { "id": 24 }, "weight": 5, "once": true, "guaranteed": true },  // 战力增益件(占位·kaleido stat 件待 ③④)
       { "type": "item_find", "item": { "id": 13 }, "weight": 4, "once": true, "guaranteed": true },  // 合成材料(结构碎片)
@@ -261,7 +261,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "archetype": "boss",
     "exit_condition": { "type": "boss_kill", "params": {} },
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
-    "combatSetup": { "enemy": { "npcId": 10, "name": "", "hp": 260, "maxHp": 260, "atk": 34, "def": 8, "level": "boss" } },  // 08 §2 富路径终值
+    "combatSetup": { "enemy": { "npcId": 10, "name": "黑里的那个", "hp": 260, "maxHp": 260, "atk": 34, "def": 8, "level": "boss" } },  // 08 §2 富路径终值
     "event_deck": [],   // 空:boss 由 combatSetup.enemy 走 :3404 分支注入;boss 关不掉道具(不放 item_find)
     "env_rules": [], "formula_overrides": [],
     "difficulty_band": { "target_clear_rate": [0.7, 0.85] },   // prepared 74-86%;不足者→0(08 §2)

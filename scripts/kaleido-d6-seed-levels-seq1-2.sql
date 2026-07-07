@@ -31,7 +31,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
     'archetype', 'search',
     'exit_condition', jsonb_build_object('type','survive_turns','params', jsonb_build_object('turns', 3)),
     'combat_mode',    jsonb_build_object('template_ref','standard','params', '{}'::jsonb, 'describe',''),
-    'combatSetup',    NULL,
+    -- seq1 无战斗:整键省略 combatSetup(🧭 审:JSON null ≠ 缺键;省键是更干净形状,消费端安全)
     'event_deck', jsonb_build_array(
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',27),'weight',5,'once',true, 'guaranteed',true),  -- 机能恢复剂→首道具
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',13),'weight',5,'once',true, 'guaranteed',true),  -- 结构碎片→首配方材料
@@ -59,7 +59,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
       'describe',''
     ),
     'combatSetup', jsonb_build_object(
-      'enemy', jsonb_build_object('npcId',8,'name','','hp',18,'maxHp',18,'atk',6,'def',2,'level','easy')
+      'enemy', jsonb_build_object('npcId',8,'name','那东西','hp',18,'maxHp',18,'atk',6,'def',2,'level','easy')
     ),
     'event_deck', jsonb_build_array(
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',27),'weight',2,'once',false)  -- 战后补给;首遭遇由 combatSetup.enemy 注入(🔧 裁·不放 npc_encounter 防双刷)
@@ -73,9 +73,9 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
   jsonb_build_object('source','seed','seed_key','d6-seq2-encounter','archetype','encounter','seq_hint',2,'anonymized',true)
 );
 
--- 验证(审阅时手跑):应返回 2 行,archetype=search/encounter,seq1 combatSetup NULL、seq2 非 NULL。
+-- 验证(审阅时手跑):应返回 2 行,archetype=search/encounter,seq1 无 combatSetup 键(has_enemy=false)、seq2 有(true)。
 -- SELECT id, payload->>'archetype' arch, provenance->>'seed_key' k,
---        (payload->'combatSetup') IS NOT NULL AS has_enemy,
+--        (payload ? 'combatSetup') AS has_enemy,   -- 判键存在(seq1 省键→false;seq2 有→true)
 --        payload->'exit_condition'->>'type' exit
 -- FROM content_pool WHERE provenance->>'seed_key' LIKE 'd6-%' ORDER BY provenance->>'seq_hint';
 

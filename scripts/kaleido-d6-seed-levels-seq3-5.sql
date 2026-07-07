@@ -26,7 +26,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
     'archetype', 'elite',
     'exit_condition', jsonb_build_object('type','survive_turns','params', jsonb_build_object('turns', 5)),
     'combat_mode',    jsonb_build_object('template_ref','stance_duel','params', jsonb_build_object('counterMul',1.6,'atkMul',1,'defMul',0.5),'describe',''),
-    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',9,'name','','hp',85,'maxHp',85,'atk',14,'def',4,'level','medium')),
+    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',9,'name','那家伙','hp',85,'maxHp',85,'atk',14,'def',4,'level','medium')),
     'event_deck', jsonb_build_array(
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',24),'weight',2,'once',false)  -- 少量补给(kaleido 值待 ③④)
     ),
@@ -47,7 +47,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
     'archetype', 'resource',
     'exit_condition', jsonb_build_object('type','survive_turns','params', jsonb_build_object('turns', 6)),
     'combat_mode',    jsonb_build_object('template_ref','standard','params', '{}'::jsonb, 'describe',''),
-    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',8,'name','','hp',90,'maxHp',90,'atk',16,'def',5,'level','medium')),
+    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',8,'name','那东西','hp',90,'maxHp',90,'atk',16,'def',5,'level','medium')),
     'event_deck', jsonb_build_array(
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',24),'weight',5,'once',true, 'guaranteed',true),  -- 战力增益件(占位·kaleido stat 件待 ③④)
       jsonb_build_object('type','item_find','item', jsonb_build_object('id',13),'weight',4,'once',true, 'guaranteed',true),  -- 合成材料 结构碎片
@@ -71,7 +71,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
     'archetype', 'boss',
     'exit_condition', jsonb_build_object('type','boss_kill','params', '{}'::jsonb),
     'combat_mode',    jsonb_build_object('template_ref','standard','params', '{}'::jsonb, 'describe',''),
-    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',10,'name','','hp',260,'maxHp',260,'atk',34,'def',8,'level','boss')),
+    'combatSetup',    jsonb_build_object('enemy', jsonb_build_object('npcId',10,'name','黑里的那个','hp',260,'maxHp',260,'atk',34,'def',8,'level','boss')),
     'event_deck', jsonb_build_array(),   -- 空:boss 由 combatSetup.enemy 走 :3404 注入;boss 关不掉道具
     'env_rules', '[]'::jsonb,
     'formula_overrides', '[]'::jsonb,
