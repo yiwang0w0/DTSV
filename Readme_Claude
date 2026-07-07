@@ -88,6 +88,15 @@
 - **[`scripts/phase-52a-server-only-rls.sql`](scripts/phase-52a-server-only-rls.sql)·已应用**：14 表开 RLS·无策略 = deny anon 读写、service_role 绕过。`br_match*`(5) / chamber_residue / cross_room_probes / economy_wipe_log / fragment_cold_cases / probe_encounter_pairs / room_items / player_expedition_opt_ins / player_notifications / seasonal_expeditions。验证 14 表 rls_enabled=true·policies=0。`contracts`/`player_contracts` 早已 RLS-on（免处理）。
 - **52b 待办**（有 anon 编辑器/客户端读·需读策略或写路由，照 phase-51 范式）：br_rooms / chamber_templates / classes / fragment_pool / player_class_runs / player_points / raid_stats / shop_catalog / shop_exchange_rates / placement 四表 + authenticated-write 档（buff_pool / equipment_series / equipment_tiers / item_pool / map_config / npc_pool）。
 
+## 最近变更（2026-07-07 / 🔒 phase-52b 剩余批 · 子批 1：玩家数据 RLS（关余额泄漏））
+
+> 52b 剩余批开工。子批 1 = 玩家数据组（**HIGH·数据暴露**）：player_points/player_class_runs/raid_stats 当前 RLS 全关 → anon 可读**所有玩家点数余额**并篡改。
+
+- **[`scripts/phase-54-player-data-rls.sql`](scripts/phase-54-player-data-rls.sql)·已应用**：player_points/player_class_runs → **owner-read**（`user_id=auth.uid()`）+ 放行 PRIMARY_ADMIN 邮箱读全表（保 PointsConfigTab/ClassesTab 聚合）+ 写仅 service_role；raid_stats（无 user_id·聚合无 PII）→ public read + service write。
+- **纯 SQL·无编辑器改动**：三表客户端只读、写全服务端；owner-read 对 PrepareModal（`.eq(user_id)` 读自己）零影响。
+- **实测**：`P54_PROBE service_rows=1 anon_read=0 anon_insert_ok=f` —— anon 从「可读全部余额」→ 0 行、写被拒。
+- **52b 剩余待做**：内容表组（chamber_templates/classes/fragment_pool/shop_catalog/shop_exchange_rates/br_rooms → public read + service write + 6 编辑器→路由）+ placement 四表（usePlacementRules→路由）。
+
 ## 最近变更（2026-07-06 / 🔒 phase-52b 第一批：6 内容表写权收紧 + 编辑器服务端化）
 
 > 52b 起步批：6 张「authenticated-write 过宽（HIGH·任意登录用户可写内容表）+ 有 anon 编辑器」的表，照 phase-51 范式收紧。
