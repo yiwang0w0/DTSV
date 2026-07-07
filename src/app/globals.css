@@ -57,6 +57,24 @@ body {
   50%      { opacity: 0.6; transform: scale(1.07); }
 }
 
+/* KALEIDO 渐进披露：UI 元素解锁时的浮现动效（05 §1「UI 即进度」） */
+@keyframes kaleido-reveal {
+  0%   { opacity: 0; transform: translateY(10px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.kaleido-reveal { animation: kaleido-reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* nar_line 落日志时的一次性高亮（读完即隐入常态） */
+@keyframes kaleido-narline {
+  0%   { opacity: 0; background: rgba(88, 166, 255, 0.16); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; background: rgba(88, 166, 255, 0); }
+}
+.kaleido-narline { animation: kaleido-narline 1.8s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .kaleido-reveal, .kaleido-narline { animation-duration: 0.01ms; }
+}
+
 /* ────────────────────────────────────────────────────────────
    移动基线 (P1 移动地基) —— 纯追加，桌面端无感、移动端修手感
    ──────────────────────────────────────────────────────────── */
