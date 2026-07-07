@@ -183,3 +183,20 @@ ALTER TABLE profiles
 - **确认改进(已并入实现节)**:②L3 注入挂点(startKaleidoRun 读 profiles + createPlayerState stats)③L3 normalizeGamevars 兜底 ④L5 move_btn 走 clearedSeq 内存 diff(level_clear 事件不回传)⑤L5 rules_card/stance_ui P1 恒不触发(改条件 + 标 DEAD→LIVE)⑥信封选型定顶层 + 幂等保证(§1.2)。
 - **确认设计正确**:search 可生成遭遇(combat 非 boss 独有,利 ⚙️ seq1-2 combat 约束);inventory 经 player.inventory 数组增长可判;convergence/search_btn 非解锁物设计正确。
 - **待补硬化(实现期,不阻塞 §1)**:重跑 L2(持久化原子性:profiles 写 vs gamevars 写 desync)+ L4(withRetry 重入 double-emit);契约级幂等保证已在 §1.2/§3.4 声明(判定权威 = 账号集)。
+
+---
+
+## 8. 🎨 stub 对齐(基于 `5ee35b7`)
+
+🎨 已按 05 §1.1 建 stub(`kaleidoUiUnlocks.js` / `useKaleidoUiUnlocks.js` / `KaleidoRunView.jsx`)并预留真数据读取缝。**stub 与本契约高度一致**:11 个 ui_key 全对齐、`INITIAL_UNLOCKED=['search_btn']`、`enabled=false` 惰性(多人中性)、且其注释已预期「服务端解锁集 + 含 nar_line 的解锁事件」——即本契约 §1.1+§1.2。以下为需 🎨 校订的对齐点(均小改,🎨 已预留缝):
+
+| # | 🎨 stub 现状 | 契约权威 | 🎨 改动 |
+|---|---|---|---|
+| D1 解锁集位置 | `readServerUnlocks(gamevars)` 读 `gamevars.kaleido.uiUnlocks` | `gamevars.players[uid].uiUnlocks`(账号镜像随 player 下发,与 hp/inventory 同处) | `readServerUnlocks(me)` 读 `me.uiUnlocks`(一行;`buildUnlockCtx` 已有 `me`) |
+| D2 解锁事件 | 客户端 diff 解锁集 + 本地 `UI_UNLOCK_ENTRIES` 取 nar_line | 响应信封 `unlockEvents:[{ui_key,nar_line,timing,precedes,seq}]`(nar_line 服务端权威) | 有 `unlockEvents` 时以其为准播动效 + 落 nar_line;`justUnlocked` set-diff 降级为 stub 期兜底;停用本地 nar_line 副本(消除 client 副本漂移) |
+| **D3 hp_bar 触发 ⚠** | `fight_start/before`,derive 门 = `encounter‖everFought` | **改** `search/before`(时序法则 blocker:污染/Ω/收缩死亡先于 fight_start) | **hp_bar derive 门改 `ctx.searched`(首搜即显,勿等 combat)**;与 combat_panel 解耦(hp_bar 早于 combat_panel);nar_line 请 📖 复核 |
+| D4 item 动词 | `verb:'item_gain'`(inventory/craft) | 无 `item_gain` 动词 = `search` + condition(`inventory_gained`/`craft_material_gained`) | 注册表 verb 对齐(stub 的 `hasItems`/`hasCraftMat` derive 不受影响) |
+| D5 关入动词 | `verb:'level_enter'` + `has_rule_override`/`stance_duel` | 无 `level_enter` 动词;rules_card=`move`+`entering_nonstandard_level`(combat_mode≠standard);stance_ui=`fight_start`+`combat_mode==='stance_duel'`;**P1 均 DEAD** | verb 对齐(stub 的 `ruleLevel`/`stanceLevel` derive 已用 combatMode,判据一致);骨架保留,P1 不触发不报错 |
+| D6 move_btn | `verb:'level_clear'` | `cleared_seq_increased` 内存 diff(level_clear 事件不回传路由) | 服务端 `unlockEvents` 会携 move_btn;stub 的 `clearedAny` derive 保持 |
+
+> **净评估**:🎨 stub 无需推翻,按上表 6 处校订即接真数据。最实质一处 = **D3 hp_bar 提前到首次 search**(时序法则修正,影响 derive 门与 📖 文案),其余为字段名/verb 词汇对齐。`REVEAL_ORDER` 与本契约注册表顺序一致,渐次动效无需改。
