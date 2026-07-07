@@ -29,7 +29,8 @@ function hit(atk, def, params, rngState) {
   const defMul = num(params.defMul, 0.5)
   let dmg = Math.max(1, Math.floor(atk * atkMul - def * defMul))
   const r = stepRng(rngState)
-  if (r.val < num(params.critRate, 0.1)) dmg = Math.floor(dmg * num(params.critMul, 1.5))
+  // 暴击后重钳 dmg≥1（🔒 finding 2：防 critMul<1 归 0 / critMul<0 敌人回血）
+  if (r.val < num(params.critRate, 0.1)) dmg = Math.max(1, Math.floor(dmg * num(params.critMul, 1.5)))
   return { dmg, state: r.state }
 }
 function num(v, d) { return Number.isFinite(v) ? v : d }
@@ -108,6 +109,8 @@ const gauntlet = {
     const s = baseState(setup, 'gauntlet')
     s.wave = 1
     s.wavesTotal = Math.max(1, Math.floor(num(params.waves, 3)))
+    // 原始波1敌快照 —— 波进阶从它算 scale^(wave-1)（🔒 finding 1：防用当前已缩放敌为基→复利超指数）
+    s.baseEnemy = { maxHp: s.enemy.maxHp, atk: s.enemy.atk, def: s.enemy.def }
     return s
   },
   resolveTurn(state, action, params = {}) {
@@ -118,7 +121,7 @@ const gauntlet = {
       const scale = num(params.enemyScale, 1.15)
       const nextWave = s.wave + 1
       const player = { ...s.player, hp: Math.min(s.player.maxHp, s.player.hp + num(params.waveHeal, 15)) }
-      const base = state.enemy // 用进波前的原始敌人为基
+      const base = state.baseEnemy || state.enemy // 原始波1敌为基（非当前已缩放敌·防超指数复利·🔒 finding 1）
       const enemy = {
         maxHp: Math.floor(num(base.maxHp, 40) * Math.pow(scale, nextWave - 1)),
         atk: Math.floor(num(base.atk, 8) * Math.pow(scale, nextWave - 1)),

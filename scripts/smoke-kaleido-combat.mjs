@@ -62,6 +62,21 @@ for (const [key, params] of [['standard', {}], ['gauntlet', { waves: 3 }], ['sta
   console.log(`  · ${key}: clearRate=${clearRate.toFixed(2)} avgTurns=${avgTurns.toFixed(1)}`)
 }
 
+// ── gauntlet 波次缩放线性（scale^(wave-1)·非复利·🔒 finding 1 回归） ──
+{
+  const m = COMBAT_MODES.gauntlet
+  // 玩家一击必杀，逐波推进；捕获每波开场 enemy.maxHp
+  let s = m.initState({ seed: 'wave', player: { hp: 9999, atk: 99999, def: 0, potions: 0 }, enemy: { hp: 60, atk: 1, def: 0 } }, { waves: 4 })
+  const seen = [s.enemy.maxHp]
+  for (let i = 0; i < 20 && !s.over; i++) {
+    const prevWave = s.wave
+    s = m.resolveTurn(s, { type: 'attack' }, { waves: 4, enemyScale: 1.5 })
+    if (s.wave !== prevWave) seen.push(s.enemy.maxHp)
+  }
+  // 波1=60·波2=60×1.5=90·波3=60×1.5^2=135·波4=60×1.5^3=202（floor）
+  ok(JSON.stringify(seen) === JSON.stringify([60, 90, 135, 202]), `波次线性缩放 scale^(w-1)（got ${JSON.stringify(seen)}，期望 [60,90,135,202] 非复利 [60,135,455,2303]）`)
+}
+
 // ── gauntlet 波次真的更难（clearRate 随 waves 单调↓，弱势 setup 下可见分离） ──
 {
   const m = COMBAT_MODES.gauntlet
