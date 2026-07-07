@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkItemCraft } from '@/lib/itemCraft'
 import { Modal } from './gameUi'
+import { useIsNarrow } from '@/lib/useIsNarrow'
 
 export default function ItemCraftModal({ open, onClose, player, onCraft }) {
   const [recipes, setRecipes] = useState([])
@@ -19,6 +20,7 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
   const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [crafting, setCrafting] = useState(false)
+  const isNarrow = useIsNarrow()
 
   const inventory = useMemo(() => player?.inventory || [], [player?.inventory])
 
@@ -75,7 +77,7 @@ export default function ItemCraftModal({ open, onClose, player, onCraft }) {
       {loading ? (
         <div style={{ textAlign: 'center', color: '#8b949e', padding: 24 }}>加载配方中...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '240px 1fr', gap: 16 }}>
           {/* 配方列表 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
             {recipes.map((r) => {

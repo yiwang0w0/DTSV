@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase'
 import { THEME } from '@/lib/theme'
 import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useAuth } from '@/app/_shell/RootShell'
+import { useIsNarrow } from '@/lib/useIsNarrow'
 import { NEWBIE_PROTECTION, LOADOUT_PRESETS, RUN_GOALS, HIGH_RISK } from '@/lib/constants'
 import { sanitizeHeatLevel } from '@/lib/server/heat'
 import { firstContactFraming } from '@/lib/server/raids'
@@ -75,6 +76,7 @@ const SLOT_LABEL = {
 
 export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
   const { user } = useAuth()
+  const isNarrow = useIsNarrow()
   const [tab, setTab] = useState('class')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -439,7 +441,7 @@ export default function PrepareModal({ open, onClose, onConfirm, roomTitle }) {
 
         {/* 4 类点数余额栏 */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
+          display: 'grid', gridTemplateColumns: isNarrow ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 8,
           padding: '12px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg0, flexShrink: 0,
         }}>
           {['high_equip_pt', 'low_equip_pt', 'item_pt', 'class_pt'].map(t => {

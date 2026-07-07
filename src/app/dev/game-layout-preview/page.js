@@ -24,7 +24,7 @@ function MockCol({ label, color, side, lines }) {
 
 export default function GameLayoutPreview() {
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: T.bg0, color: T.text, fontFamily: 'var(--font-noto-sans-sc), system-ui' }}>
+    <div className="game-immersive-root" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: T.bg0, color: T.text, fontFamily: 'var(--font-noto-sans-sc), system-ui' }}>
       <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.dim, flexShrink: 0 }}>
         【dev】ResponsiveGameLayout —— 桌面三栏 / 窄屏(&lt;768)单列+底部 Tab。preview_resize 切 mobile/desktop 验证。
       </div>

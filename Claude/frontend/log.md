@@ -1,5 +1,17 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-08 · 🎨 移动化 P3 对局页全屏化 + 模态窄屏适配
+
+> 🧭 派单 P3（P2 桌面线上复核 PASS 后）。两件打包：① 对局页移动端全屏（逃逸 RootShell chrome·拿回 ~110px）② 模态窄屏适配。红线：桌面/多人零变化·kaleido 与多人两路径都验。
+
+- **P3-A 对局页移动全屏化**：两个对局根（kaleido 早返回根 + 多人根·GameClientPage）+ dev harness 根加 `game-immersive-root` 类；`globals.css` 加 `@media (max-width:767px){ .game-immersive-root{ position:fixed; inset:0; z-index:200; height:100dvh } }`——窄屏逃逸 RootShell `<Nav>`(sticky z100) + padded `<main>` chrome、拿回顶部 ~110px；**CSS 媒体查询首帧生效·无 JS/hydration 闪烁**。桌面(≥768)无规则 ⇒ root `position:static` 留在 chrome 内（桌面/多人零变化）。dev 实测：窄屏 375 root fixed 覆盖满视口(top0/375×812)·z200 覆盖 nav；桌面 1280 root static·nav 可见。
+- **P3-B 模态窄屏适配**（`useIsNarrow` 条件切 grid·首帧桌面态·模态开在鉴权后无闪烁顾虑）：
+  - `CraftModal` `260px 1fr` → 窄屏 `1fr`（列表/详情堆叠）；`ItemCraftModal` `240px 1fr` → `1fr`——二者 kaleido 也用（Kanata 手机主力形态）。
+  - `PrepareModal` 4 类点数栏 `repeat(4,1fr)` → 窄屏 `repeat(2,1fr)`（多人 loadout·custom 模态）；其 loadout 网格 `auto-fit minmax(280px,1fr)` 本就响应式、不动。
+  - 共享 `Modal`(admin/_shared/ui)`width:90% maxWidth:640 maxHeight:85vh overflow:auto` 本就窄屏友好、不动。
+- **验证**：build+lint+类型+smoke 全过。P3-A DOM 双态实测通过；P3-B 编译 + useIsNarrow(已验) + grid 条件正确（模态开态视觉复核需游戏上下文=🧭 线上）。截图渲染器与 fixed 全屏根冲突超时（本会话间歇）——DOM 断言为等价证据 + 🧭 线上复核（同 P2 模式）。
+- **遗留**：色板收敛（38 文件硬编码→theme.js）/ PWA（manifest+SW）押后待派单。
+
 ## 2026-07-08 · 🎨 移动化 P2 对局页响应式（三栏→窄屏竖排+底部 Tab）
 
 > 🧭 派单 P2（死码清理验收 PASS 后放行）。对局页三栏在窄屏（<768）转单列 + 底部 Tab 切换；桌面（≥768）逐字节保持现有三栏 grid。dev harness 双态实测（截图 + DOM 断言）。

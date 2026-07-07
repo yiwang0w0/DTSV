@@ -75,6 +75,18 @@ body {
   .kaleido-reveal, .kaleido-narline { animation-duration: 0.01ms; }
 }
 
+/* 对局页移动端全屏化 (P3)：窄屏(<768)逃逸 RootShell <Nav>(sticky z100) + padded <main> chrome，
+   拿回顶部 ~110px。position:fixed 锚视口、z-index 覆盖 nav。桌面(≥768)无此规则 ⇒ 对局页保持
+   在 chrome 内(桌面/多人零变化)。CSS 媒体查询首帧即生效 ⇒ 无 JS/hydration 闪烁。 */
+@media (max-width: 767px) {
+  .game-immersive-root {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    height: 100dvh;
+  }
+}
+
 /* ────────────────────────────────────────────────────────────
    移动基线 (P1 移动地基) —— 纯追加，桌面端无感、移动端修手感
    ──────────────────────────────────────────────────────────── */

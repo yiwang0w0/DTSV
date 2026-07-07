@@ -1109,7 +1109,7 @@ export default function GameClientPage() {
   // ══════════════════════════════════════════════════════════════════════
   if (isKaleido) {
     return (
-      <div style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
+      <div className="game-immersive-root" style={{ height: '100dvh', background: T.bg0, color: T.text, display: 'flex', flexDirection: 'column', fontFamily: 'var(--font-noto-sans-sc), system-ui, sans-serif', fontSize: 13, overflow: 'hidden' }}>
         <ToastContainer />
         <CraftModal open={craftOpen} onClose={() => setCraftOpen(false)} player={meBase} equipments={equipments} onCraft={handleCraft} />
         <ItemCraftModal open={itemCraftOpen} onClose={() => setItemCraftOpen(false)} player={meBase} onCraft={handleCraftItem} />

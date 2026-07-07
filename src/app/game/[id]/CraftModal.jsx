@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkCanCraft, RARITY_META } from '@/lib/equipmentEngine'
 import { Modal } from './gameUi'
+import { useIsNarrow } from '@/lib/useIsNarrow'
 
 function buildInventoryMap(inventory) {
   const counts = {}
@@ -25,6 +26,7 @@ export default function CraftModal({
   const [preview, setPreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [crafting, setCrafting] = useState(false)
+  const isNarrow = useIsNarrow()
 
   const inventoryMap = useMemo(() => buildInventoryMap(player?.inventory || []), [player?.inventory])
 
@@ -126,7 +128,7 @@ export default function CraftModal({
       {loading ? (
         <div style={{ textAlign: 'center', color: '#8b949e', padding: 24 }}>加载配方中...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '260px 1fr', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
             {craftables.map(tier => {
               const rarity = RARITY_META[tier.rarity] || RARITY_META.common
