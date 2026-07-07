@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 
 /* 投放规则共享 hook —「实体为中心 · 全图分布」模型的 CRUD + 候选房同步。
  * ─ RoomItemsTab（道具/装备双形）与 NpcPlacementTab（NPC 单形）逐字共用本逻辑；两者仅差
@@ -139,29 +140,19 @@ export function usePlacementRules({
       if (!(w > 0)) continue
       candMap.set(rid, w)   // 后者覆盖（理论无重复）
     }
-    const candRows = (id) => Array.from(candMap.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([br_room_id, weight]) => ({ rule_id: id, br_room_id, weight }))
-
-    let ruleId = r.id
-    if (r.__isNew) {
-      const { data, error } = await supabase.from(tableName).insert(payload).select('id').single()
-      if (error) { toast('添加规则失败: ' + error.message, 'error'); return }
-      ruleId = data.id
-    } else {
-      const { error } = await supabase.from(tableName).update(payload).eq('id', r.id)
-      if (error) { toast('更新规则失败: ' + error.message, 'error'); return }
+    // 写路径服务端化（service_role · phase-56/52b-2c）：规则 upsert + 候选全量同步走 /api/admin/placement。
+    //   （route 内做 rule_id 服务端强制 + weight>0/去重；候选 payload 客户端已 candMap 归并）
+    try {
+      await postGameApi('/api/admin/placement', {
+        table: tableName,
+        op: 'save',
+        id: r.__isNew ? null : r.id,
+        payload,
+        cands: Array.from(candMap.entries()).map(([br_room_id, weight]) => ({ br_room_id, weight })),
+      })
+    } catch (e) {
+      toast((r.__isNew ? '添加规则失败: ' : '更新规则失败: ') + (e.message || ''), 'error'); return
     }
-
-    // 候选全量同步：先清后插（CASCADE 不触发；这里仅清本规则候选）
-    const { error: delErr } = await supabase.from(candTableName).delete().eq('rule_id', ruleId)
-    if (delErr) { toast('候选清理失败: ' + delErr.message, 'error'); return }
-    const rows = candRows(ruleId)
-    if (rows.length > 0) {
-      const { error: insErr } = await supabase.from(candTableName).insert(rows)
-      if (insErr) { toast('候选写入失败: ' + insErr.message, 'error'); return }
-    }
-
     toast(r.__isNew ? '规则已添加' : '规则已更新')
     loadAll()   // 重拉，清 dirty/new、拿回 DB id 与候选
   }
@@ -170,8 +161,9 @@ export function usePlacementRules({
   async function removeRule(idx) {
     const r = rules[idx]
     if (r.__isNew) { setRules((rs) => rs.filter((_, i) => i !== idx)); setConfirmDelId(null); return }  // 未落库直接丢
-    const { error } = await supabase.from(tableName).delete().eq('id', r.id)
-    if (error) { toast('删除失败: ' + error.message, 'error'); return }
+    try {
+      await postGameApi('/api/admin/placement', { table: tableName, op: 'delete', id: r.id })
+    } catch (e) { toast('删除失败: ' + (e.message || ''), 'error'); return }
     toast('规则已删除')
     setConfirmDelId(null)
     loadAll()
