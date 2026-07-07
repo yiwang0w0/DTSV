@@ -25,22 +25,22 @@ export const KALEIDO_UI_UNLOCKS = [
   },
   {
     ui_key: 'inventory', timing: 'after',
-    nar_line: '你需要地方放它。——已开放:随身储物。',
+    nar_line: '你需要地方放它。——已开放：随身储物。',
     match: (c) => c.action === 'search' && invGrew(c),
   },
   {
     ui_key: 'hp_bar', timing: 'before', precedes: ['首次可受伤'],
-    nar_line: '你动起来了。往后有损耗,得盯着了。——已开放:状况读数。', // 📖 定稿(首搜挂点·d828c92 后经 🧭 同步)
+    nar_line: '你动起来了。往后有损耗，得盯着了。——已开放：状况读数。', // 📖 定稿·全角(N3 §1 · 36a17c1 后)
     match: (c) => c.action === 'search', // 时序法则:首次 search 即解锁,先于一切伤害/死亡向量
   },
   {
     ui_key: 'combat_panel', timing: 'after',
-    nar_line: '有东西在动。它先看见了你。——已开放:自卫。',
+    nar_line: '有东西在动。它先看见了你。——已开放：自卫。',
     match: (c) => !!c.fightStart, // 首次遭遇建立(boss move / search 生成遭遇均触发)
   },
   {
     ui_key: 'move_btn', timing: 'after',
-    nar_line: '这一段的事,办完了。——已开放:前进。',
+    nar_line: '这一段的事，办完了。——已开放：前进。',
     match: (c) => (c.afterClearedSeq ?? 0) > (c.beforeClearedSeq ?? 0), // 过关(clearedSeq 内存 diff·level_clear 事件不回传路由)
   },
   {
@@ -50,22 +50,22 @@ export const KALEIDO_UI_UNLOCKS = [
   },
   {
     ui_key: 'turn_counter', timing: 'after',
-    nar_line: '做一件事,算一回合。——系统开始计数。',
+    nar_line: '做一件事，算一回合。——系统开始计数。',
     match: (c) => isMove(c.action), // 与 level_header 同批(注册表内排后 → unlockEvents 顺序在后)
   },
   {
     ui_key: 'rules_card', timing: 'before',
-    nar_line: '这一段,规矩不一样。——已张贴在门口。',
+    nar_line: '这一段，规矩不一样。——已张贴在门口。',
     match: (c) => isMove(c.action) && nonstandardNode(c.node), // 时序法则:入非标准关前。P1 LIVE(采样器出非标准 combat_mode 关;D3 落 env_rules 后条件再扩)
   },
   {
     ui_key: 'stance_ui', timing: 'before',
-    nar_line: '这东西打起来讲究路数。——已开放:应招。',
+    nar_line: '这东西打起来讲究路数。——已开放：应招。',
     match: (c) => !!c.fightStart && c.node?.kaleidoMode?.template_ref === 'stance_duel', // P1 LIVE(读关 node 的 mode·非遭遇实例 → 无需 LW-2;stance_duel 关遭遇即触发)
   },
   {
     ui_key: 'craft_btn', timing: 'after',
-    nar_line: '这两样,拼得到一起。——已开放:动手做。',
+    nar_line: '这两样，拼得到一起。——已开放：动手做。',
     match: (c) => c.action === 'search' && craftMatGained(c), // P1 DEAD:配方材料判据待 item kind + ⚙️ 投放(06 §2.1)
   },
 ]
