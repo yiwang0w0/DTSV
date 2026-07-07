@@ -14,7 +14,6 @@ import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import ItemCraftModal from './ItemCraftModal'
-import { KaleidoLevelHeader, KaleidoRuleCard, KaleidoLevelClearBanner, KaleidoConvergenceScreen } from './kaleido/kaleidoShell'
 import KaleidoRunView from './kaleido/KaleidoRunView'
 import { useKaleidoUiUnlocks, buildUnlockCtx } from './kaleido/useKaleidoUiUnlocks'
 import LootModal from './LootModal'
@@ -1236,40 +1235,7 @@ export default function GameClientPage() {
         onClose={() => setDeathReview(null)}
       />
 
-      {/* KP0-R-C C4：kaleido 关间横幅（level_clear → 前进）+ 收敛页（通关/死亡/放弃 · R8/R9）*/}
-      {showKaleidoClearBanner && (
-        <KaleidoLevelClearBanner
-          seq={kaleidoSeq}
-          nextSeq={Math.min(kaleidoSeq + 1, KALEIDO.LEVEL_COUNT)}
-          levelCount={KALEIDO.LEVEL_COUNT}
-          busy={busy}
-          onContinue={handleKaleidoContinue}
-          onStay={() => setKaleidoStaySeq(kaleidoSeq)}
-        />
-      )}
-      {isKaleido && kaleidoEndStatus && (
-        <KaleidoConvergenceScreen
-          status={kaleidoEndStatus}
-          summary={{
-            levelsCleared: kal?.clearedSeq ?? 0,
-            levelCount: KALEIDO.LEVEL_COUNT,
-            turnCount: meBase?.turnCount ?? 0,
-            kills: meBase?.kills ?? 0,
-            itemsCarried: (meBase?.inventory || []).length,
-            cause: gamevars?.endingResult?.bannerText
-              || (kaleidoEndStatus === 'dead' ? `于第 ${kaleidoSeq} 关阵亡` : ''),
-          }}
-          // 逐关图鉴容器（P4 填生成物翻阅）：raidPath 逐节点 → {seq,name,cleared}
-          codex={(gamevars?.raidPath || []).map((n, i) => ({
-            seq: i + 1,
-            name: n?.name || `第 ${i + 1} 关`,
-            cleared: (kal?.clearedSeq ?? 0) >= i + 1,
-          }))}
-          onRestart={handleKaleidoRestart}
-          onLobby={() => router.push('/rooms')}
-        />
-      )}
-
+      {/* KP1-C v2：kaleido 关间横幅 / 收敛页已迁入 KaleidoRunView（早返回渲染）；此处旧壳块删除。 */}
       <style>{`
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}
@@ -1286,16 +1252,6 @@ export default function GameClientPage() {
         @keyframes brPulse{0%,100%{opacity:1}50%{opacity:.45}}
         @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
-
-      {/* KP0-R-C C4：kaleido 关卡头（第 N/5 关 · 本关回合 · exit_condition 中文目标）*/}
-      {isKaleido && (
-        <KaleidoLevelHeader
-          seq={kaleidoSeq}
-          levelCount={KALEIDO.LEVEL_COUNT}
-          turnCount={meBase?.turnCount ?? 0}
-          exitCondition={kaleidoNode?.kaleidoExit}
-        />
-      )}
 
       {/* Phase 18.4: 70% 张力警报横幅（持久显示，玩家可见即提醒）。
           BR 决策（用户定「移除前台横幅」）：brEnabled 时隐藏前台污染横幅，仿
@@ -2296,15 +2252,6 @@ export default function GameClientPage() {
             ) : null
           }>⏭ 路径前进</PanelTitle>
           <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
-            {/* KP0-R-C C4 · R6 规则可见：入关「本关规则」卡（P0 采样恒 standard/空覆盖 → 空态容器）*/}
-            {isKaleido && kaleidoNode && (
-              <KaleidoRuleCard
-                combatMode={kaleidoNode.combatMode || { template_ref: 'standard', params: {} }}
-                envRules={kaleidoNode.envRules || []}
-                formulaOverrides={kaleidoNode.formulaOverrides || []}
-                style={{ marginBottom: 10 }}
-              />
-            )}
             {/* 当前 chamber 卡 */}
             {currentChamber && (
               <div style={{
