@@ -53,9 +53,9 @@ export default function KaleidoPreviewPage() {
         <div style={{ fontSize: 11, color: T.dim2, lineHeight: 1.5, marginBottom: 6 }}>
           已解锁 {unlocks.unlocked.size} / 11 件。逐个触发看浮现动效 + nar_line 落日志。
         </div>
-        <Ctl on={sim.searched} label="① 搜索一次 → log_panel" onClick={() => { set({ searched: true }); pushLog('你翻找了一下。', 'system') }} />
+        <Ctl on={sim.searched} label="① 搜索一次 → log_panel + hp_bar" onClick={() => { set({ searched: true }); pushLog('你翻找了一下。', 'system') }} />
         <Ctl on={sim.hasItems} label="② 拾得道具 → inventory" onClick={() => { set({ hasItems: true }); pushLog('找到：锈蚀弹匣。', 'system') }} />
-        <Ctl on={sim.encounter} label="③ 触发遭遇 → hp_bar + combat" onClick={() => { set({ encounter: true }); pushLog('有东西靠近。', 'attack') }} />
+        <Ctl on={sim.encounter} label="③ 触发遭遇 → combat_panel" onClick={() => { set({ encounter: true }); pushLog('有东西靠近。', 'attack') }} />
         <Ctl on={sim.everFought} label="④ 击退 → 结束遭遇" onClick={() => { set({ encounter: false, everFought: true }); pushLog('实体退散。', 'kill') }} />
         <Ctl on={sim.clearedAny} label="⑤ 通过本关 → move_btn" onClick={() => { set({ clearedAny: true }); setOverlay('banner') }} />
         <Ctl on={sim.movedAny} label="⑥ 前进 → level_header + turn" onClick={() => { set({ movedAny: true, seq: Math.min(sim.seq + 1, 5) }); setOverlay(null); pushLog('往前走了一段。', 'system') }} />

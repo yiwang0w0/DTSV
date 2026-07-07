@@ -30,6 +30,7 @@ export function buildUnlockCtx(gamevars, me, node) {
     || (Array.isArray(node?.formulaOverrides) && node.formulaOverrides.length > 0)
   return {
     gamevars,
+    me, // 🔧 06/D1：真解锁集读取缝 readServerUnlocks(me) 读 me.uiUnlocks（账号镜像）
     // searched 用 per-level turnCount（run 起始=0；首个消耗动作后=1，advanceKaleidoProgress 维护）——
     //   不用 log 长度：run 创建即播种 1 条「进入万华镜」log，会误在开局点亮 log_panel、破坏「初始仅搜索按钮」。
     //   sticky 兜底 turnCount 每关清零（log_panel 一旦解锁不回收）。
@@ -75,7 +76,7 @@ export function useKaleidoUiUnlocks(ctx, opts = {}) {
   useEffect(() => {
     if (!enabled) return
     const derived = deriveStubUnlocks(ctx || {})
-    const server = readServerUnlocks(ctx?.gamevars)
+    const server = readServerUnlocks(ctx?.me) // 🔧 06/D1：me.uiUnlocks（真集下发后自然并入 sticky）
     const prev = prevRef.current
     const next = new Set(prev)
     derived.forEach((k) => next.add(k))

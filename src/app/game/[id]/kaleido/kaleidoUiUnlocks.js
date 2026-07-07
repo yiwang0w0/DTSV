@@ -44,16 +44,18 @@ export const UI_UNLOCK_ENTRIES = {
   },
   [UI_KEYS.INVENTORY]: {
     ui_key: UI_KEYS.INVENTORY,
-    trigger: { verb: 'item_gain', condition: null, timing: 'after' },
+    trigger: { verb: 'search', condition: 'inventory_gained', timing: 'after' },
     nar_line: '你需要地方放它。——已开放：随身储物。',
-    note: '首次获得道具',
+    note: '首次获得道具（🔧 06 §2：search + inventory_gained）',
   },
   [UI_KEYS.HP]: {
     ui_key: UI_KEYS.HP,
-    trigger: { verb: 'fight_start', condition: null, timing: 'before' },
+    // 🔧 06 §1.3 D3（时序法则 blocker 修正）：hp_bar 挂首次 search、非 fight_start——
+    //   非战斗死亡向量（污染熔毁/Ω 超时/收缩）可先于 fight_start，故须首个动作即显、早于一切伤害。
+    trigger: { verb: 'search', condition: null, timing: 'before' },
     nar_line: '前面不保证安全。——已开放：状况读数。',
     precedes: ['首次可受伤'],
-    note: '时序法则锚点：先于首次伤害',
+    note: '时序法则锚点：先于一切伤害/死亡向量（首搜即显）',
   },
   [UI_KEYS.COMBAT]: {
     ui_key: UI_KEYS.COMBAT,
@@ -62,10 +64,11 @@ export const UI_UNLOCK_ENTRIES = {
     note: '首次遭遇（安全上演）',
   },
   [UI_KEYS.MOVE]: {
+    // 🔧 06 §2/D6：走 cleared_seq_increased 内存 diff（level_clear 事件不回传路由）。
     ui_key: UI_KEYS.MOVE,
-    trigger: { verb: 'level_clear', condition: null, timing: 'after' },
+    trigger: { verb: 'state_diff', condition: 'cleared_seq_increased', timing: 'after' },
     nar_line: '这一段的事，办完了。——已开放：前进。',
-    note: '首次 level_clear',
+    note: '首次过关（clearedSeq 增长）',
   },
   [UI_KEYS.LEVEL_HEADER]: {
     ui_key: UI_KEYS.LEVEL_HEADER,
@@ -80,22 +83,25 @@ export const UI_UNLOCK_ENTRIES = {
     note: '与 level_header 同批',
   },
   [UI_KEYS.RULES_CARD]: {
+    // 🔧 06 §2/D5：move + entering_nonstandard_level（combat_mode≠standard）；P1 恒 DEAD（无非标准关），待 D3/LW-3。
     ui_key: UI_KEYS.RULES_CARD,
-    trigger: { verb: 'level_enter', condition: 'has_rule_override', timing: 'before' },
+    trigger: { verb: 'move', condition: 'entering_nonstandard_level', timing: 'before' },
     nar_line: '这一段，规矩不一样。——已张贴在门口。',
-    note: '时序法则：规则关入关前',
+    note: '时序法则：非标准关入关前（P1 DEAD·待落地）',
   },
   [UI_KEYS.STANCE]: {
+    // 🔧 06 §2/D5：fight_start + combat_mode==='stance_duel'；P1 DEAD（stance_duel 遭遇待 LW-2 携 combat_mode）。
     ui_key: UI_KEYS.STANCE,
-    trigger: { verb: 'level_enter', condition: 'stance_duel', timing: 'before' },
+    trigger: { verb: 'fight_start', condition: 'stance_duel', timing: 'before' },
     nar_line: '这东西打起来讲究路数。——已开放：应招。',
-    note: '首个 stance_duel 精英关（1b 三态出招归此）',
+    note: '首个 stance_duel 精英关（1b 三态出招归此·P1 DEAD·待 LW-2）',
   },
   [UI_KEYS.CRAFT]: {
+    // 🔧 06 §2/D4：search + craft_material_gained（inventory_gained 子判据·读 item kind）。
     ui_key: UI_KEYS.CRAFT,
-    trigger: { verb: 'item_gain', condition: 'recipe_material', timing: 'after' },
+    trigger: { verb: 'search', condition: 'craft_material_gained', timing: 'after' },
     nar_line: '这两样，拼得到一起。——已开放：动手做。',
-    note: '首次拾得配方材料',
+    note: '首次拾得配方材料（待 ⚙️ 投放 + kind 判据）',
   },
 }
 
@@ -111,11 +117,12 @@ export const REVEAL_ORDER = [
   UI_KEYS.STANCE, UI_KEYS.CRAFT,
 ]
 
-// ── 读取缝：🔧 真数据源（账号级持久化解锁集，随 gamevars 下发）──────────────
-//   接口形状定稿前的占位约定：读 gamevars.kaleido.uiUnlocks:string[]。字段名/形状以 🔧 广播为准，
-//   届时仅改此一处 + 停用 deriveStubUnlocks 即可切真数据。
-export function readServerUnlocks(gamevars) {
-  const raw = gamevars?.kaleido?.uiUnlocks
+// ── 读取缝：🔧 真数据源（账号级持久化解锁集，随 player 下发）──────────────────
+//   🔧 06 契约 §1.1/D1 定稿：解锁集 = room.gamevars.players[uid].uiUnlocks（账号镜像，与 hp/inventory 同处）。
+//   客户端在已读 me 的同一处读 me.uiUnlocks（单调只增·排序去重·种子 ['search_btn']）。
+//   🔧 服务端 route 边界落地后此集自然接管；届时停用 deriveStubUnlocks 即切纯真数据。
+export function readServerUnlocks(me) {
+  const raw = me?.uiUnlocks
   return Array.isArray(raw) ? raw.filter((k) => typeof k === 'string') : []
 }
 
@@ -125,13 +132,14 @@ export function readServerUnlocks(gamevars) {
 //   ⚠ STUB：🔧 账号级解锁事件上线后本函数应停用（服务端解锁集权威）。
 export function deriveStubUnlocks(ctx = {}) {
   const keys = new Set([UI_KEYS.SEARCH]) // 初始唯一
-  if (ctx.searched) keys.add(UI_KEYS.LOG)
-  if (ctx.hasItems) keys.add(UI_KEYS.INVENTORY)
-  // hp_bar timing=before：与遭遇建立同刻浮现（遭遇成立在首次伤害之前 ⇒ 满足时序法则）。
-  if (ctx.encounter || ctx.everFought) {
+  if (ctx.searched) {
+    keys.add(UI_KEYS.LOG)
+    // 🔧 06 §1.3/D3：hp_bar 挂首次 search（非 fight_start）——先于污染/Ω/收缩/战斗一切伤害·死亡向量。
+    //   与 combat_panel 解耦：hp_bar 首搜即显，早于首次遭遇。
     keys.add(UI_KEYS.HP)
-    keys.add(UI_KEYS.COMBAT)
   }
+  if (ctx.hasItems) keys.add(UI_KEYS.INVENTORY)
+  if (ctx.encounter || ctx.everFought) keys.add(UI_KEYS.COMBAT)
   if (ctx.clearedAny) keys.add(UI_KEYS.MOVE)
   if (ctx.movedAny) {
     keys.add(UI_KEYS.LEVEL_HEADER)
