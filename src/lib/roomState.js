@@ -319,6 +319,10 @@ export function createPlayerState(user, stats = {}) {
     //   多人局永不读 → 零行为变化；经 normalizeGamevars 对 players 原样透传持久化（同 stamina/depth 范式）；
     //   旧存档缺字段时在递增处 `?? 0` 兜底（normalizeGamevars 不逐玩家改写，无法在那补默认）。
     turnCount: stats.turnCount ?? 0,
+    // ── KALEIDO 渐进披露：账号级已解锁 UI 集的 run 内镜像（06 ui_unlocks 契约 §1.1/§3.5）。 ──
+    //   条件展开：仅 kaleido 局(startKaleidoRun 传非空 seed)注入此字段；多人局 stats 无 uiUnlocks → 不加字段
+    //   = 多人局玩家态严格零变化(比 turnCount 更保守，多人局连字段都不出现)。
+    ...(Array.isArray(stats.uiUnlocks) && stats.uiUnlocks.length ? { uiUnlocks: stats.uiUnlocks } : {}),
     // ── Phase 31 re-home: BR「100 房网格」位置（旧 chamber 模式恒 null → 走旧分支） ──
     roomId: stats.roomId ?? null,   // BR 当前房（br.enabled 下由 joinRoom 置 startRoomId）
     depth: 0,                       // 跃迁深度（单向阶梯·只增）；effectivePhase(realPhase, depth, maxPhase) 据此让跃迁者读更深的禁区图/物资档

@@ -64,7 +64,8 @@ import {
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
 import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
 import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
-import { emitPlayerEvents, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
+import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
+import { UI_SEED, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
@@ -2639,7 +2640,9 @@ export async function startKaleidoRun(client, user) {
     const room = await createRoom(client, user, { gametype: KALEIDO_GAME_TYPE })
     createdRoomId = room.id
     const rules = await loadGameRules(client)
-    const player = createPlayerState(user, getInitPlayerStats(rules))
+    // KALEIDO 渐进披露 seed(06 §3.5)：run 起始镜像账号级已解锁集。
+    //   Commit A：仅种子 UI_SEED(['search_btn'])；账号级 profiles.ui_unlocks 继承在 Commit B(待 🔒 审 DDL)接入。
+    const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: [...UI_SEED] })
     const gamevars = normalizeGamevars(room.gamevars)
     const nextGamevars = {
       ...gamevars,
@@ -2774,6 +2777,75 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     console.error('[kaleido] 推进失败:', e?.message)
     return room
   }
+}
+
+// KALEIDO 动作后处理（路由边界 + E2E act() 单一共享入口·06 §3.2/§3.6）。
+//   = advanceKaleidoProgress（推进）+ 传感层事件（action/fight_start）+ ui_unlocks 判定/持久/下发。
+//   route.js 与 scripts/kaleido-e2e.mjs 同调此函数 → 消除两份实现的分叉（否则时序法则断言测不到真路径）。
+//   preContext.beforeMe / beforeClearedSeq = 动作**前**快照（route 从预取 roomData 取；E2E 动作前 fetch）。
+//   返回 { room, unlockEvents }：unlockEvents 仅本动作新解锁时非空（06 §1.2 瞬态出口）。
+export async function applyKaleidoPostAction(client, room, user, action, preContext = {}) {
+  if (!isKaleidoRoom(room)) return { room, unlockEvents: [] }
+  const beforeMe = preContext.beforeMe ?? null
+  const beforeClearedSeq = preContext.beforeClearedSeq ?? (room?.gamevars?.kaleido?.clearedSeq ?? 0)
+
+  // ① 推进（turnCount+1 → exit_condition → 过关/收敛/死亡·自持久化·吞错返回原 room）
+  room = await advanceKaleidoProgress(client, room, user, action)
+
+  const gv = room?.gamevars || {}
+  const afterMe = gv.players?.[user.id] || null
+  const kal = gv.kaleido || {}
+  const afterClearedSeq = kal.clearedSeq ?? 0
+  const node = (gv.raidPath || [])[afterMe?.chamberIndex ?? 0] || null
+  const fightStart = !beforeMe?.encounter && !!afterMe?.encounter
+
+  // ② 传感层事件：action（已映射动词）+ fight_start（encounter null→有 的边界 diff）
+  const rows = []
+  const ev = buildActionEvent(user.id, gv, action)
+  if (ev) rows.push(ev)
+  if (fightStart) {
+    rows.push({
+      player_id: user.id, run_id: kal.runId ?? null,
+      level_seq: kaleidoLevelSeq(afterMe), verb: 'fight_start', payload: { action },
+    })
+  }
+
+  // ③ ui_unlocks 判定（06 §3.2）：账号集为权威·单调加·幂等；持久化成功才发事件/下发（原子性:persist gates emit）。
+  //    求值无条件——即便本动作导致死亡(afterMe.alive===false)也求值 → hp_bar 死亡回合仍下发(06 §1.3 兜底)。
+  let unlockEvents = []
+  if (afterMe) {
+    const already = Array.isArray(afterMe.uiUnlocks) ? afterMe.uiUnlocks : []
+    const newKeys = evaluateUnlocks({
+      action, beforeMe, afterMe, beforeClearedSeq, afterClearedSeq, node, fightStart, already,
+    })
+    // gamestate===2(已收敛/通关)不再持久化 UI 进度——run 结束，UI 渐进无意义;
+    //   且规避对已收房的二次写。正常流程收敛动作(seq5 boss kill)可触发的 move_btn 早已解锁 → newKeys 恒空,此为兜底。
+    if (newKeys.length > 0 && room?.gamestate !== 2) {
+      const merged = Array.from(new Set([...already, ...newKeys])).sort()
+      const nextPlayer = { ...afterMe, uiUnlocks: merged }
+      const nextGamevars = { ...gv, players: { ...gv.players, [user.id]: nextPlayer } }
+      try {
+        // 额外 persist 仅解锁动作发生（一 run 约 5-6 次）·单人局无并发写 → 无版本冲突。
+        room = await persistRoom(client, room, nextGamevars, [], {})
+        const seq = kaleidoLevelSeq(nextPlayer)
+        for (const k of newKeys) {
+          rows.push({
+            player_id: user.id, run_id: kal.runId ?? null, level_seq: seq,
+            verb: 'ui_unlock', payload: { ui_key: k, timing: unlockTiming(k) },
+          })
+        }
+        unlockEvents = buildUnlockEventsPayload(newKeys, seq)
+        // TODO(Commit B·待 🔒 审 DDL)：profiles.ui_unlocks 追加(账号持久·跨 run 继承)——见 scripts/kaleido-ui-unlocks.sql。
+      } catch (e) {
+        console.error('[kaleido] uiUnlocks 持久化失败(下动作重判):', e?.message)
+        // 不发 unlock 事件/不下发 unlockEvents → 幂等,下动作重新检测+持久化。
+      }
+    }
+  }
+
+  // ④ 发射（await·防 Vercel 冻结丢事件·KP0-R S4）
+  if (rows.length > 0) await emitPlayerEvents(client, rows)
+  return { room, unlockEvents }
 }
 
 // 显式放弃 run（分发器动作 'abandonRun'；关页 ≠ 放弃，R11 回来接着打）

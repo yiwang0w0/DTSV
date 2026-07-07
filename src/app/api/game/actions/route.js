@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { executeGameAction, advanceKaleidoProgress, withRetry, VersionConflictError } from '@/lib/server/gameActions'
+import { executeGameAction, applyKaleidoPostAction, withRetry, VersionConflictError } from '@/lib/server/gameActions'
 import { createServerSupabase, getRequestUser } from '@/lib/serverSupabase'
 import { isKaleidoRoom } from '@/lib/roomState'
-import { emitPlayerEvents, buildActionEvent, kaleidoLevelSeq } from '@/lib/server/kaleido/events'
 
 export async function POST(request) {
   const payload = await request.json()
@@ -31,32 +30,21 @@ export async function POST(request) {
     let room = await withRetry((attempt) =>
       executeGameAction(supabase, auth.user, payload, { prefetchedRoom: attempt === 0 ? roomData : null }),
     )
-    // KALEIDO（路由边界·仅 kaleido 局，多人局零行为变化）：
-    //   ① 推进：turnCount+1 → exit_condition 判定 → 过关/收敛（吞错，失败返回原 room）；
-    //   ② 传感层发射：已映射动词 → player_events（发射在推进后，事件携带最新 turnCount/currentSeq）；
-    //      fight_start = 动作前后 encounter null→有 的边界 diff（KP0-R S3；before 取预取 roomData，
-    //      重试路径 before 可能略旧——单人局并发罕见，遥测级可接受）。
-    //   sweep/branches 借道属服务端内部、绝不经路由 → 天然满足「只真实动作」。
+    // KALEIDO（路由边界·仅 kaleido 局，多人局零行为变化）：动作后处理走单一共享入口
+    //   applyKaleidoPostAction（= 推进 + 传感层事件 action/fight_start + ui_unlocks 判定/持久/下发）。
+    //   与 scripts/kaleido-e2e.mjs act() 同调此函数（否则时序法则断言测不到真路径·06 §3.6）。
+    //   before 快照取预取 roomData（重试路径 before 可能略旧——单人局并发罕见，遥测/解锁级可接受，
+    //   解锁单调只增·漏检下动作补上）。sweep/branches 借道属服务端内部、绝不经路由 → 只真实动作。
+    let unlockEvents = []
     if (isKaleidoRoom(room)) {
       const beforeMe = roomData?.gamevars?.players?.[auth.user.id] || null
-      room = await advanceKaleidoProgress(supabase, room, auth.user, payload.action)
-      const rows = []
-      const ev = buildActionEvent(auth.user.id, room?.gamevars, payload.action)
-      if (ev) rows.push(ev)
-      const afterMe = room?.gamevars?.players?.[auth.user.id] || null
-      if (!beforeMe?.encounter && afterMe?.encounter) {
-        const kal = room?.gamevars?.kaleido || {}
-        rows.push({
-          player_id: auth.user.id,
-          run_id: kal.runId ?? null,
-          level_seq: kaleidoLevelSeq(afterMe), // 物理关（缺陷B），与 level_clear 口径合一
-          verb: 'fight_start',
-          payload: { action: payload.action },
-        })
-      }
-      if (rows.length > 0) await emitPlayerEvents(supabase, rows) // KP0-R S4：await，防 Vercel 冻结丢事件
+      const beforeClearedSeq = roomData?.gamevars?.kaleido?.clearedSeq ?? 0
+      const res = await applyKaleidoPostAction(supabase, room, auth.user, payload.action, { beforeMe, beforeClearedSeq })
+      room = res.room
+      unlockEvents = res.unlockEvents || []
     }
-    return NextResponse.json({ room })
+    // kaleido 局仅在本动作新解锁时扩 unlockEvents 兄弟键（06 §1.2）；否则/多人局回落 { room }（完全向后兼容）。
+    return NextResponse.json(unlockEvents.length ? { room, unlockEvents } : { room })
   } catch (error) {
     if (error instanceof VersionConflictError) {
       return NextResponse.json({ error: '操作冲突，请重试' }, { status: 409 })

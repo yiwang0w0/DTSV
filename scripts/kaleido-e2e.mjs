@@ -11,8 +11,7 @@
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
-import { startKaleidoRun, executeGameAction, advanceKaleidoProgress } from '../src/lib/server/gameActions.js'
-import { buildActionEvent, emitPlayerEvents } from '../src/lib/server/kaleido/events.js'
+import { startKaleidoRun, executeGameAction, advanceKaleidoProgress, applyKaleidoPostAction } from '../src/lib/server/gameActions.js'
 import { isKaleidoRoom } from '../src/lib/roomState.js'
 
 function loadEnv() {
@@ -38,11 +37,16 @@ const mkUser = (tag) => ({ id: randomUUID(), email: `kaleido-e2e-${tag}@test.loc
 const getRoom = async (id) => (await sb.from('rooms').select('*').eq('id', id).single()).data
 
 async function act(user, roomId, action, extra = {}) {
+  // 复刻路由边界:动作前快照(before) → executeGameAction → applyKaleidoPostAction(推进+事件+ui_unlocks)。
+  //   route.js 从预取 roomData 取 before;E2E 动作前 fetch 取 before(单线程,fetch 与 exec 间无并发变更)。
+  const { data: pre } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+  const beforeMe = pre?.gamevars?.players?.[user.id] || null
+  const beforeClearedSeq = pre?.gamevars?.kaleido?.clearedSeq ?? 0
   let room = await executeGameAction(sb, user, { roomId, action, ...extra }, {})
   if (isKaleidoRoom(room)) {
-    room = await advanceKaleidoProgress(sb, room, user, action)
-    const ev = buildActionEvent(user.id, room?.gamevars, action)
-    if (ev) await emitPlayerEvents(sb, [ev])
+    const res = await applyKaleidoPostAction(sb, room, user, action, { beforeMe, beforeClearedSeq })
+    room = res.room
+    room.__unlockEvents = res.unlockEvents // 内存挂载·供断言(非持久)
   }
   return room
 }
@@ -126,6 +130,26 @@ try {
   ck('events:level_clear 恰 5 条', hist.level_clear === 5, hist.level_clear)
   const lcSeqs = (evs || []).filter((e) => e.verb === 'level_clear').map((e) => e.level_seq).sort()
   ck('events:level_clear 的 level_seq=1..5(口径正确)', JSON.stringify(lcSeqs) === JSON.stringify([1, 2, 3, 4, 5]), JSON.stringify(lcSeqs))
+
+  // ═══ ui_unlocks 断言(06 契约 · KP1-E step 0 · 解锁序 + 硬时序法则)═══
+  const { data: allEv } = await sb.from('player_events').select('id,verb,level_seq,payload').eq('player_id', u.id).order('id')
+  const unlockRows = (allEv || []).filter((e) => e.verb === 'ui_unlock')
+  const unlockedKeys = unlockRows.map((e) => e.payload?.ui_key)
+  out.unlockSeq = unlockedKeys
+  ck('ui_unlock:首搜解锁 hp_bar + log_panel', unlockedKeys.includes('hp_bar') && unlockedKeys.includes('log_panel'), JSON.stringify(unlockedKeys))
+  ck('ui_unlock:hp_bar 在 level_seq=1 解锁(run 开局·首个消耗动作)', unlockRows.some((e) => e.payload?.ui_key === 'hp_bar' && e.level_seq === 1), JSON.stringify(unlockRows.filter((e) => e.payload?.ui_key === 'hp_bar')))
+  // 硬时序法则:hp_bar 的 ui_unlock 严格先于首个 attack 事件(先于首害)。id 单调=插入序。
+  const hpBarIds = unlockRows.filter((e) => e.payload?.ui_key === 'hp_bar').map((e) => e.id)
+  const firstHpBarId = hpBarIds.length ? Math.min(...hpBarIds) : Infinity
+  const attackIds = (allEv || []).filter((e) => e.verb === 'attack').map((e) => e.id)
+  const firstAttackId = attackIds.length ? Math.min(...attackIds) : Infinity
+  ck('时序法则:hp_bar 解锁严格先于首次 attack(先于首害)', Number.isFinite(firstHpBarId) && firstHpBarId < firstAttackId, JSON.stringify({ firstHpBarId, firstAttackId }))
+  ck('ui_unlock:首次过关解锁 move_btn', unlockedKeys.includes('move_btn'), JSON.stringify(unlockedKeys))
+  ck('ui_unlock:每 ui_key 至多一次(账号集幂等·单调)', unlockedKeys.length === new Set(unlockedKeys).size, JSON.stringify(unlockedKeys))
+  ck('ui_unlock:payload 携 timing(hp_bar=before)', unlockRows.find((e) => e.payload?.ui_key === 'hp_bar')?.payload?.timing === 'before', JSON.stringify(unlockRows.find((e) => e.payload?.ui_key === 'hp_bar')?.payload))
+  // 运行时镜像:最终房 player.uiUnlocks 含已解锁键(随 room 下发)
+  const finalMe = rr?.gamevars?.players?.[u.id]
+  ck('镜像:players[uid].uiUnlocks 含 hp_bar/log_panel/move_btn 且含种子 search_btn', Array.isArray(finalMe?.uiUnlocks) && ['search_btn', 'hp_bar', 'log_panel', 'move_btn'].every((k) => finalMe.uiUnlocks.includes(k)), JSON.stringify(finalMe?.uiUnlocks))
 } catch (e) { ck('通关 run 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
 // ═══ ② 死亡收敛 run ═══
