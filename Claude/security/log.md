@@ -29,6 +29,23 @@
   3. `OTHERCOL_ALLOWED_OK` —— authenticated 改旁列 `saved_loadouts`（PrepareModal 同列）→ 放行。**非回归确认**。
 - **状态**：step ①② ✅ 已应用并验证；**step ③（🔧 Commit B 服务端 service_role 写路径）待 🔧**；**step ④ 端到端复验（真会话 + 🔧 写路径 + PrepareModal 应用层）待 Commit B 后由 🔒 补**。已 `send_message` 报 🧭。
 
+### 追记（2026-07-08 · 🔒 step ④ 端到端复验 —— ② 探针 PASS + 静态审 PASS · ① 功能继承测执行受阻·报 🧭 协调）
+
+> 🧭 step④ GO（🔧 Commit B `6128411` 已上 main·E2E 30/30）。rebase 至含 6128411（HEAD `a188052`）后复验。
+
+- **② 3 探针复跑（postgres MCP·`SET LOCAL ROLE`+匹配 JWT sub·`RAISE` 回滚·零改动）= 全 PASS**：`neg=REJECTED_OK`（authenticated 改 ui_unlocks 拒）/ `pos=ALLOWED_OK`（service_role 写通）/ `oth=OTHERCOL_ALLOWED_OK`（authenticated 改 saved_loadouts 通）。**Commit B 落地后守卫仍完好。**
+- **Commit B 继承码静态安全审 = PASS**（读真码 6128411）：
+  - **读种子** `startKaleidoRun`（gameActions.js:2646-2652）：service_role `client` 读 `profiles.ui_unlocks` → 过滤字符串 → ∪ `UI_SEED` → `createPlayerState(uiUnlocks:seed)`；缺行/读错回落种子。✓
+  - **写回** `applyKaleidoPostAction`（gameActions.js:2848-2850）：`.update({ ui_unlocks: merged })`·`merged=already∪newKeys`·**全集覆盖·单调只增·幂等**·service_role → 过守卫；失败仅记错不阻断。✓
+  - **越权闭合**：种子读自守卫保护列、写路径仅 service_role → **客户端在任一环都无法注入 ui_key**（伪造被守卫 + service-only 写双闭合）。安全性签字通过。
+- **① 跨 run 继承【功能】测 —— 无法在本轨执行·报 🧭 协调**：
+  - **凭证阻**：worktree 与主仓均**无 `.env.local`**（无 Supabase service JWT）→ 无法跑任何游戏码 tsx 谐调器（postgres MCP 用的是独立 PG 连接串·非 supabase-js 所需 JWT）；**连 🔧 的 kaleido-e2e.mjs 在本环境也跑不起来**（03 précédent：无 service key 则 send 🧭 代跑）。
+  - **测试账号阻**：库仅 4 auth 用户，除 kanata（`2949215486@qq.com`·实测 `ui_unlocks='[]'` 基线洁净·经验保全）外 3 个均**真实个人账号**（`2542845490@qq.com`/`shawn0101@hotmail.com`[roomid=7·在局活跃玩家]/`378059467@qq.com`·全 `ui_unlocks='[]'`）→ 按 🧭 纪律**不得污染任一真账号·不得自建** → 无可用测试账号。
+  - **E2E 覆盖缺口客观事实**：🔧 E2E（30/30）断言仅覆盖**单 run** 解锁机制（首搜解锁 hp_bar/log_panel·时序法则·player.uiUnlocks 镜像）；**不覆盖跨 run 继承**（合成用户无 profiles 行 → 读回 []·写命中 0 行）。∴ run1→profiles→run2 继承确属**执行未验**。
+  - **建议（报 🧭）**：继承执行测需「service key + 真测试账号」二者，本轨皆缺。推荐 **🔧 在 E2E 增一「专用种子测试 auth 用户」的跨 run 继承断言**（🔧 有 key·E2E 资产主·可复用种子用户·继承入永久回归网）；🔒 复核其断言。或 🧭/用户指定测试账号 + 跑我可提供的参数化脚本（内置 kanata 禁用守卫）。
+  - **零污染自证**：本轨 step④ 全程只跑 RAISE 回滚探针（零持久改动）+ 只读查询；未跑任何游戏码、未建任何 run/room、未改任一 profiles 行。无需清理。
+- **安全性签字**：ui_unlocks **越权/伪造面 = 已闭合并签字**（守卫 3 探针 + 静态审）；**功能继承执行验 = 转 🧭 协调**（凭证+账号双缺·非安全阻）。
+
 ## 最近变更（2026-07-07 / 🔒 KP1-X · `scripts/kaleido-e2e.mjs` 安全复核[只读·不改脚本]）
 
 > 恢复令 KP1-X 首项（低优）：对 `scripts/kaleido-e2e.mjs`（service-role 直驱真库的 KALEIDO 状态机 E2E 回归）做三轴安全复核 —— **凭证读取面 / 清理完备性 / 生产表写入面**。方法：三轴 finder 追调用图 + 逐条对抗验证（16 采 → **4 confirmed / 12 rejected**）。**结论：无 high/medium，脚本可继续跑；一处值得修的低危（raid_stats 清理遗漏）+ 两处稳健性建议。均只出意见、不改脚本（E2E 资产 🔧 共管）。**
