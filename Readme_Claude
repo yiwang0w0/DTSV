@@ -44,6 +44,14 @@
 
 **Lore 红线**：六纪元 canon（详见 dtsv-dev skill / `docs/narrative-vision.md`）——泡泡/泡泡壳用语、不解释只描述、机制/叙事双频道隔离、F01-F15 永久可发现不可减。
 
+## 最近变更（2026-07-07 / ⚙️ ⏸ 全轨暂停令停点 —— KP1-S 进度快照）
+
+> Kanata 暂停令：全轨收敛到安全停止位待命。本轨停点 = `ae5a813`（LW-2 已完整推送·工作区干净·无半成品）。
+
+- **已完成（全部上 main·smoke+build 绿·多人局中性）**：D4 evalFormula 变量注入（`b7d7e2a`）→ D2 combatModes 3 模板×bot（`90e8cf3`·🔒 R1 审通过·两 finding 已修 `207e4e9`）→ D1 采样器正式化（`4422cee`·E2E 20/20）→ LW-1 seq5 boss 投放+BOSS_KILL_LIVE=true（`97f3e32`·软锁修复 `6e129c2`·E2E 23/23）→ **LW-2 stance_duel 接 attackNpc（`ae5a813`·待 🧭 E2E 断言联验）**。
+- **下一步（恢复令后）**：LW-3 gauntlet 波次推进层（live-wiring 最后一块）→ D3 mergeGameRules 逐关覆盖 → D5 R3 seed 化 → D6 种子关 12-15 个 + 难度平衡核算（含 🧭 数据点：裸属性玩家 8 拳死于 seq5 boss → 需核 seq1-4 搜刮期望增益 vs boss 强度）。
+- **在途等待**：🧭 E2E 加 stance_duel 断言联验 LW-2；🎨 接 stance UI 协议（已发定稿：`{action:'attackNpc', stance:'atk'|'def'|'skill'}`）。
+
 ## 最近变更（2026-07-06 / 🎨 KP0-C 单人壳 UI 全五件 + KP0-R-C 修复批 C1-C5）
 
 > 🎨 前端轨 KALEIDO 交付汇总（含此前 P1 移动地基）。全部 UI 按 390×844 + 桌面验证、零横向溢出；多人局渲染路径零改动（全部 kaleido 件走 `isKaleido` 条件，false 分支 JSX 逐字节不变）。
