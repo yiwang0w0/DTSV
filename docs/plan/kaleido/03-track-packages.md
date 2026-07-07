@@ -103,3 +103,29 @@
 - **⚙️ D6 改分工**:只做结构 + 校验(含「种子 boss 关缺 combatSetup.enemy 即挡」),文案字段留槽;LW-3/D3/D5 照旧队列。
 - **🎨 增一项**:与 📖 对齐 N3 挂载点(开场叙事位/收敛页叙事位/横幅文案位),接口数据化(props/字段),不接受硬编码文案;1b 三态交互/移动化 P2 照旧。
 - **🔒 无变化**:待触发审 + E2E 脚本复核(低优)。
+
+---
+
+# KP1 派单重切(2026-07-07 · 六会话结构 · Kanata 拍板)
+
+> 职责正本清源(07 顶部横幅 ②③):**🔧 引擎轨**(新)承接全部服务端/状态机/管线代码;**⚙️ 游戏性轨 = 内容与数值设计**(道具/敌人/数值/合成树/物品池,产出以数据为主)。本段取代上文 KP1-S 段的剩余项分配;已完成项(D4/D2/D1/LW-1/LW-2)归档不变。
+
+## 🔧 引擎 —— KP1-E「回落层引擎收尾」(接手原 KP1-S 剩余)
+1. **LW-3 gauntlet 波次推进层**(裁决 C:波次编排在 kaleido 推进层,复用富战斗;live-wiring 最后一块)。
+2. **D3 mergeGameRules 逐关规则覆盖** + 入关 clearRulesCache 调用点(formula_overrides 白名单 damage|defense|crit)。
+3. **D5 R3 收尾**:kaleido 局战斗随机走 run seed 派生 PRNG(多人局不动)。
+4. **E2E 状态机资产共管**:改状态机必跑 `scripts/kaleido-e2e.mjs`(无 service key 则 send 🧭 代跑);LW-2 的 stance_duel 断言由 🧭 补。
+5. 承接 ⚙️/📖 的引擎钩子需求(经 🧭 仲裁)。
+**归属**:`src/lib/server/kaleido/**`、`gameActions.js`(主归属)、combatModes、未来 P2 生成管线。红线:isKaleidoRoom 守卫纪律、多人局零行为变化自证、软锁教训(遭遇/体力/lifecycle 交界逐条推演)。
+
+## ⚙️ 游戏性 —— KP1-G「内容与数值」(新职责首单)
+1. **D6 种子关(结构+数值部分)**:12-15 关的 archetype/exit_condition/event_deck/敌人数值配置(文案槽留给 📖 N4;「boss 关缺 combatSetup.enemy 即挡」的校验需求提给 🔧)。
+2. **难度与平衡核算**:seq1-4 搜刮期望战力增益 vs seq5 boss 强度(实测数据点:裸默认属性 8 次交换死于 boss);产出 = 数值调整方案(npc 数值/掉落权重/难度曲线参数),经 🧭 审后入库。
+3. **kaleido 敌人池与道具池**:npc_pool/item_pool 面向 5 archetype 的内容盘点与补录(敌人梯度/道具功能覆盖:回复/增益/战术)。
+4. **掉落表/物品池设计**:event_deck 权重方案 + 关内搜索掉落经济(玩家资源曲线支撑 boss 战)。
+5. **合成树(kaleido 局内)**:基于现有 item_recipes 引擎设计局内合成链(材料→战术道具),纯数据。
+**产出形态**:一律数据(admin 编辑器或幂等 SQL 经 🧭/🔒 审后入库)+ 数值设计文档(docs/plan/kaleido/ 下);**不动引擎代码**,要钩子找 🔧。
+
+## 其余两轨(恢复令随发)
+- **🎨**:1b 三态出招交互(协议已定 `{action:'attackNpc', stance}`)→ N3 挂载点对齐(📖)→ 移动化 P2。
+- **🔒**:待触发审(🔧 LW-3/D3 落地后)+ E2E 脚本安全复核(低优)。

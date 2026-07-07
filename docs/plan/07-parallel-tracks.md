@@ -1,6 +1,10 @@
 # 07 · 并行开发轨道契约（2026-06-20 · 状态刷新 2026-07-07）
 
-> 🚨 **轨道扩编（2026-07-07 · Kanata 拍板）**:新增 **📖 剧情轨**(会话「DTSV 剧情」·worktree vigilant-maxwell)。**剧情 = 第二主轴**(第一主轴 = 玩法循环),此前 P0/P1 纯机制无叙事属于跑偏,纠正:KALEIDO 静态叙事层从 P3 **提前到 P1**。📖 范围:世界观定位/NAR 声线/run 叙事结构/种子关及内容文案/日志文本域/lore canon 守护;归属文件 `docs/narrative/**` + 内容文案(经 admin/SQL 审后入库),**初期不动代码**,要接口找 🧭。派单见 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) KP1-N 段。
+> 🚨 **轨道扩编 + 职责正本清源（2026-07-07 · Kanata 拍板 · 六会话结构)**:
+> ① 新增 **📖 剧情轨**(「DTSV 剧情」·vigilant-maxwell)。**剧情 = 第二主轴**(第一主轴 = 玩法循环);静态叙事层从 P3 提前进 P1。范围:世界观/NAR 声线/run 叙事结构/内容文案/日志文本域/lore canon 守护;归属 `docs/narrative/**` + 文案字段(经审入库),初期不动代码。
+> ② 新增 **🔧 引擎轨**(「DTSV 引擎」·loving-bose)。范围:服务端/状态机/战斗模板运行时/采样器代码/E2E 状态机资产/将来 P2 生成管线。归属 `src/lib/server/kaleido/**`、`src/lib/server/gameActions.js`(主归属自 🧭 移交)、`src/lib/combatPipeline.js` 等引擎层。
+> ③ **⚙️ 游戏性轨职责纠正**:= **游戏内容与数值设计**(游戏内元素/道具/敌人/各类数值编排/道具合成树/房间物品池/掉落表/平衡校准),产出以**数据**(admin/SQL 经审入库)为主;需要引擎新钩子找 🔧,跨轨仲裁找 🧭。此前把引擎管道活派给 ⚙️ 属职责错位,已止。
+> 派单见 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) KP1 重切段。轨道对应**游戏职能**,不对应代码分层。
 > 🚨 **主线切换（2026-07-06）**:核心主线 = **KALEIDO**(单人 run·AI 生成内容)。三轨当前任务以 [`kaleido/03-track-packages.md`](kaleido/03-track-packages.md) 派单为准(⚙️ KP0-S 服务端核心 / 🎨 KP0-C 单人壳 UI / 🔒 KP0-X 数据层安全);本文件 §2 的旧待办中——🎨 移动化+色板收敛、🔒 phase-52 RLS 扫描**继续有效**,⚙️ P5 payload 瘦身**暂停**,🧭 的 04/05/06 子系统**冻结**。§0 红线、§1 推送协议、§3 热文件矩阵、§4 号段全部照旧;KALEIDO SQL 用独立命名空间 `scripts/kaleido-*.sql`(不占号段)。gameActions.js/roomState.js/constants.js 的 KP0-S 改动已获中控预批。
 
 > 4 个并行子对话：🔒 安全性 / 🧭 主对话（中控·仲裁） / 🎨 前端美化 / ⚙️ 游戏性优化 —— 三个子轨会话已建（worktree：dazzling-knuth / pedantic-maxwell / musing-galileo），待投递 kickoff。
@@ -76,7 +80,7 @@
 
 | 文件 | 主归属 | 其它轨怎么办 |
 |---|---|---|
-| `src/lib/server/gameActions.js` | 🧭 主对话 | 游戏性(perf)/安全(校验) 改动**先报主对话**、小步、推前 rebase |
+| `src/lib/server/gameActions.js` | 🔧 引擎(2026-07-07 自 🧭 移交) | 其它轨改动**先报 🧭 仲裁**、小步、推前 rebase |
 | `src/app/game/[id]/GameClientPage.jsx` | 🎨 前端(布局/样式) | 新动作/新 UI 入口走主对话；前端只动响应式布局 |
 | `Readme_Claude` | 🧭 主对话(头部) | 各轨**只追加自己 track 标签的 dated 段**，不改他轨段落 |
 | `src/app/globals.css` / `src/lib/theme.js` | 🎨 前端 | 其它轨不碰样式 |
