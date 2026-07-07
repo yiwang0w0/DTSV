@@ -3279,6 +3279,24 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
   if (isKaleidoRoom(room)) {
     nextPlayer.turnCount = 0
     resolution.gamevars = { ...resolution.gamevars, bossDefeated: false }
+
+    // KP1 LW-1：boss 关（seq=末关）入关投放 boss 实例 + 自动遭遇 → 玩家 attackNpc 杀之 →
+    //   bossDefeated=true（公共击杀链自动置·gameActions:1831）→ evaluateExitCondition(boss_kill) 判过关。
+    //   双闸：isKaleidoRoom ∧ archetype==='boss'；boss 属性用 D1 采样的 kaleidoEnemy（已按 seq 缩放）、
+    //   npc.level='boss' 保证击杀触发 bossDefeated。多人局/kaleido 非 boss 关不进此分支 → 逐字节零变化。
+    if (nextChamber.archetype === 'boss' && nextChamber.kaleidoEnemy) {
+      const ke = nextChamber.kaleidoEnemy
+      const bossInst = normalizeNpcInstance({
+        npc: { id: ke.npcId ?? null, name: ke.name || '首领', level: 'boss', hp: ke.hp, atk: ke.atk, def: ke.def },
+        hp: ke.hp, maxHp: ke.maxHp ?? ke.hp, mapId: nextChamber.templateId,
+      })
+      resolution.gamevars = {
+        ...resolution.gamevars,
+        npcInstances: [...(resolution.gamevars.npcInstances || []), bossInst],
+      }
+      nextPlayer.encounter = { instanceId: bossInst.id }
+      appendResolutionLog(resolution, `⚠ 首领「${bossInst.npc.name}」挡在前路 —— 击败它才能过关`, 'damage')
+    }
   }
 
   // ── Ω-段倒计时（chamber.omegaWindow > 0 视为 Ω-段，启动倒计时） ──

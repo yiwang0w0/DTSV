@@ -87,10 +87,11 @@ function combatModeFor(arch, seq, levelCount) {
   return { template_ref: 'standard', params, describe: getCombatMode('standard').describe(params) }
 }
 
-// boss_kill 生效开关：live boss **投放**接线前保持 false —— 否则 seq5 boss 关无 boss 可杀 → run 卡死、
-//   E2E「search 清关路径」在 seq5 断（生产上 🎨 入口卡已上线，用户 run 会卡）。boss 投放接好翻 true +
-//   连 kaleido-e2e.mjs 复验（live-wiring 单元一起做）。翻前 boss 关退化为更长 survive_turns（仍 search 可清）。
-export const BOSS_KILL_LIVE = false
+// boss_kill 生效开关：KP1 LW-1 已接 live boss 投放（movePlayer 入关 boss 关生成 boss 实例 + 自动遭遇），
+//   故翻 true —— boss 关 kaleidoExit 出 boss_kill，玩家 attackNpc 杀 boss → bossDefeated → 过关闭环。
+//   ⚠ 翻 true 后 seq5 不再 survive_turns，kaleido-e2e.mjs 的「每关 2+seq」断言在 seq5 需改为「杀 boss」
+//   （由 🧭 主对话在 E2E 加 seq5 boss_kill 断言并重跑，见 LW-1 提交回报）。
+export const BOSS_KILL_LIVE = true
 function exitFor(arch, seq) {
   if (arch.exit === 'boss_kill' && BOSS_KILL_LIVE) return { type: 'boss_kill', params: {} }
   // 全部 survive_turns 统一 2+seq（含 boss 回落）——与 kaleido-e2e.mjs「每关 2+seq」断言一致，保 search 清关 20/20。
