@@ -549,10 +549,18 @@ export function calcEquippedStats(equippedInstances) {
  * @param {object[]} buffPool - 全量 buff 定义（用于施加 buff）
  * @returns {{ attackerUpdated, defenderUpdated, logs: string[] }}
  */
-export function triggerPassives(event, attacker, defender, passiveSkills, buffPool) {
+export function triggerPassives(event, attacker, defender, passiveSkills, buffPool, context = {}) {
   let atkPlayer = { ...attacker }
   let defPlayer = defender ? { ...defender } : null
   const logs = []
+
+  // KALEIDO §3.4 统一注入集补齐（01 §1：triggerPassives 旁路缺 damage 注入，与 combatPipeline 不同步）。
+  //   仅注入 context 中的有限值 → 调用方不传 context ⇒ 无新键 ⇒ effect_formula 求值逐字节不变（Phase 37）；
+  //   传了 damage/turnCount/levelSeq 才让公式可引用（原本引用它们的公式因 scope 缺键被沙箱拒→0，是隐性 bug）。
+  const injected = {}
+  if (Number.isFinite(context.damage)) injected.damage = context.damage
+  if (Number.isFinite(context.turnCount)) injected.turnCount = context.turnCount
+  if (Number.isFinite(context.levelSeq)) injected.levelSeq = context.levelSeq
 
   for (const skill of passiveSkills) {
     if (skill.trigger_event !== event) continue
@@ -572,6 +580,7 @@ export function triggerPassives(event, attacker, defender, passiveSkills, buffPo
       maxHp: atkPlayer.maxHp,
       value: skill.value,
       enemyHp: defPlayer?.hp || 0,
+      ...injected, // damage/turnCount/levelSeq（仅 context 提供的有限值；无则中性）
     })
 
     let logMsg = `${skill.icon} 【${skill.name}】触发！`

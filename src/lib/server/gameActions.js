@@ -1762,6 +1762,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user) {
       { ...instance.npc, hp: instance.hp },
       me._pass || [],
       buffPool,
+      { damage: damageRaw }, // KP1 D4：on_attack 被动可引用本次伤害（旧内容不引用则中性）
     )
     me = meAfterAttack
     appendResolutionLogs(resolution, passiveLogs, 'buff')
@@ -2007,6 +2008,7 @@ async function resolvePlayerAttackAction(client, room, gamevars, user, targetUid
     target,
     me._pass || [],
     buffPool,
+    { damage }, // KP1 D4：on_attack 被动可引用本次 PvP 伤害（旧内容不引用则中性）
   )
   me = meAfterAttack
   if (targetAfterPassive) target = targetAfterPassive
