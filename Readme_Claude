@@ -15,7 +15,7 @@
 - 🧭 **主对话（中控·不做具体开发）**：P0 闸门验收完毕（对抗复审 22 确认/1 推翻 → KP0-R 修复批 → E2E 20/20 过闸）。下一棒:KP1 各轨交付后做 P1 闸门（Kanata 亲测可玩 + 同 seed 回放一致 + bot clear_rate 基线 + R1-R12 定稿）。
 - ⚙️ **游戏性**：**KP1-S 回落层核心** — 采样器正式化（5 archetype·消费 content_pool 种子关·seq5 boss_kill）→ 3 战斗模板×bot（standard/gauntlet/stance_duel）→ mergeGameRules 逐关覆盖 + clearRulesCache 调用点 → evalFormula 变量注入补齐（单独提交）→ R3 seed 化 → 种子关起草 12-15 个。
 - 🎨 **前端**：**KP1-C 模板交互** — stance_duel 三态出招 UI + gauntlet 波次界面 → R6 规则卡接真数据 → 收敛页打磨（预留 P4 图鉴）。移动化 P2（对局页响应式）+ 色板收敛照旧。
-- 🔒 **安全性**：**KP1-X** — resolveTurn 纯函数审（R1）→ **52b 剩余批铺开**（Kanata 已批）→ kaleido-e2e 回归脚本安全复核。KP0-X 五项全关单（schema/beacon/沙箱/密钥/52a+52b 第一批）。
+- 🔒 **安全性**：⏸ **已安全停机（2026-07-07 · 全轨暂停令）**。停点 = **phase-52 全库收官**（51+52a+52b 全批 · 全库「anon/任意登录用户可写内容表」漏洞面清零 · player_points 等玩家数据 owner-read）+ **KP1-X #1 resolveTurn R1 审毕**（R1 通过；另揪出 gauntlet 难度超指数缩放 / crit 负值回血 2 个非 R1 正确性 bug，已报 ⚙️）。工作树净、无在飞改动、RLS 迁移 phase-51~57 保持现状不回滚。**待恢复令**：KP1-X 剩 ①resolveTurn 修复复核（待 ⚙️）②kaleido-e2e 脚本安全复核（低优）。KP0-X 五项全关单。
 
 **铁律（全轨共守 · 详见 plan §0）**：Phase 37 中性（空配置逐值不变）/ 只改 Readme_Claude 不动 Readme_GPT / `scripts/phase-25q-nemesis-pvp-death.sql` 保持 untracked / 一律 `git add <显式路径>` 严禁 `git add -A`（历史上 -A 曾把 `.claude/` 本地配置误提交进仓）/ SQL 幂等·先写后审再经 postgres MCP 执行 / UI 改动连浏览器按手机(≈390×844)+桌面截图验证（/admin 仅 PRIMARY_ADMIN `2949215486@qq.com`·kanata 可见）/ 引用一律 ID 不按名串 / 提交信息中文 + `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` / 推前 `git fetch origin && git rebase origin/main`。
 
