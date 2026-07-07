@@ -1,5 +1,13 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-07(深夜)· KP1-R 队列①:N3 §1.4 十二项对齐自查(对抗验证过)
+
+- 依 🧭 KP1-R 恢复令 📖 队列①:N3 §1 供稿(原 11 条 nar_line)↔ 05 §1.3 十二项 ui_key 清单逐项对齐。
+- **结论:唯一差值 = `convergence`(分类差值非缺口)**——05 §1.3 自标其「不属解锁物」(run 终态常驻页·不经触发浮现),不占 unlock nar_line 槽;其文本已由静态层 §2 收敛页题记 + N2「值班的」末行日志覆盖。已在 [`docs/narrative/kaleido-n3-static-layer.md`](../../docs/narrative/kaleido-n3-static-layer.md) §1 表补第 12 行(标「非解锁物」+ 指针)+ 新增 §1.4 对齐自查小节,12 项 1:1 闭合。
+- **timing=before 两条(hp_bar/rules_card)时序措辞复核 = 通过**,措辞已最优不改(改良好文本有回退风险)。
+- **对抗验证**(两镜头 supplement-sound):折入 4 处 nit/minor 精度澄清(hp_bar/combat_panel 共用 fight_start 事件 · convergence 收敛页双声线 · **abandon 刻意无值班的末行日志**=系统不为逃兵留档 · turn_counter 时机标「暂取」),**零 nar_line 文本改动**。
+- 给下游:convergence 不需解锁触发/持久化接线;abandon 勿按三终态对称落末行日志。队列②(N4 种子关文案)仍等 ⚙️ D6 结构初稿触发;四项 Kanata 挂起决策不阻塞,结局文案维持冻结。
+
 ## 2026-07-07(晚) · N3 交付 + narrative-vision.md 正史修订(中控授权)
 
 - [`docs/narrative/kaleido-n3-static-layer.md`](../../docs/narrative/kaleido-n3-static-layer.md):ui_unlocks 全 11 key 的 nar_line 供稿(值班的声线·05 §1.1 形状)+ 静态挂载点 8 处即用文案 + 「引导者/PI/万华镜」替换表(kaleido 面残留极小:仅入口卡标题,过渡文案「单人 · 往里走」;constants 引导者对白池=多人线资产不动、**kaleido 禁止接线复用**)+ 挂载点作者手册。
