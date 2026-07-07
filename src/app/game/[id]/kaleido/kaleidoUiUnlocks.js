@@ -53,7 +53,8 @@ export const UI_UNLOCK_ENTRIES = {
     // 🔧 06 §1.3 D3（时序法则 blocker 修正）：hp_bar 挂首次 search、非 fight_start——
     //   非战斗死亡向量（污染熔毁/Ω 超时/收缩）可先于 fight_start，故须首个动作即显、早于一切伤害。
     trigger: { verb: 'search', condition: null, timing: 'before' },
-    nar_line: '前面不保证安全。——已开放：状况读数。',
+    // 📖 定稿（D3 首搜挂点后修订·全角·d828c92 → 🧭 同步）；服务端 unlockEvents 覆盖，此为兜底须与正式词一致。
+    nar_line: '你动起来了。往后有损耗，得盯着了。——已开放：状况读数。',
     precedes: ['首次可受伤'],
     note: '时序法则锚点：先于一切伤害/死亡向量（首搜即显）',
   },
