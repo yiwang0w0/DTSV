@@ -62,8 +62,7 @@ INSERT INTO content_pool (entity_type, enabled, payload, provenance) VALUES (
       'enemy', jsonb_build_object('npcId',8,'name','','hp',18,'maxHp',18,'atk',6,'def',2,'level','easy')
     ),
     'event_deck', jsonb_build_array(
-      jsonb_build_object('type','npc_encounter','npc', jsonb_build_object('id',8,'hp',18,'atk',6,'def',2),'weight',3,'once',true,'guaranteed',true),  -- 首遭遇
-      jsonb_build_object('type','item_find','item', jsonb_build_object('id',27),'weight',2,'once',false)                                               -- 战后补给
+      jsonb_build_object('type','item_find','item', jsonb_build_object('id',27),'weight',2,'once',false)  -- 战后补给;首遭遇由 combatSetup.enemy 注入(🔧 裁·不放 npc_encounter 防双刷)
     ),
     'env_rules', '[]'::jsonb,
     'formula_overrides', '[]'::jsonb,

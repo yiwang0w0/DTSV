@@ -51,6 +51,8 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 
 ### 0.4 ⚠ 引擎现状(对抗验证发现 · 2026-07-07):非 boss 内容注入**未接线**
 
+> **【更新 2026-07-08】🔧 已核形状通过 + 正建消费器**(§1.1·`36a17c1`):本节缺口进入解决;定案 = `combatSetup.enemy` 权威注入 + `event_deck` 只 `item_find`。以下为发现时原貌(留档)。
+
 5-lens 对抗验证确认:**payload 字段命名/类型/嵌套全部正确**(sampler 精确消费 archetype/exit_condition/combat_mode/combatSetup.enemy;SQL 幂等+语法无误;安全首战算术**结论**成立)。但发现**一处阻塞级引擎缺口**——运行时 `gameActions.js` 当前**只**消费 boss 关的 combatSetup.enemy(`gameActions.js:3404` `archetype==='boss' && kaleidoEnemy`);**event_deck 与非 boss 的 combatSetup.enemy 无任何运行时读者**:
 
 | 我以为 payload 驱动的 | 实际运行时 | 后果 |
@@ -80,7 +82,7 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 | `move_btn` | 首次 `level_clear` | seq1 exit=survive_turns=3 可达成 | seq1→seq2 |
 | `level_header` | 首次 `move` 后 | seq2 存在 | seq2 |
 | `turn_counter` | 与 level_header 同批 | 同上 | seq2 |
-| `hp_bar` | 首次遭遇建立**前**(timing=before)| **seq2 event_deck 保底 npc_encounter**(首遭遇)| **seq2** |
+| `hp_bar` | 首次遭遇建立**前**(timing=before)| **seq2 combatSetup.enemy 入关注入**(权威首战敌·§1.1)| **seq2** |
 | `combat_panel` | 首次遭遇(安全上演)| 同上 + **敌人弱到必胜**(§0.2 算术保证)| **seq2** |
 | `rules_card`(R6) | 首个带战斗模板关**入关前** | seq2 combat_mode=gauntlet(describe 非空)| seq2 |
 | `stance_ui` | 首个 stance_duel 精英关 | seq3 combat_mode=stance_duel | seq3 |
@@ -94,17 +96,15 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 - **hp_bar(timing=before)**:`fight_start` 在遭遇**建立后**才发射(`route.js:47-55` diff encounter 态)⟹ 与 combat_panel **同批触发,无法严格 before**。修:hp_bar gate 前移到 **seq2 入关时**(movePlayer 入 combat_mode≠standard / combatSetup≠null 的关即解锁,先于首次 attack),combat_panel 仍在遭遇时 → 得真严格序。
 - **combat_panel(安全首战)**:seq1 的 `combatSetup:null` **不阻止**运行时刷怪(chamber id1 `max_npcs=1`,searchArea 可从 live npcPool 建遭遇)⟹ 首遭遇可能误落 seq1、且先于 hp_bar。修:seq1 须**运行时零战斗**(§8 要求:强制 seq1 chamber `max_npcs=0` 且 combatSetup=null 时 searchArea 跳过 npc 分支)。
 
-### 1.1 🔧 钩子 ①(#1 阻塞)—— 非 boss 内容注入运行时消费器
+### 1.1 内容注入消费器(🔧 已核并建 · 形状通过 · 2026-07-08)
 
-验证澄清:这不是"加个 flag",而是**运行时消费 event_deck + 非 boss combatSetup.enemy 的整条通路目前不存在**(§0.4)。`event_deck`/`kaleidoEventDeck` 在 `runs.js` 只被**写入**(`:136`/`:226`),gameActions.js 零读取;非 boss 敌人注入无分支(仅 boss `:3404`)。需要 🔧 建:
+上一稿此处是"缺口/请求";🔧 作为唯一消费方核毕批复(🧭 背书·`36a17c1`):**形状通过**,消费链已验证(`runs.js:178-189` 落 node 字段,boss 分支镜像扩展到 encounter/elite)。**定案的敌人/掉落单一来源**:
 
-> **🔧 钩子 ①(内容注入消费器)**:kaleido 局进关/搜索解算时,**排空当前关 `level.payload.event_deck`**:
-> 1. `item_find` + `guaranteed:true` → **定向**投放该 `item.id`(非加权随机;绕过 roll/出现率门),`once` 用尽即止;
-> 2. `npc_encounter` + `guaranteed:true` → 用条目内嵌 `npc.{id,hp,atk,def}` **强制建立遭遇**(非从多人 npc_pool 随机),供首战用手写弱敌;
-> 3. 非 boss 战斗关的 `combatSetup.enemy` 注入 —— 镜像 boss 分支 `gameActions.js:3404` 到 encounter/elite;
-> 4. `guaranteed` 排空后,剩余非保底条目 + 空位再回落现有随机 spawn。
+> - **`combatSetup.enemy` = 权威 per-chamber 战斗敌**:入关注入(镜像 boss `:3404` 分支到 encounter/elite;gauntlet 用作 wave-1 base)。手写 kaleido 数值绕过多人池 → 首战/精英/boss 敌全走此。
+> - **`event_deck` = 只消费 `item_find`**(`guaranteed:true` → **定向**投放 `item.id`,绕过随机 roll/出现率门,`once` 用尽即止)。**不放 `npc_encounter`**(🔧 裁定:与 combatSetup.enemy 重复 → 双刷;已从 seq2/3/5 移除)。
+> - craft 材料判据 = 运行时读 `item_pool.kind`(payload 不加字段);`enabled` 过滤已在 `runs.js:2615`(`.eq('enabled',true)`)→ 本轨 enabled=false 行受 gate。
 >
-> **这是 05 §1.3 渐进披露 + 07 seq1-2 onboarding 的硬前置**;无它,种子关 = 惰性数据,首个 run 降级随机多人刷怪(既非投放下限也非安全首战)。属 🔧 KP1-E,建议排在 ui_unlocks 引擎**同批或之前**(ui_unlocks 的解锁事件依赖这些内容真发生)。
+> ∴ seq1-4 首道具/首配方材料靠 event_deck `item_find` guaranteed 投放;首遭遇靠 combatSetup.enemy 入关注入。属 🔧 KP1-E(与 ui_unlocks 同批,解锁事件依赖内容真发生)。
 
 ---
 
@@ -161,11 +161,10 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
     },
     "combatSetup": {
       "enemy": { "npcId": 8, "name": "", "hp": 18, "maxHp": 18, "atk": 6, "def": 2, "level": "easy" }
-      // ↑ npcId=8 仅供身份/名称回落(残响低语);hp/atk/def 为 kaleido 手写弱化值(name 留空 → 📖 N4 或引擎回落 npc_pool.name)
+      // ↑ 权威首战敌(入关注入·→hp_bar/combat_panel)。npcId=8 仅记来源;name 留空由 📖 N4 填(🔧 证:空名不回落 npc_pool.name·定向注入永不读它)
     },
     "event_deck": [
-      { "type": "npc_encounter", "npc": { "id": 8, "hp": 18, "atk": 6, "def": 2 }, "weight": 3, "once": true, "guaranteed": true },  // 首遭遇 → hp_bar/combat_panel
-      { "type": "item_find", "item": { "id": 27 }, "weight": 2, "once": false }  // 战后补给(非保底)
+      { "type": "item_find", "item": { "id": 27 }, "weight": 2, "once": false }  // 战后补给(非保底);首遭遇由 combatSetup.enemy 注入,不放 npc_encounter(🔧 裁·防双刷)
     ],
     "env_rules": [], "formula_overrides": [],
     "difficulty_band": { "target_clear_rate": [0.9, 1.0] },
@@ -219,8 +218,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "combat_mode": { "template_ref": "stance_duel", "params": { "counterMul": 1.6, "atkMul": 1, "defMul": 0.5 }, "describe": "" },
     "combatSetup": { "enemy": { "npcId": 9, "name": "", "hp": 85, "maxHp": 85, "atk": 14, "def": 4, "level": "medium" } },
     "event_deck": [
-      { "type": "npc_encounter", "npc": { "id": 9, "hp": 85, "atk": 14, "def": 4 }, "weight": 3, "once": true, "guaranteed": true },  // stance 决斗
-      { "type": "item_find", "item": { "id": 24 }, "weight": 2, "once": false }   // 少量补给(kaleido 值待 ③④)
+      { "type": "item_find", "item": { "id": 24 }, "weight": 2, "once": false }   // 少量补给(kaleido 值待 ③④);stance 决斗敌由 combatSetup.enemy 注入
     ],
     "env_rules": [], "formula_overrides": [],
     "difficulty_band": { "target_clear_rate": [0.7, 0.85] },
@@ -264,9 +262,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
     "exit_condition": { "type": "boss_kill", "params": {} },
     "combat_mode": { "template_ref": "standard", "params": {}, "describe": "" },
     "combatSetup": { "enemy": { "npcId": 10, "name": "", "hp": 260, "maxHp": 260, "atk": 34, "def": 8, "level": "boss" } },  // 08 §2 富路径终值
-    "event_deck": [
-      { "type": "npc_encounter", "npc": { "id": 10, "hp": 260, "atk": 34, "def": 8 }, "weight": 3, "once": true, "guaranteed": true }
-    ],
+    "event_deck": [],   // 空:boss 由 combatSetup.enemy 走 :3404 分支注入;boss 关不掉道具(不放 item_find)
     "env_rules": [], "formula_overrides": [],
     "difficulty_band": { "target_clear_rate": [0.7, 0.85] },   // prepared 74-86%;不足者→0(08 §2)
     "chamber_ref": { "template_id": 24, "template_key": "omega_milestone_1" },
@@ -295,7 +291,7 @@ gauntlet waves=2 · enemyScale=1.15 · waveHeal=15 · 玩家 hp100/atk10/def5:
 > **🔧 钩子 ③**:种子关入库校验(admin 保存 / SQL 审 / sampler 消费任一处)须挡下:
 > `payload.exit_condition.type === 'boss_kill'` **且** (`payload.combatSetup?.enemy` 缺失 **或** `enemy.hp/atk/def` 任一非正) ⟹ **拒绝该关**(boss_kill 无 boss 实体 = 不可满足的过关条件 = 死关)。
 > 建议校验点:content_pool 写入侧(admin schema 校验 + SQL 审 checklist)+ sampler 消费侧兜底(命中 boss_kill 种子关但无 enemy → 回落 `combatModeFor`/`scaleEnemy` 而非放行空 boss)。
-> 附带建议校验:`event_deck[].item.id` / `.npc.id` 引用存在性(查 item_pool/npc_pool),`combat_mode.template_ref ∈ {standard,gauntlet,stance_duel}`,`archetype ∈ 5 类`。
+> 附带建议校验:`event_deck[].item.id` + `combatSetup.enemy.npcId` 引用存在性(查 item_pool/npc_pool),`combat_mode.template_ref ∈ {standard,gauntlet,stance_duel}`,`archetype ∈ 5 类`。
 
 ---
 
