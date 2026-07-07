@@ -4,6 +4,7 @@
 // 覆盖:① 门禁负测试(未过关 move 必拒) ② 幂等(二次 start 同 id) ③ 通关 run 全链
 //      ④ 死亡收敛(runs→dead·death 事件恰一次) ⑤ 断言前置(清理前查库) ⑥ 自清理
 // 语义注记:入关 turnCount 重置后,进关的 move 本身计为新关第 1 回合(02 §2.2 move=消耗动词)。
+// LW-1(97f3e32)后:seq5=boss_kill —— 入关自动遭遇 boss,attackNpc 磨死(公共击杀链置 bossDefeated)过关。
 // 前置:仓库根 .env.local 含 NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY(vercel env pull 可得)。
 // 跑:仓库根建临时 tsconfig(paths @/*→src/*) · npx tsx scripts/kaleido-e2e.mjs · 每次改 kaleido 状态机后必跑
 // ─────────────────────────────────────────────────────────────────
@@ -71,12 +72,20 @@ try {
   let room = await getRoom(roomId)
   const perLevel = []
   for (let seq = 1; seq <= 5; seq++) {
-    let searches = 0, trace = []
-    while (clearedSeq(room) < seq && searches < 25) {
-      room = await act(u, roomId, 'search'); searches++
-      if (seq === 1) trace.push(turnsOf(room, u.id))
+    let searches = 0, attacks = 0, trace = []
+    if (seq < 5) {
+      while (clearedSeq(room) < seq && searches < 25) {
+        room = await act(u, roomId, 'search'); searches++
+        if (seq === 1) trace.push(turnsOf(room, u.id))
+      }
+    } else {
+      // LW-1:seq5 boss_kill —— 入关已自动遭遇 boss,attackNpc 磨死;玩家阵亡则跳出(断言兜底)
+      while (clearedSeq(room) < seq && attacks < 30) {
+        room = await act(u, roomId, 'attackNpc'); attacks++
+        if (room?.gamevars?.players?.[u.id]?.alive === false) break
+      }
     }
-    perLevel.push({ seq, searches, clearedSeq: clearedSeq(room), curSeq: curSeq(room), turnsAfterClear: turnsOf(room, u.id), trace: seq === 1 ? trace : undefined })
+    perLevel.push({ seq, searches, attacks, clearedSeq: clearedSeq(room), curSeq: curSeq(room), turnsAfterClear: turnsOf(room, u.id), trace: seq === 1 ? trace : undefined })
     if (clearedSeq(room) < seq) break
     if (seq < 5) {
       room = await act(u, roomId, 'move')
@@ -85,8 +94,10 @@ try {
   }
   out.perLevel = perLevel
   ck('通关:clearedSeq 达 5', clearedSeq(room) === 5)
-  ck('通关:每关 search 次数符合 survive_turns(首关 2+seq·后续 1+seq,进关 move 占 1 回合)', perLevel.every((l) => l.searches === (l.seq === 1 ? 2 + l.seq : 1 + l.seq)), JSON.stringify(perLevel.map((l) => l.searches)))
-  ck('回合语义:过关不清零(留本关计数)', perLevel.every((l) => l.turnsAfterClear === 2 + l.seq), JSON.stringify(perLevel.map((l) => l.turnsAfterClear)))
+  ck('通关:seq1-4 search 次数符合 survive_turns(首关 2+seq·后续 1+seq,进关 move 占 1 回合)', perLevel.filter((l) => l.seq < 5).every((l) => l.searches === (l.seq === 1 ? 2 + l.seq : 1 + l.seq)), JSON.stringify(perLevel.map((l) => l.searches)))
+  ck('回合语义:seq1-4 过关不清零(留本关计数)', perLevel.filter((l) => l.seq < 5).every((l) => l.turnsAfterClear === 2 + l.seq), JSON.stringify(perLevel.map((l) => l.turnsAfterClear)))
+  ck('LW-1:seq5 attackNpc 磨死 boss 过关且存活', (perLevel[4]?.attacks ?? 0) >= 1 && clearedSeq(room) === 5 && room?.gamevars?.players?.[u.id]?.alive === true, JSON.stringify(perLevel[4]))
+  ck('LW-1:bossDefeated=true(boss_kill 判定源)', room?.gamevars?.bossDefeated === true, String(room?.gamevars?.bossDefeated))
   const rr = await getRoom(roomId)
   ck('通关:房间收房 gamestate=2', rr?.gamestate === 2, rr?.gamestate)
   ck('通关:endingResult=kaleido_clear', rr?.gamevars?.endingResult?.key === 'kaleido_clear', rr?.gamevars?.endingResult?.key)
@@ -102,6 +113,8 @@ try {
   out.clearHist = hist
   const searchesDriven = perLevel.reduce((n, l) => n + l.searches, 0)
   ck('events:search 事件与驱动侧逐条对账', (hist.search || 0) === searchesDriven, JSON.stringify({ hist, searchesDriven }))
+  const attacksDriven = perLevel.reduce((n, l) => n + (l.attacks || 0), 0)
+  ck('events:attack 事件与驱动侧逐条对账(LW-1)', (hist.attack || 0) === attacksDriven, JSON.stringify({ hist, attacksDriven }))
   ck('events:level_clear 恰 5 条', hist.level_clear === 5, hist.level_clear)
   const lcSeqs = (evs || []).filter((e) => e.verb === 'level_clear').map((e) => e.level_seq).sort()
   ck('events:level_clear 的 level_seq=1..5(口径正确)', JSON.stringify(lcSeqs) === JSON.stringify([1, 2, 3, 4, 5]), JSON.stringify(lcSeqs))
