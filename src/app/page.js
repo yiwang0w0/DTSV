@@ -20,10 +20,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
 import {
-  ENTITY_TYPE_META,
   LOADOUT_SLOT_META,
   LOADOUT_SLOTS,
-  POLLUTION_TIER_META,
 } from '@/lib/constants'
 
 // FX 组件动态导入：避免 SSR 试图初始化 WebGL / Canvas
@@ -43,14 +41,6 @@ const C = {
   yellow: '#d29922',
   purple: '#bc8cff',
   orange: '#f0883e',
-}
-
-function pollutionTier(env) {
-  if (env >= 100) return 'meltdown'
-  if (env >= 80)  return 'severe'
-  if (env >= 60)  return 'moderate'
-  if (env >= 40)  return 'mild'
-  return 'none'
 }
 
 export default function Home() {
@@ -96,9 +86,7 @@ export default function Home() {
   return (
     <div className="animate-in" style={{ paddingBottom: 40 }}>
       <HeroSection user={user} envPollution={envPollution} snapshot={snapshot} />
-      <RaidSnapshotCard snapshot={snapshot} />
       {user && meStats && <PersonalStatsCard meStats={meStats} />}
-      <EntitiesPreview />
       <LoadoutPreview />
       <Footer />
     </div>
@@ -194,55 +182,6 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
   )
 }
 
-// ── 当前对局快照 ──────────────────────────────────
-function RaidSnapshotCard({ snapshot }) {
-  if (!snapshot) {
-    return (
-      <div style={sectionCard}>
-        <SectionHeader title="🌌 当前虚拟空间" subtitle="对局状态" />
-        <div style={{ padding: '24px 0', textAlign: 'center', color: C.dim2, fontSize: 13 }}>
-          系统正在重新部署虚拟空间实例，下一局对局即将就绪
-        </div>
-      </div>
-    )
-  }
-  const env = snapshot.gamevars?.envPollution || 0
-  const tier = pollutionTier(env)
-  const tierMeta = POLLUTION_TIER_META[tier]
-  const turn = snapshot.gamevars?.turn || 0
-  const players = Object.values(snapshot.gamevars?.players || {})
-  const extracted = players.filter(p => p?.extracted).length
-  const isActive = snapshot.gamestate === 1
-
-  return (
-    <Link href={`/game/${snapshot.id}`} style={{ textDecoration: 'none' }}>
-      <div style={{ ...sectionCard, cursor: 'pointer', transition: 'border-color .2s' }}
-           className="hov-card">
-        <SectionHeader
-          title={`🌌 虚拟空间实例 #${snapshot.gamenum || snapshot.id}`}
-          subtitle={isActive ? '进行中' : '等待集结'}
-          right={<span style={{ fontSize: 11, color: C.accent }}>查看详情 →</span>}
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
-          <Stat label="在场" value={snapshot.alivenum || 0} color={C.text} />
-          <Stat label="已撤离" value={extracted} color={C.green} />
-          <Stat label="阵亡" value={snapshot.deathnum || 0} color={C.red} />
-          <Stat label="对局" value={turn} color={C.dim} />
-        </div>
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-            <span style={{ color: C.dim }}>污染度 · {tierMeta?.label}</span>
-            <span style={{ color: tierMeta?.color, fontFamily: 'monospace', fontWeight: 700 }}>{env}%</span>
-          </div>
-          <div style={{ height: 6, borderRadius: 3, background: C.bg2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${env}%`, background: tierMeta?.color, transition: 'width .3s' }} />
-          </div>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
 // ── 个人简报（已登录） ─────────────────────────────
 function PersonalStatsCard({ meStats }) {
   return (
@@ -257,45 +196,6 @@ function PersonalStatsCard({ meStats }) {
       </div>
       <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/stash" style={miniLink}>🎒 查看账户库</Link>
-      </div>
-    </div>
-  )
-}
-
-// ── 4 类实体预览 ──────────────────────────────────
-function EntitiesPreview() {
-  const ENTITIES = [
-    { key: 'remnant',     desc: '空间内的残响实体。主动搜查目标，周期性撤回深处。', subTag: '敌对' },
-    { key: 'infiltrator', desc: '伪造身份潜入虚拟空间。隐蔽攻击，识别失败可致命。', subTag: '敌对' },
-    { key: 'symbiote',    desc: '驻守关键节点。可交易：环段部件 ↔ Ω物质。', subTag: '可交易' },
-    { key: 'observer',    desc: '只记录、不直接对抗。可换取深层路径情报。', subTag: '可交易' },
-  ]
-  return (
-    <div style={sectionCard}>
-      <SectionHeader title="🌐 4 类空间实体" subtitle="实体档案" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
-        {ENTITIES.map(e => {
-          const meta = ENTITY_TYPE_META[e.key]
-          return (
-            <div key={e.key} style={{
-              padding: '14px 14px 14px 16px',
-              borderRadius: 10,
-              background: C.bg2,
-              border: `1px solid ${meta.color}30`,
-              borderLeft: `3px solid ${meta.color}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{meta.label}</span>
-                <span style={{
-                  marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 6,
-                  background: `${meta.color}18`, color: meta.color, border: `1px solid ${meta.color}40`,
-                }}>{e.subTag}</span>
-              </div>
-              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7 }}>{e.desc}</div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )
