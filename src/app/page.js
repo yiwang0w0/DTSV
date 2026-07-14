@@ -28,7 +28,6 @@ import {
 
 // FX 组件动态导入：避免 SSR 试图初始化 WebGL / Canvas
 const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
-const ParticleText = dynamic(() => import('@/components/fx/ParticleText'), { ssr: false })
 
 const C = {
   bg0:    '#0e1117',
@@ -139,52 +138,23 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
   return (
     <div style={{
       position: 'relative', overflow: 'hidden', isolation: 'isolate',
-      padding: '80px 28px 70px',
-      borderRadius: 20, marginBottom: 28, minHeight: 460,
+      padding: '28px',
+      borderRadius: 20, marginBottom: 28, minHeight: 520,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       border: `1px solid ${C.border}`,
       background: C.bg0, // shader 加载/兜底前的底色
     }}>
-      {/* WebGL 着色器层（污染场 - fbm 域扭曲；intensity 0.85 让前景文字更清晰） */}
+      {/* WebGL 着色器层（污染场 - fbm 域扭曲） */}
       <Shader name="pollution_field" pollution={envPollution / 100} intensity={0.85} />
 
-      {/* 暗角遮罩，让中央文字更清晰 */}
+      {/* 暗角遮罩，让中央入口更聚焦 */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
         background: 'radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, rgba(14,17,23,0.55) 100%)',
       }} />
 
-      <div style={{ position: 'relative', zIndex: 2, maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, color: C.purple, letterSpacing: 4, marginBottom: 14, fontWeight: 600 }}>
-          虚拟空间 · 搜寻撤离
-        </div>
-
-        {/* 标题文字粒子（decode：字符在符号池中乱滚后定格） */}
-        <div style={{ marginBottom: 8 }}>
-          <ParticleText
-            text="远星函馆"
-            mode="decode"
-            pollution={envPollution / 100}
-            color={C.purple}
-            accent={C.accent}
-            size={48}
-            weight={800}
-            letterSpacing={2}
-          />
-        </div>
-        <div style={{ fontSize: 14, color: C.dim, marginBottom: 28, fontFamily: 'monospace' }}>
-          虚拟空间 · 搜寻撤离协议 · v1.0
-        </div>
-
-        <p style={{
-          fontSize: 14, color: C.dim, lineHeight: 1.9, marginBottom: 36,
-          maxWidth: 560, margin: '0 auto 36px',
-        }}>
-          进入随机生成的虚拟空间实例，在扇区间穿行、收集物资、规避收缩边界。
-          完成 <span style={{ color: C.accent }}>搜寻 / 对抗 / 撤离</span>，
-          带着战利品安全离场，决定这一局的走向——
-          <span style={{ color: C.purple }}>崩解 / 清算 / 合流 / 探索</span>。
-        </p>
-
+      {/* 神秘感首屏：只留入口，不解释、不署名 */}
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {user ? (
             <button
