@@ -1,5 +1,14 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-08 · 🎨 色板收敛(对局簇) + 首页重构派单①
+
+- **色板收敛**（🧭 派单·纯 token 提取零视觉变化·仅精确值匹配才换·dev 计算色抽查证零视觉）：
+  - 批次1 pilot（`a24c0e4`）：kaleido 子目录裸 hex→T token（stance 颜色/克制表/灰）；dev 抽查 stance 按钮计算色==原 hex 逐字节一致。
+  - 批次2 对局簇（`b502589`）：gameUi 补 `bg4=THEME.panel3`/`dim3=THEME.dim3` 别名（🧭 裁·单一色源=T）；GameClientPage `CHAMBER_TYPE_META` 5 色→T；**CraftModal/ItemCraftModal 经 Workflow(转换+对抗 verify 双 PASS)** 全部映射 hex→T（模板字面量/alpha 后缀正确处理）。对局簇色板收敛基本完成，剩 admin 簇(31 文件·低优)。
+  - **遗留色 backlog**（🧭 裁·出纯提取范围·需 Kanata 过目）：#c9d1d9/#ff8c42/gameUi 体力条 #00d4ff·#26c6da·#ff4455（视觉特调·改值=改观感）。
+- **首页重构派单①**（`bcc93e0`）：新协作模式(Kanata 看 localhost 描述→🧭 转派→我推 main→🧭 同步 Kanata worktree)。`src/app/page.js` 归我主改（🧭 已过渡改 Hero=极简入口 `9746ba8`）。删 `RaidSnapshotCard`+`EntitiesPreview` 两块渲染+定义+连带死码(pollutionTier/2 import)；保留 HeroSection/PersonalStatsCard/LoadoutPreview/Footer；纯删除 100 行·登录态零变化·build+smoke 过。视觉终验在 Kanata localhost(端口 3000=其 dev)。
+- **教训**（🧭 嘱记·已入 memory）：`Edit replace_all` 跨不同缩进的重复串会静默漏命中(P3-A 多人根曾漏)→多处同改用逐处显式 Edit + grep 计数核验。
+
 ## 2026-07-08 · 🎨 移动化 P3 对局页全屏化 + 模态窄屏适配
 
 > 🧭 派单 P3（P2 桌面线上复核 PASS 后）。两件打包：① 对局页移动端全屏（逃逸 RootShell chrome·拿回 ~110px）② 模态窄屏适配。红线：桌面/多人零变化·kaleido 与多人两路径都验。
