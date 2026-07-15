@@ -11,7 +11,8 @@
   - **推进层重锁泛化**(advanceKaleidoProgress `:2734` boss 重锁扩到 `node.kaleidoEnemy && mode≠stance_duel && !encounter`·find by `mapId===templateId && hp>0`·usedChambers 保唯一无碰撞·stance_duel 由 LW-2 lock-until-death 自管排除)→ 弱敌可打完不遗弃半血。
   - **hook⑥ `validateSeedLevel`**(runs.js·非致命 warn):boss_kill 缺敌 / guaranteed 超预算(#guaranteed ≤ survive_turns−(非首关 1))。`.eq('enabled',true)` 确认已在 `:2616`。
 - **验证 E2E 36/36**(30 回归零破 + §③ 6 新)：§③ 临时点亮 d6-seq1/2(id 2,3)→ 实测 guaranteed 硬保证(seq1 背包+2=id27+id13)/ seq1 零战斗(无 fight_start·attack@seq1)/ consumedEventDeck 记录 → finally 恢复 enabled=false;postgres MCP 查证五关全 false 无残留。build ✓ 绿。多人局中性(全 isKaleidoRoom 门·回归 boss_kill 链不破)。
-- **交接 🧭**：已报 → 🧭 将永久 UPDATE seq1-2 enabled=true → 🎨 AVG 壳接真内容。撤=收敛(extractPlayer 保持 throw·Kanata 拍板)。
+- **交接 🧭**：seq1-2 已永久 enabled=true(🧭)→ 启用态复跑 E2E 36/36 四点全过(search 计数对齐/guaranteed 活流成立/seq1 零战斗/boss_kill 不破)。**自查修 `fa4fb2e`**:§③ finally 硬编码 enabled=false 会覆盖永久态 → 改「捕获原 enabled 逐 id 还原」(postgres 查证 seq1-2 仍 true)。撤=收敛(extractPlayer 保持 throw·Kanata 拍板)。
+- **✅ craft_btn 接通（`aed7b6c`·E2E 38/38·🧭 信号·排 LW-3 前）**：AVG 链「搜→物品→物品栏→合成」完整。口径查证 recipe 表全空 → 按 kind 判材料:`CRAFT_MATERIAL_KINDS=[tech_fragment,platform_part,omega_matter]`(id13/id14=tech_fragment)。hook① drain 搜到材料置 `player.hasCraftMat`(单调);`craftMatGained = after∧!before`(首获材料转变)→ craft_btn 解锁一次。实测 seq1:搜1→log/inventory/hp·搜2→**craft_btn**·清关→move。
 - **hook① 后队列**：LW-3 gauntlet 波次(seq2 现单敌·relock 已为波次编排铺底)/ D3 mergeGameRules / D5 seed 化。
 
 ## 研究简报（2026-07-08 / 🔧 · ui_unlocks 支撑 AVG 渐进披露引擎可行性 —— 🧭 命题·已 send）
