@@ -219,6 +219,34 @@ finally {
   if (seed12.length) console.log('SEED_RESTORED ' + JSON.stringify(seedOrig))
 }
 
+// ═══ ④ LW-3 gauntlet 波次(seq2·07 双波·attack 打穿)═══
+//   seq2 永久 enabled = 种子 gauntlet 关(waves=2)。清 seq1 → 进 seq2 → 注高属隔离 → 杀 wave-1 → 断言 wave-2 生成。
+try {
+  const u = mkUser('gauntlet'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  let s = 0
+  while (clearedSeq(room) < 1 && s < 12) { room = await act(u, roomId, 'search'); s++ } // 清 seq1(survive_turns=3)
+  room = await act(u, roomId, 'move') // 进 seq2
+  const node1 = room?.gamevars?.raidPath?.[1]
+  ck('LW-3:seq2=gauntlet·waves≥2', node1?.kaleidoMode?.template_ref === 'gauntlet' && (Number(node1?.kaleidoMode?.params?.waves) || 0) >= 2, JSON.stringify(node1?.kaleidoMode?.params))
+  const me2 = room?.gamevars?.players?.[u.id]
+  const wave1Id = me2?.encounter?.instanceId
+  ck('LW-3:入 seq2 遭遇 wave-1 + gauntletWave=1', !!wave1Id && me2?.gauntletWave === 1, JSON.stringify({ enc: !!wave1Id, wave: me2?.gauntletWave }))
+  // 注入高属性隔离波次机制(同 seq5 boss 口径)：wave-1 一击死 → 观察 wave-2 推进层生成
+  { const { data: rG } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    const p = rG.gamevars.players[u.id]; p.atk = 200; p.hp = 8000; p.maxHp = 8000
+    await sb.from('rooms').update({ gamevars: rG.gamevars }).eq('id', roomId) }
+  room = await act(u, roomId, 'attackNpc') // 杀 wave-1 → 推进层生成 wave-2
+  const meW2 = room?.gamevars?.players?.[u.id]
+  const w2Id = meW2?.encounter?.instanceId
+  ck('LW-3:wave-1 死后生成 wave-2(gauntletWave=2·新实例·encounter 重锁)', meW2?.gauntletWave === 2 && !!w2Id && w2Id !== wave1Id, JSON.stringify({ wave: meW2?.gauntletWave, newInst: w2Id !== wave1Id }))
+  const w2inst = (room?.gamevars?.npcInstances || []).find((i) => i.id === w2Id)
+  ck('LW-3:wave-2 缩放(maxHp > wave-1 base 18·enemyScale)', (w2inst?.maxHp ?? 0) > 18, JSON.stringify({ w2maxHp: w2inst?.maxHp }))
+  ck('LW-3:wave-1 实例已死(无活 wave-1)', !(room?.gamevars?.npcInstances || []).some((i) => i.id === wave1Id && i.hp > 0), 'w1 dead')
+} catch (e) { ck('LW-3 gauntlet 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
 console.log('E2E_ASSERTIONS=' + JSON.stringify(A, null, 1))

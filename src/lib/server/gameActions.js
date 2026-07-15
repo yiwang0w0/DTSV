@@ -2771,11 +2771,40 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     //   **排除 stance_duel(elite)**:LW-2 resolveStanceDuelAttack 自管 encounter(lock-until-death),不走 step5 清,勿重锁。
     //   实例按 mapId 定位安全:sampleRun usedChambers 保证一 run 内 templateId 不重用 → 无跨关碰撞。
     //   每消耗性动作后必经 → 拳后自动重锁 + 自愈存量软锁 run。多人局函数顶 isKaleidoRoom 早退 → 零变化。
+    let spawnedWaveInst = null // LW-3：本动作生成的下一波实例（加进 nextGamevars.npcInstances）
     if (node?.kaleidoEnemy && node?.kaleidoMode?.template_ref !== 'stance_duel' && !nextMe.encounter) {
       const inst = (gamevars.npcInstances || []).find(
         (i) => i && i.hp > 0 && i.mapId === node.templateId,
       )
-      if (inst) nextMe.encounter = { instanceId: inst.id }
+      if (inst) {
+        nextMe.encounter = { instanceId: inst.id } // 活实例 → 重锁（单敌 / 未死波）
+      } else if (node?.kaleidoMode?.template_ref === 'gauntlet') {
+        // LW-3（裁决 C·07 seq2 首战完整性）：gauntlet 当前波敌已死（无活实例）∧ 还有波次 → 推进层生成下一波。
+        //   波敌从 node.kaleidoEnemy（wave-1 base）按 enemyScale^(wave-1) 缩放（同 combatModes gauntlet 离线 sim 口径）；
+        //   波间小恢复 waveHeal（clamp maxHp·续航跨波·07 §3.1 安全首战算术依赖）。走富战斗路径（attackNpc 现有富路径打之）。
+        //   exit 仍是 survive_turns（波次=战斗内容·非过关门）；末波死后无活实例 → 不再生成 → 搜索/survive_turns 收关。
+        const params = node.kaleidoMode?.params || {}
+        const wavesTotal = Math.max(1, Math.floor(Number(params.waves) || 1))
+        const curWave = nextMe.gauntletWave ?? 1
+        if (curWave < wavesTotal) {
+          const base = node.kaleidoEnemy
+          const nextWave = curWave + 1
+          const mul = Math.pow(Number(params.enemyScale) || 1.15, nextWave - 1)
+          const wHp = Math.max(1, Math.floor((Number(base.hp) || 1) * mul))
+          spawnedWaveInst = normalizeNpcInstance({
+            npc: {
+              id: base.npcId ?? null, name: base.name || '敌影', level: base.level || 'easy',
+              hp: wHp, atk: Math.max(0, Math.floor((Number(base.atk) || 0) * mul)), def: Number(base.def) || 0,
+            },
+            hp: wHp, maxHp: wHp, mapId: node.templateId,
+          })
+          nextMe.encounter = { instanceId: spawnedWaveInst.id }
+          nextMe.gauntletWave = nextWave
+          const heal = Number(params.waveHeal) || 0
+          if (heal > 0) nextMe.hp = Math.min(nextMe.maxHp || 100, (nextMe.hp || 0) + heal)
+          logs.push(createLogEntry(`⚠ 下一波袭来（第 ${nextWave}/${wavesTotal} 波）`, 'damage'))
+        }
+      }
     }
 
     if (node?.kaleidoExit && (kal.clearedSeq ?? 0) < seq
@@ -2795,6 +2824,8 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     const nextGamevars = {
       ...gamevars,
       players: { ...gamevars.players, [user.id]: nextMe },
+      // LW-3：本动作生成的下一波实例并入 npcInstances（供 attackNpc 富战斗打之）
+      ...(spawnedWaveInst ? { npcInstances: [...(gamevars.npcInstances || []), spawnedWaveInst] } : {}),
       kaleido: nextKal,
       // 通关 → 写 endingResult 触发 applyRoomLifecycle 通用收房分支（gamestate=2）
       ...(converged ? { endingResult: { key: 'kaleido_clear', name: '万华镜 · 通关', bannerText: `${KALEIDO.LEVEL_COUNT} 关全数达成。` } } : {}),
@@ -3539,6 +3570,7 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
         npcInstances: [...(resolution.gamevars.npcInstances || []), inst],
       }
       nextPlayer.encounter = { instanceId: inst.id }
+      nextPlayer.gauntletWave = 1 // LW-3：入关重置波次计数（gauntlet 关波次从 1 起；非 gauntlet 关不读此字段·无害）
       appendResolutionLog(resolution, isBoss
         ? `⚠ 首领「${inst.npc.name}」挡在前路 —— 击败它才能过关`
         : `⚠ 遭遇「${inst.npc.name}」`, 'damage')
