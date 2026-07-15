@@ -37,3 +37,33 @@
 - `/play` 中转页(useAuth 守卫 → /api/kaleido/run → router.replace)+ login/register 跳转改(1 行)。
 - **风险**(🔧 标):①**勿挂 RootShell onAuthStateChange**(token 刷新/切 tab 都 fire → 会从 admin/stash/多人页强拽进 run·砸全站)——redirect 须登录成功一次性 or /play 专页;②Supabase session 客户端态无 middleware;③留多人/admin 逃生入口。
 - **多人 BR 去留** = 待 Kanata(登录直进 KALEIDO 后,多人还留不留入口)。
+
+---
+
+## 4. B4 披露后移设计(⚙️ · 治倒挂曲线 + 后半崩塌)
+
+> 依据 `research-avg-disclosure-integrity.md` §4 最高杠杆修法(Kanata 采纳·B4)。**设计文档·不入库**。
+> **核心原则**:把披露预算从前段挪一部分到**后段(seq4-5)**,且**每个后段披露绑到一个准备度兑现瞬间**——让"UI 长出来"的新鲜感与机制深度**重合**(治倒挂曲线),同时后半不再零新 UI(治崩塌)。
+> **适用范围**:**全量 run(seq4-5)**,非 seq1-2 垂直切片(切片到不了 seq4)。切片先验"感觉对不对";此 3 件随全量实现。
+
+### 4.1 三个后段披露(新增 ui_key · 绑准备度兑现)
+
+| ui_key | 触发(动词/信号)| timing | 兑现瞬间(绑什么)| 呈现(玩家看到)|
+|---|---|---|---|---|
+| **`loadout_panel`** 整备面板 | 首次 craft 成功 **或** 首次用持久 stat 件(seq4)| after | **搜刮/合成变实力**的那一刻 | 累积战力(atk/def/maxHp 增量·药量)+ 合成产出 —— 让 seq4 备战窗口**看得见进度**(现 seq4 零新 UI)|
+| **`prep_readout`** 准备度读数 | move 入 seq5 boss 关(`entering_boss_level`)| **before** | **boss 对峙**(R6 生效前展示)| 玩家战力 **vs** boss 需求的可读对比(能扛几拳/能打几拳·或就绪度 gauge)—— 让准备度闸门**可读**:玩家看得出自己够不够 |
+| **`convergence_preview`** 收敛预览 | `boss_kill`(或 run 收敛前)| before | **run 高潮/收束** | 切收敛页前,本 run 收束的**预览成形**(战绩/图鉴)—— 给末关一个披露拍,而非硬切结算 |
+
+- **绑兑现 = 反倒挂**:三件各落在**机制最厚处**(seq4 合成兑现 / seq5 boss 准备度 / 收束)——新鲜感不再在 seq1 最薄处独现、seq3 后干涸。
+- **不占 guaranteed 投放预算**:这 3 件是 **UI 披露(ui_unlocks)**,非 event_deck `item_find`,不受 07 §... 的 `#guaranteed ≤ survive_turns−1` 约束(那条只管掉落)。
+
+### 4.2 披露 timeline · 前后对比
+
+- **现状**(research §2):~10/12 ui_key 在 seq1-2 触发;末机制披露 = stance_ui(seq3);**seq4-5(40% 行程)零新 UI** → 后半崩塌 + 倒挂。
+- **B4 后**:seq3 stance_ui + **seq4 loadout_panel** + **seq5 prep_readout + convergence_preview** → 后半每关都有新披露拍,且绑机制兑现。**"UI 即进度"支柱撑过 60%**,不在 seq3 死。
+
+### 4.3 边界与交接
+
+- **守 B3**(doc 10 §0.B3):三件**全在现有循环内**(合成/战力/收敛)——**不含污染/Ω 倒计时/残片图鉴/buff/立绘上屏**(那些各需 +1 ui_key·按需后加)。
+- **实现分工**(全量阶段):🔧 = 3 ui_key 触发判定 + 持久化(并入 06 注册表·05 §1.3 清单扩到 15 项);🎨 = 条件渲染 + 因果两拍动效;📖 = 3 条 nar_line + 面板文案(描述制)。⚙️(本轨)= 本设计 + `prep_readout` 的"准备度对比"用什么数值口径(可复用 08 §2 的 atk/def/hp vs boss 曲线)。
+- **P1 闸门增益**:`prep_readout` 让准备度闸门**对玩家可读** → 直接支撑"可玩且成立"(玩家理解为何输/赢·不闷亏);后半披露拍支撑"到第二/第 N 个 UI 元素的时间"指标延伸到后段。

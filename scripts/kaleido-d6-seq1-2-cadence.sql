@@ -12,9 +12,9 @@
 --   ① id27(多人恢复占位)→ 修补剂(kaleido heal30);**列在材料前**(保 inventory 先于 craft_btn)。
 --   ② 材料 id13(多人·canon 泄漏)→ 碎块(kaleido 散件·喂加力件·§4 co-align)。
 --   ③ seq1 随机补给 id22 → 修补剂。 seq2 战后补给 id27 → 修补剂。
---   ④ seq1 零战斗:**由 🔧 hook① 保障**(doc 10 §2.1「seq1 零战斗保障」·基于本关 combatSetup 缺键)——
---      故**不改共享 chamber_templates id1 的 max_npcs**(改它会波及多人 raid)。若 🧭 要数据侧 belt,
---      我另起 kaleido 专属 max_npcs=0 chamber(不动共享行)——待你定,本脚本不含。
+--   ④ seq1 零战斗:**由 🔧 hook①/hook④ 保障**(doc 10 §2.1「seq1 零战斗保障」·基于本关 combatSetup 缺键 +
+--      searchArea 跳过 npc 分支)。🧭 已决(2026-07-15):**靠引擎交付·不动共享 chamber max_npcs·不另起 chamber**
+--      (零副作用)。故本脚本**不含任何 chamber 改动**,只回指 event_deck 道具 id。
 -- 幂等:纯 UPDATE(jsonb_set 覆写 event_deck),可重复执行。
 -- ─────────────────────────────────────────────────────────────────
 
