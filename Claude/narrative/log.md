@@ -1,5 +1,13 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-08(凌晨)· N6 AVG 剧情完整性研究(🧭 命题·先不落文案)
+
+- 依 🧭 命题(Kanata 定 KALEIDO 完整形态=文字 AVG,剧情从配角变承载体),交付 [`docs/narrative/kaleido-n6-avg-narrative-study.md`](../../docs/narrative/kaleido-n6-avg-narrative-study.md):叙事弧/缺口清单/工作量冲击/结构建议。
+- **核心判断**:N1-N5 = AVG 骨架(里程碑),非血肉(逐动作)非剧情推进层(跨 run beat);AVG 主体化 = 叙事从"每种第一次"扩到"每一次" + 补跨 run/驻点两轴。
+- **结构 = 三层**:骨架(ui_unlocks nar_line·🔧 注册表)+ 血肉(动作变体池·content_pool `entity_type='narration'`·Valve 规则表抽样)+ 剧情推进层(命名 payoff/π 揭示/跨 run 钩子·有状态一次性)+ 驻点持久层。
+- **增强**(外部研究×2 + 完整性 critic):抄 Valve 动态对白(facts+规则+最具体胜出)+ shuffle bag + cooldown + 记忆回引;critic 洞已修——**cooldown-池数学矛盾**(高频桶须 ≥15-20 >> cooldown,非 6-8)、**seed 可复现 vs LLM 裁定**(runtime 只抽固定池·LLM 仅 build-time 扩池)、**空池兜底链**、稀有 per-run 预算、outcome-aware key、层间去重。
+- **决策点交 🧭/Kanata/🔧**:血肉数据形状+3 引擎新钩子、seed/LLM 裁定确认、P1 量级基线(高频桶 ≥15-20?)、剧情推进层落点(挂起⑥⑦)。先不落文案;血肉实写=下一批。
+
 > **预备登记(未落文案·不提交为交付·🧭 嘱记防丢)**:「那东西」(id8 族)正名 3 候选待触发——**A「残响」**(采深层 lore·仅 π/Ω 收束时用)/ **B「余动」**(守隔离+揭示本质)/ **C「常客」**(值班的登记制·守隔离·不揭示)。卡两未决:①落点(⚙️ 敌变体池 seq6+/跨 run 结构,未出)②π/Ω 正史隔离是否收束(Kanata canon 级,与 3-4 勘正同层)。🧭 读感(参考不定调):隔离不破时 **B≳C**(C 恐 payoff 重量不够),A 仅收束向。落点+抉择定后直接落文(挂起⑦)。
 
 ## 2026-07-08(凌晨)· Canon 勘正修订 —— KALEIDO=第 3-4 纪元(Kanata 拍板·📖 执行)
