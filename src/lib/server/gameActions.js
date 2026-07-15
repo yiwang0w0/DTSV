@@ -1408,7 +1408,40 @@ async function resolveSearchAction(client, room, gamevars, user) {
     return persistResolutionWithPollution(client, room, resolution, user.id)
   }
 
-  if (roll < npcChance && bundle.npcPool.length > 0) {
+  // ── KALEIDO hook①（10-avg A1）：event_deck guaranteed item_find 排空（1/search·front-load·硬保证）──
+  //   种子关 curated 保底掉落:绕随机 roll 定向投放 → 解锁链(inventory/craft_btn)硬保证。
+  //   语义(经 🧭/⚙️ 定):每 search 消费 1 件 guaranteed(注册表序);once 全关一次(consumed 存 gamevars.kaleido)。
+  //   预算不变式(#guaranteed ≤ 可用 search 数)保证清关前发完 —— 由 sampleRun 侧校验(runs.js)守。多人局跳过。
+  if (isKaleidoRoom(room)) {
+    const cur = getResolutionPlayer(resolution, user.id) || afterEvent
+    const kalS = resolution.gamevars.kaleido || {}
+    const cIdx = cur.chamberIndex ?? 0
+    const deck = Array.isArray(currentChamber?.kaleidoEventDeck) ? currentChamber.kaleidoEventDeck : []
+    const consumedMap = (kalS.consumedEventDeck && typeof kalS.consumedEventDeck === 'object') ? kalS.consumedEventDeck : {}
+    const consumed = Array.isArray(consumedMap[cIdx]) ? consumedMap[cIdx] : []
+    const gi = deck.findIndex((e, i) => e && e.type === 'item_find' && e.guaranteed && e.item?.id != null && !consumed.includes(i))
+    if (gi >= 0) {
+      try {
+        const { data: itemRow } = await client.from('item_pool').select('id, name').eq('id', deck[gi].item.id).maybeSingle()
+        if (itemRow?.name) {
+          setResolutionPlayer(resolution, user.id, { ...cur, inventory: [...(cur.inventory || []), itemRow.name] })
+          resolution.gamevars = {
+            ...resolution.gamevars,
+            kaleido: { ...kalS, consumedEventDeck: { ...consumedMap, [cIdx]: [...consumed, gi] } },
+          }
+          appendResolutionLog(resolution, `${player.name} 搜到了 ${itemRow.name}`, 'system')
+          return persistResolutionWithPollution(client, room, resolution, user.id)
+        }
+      } catch (e) {
+        console.error('[kaleido hook①] guaranteed item 投放失败:', e?.message)
+      }
+    }
+  }
+
+  // KALEIDO hook④（10-avg A1·安全首战法则）：kaleido 局搜索**零随机刷怪**——战斗敌只从种子关
+  //   combatSetup.enemy 入关注入(movePlayer),不经随机 search spawn。seq1(无 combatSetup)因此零战斗;
+  //   任何 kaleido 关都不会搜出多人巨兽当首战。多人局逐字节不变(!isKaleidoRoom 恒 true 走原路径)。
+  if (roll < npcChance && bundle.npcPool.length > 0 && !isKaleidoRoom(room)) {
     // ── Phase 38/39: authored 敌人投放（roomNpcs materialize）——authored-only 局唯一 NPC 来源 ──
     //   红线：此块在 npcChance 门内（已过出现率/体力/roll 门），authored 命中仍受这一切约束·不旁路。
     //   取到 npcId → materializeAuthoredNpc（fetch npc_pool + resolveNpcCombatProfile + normalizeNpcInstance·mapId=roomTemplates[roomId]） → 推 npcInstances → encounter。
@@ -2726,16 +2759,17 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     let nextKal = kal
     let converged = false
 
-    // KP1 LW-1 修复（🧭裁决 B·E2E 抓的生产软锁）：attackNpc 第 5 步「无论结果清空 encounter」
-    //   （旧搜打撤一击脱离语义·共享路径不动）→ boss 第 1 拳后失锁、boss_kill 永不可达。
-    //   推进层「boss 重锁」：boss 关 ∧ boss 实例存活 ∧ 无 encounter → 静默重置锁定。
-    //   每个消耗性动作后必经此处 → 拳后自动重锁；也自愈已软锁的存量 run（下个动作即重锁）。
-    //   多人局在函数顶 isKaleidoRoom 早退、非 boss 关不满足条件 → 零变化。
-    if (node?.archetype === 'boss' && !nextMe.encounter) {
-      const bossInst = (gamevars.npcInstances || []).find(
-        (i) => i && i.hp > 0 && i.npc?.level === 'boss' && i.mapId === node.templateId,
+    // KP1 LW-1 修复 + hook① 泛化（10-avg A1）：attackNpc 第 5 步「无论结果清空 encounter」→ 战斗敌拳后失锁。
+    //   推进层重锁：**任意战斗关**(node.kaleidoEnemy present) ∧ 该关活实例(mapId===templateId·hp>0) ∧ 无 encounter
+    //   → 静默重锁 → 弱敌也可被打完(否则半血遗弃)。boss 被泛化涵盖(有 kaleidoEnemy·mode≠stance_duel)。
+    //   **排除 stance_duel(elite)**:LW-2 resolveStanceDuelAttack 自管 encounter(lock-until-death),不走 step5 清,勿重锁。
+    //   实例按 mapId 定位安全:sampleRun usedChambers 保证一 run 内 templateId 不重用 → 无跨关碰撞。
+    //   每消耗性动作后必经 → 拳后自动重锁 + 自愈存量软锁 run。多人局函数顶 isKaleidoRoom 早退 → 零变化。
+    if (node?.kaleidoEnemy && node?.kaleidoMode?.template_ref !== 'stance_duel' && !nextMe.encounter) {
+      const inst = (gamevars.npcInstances || []).find(
+        (i) => i && i.hp > 0 && i.mapId === node.templateId,
       )
-      if (bossInst) nextMe.encounter = { instanceId: bossInst.id }
+      if (inst) nextMe.encounter = { instanceId: inst.id }
     }
 
     if (node?.kaleidoExit && (kal.clearedSeq ?? 0) < seq
@@ -3481,22 +3515,27 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
     nextPlayer.turnCount = 0
     resolution.gamevars = { ...resolution.gamevars, bossDefeated: false }
 
-    // KP1 LW-1：boss 关（seq=末关）入关投放 boss 实例 + 自动遭遇 → 玩家 attackNpc 杀之 →
-    //   bossDefeated=true（公共击杀链自动置·gameActions:1831）→ evaluateExitCondition(boss_kill) 判过关。
-    //   双闸：isKaleidoRoom ∧ archetype==='boss'；boss 属性用 D1 采样的 kaleidoEnemy（已按 seq 缩放）、
-    //   npc.level='boss' 保证击杀触发 bossDefeated。多人局/kaleido 非 boss 关不进此分支 → 逐字节零变化。
-    if (nextChamber.archetype === 'boss' && nextChamber.kaleidoEnemy) {
+    // KP1 LW-1 + hook①（10-avg A1）：入关注入种子关 combatSetup.enemy —— **泛化到任意战斗关**(kaleidoEnemy present)。
+    //   boss(ke.level='boss')→击杀置 bossDefeated→boss_kill 过关；非 boss(encounter/elite/resource)→survive_turns 过关。
+    //   实例 level 取 ke.level（非硬编码 'boss'）→ 非 boss 击杀不误触 bossDefeated / boss_kill。stance_duel(elite)也
+    //   注入实例（LW-2 resolveStanceDuelAttack 消费·lock-until-death）；其它 combat 由推进层重锁（advanceKaleidoProgress
+    //   泛化）保证弱敌可打完（否则拳后失锁遗弃半血敌）。多人局 / kaleido 无 combatSetup 关（seq1 search）不进此分支 → 零变化。
+    if (nextChamber.kaleidoEnemy) {
       const ke = nextChamber.kaleidoEnemy
-      const bossInst = normalizeNpcInstance({
-        npc: { id: ke.npcId ?? null, name: ke.name || '首领', level: 'boss', hp: ke.hp, atk: ke.atk, def: ke.def },
+      // isBoss 兼取 archetype（采样 boss 的 scaleEnemy 未必带 ke.level='boss'）→ 强制 level='boss' 保 bossDefeated/boss_kill 链不断。
+      const isBoss = nextChamber.archetype === 'boss' || ke.level === 'boss'
+      const inst = normalizeNpcInstance({
+        npc: { id: ke.npcId ?? null, name: ke.name || (isBoss ? '首领' : '敌影'), level: isBoss ? 'boss' : (ke.level || 'easy'), hp: ke.hp, atk: ke.atk, def: ke.def },
         hp: ke.hp, maxHp: ke.maxHp ?? ke.hp, mapId: nextChamber.templateId,
       })
       resolution.gamevars = {
         ...resolution.gamevars,
-        npcInstances: [...(resolution.gamevars.npcInstances || []), bossInst],
+        npcInstances: [...(resolution.gamevars.npcInstances || []), inst],
       }
-      nextPlayer.encounter = { instanceId: bossInst.id }
-      appendResolutionLog(resolution, `⚠ 首领「${bossInst.npc.name}」挡在前路 —— 击败它才能过关`, 'damage')
+      nextPlayer.encounter = { instanceId: inst.id }
+      appendResolutionLog(resolution, isBoss
+        ? `⚠ 首领「${inst.npc.name}」挡在前路 —— 击败它才能过关`
+        : `⚠ 遭遇「${inst.npc.name}」`, 'damage')
     }
   }
 

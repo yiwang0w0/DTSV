@@ -178,6 +178,7 @@ export function sampleRun(seed, { levelCount = 5, pools = {} } = {}) {
     if (seedMatch) {
       usedSeedLevels.add(seedMatch.id)
       const p = seedMatch.payload || {}
+      validateSeedLevel(p, s, seedMatch.id) // hook⑥(10-avg A1)：boss_kill 缺敌 / guaranteed 超预算 → warn(非致命)
       nodes.push(chamberToNode(chamber, i, s, levelCount, {
         archKey,
         exit: p.exit_condition || exitFor(arch, s),
@@ -204,6 +205,27 @@ export function sampleRun(seed, { levelCount = 5, pools = {} } = {}) {
 // 向后兼容包装（startKaleidoRun 旧签名）：只传 chambers 时退化为仅 chamber 池的现场装配。
 export function sampleKaleidoPath(chambers, seed, levelCount = 5) {
   return sampleRun(seed, { levelCount, pools: { chambers } })
+}
+
+// hook⑥（10-avg A1）种子关采样校验（非致命·warn；纯函数·可 smoke）：
+//   ① boss_kill 必须带 combatSetup.enemy（否则死关：boss_kill 不可满足·无 boss 实体可杀）。
+//   ② guaranteed item_find 件数 ≤ 本关可用 search 数（=survive_turns −（非首关入关 move 占 1 回合））
+//      → 保证 hook① 的 front-load「1/search」在清关前发完（guaranteed 硬保证不变式）。
+export function validateSeedLevel(payload, seq, id) {
+  const p = payload || {}
+  const exitType = p.exit_condition?.type
+  if (exitType === 'boss_kill' && !(p.combatSetup?.enemy && Number(p.combatSetup.enemy.hp) > 0)) {
+    console.warn(`[kaleido/seed] ⚠ 关 ${id}(seq${seq}) boss_kill 缺 combatSetup.enemy → 死关（boss_kill 不可满足）`)
+  }
+  if (exitType === 'survive_turns') {
+    const turns = Number(p.exit_condition?.params?.turns) || 0
+    const searches = Math.max(0, turns - (seq > 1 ? 1 : 0)) // 非首关入关 move 占 1 回合（04 §5 语义）
+    const guaranteed = (Array.isArray(p.event_deck) ? p.event_deck : [])
+      .filter((e) => e && e.type === 'item_find' && e.guaranteed).length
+    if (guaranteed > searches) {
+      console.warn(`[kaleido/seed] ⚠ 关 ${id}(seq${seq}) guaranteed item ${guaranteed} > 可用 search ${searches} → 硬保证不成立（玩家最短路径可能漏发）`)
+    }
+  }
 }
 
 // levels 表行（Level Schema v0.3·00-spec §6.1 + 02 §2.5）：combat_mode/exit/event_deck 取自 node（正式化）。
