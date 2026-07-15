@@ -62,7 +62,8 @@ export function getRule(rules, key, defaultVal) {
  * @param {string} weaponSubKind - 武器子类型
  * @returns {number} 最终伤害值（≥1）
  */
-export function calcDamage(attacker, defender, rules, weaponSubKind = '') {
+// rng（可选·D5）：kaleido 战斗传 run seed 派生 PRNG 化暴击掷点为确定性（R1）；不传 → Math.random（多人局逐字节不变）。
+export function calcDamage(attacker, defender, rules, weaponSubKind = '', rng = null) {
   const formula = getRule(rules, 'damage_formula', 'atk * atkMultiplier - def * defMultiplier')
 
   const atkMultiplier = getRule(rules, 'atk_base_multiplier', 1.0)
@@ -86,7 +87,7 @@ export function calcDamage(attacker, defender, rules, weaponSubKind = '') {
   // 暴击
   const critRate = getRule(rules, 'crit_rate', 0.1)
   const critMultiplier = getRule(rules, 'crit_multiplier', 1.5)
-  if (Math.random() < critRate) {
+  if ((rng || Math.random)() < critRate) {
     dmg = Math.floor(dmg * critMultiplier)
   }
 

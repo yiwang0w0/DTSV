@@ -1875,9 +1875,18 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
   me = dispatchTurnStart(resolution, me, buffPool)   // P6 on_turn_start（起手·空 _pass 中性）
 
+  // ── D5（R1 修复·kaleido 战斗随机确定性化）──────────────────────────────
+  //   现 kaleido 战斗走 Math.random 违 R1（P1 闸门「同 seed 回放逐字节一致」的前提）。改：kaleido 局用
+  //   run seed 派生 PRNG（seed = runId:chamberIndex:turnCount → 每次攻击唯一流；本次攻击内命中/暴击/反击/
+  //   残片各 roll 顺序步进同一实例）。**多人局 krng=null → 保留 Math.random 逐字节不动**（isKaleidoRoom 门）。
+  const krng = isKaleidoRoom(room)
+    ? mulberry32(kaleidoHashStr(`${gamevars.kaleido?.runId || 'kaleido'}:${player.chamberIndex ?? 0}:${player.turnCount ?? 0}:atk`))
+    : null
+  const rnd = () => (krng ? krng() : Math.random())
+
   // ── 1. 玩家攻击的命中判定 ──
   const playerAccuracy = getRule(rules, 'player_attack_accuracy', 0.85)
-  const playerHit = Math.random() < playerAccuracy
+  const playerHit = rnd() < playerAccuracy
 
   // ── 2. 战斗个人污染（无论命中都扣，反映"动手"成本） ──
   //   体力：把开头平消耗扣后的字段并入 polluted（实际发起攻击才扣；前面 instance 缺失早返回分支不走到这里，不扣）。
@@ -1895,7 +1904,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
 
   if (playerHit) {
     const npcCombat = buildCombatNpc(instance)         // Phase 37: NPC 走统一引擎（裸 npc → computeCombatStats）
-    let damageRaw = calcDamage(me, npcCombat, rules, weapon?.tier?.sub_kind || '')
+    let damageRaw = calcDamage(me, npcCombat, rules, weapon?.tier?.sub_kind || '', krng)
     // P2 战斗钩子管线（玩家→NPC 主伤害）：走统一中性闸口 helper（空池逐值不变·守 Phase 37）。
     damageRaw = applyCombatPipeline(damageRaw, {
       attacker: me, defender: npcCombat, defenderHp: instance.hp, resolution,
@@ -1990,7 +1999,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
     try {
       const npcLvl = instance.npc.level || 'easy'
       const dropChance = ({ easy: 0.10, medium: 0.25, hard: 0.45, boss: 0.80 })[npcLvl] ?? 0.20
-      if (Math.random() < dropChance) {
+      if (rnd() < dropChance) {
         const eff = calcEffectivePollution(
           resolution.gamevars.envPollution || 0,
           getResolutionPlayer(resolution, user.id)?.personalPollution || 0,
@@ -2026,15 +2035,15 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
   // ── 4. 反击判定（独立于玩家命中，不论击杀都跑一次概率） ──
   // 但 NPC 已死则不反击
   if (!killed) {
-    const counterTriggered = Math.random() < (Number(instance.npc.counter_rate) || 0.3)
+    const counterTriggered = rnd() < (Number(instance.npc.counter_rate) || 0.3)
     if (counterTriggered) {
       const npcAccuracy = Number(instance.npc.accuracy) || 0.85
-      const npcHit = Math.random() < npcAccuracy
+      const npcHit = rnd() < npcAccuracy
       if (npcHit) {
         const cur = getResolutionPlayer(resolution, user.id)
         const npcAttacker = buildCombatNpc(instance, instanceHpAfter)   // Phase 37: NPC 反击 attacker 走统一引擎（当前 HP 覆盖）
         const playerDefender = buildCombatPlayer(cur, myEquips)
-        let damageIn = calcDamage(npcAttacker, playerDefender, rules, '')
+        let damageIn = calcDamage(npcAttacker, playerDefender, rules, '', krng)
         // P3 战斗钩子管线（NPC 反击玩家）：同 P2 中性闸口（空池逐值不变·守 Phase 37）。
         damageIn = applyCombatPipeline(damageIn, {
           attacker: npcAttacker, defender: playerDefender, defenderHp: cur.hp || 0,

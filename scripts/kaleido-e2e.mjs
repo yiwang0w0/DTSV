@@ -247,6 +247,44 @@ try {
   ck('LW-3:wave-1 实例已死(无活 wave-1)', !(room?.gamevars?.npcInstances || []).some((i) => i.id === wave1Id && i.hp > 0), 'w1 dead')
 } catch (e) { ck('LW-3 gauntlet 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
+// ═══ ⑤ D5 R1 战斗确定性(同状态重放逐字节一致·P1 闸门「同 seed 回放」)═══
+//   同 (runId,chamberIndex,turnCount) → PRNG 同流 → 战斗逐字节一致。快照→(恢复→攻击)×3→三次结果须全等。
+//   中等属性(不一击秒·留暴击/反击方差)：若仍走 Math.random,三次极难全等 → 此断言即证 seed 化生效。
+try {
+  const u = mkUser('d5'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  let s = 0
+  while (clearedSeq(room) < 1 && s < 12) { room = await act(u, roomId, 'search'); s++ } // 清 seq1
+  room = await act(u, roomId, 'move') // 进 seq2(gauntlet 有敌)
+  { const { data: rG } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    const p = rG.gamevars.players[u.id]; p.atk = 8; p.hp = 500; p.maxHp = 500 // 敌 18hp·8atk→7-10 伤·不秒·留方差
+    await sb.from('rooms').update({ gamevars: rG.gamevars }).eq('id', roomId) }
+  const cap = (r) => {
+    const me = r?.gamevars?.players?.[u.id]
+    const tId = r?.gamevars?.raidPath?.[me?.chamberIndex ?? 0]?.templateId
+    const enc = (r?.gamevars?.npcInstances || []).find((i) => i.mapId === tId)
+    return { playerHp: me?.hp, encHp: enc?.hp ?? null }
+  }
+  const { data: snap } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+  const gv0 = JSON.stringify(snap.gamevars)
+  const results = []
+  for (let i = 0; i < 2; i++) {
+    await sb.from('rooms').update({ gamevars: JSON.parse(gv0) }).eq('id', roomId) // 恢复到序列前状态
+    const trace = []
+    for (let a = 0; a < 6; a++) { // 6-attack 序列(跨 wave-1 死+wave-2·累积 crit/counter)= 高熵签名
+      const r = await act(u, roomId, 'attackNpc')
+      const me = r?.gamevars?.players?.[u.id]
+      trace.push({ hp: me?.hp ?? -1, w: me?.gauntletWave ?? 1, enc: cap(r).encHp })
+      if (me?.alive === false) break
+    }
+    results.push(JSON.stringify(trace))
+  }
+  // 高熵序列两次全等 → seed 化生效(若走 Math.random,6-attack 累积 crit/counter 序列几无可能逐字节相同)
+  ck('D5:同状态×2 重放 6-attack 序列逐字节一致(seed 化生效)', results[0] === results[1], results[0])
+} catch (e) { ck('D5 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
 console.log('E2E_ASSERTIONS=' + JSON.stringify(A, null, 1))
