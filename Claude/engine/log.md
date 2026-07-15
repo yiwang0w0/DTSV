@@ -2,6 +2,15 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 研究简报（2026-07-08 / 🔧 · ui_unlocks 支撑 AVG 渐进披露引擎可行性 —— 🧭 命题·已 send）
+
+> Kanata AVG 愿景(登录直进 run·初始仅搜索按钮·每搜一次系统一件件浮现·「UI 即进度」)引擎可行性研究。3-reader workflow(w4eq8cw2p·Q2/Q3 绿·Q1 schema 超限我手补读 KaleidoRunView)。**总判:ui_unlocks 正是这个愿景的引擎,核心循环已架构性实现。**
+
+- **Q1 ui_key 覆盖 + 缺口**：11 ui_key **完全覆盖当前 kaleido UI 面**(关卡头/回合计数/HP/规则卡/战斗面板/三态/搜索/前进/合成/背包/日志·KaleidoRunView.jsx 逐件 RevealSlot 门控)。**缺口**:①「撤」(extract)——kaleido 无撤离(用 run 收敛),extractPlayer 对 kaleido throw(:3980)·无 ui_key/按钮 →「搜打撤」的撤=收敛(已覆盖)还是要中途主动撤(新功能)? **设计澄清问 Kanata**;②未上屏系统(污染/Ω/残片/buff/立绘)kaleido 全不渲染——「整套」若要它们长出来 = 各加 1 ui_key(同 pattern·trivial);③convergence 是终态非解锁物(非缺口·spec 已标)。
+- **Q2 登录直进 run = yes·小工程**：startKaleidoRun 已幂等(active 续/ended 自动新)·自动进入原语已存在(handleKaleidoRestart / rooms 出勤卡)。改 = 登录后 redirect 到新 /play 路由(调 /api/kaleido/run → /game/[id])。工程:login/page.js:32 `router.push('/')`→/play(trivial)+ 新 /play 页(small·含 loading/error/30s 冷却/空模板兜底)。**风险**:①勿挂 RootShell onAuthStateChange(全局 fire·会劫持 admin/stash 导航)②冷却/空模板 throw 需优雅兜底③多人/admin 逃生(留 Nav 或豁免)④可选 full-bleed 去 Nav chrome。
+- **Q3 动作渐现 = yes·已实现**：客户端 RevealSlot(show=isUnlocked(key)→未解锁不产 DOM)已门控每颗动作按钮;新 run uiUnlocks=['search_btn']→仅搜索显 →「初始仅搜索按钮」**已成立**。动作→ui_key 干净(attack→combat_panel/move→move_btn/craft→craft_btn/useItem→inventory/stance→stance_ui)。**缺口**:服务端 dispatcher **unlock-blind**(:3332 纯 action 串路由·「不出现」仅客户端保证)→ 可选 defense-in-depth 服务端解锁门(small);emergencyRetreat 未 kaleido-gate(:4227·API 可达无按钮)→ trivial 补 gate。
+- **效果结论**:愿景**已架构性实现**(ui_unlocks+KaleidoRunView 已交付「搜索起手→系统按解锁渐现」核心循环)。补全 = 登录直进(小)+「撤」语义定夺(设计)+ 可选 N 个新 ui_key(污染/残片…若扩)+ 可选服务端解锁门。**无阻塞级引擎缺口·全部 additive**。
+
 ## 工作包设计捕获（2026-07-08 / 🔧 · hook①③④+LW-3+D5 · 两 workflow 全测绘后的可续实现蓝图）
 
 > ui_unlocks 全链闭合后转工作包。两轮 seam-mapping(wk93hy7qx gauntlet·w0iysva08 searchArea/注入/RNG/placement)完成 + D6 五关真数据查证(content_pool id2-6·⚙️ 已应用我全部修订:npc_encounter 去冗余·boss 乙值 260/34/8·seq1 无 combatSetup 键)。**下面是可直接开工的实现蓝图。**
