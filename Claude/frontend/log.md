@@ -1,5 +1,15 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-15 · 🎨 KALEIDO AVG 呈现骨架:可行性研究 → 垂直切片原型
+
+- **前端可行性研究**（🧭 命题·3 角度并行调研 + 综合·送 🧭）：判定=**改造非推倒**（解锁引擎 100% 呈现无关·~3-5 人天·冲击收敛在 KaleidoRunView render 层）。形态=文字流逐段淡入（非打字机作主体）+ UI 件材质化 + **nar_line→件 因果两拍** + 转场混合（黑幕基线 + pollution shader 坍缩增强）。落地=Kanata 拍板见 `docs/plan/kaleido/10-avg-vertical-slice.md`。
+- **AVG 垂直切片原型**（`b70d743`·🧭 转实现·seq1-2·dev 取景框）：
+  - 新 [`KaleidoAvgView.jsx`](src/app/game/[id]/kaleido/KaleidoAvgView.jsx)：文字舞台为主体 + UI 件四缘材质化析出 + 因果两拍；5 落点区（舞台/顶带/底坞/事件覆盖/边缘抽屉）；自驱状态机 boot→awake→playing + 占位血肉；复用 T/HpBar/KaleidoRuleCard/Shader。
+  - 5 特性：①黑幕冷开场 + shader 背景 ②逐段淡入 + 贴底自动滚 ③因果两拍（nar 落舞台→件延迟材质化 + 闪 cyan 同色）④冷开局觉醒行（C4·防 10 秒跳出）⑤hp_bar gauge-first + rules_card 门口告示闸门。
+  - globals.css：`kaleido-line-in`/`materialize`/`flash-cyan`/`caret`（+reduced-motion）。dev/kaleido-preview：模式切换（AVG 原型/旧栈式）+ 重放冷开场。
+  - dev 验证（端口 3100）：3 验证点机制全成立（冷开局钩子/因果两拍/文字变体池）；手感留 Kanata 线上验。
+  - **复用兑现**：真接通时壳不变·内部 sim 换 `useKaleidoUiUnlocks` + 真 logs/narLog。**新技巧**：公开 dev 页可在备用端口(3100)起自己的 dev server 自验（不碰 Kanata 占用的 3000）。
+
 ## 2026-07-08 · 🎨 色板收敛(对局簇) + 首页重构派单①
 
 - **色板收敛**（🧭 派单·纯 token 提取零视觉变化·仅精确值匹配才换·dev 计算色抽查证零视觉）：
