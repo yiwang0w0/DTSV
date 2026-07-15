@@ -65,7 +65,7 @@ import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STA
 import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
 import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
 import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
-import { UI_SEED, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
+import { UI_SEED, CRAFT_MATERIAL_KINDS, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
@@ -1422,9 +1422,15 @@ async function resolveSearchAction(client, room, gamevars, user) {
     const gi = deck.findIndex((e, i) => e && e.type === 'item_find' && e.guaranteed && e.item?.id != null && !consumed.includes(i))
     if (gi >= 0) {
       try {
-        const { data: itemRow } = await client.from('item_pool').select('id, name').eq('id', deck[gi].item.id).maybeSingle()
+        const { data: itemRow } = await client.from('item_pool').select('id, name, kind').eq('id', deck[gi].item.id).maybeSingle()
         if (itemRow?.name) {
-          setResolutionPlayer(resolution, user.id, { ...cur, inventory: [...(cur.inventory || []), itemRow.name] })
+          // 配方材料(kind∈CRAFT_MATERIAL_KINDS)→ 置 hasCraftMat(单调)→ 路由边界 craftMatGained 解锁 craft_btn。
+          const isMat = CRAFT_MATERIAL_KINDS.includes(itemRow.kind)
+          setResolutionPlayer(resolution, user.id, {
+            ...cur,
+            inventory: [...(cur.inventory || []), itemRow.name],
+            ...(isMat ? { hasCraftMat: true } : {}),
+          })
           resolution.gamevars = {
             ...resolution.gamevars,
             kaleido: { ...kalS, consumedEventDeck: { ...consumedMap, [cIdx]: [...consumed, gi] } },

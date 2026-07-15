@@ -204,6 +204,10 @@ try {
     const seq1Combat = (sEvs || []).filter((e) => e.level_seq === 1 && (e.verb === 'fight_start' || e.verb === 'attack')).length
     ck('hook①:seq1 零战斗(无 fight_start/attack @ seq1)', seq1Combat === 0, JSON.stringify((sEvs || []).filter((e) => e.level_seq === 1).map((e) => e.verb)))
     ck('hook①:consumedEventDeck[0] 记 seq1 消费 ≥2', Array.isArray(room?.gamevars?.kaleido?.consumedEventDeck?.[0]) && room.gamevars.kaleido.consumedEventDeck[0].length >= 2, JSON.stringify(room?.gamevars?.kaleido?.consumedEventDeck))
+    // craft_btn：seq1 二搜出 id13(结构碎片·tech_fragment)→ hasCraftMat 置位 → craft_btn 解锁(AVG 链「搜→材料→合成」)
+    const { data: uEvs } = await sb.from('player_events').select('verb, level_seq, payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
+    ck('hook①/craft:hasCraftMat 置位(搜到 tech_fragment 材料)', !!meAfter?.hasCraftMat, String(meAfter?.hasCraftMat))
+    ck('hook①/craft:seq1 配方材料 → craft_btn 解锁', (uEvs || []).some((e) => e.payload?.ui_key === 'craft_btn' && e.level_seq === 1), JSON.stringify((uEvs || []).map((e) => `${e.payload?.ui_key}@${e.level_seq}`)))
   }
 } catch (e) { ck('hook① 种子关执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 finally {

@@ -12,6 +12,11 @@
 // 初始种子集(Kanata 定向:开局只有一个搜索按钮)。startKaleidoRun 以此为底 ∪ 账号已解锁集。
 export const UI_SEED = ['search_btn']
 
+// 配方材料 item kind（craft_btn 触发口径·2026-07-08 查证）：item_pool 仅 4 kind = consumable(可用) +
+//   tech_fragment/platform_part/omega_matter(材料)。recipe 表暂空 → 按 kind 判材料（非 consumable 即材料）。
+//   hook① drain 搜到此类 kind → 置 player.hasCraftMat（单调）→ craftMatGained 检首次获得材料。
+export const CRAFT_MATERIAL_KINDS = ['tech_fragment', 'platform_part', 'omega_matter']
+
 // nar_line:📖 N3 供稿(P1 方案 A 引擎内联,经 unlockEvents 流转,组件侧零硬编码——06 §5 决策 2)。
 //   hp_bar 文案由「首次遭遇前」改为「首次 search」后待 📖 复核(06 §5 决策 3)。
 // match(ctx):ctx = { action, beforeMe, afterMe, beforeClearedSeq, afterClearedSeq, node, fightStart }。
@@ -66,7 +71,7 @@ export const KALEIDO_UI_UNLOCKS = [
   {
     ui_key: 'craft_btn', timing: 'after',
     nar_line: '这两样，拼得到一起。——已开放：动手做。',
-    match: (c) => c.action === 'search' && craftMatGained(c), // P1 DEAD:配方材料判据待 item kind + ⚙️ 投放(06 §2.1)
+    match: (c) => c.action === 'search' && craftMatGained(c), // LIVE(2026-07-08)：搜到 kind∈材料(hook① drain 置 hasCraftMat)即解锁
   },
 ]
 
@@ -85,10 +90,10 @@ function nonstandardNode(node) {
   const ref = node?.kaleidoMode?.template_ref
   return !!ref && ref !== 'standard'
 }
-function craftMatGained() {
-  // TODO(⚙️/🔧):配方材料 = item kind ∈ 合成材料 —— 需路由边界读 item_pool.kind 判据。
-  //   P1 未接 → 恒 false(craft_btn DEAD),与 06 §2 契约「LIVE when 配方材料可搜出」一致。
-  return false
+function craftMatGained(c) {
+  // 配方材料 = item kind ∈ CRAFT_MATERIAL_KINDS。hook① drain 搜到材料时置 player.hasCraftMat(单调),
+  //   此处检本动作「首次获得材料」的转变(after 真 ∧ before 假)→ craft_btn 仅解锁一次。
+  return !!c.afterMe?.hasCraftMat && !c.beforeMe?.hasCraftMat
 }
 
 // ── 判定:返回本动作**新满足触发**且**尚未在账号集**的 ui_key(注册表顺序)────────
