@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react'
 import { T } from '@/app/game/[id]/gameUi'
 import KaleidoRunView from '@/app/game/[id]/kaleido/KaleidoRunView'
+import KaleidoAvgView from '@/app/game/[id]/kaleido/KaleidoAvgView'
 import { KaleidoEntryCard } from '@/app/game/[id]/kaleido/kaleidoShell'
 import { useKaleidoUiUnlocks } from '@/app/game/[id]/kaleido/useKaleidoUiUnlocks'
 
@@ -21,6 +22,10 @@ const GAUNTLET_MODE = { template_ref: 'gauntlet', params: { waves: 3 } }
 const STANDARD_MODE = { template_ref: 'standard', params: {} }
 
 export default function KaleidoPreviewPage() {
+  // 预览模式:avg = AVG 呈现骨架原型(10 垂直切片·seq1-2) / runview = 旧渐进披露栈式谐调器。
+  const [mode, setMode] = useState('avg')
+  const [avgKey, setAvgKey] = useState(0) // 重放 AVG 冷开场
+
   // 谐调器：一组布尔驱动渐进披露（镜像 buildUnlockCtx 的 ctx 形状）。
   const [sim, setSim] = useState({
     searched: false, hasItems: false, encounter: false, everFought: false,
@@ -46,7 +51,35 @@ export default function KaleidoPreviewPage() {
     : { type: 'survive_turns', params: { turns: 8 } }
 
   return (
-    <div style={{ background: '#05070c', color: T.text, minHeight: '100dvh', display: 'flex', gap: 20, padding: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+    <div style={{ background: '#05070c', color: T.text, minHeight: '100dvh', padding: 20 }}>
+      {/* 预览模式切换 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: T.dim }}>【dev】KALEIDO 预览：</span>
+        <ModeBtn on={mode === 'avg'} onClick={() => setMode('avg')}>AVG 呈现骨架原型（10 · seq1-2）</ModeBtn>
+        <ModeBtn on={mode === 'runview'} onClick={() => setMode('runview')}>渐进披露栈式谐调器（旧）</ModeBtn>
+      </div>
+
+      {mode === 'avg' ? (
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ maxWidth: 320, fontSize: 12, color: T.dim2, lineHeight: 1.7 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.cyan, marginBottom: 8 }}>AVG 呈现骨架原型</div>
+            文字舞台为主体 · UI 件随进度在四缘「材质化」析出 · nar_line→件 因果两拍。<br /><br />
+            <b>验证点</b>：① 冷开局钩子（黑幕→觉醒行→搜索·防 10 秒跳出）② 因果两拍手感（nar 落舞台→件延迟析出 + 闪 cyan）③ 文字重复烦不烦（占位血肉测节奏）。<br /><br />
+            <b>操作</b>：等冷开场结束→点「🔦 搜索」看座舱结晶一拍（log 醒 + 血条 gauge-first + 抽屉）；连点几次测文字节奏；右上「遭遇」触发首战覆盖、「规则关」触发门口告示闸门。<br /><br />
+            占位文案（真血肉 &gt;2500 行 = Kanata 自驱线·不阻塞手感验证）。
+            <div style={{ marginTop: 12 }}>
+              <button onClick={() => setAvgKey((k) => k + 1)} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg2, color: T.text, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>⟲ 重放冷开场</button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 11, color: T.dim2 }}>390 × 844（手机基线 · 沉浸全屏）</div>
+            <div style={{ width: 390, height: 844, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
+              <KaleidoAvgView key={avgKey} />
+            </div>
+          </div>
+        </div>
+      ) : (
+      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       {/* 控制台 */}
       <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ fontSize: 12, color: T.dim, marginBottom: 2 }}>【dev】KALEIDO 渐进披露谐调器</div>
@@ -129,7 +162,17 @@ export default function KaleidoPreviewPage() {
         <div style={{ fontSize: 11, color: T.dim2, marginBottom: 8 }}>大厅入口卡 KaleidoEntryCard（/rooms 置顶）</div>
         <KaleidoEntryCard onStart={() => {}} starting={false} error={null} />
       </div>
+      </div>
+      )}
     </div>
+  )
+}
+
+function ModeBtn({ children, on, onClick }) {
+  return (
+    <button onClick={onClick} style={{ padding: '7px 12px', borderRadius: 8, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', border: `1px solid ${on ? T.cyan + '66' : T.border}`, background: on ? `${T.cyan}18` : T.bg2, color: on ? T.cyan : T.dim, fontWeight: on ? 700 : 400 }}>
+      {children}
+    </button>
   )
 }
 

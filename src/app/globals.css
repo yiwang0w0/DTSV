@@ -75,6 +75,35 @@ body {
   .kaleido-reveal, .kaleido-narline { animation-duration: 0.01ms; }
 }
 
+/* ── KALEIDO AVG 呈现骨架(10 垂直切片) ─────────────────────────────────────
+   文字舞台逐段淡入 + UI 件「材质化」析出 + 因果两拍的 nar 同色(cyan)系联。 */
+/* 舞台每行:逐段淡入(上浮+渐显·与 UI 件同一呼吸基元) */
+@keyframes kaleido-line-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.kaleido-line-in { animation: kaleido-line-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* UI 件材质化:chrome(边框/底色)从透明析出凝结(读作「仪表被刷上去」) */
+@keyframes kaleido-materialize {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.98); border-color: transparent; }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.kaleido-materialize { animation: kaleido-materialize 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* 因果两拍色彩系联:件落定时边框瞬闪 nar 同色(cyan)再落常态 —— 把「刚落的字」和「刚长的件」绑一起 */
+@keyframes kaleido-flash-cyan {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(88, 166, 255, 0); }
+  30%      { box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.55), 0 0 16px rgba(88, 166, 255, 0.25); }
+}
+.kaleido-flash-cyan { animation: kaleido-flash-cyan 1.25s ease-out; }
+/* 打字机光标(只给庄严节点:开场行/揭示行) */
+@keyframes kaleido-caret { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.kaleido-caret::after { content: '▋'; margin-left: 1px; animation: kaleido-caret 0.9s step-end infinite; opacity: 0.7; }
+@media (prefers-reduced-motion: reduce) {
+  .kaleido-line-in, .kaleido-materialize, .kaleido-flash-cyan { animation-duration: 0.01ms; }
+  .kaleido-caret::after { animation: none; opacity: 0; }
+}
+
 /* 对局页移动端全屏化 (P3)：窄屏(<768)逃逸 RootShell <Nav>(sticky z100) + padded <main> chrome，
    拿回顶部 ~110px。position:fixed 锚视口、z-index 覆盖 nav。桌面(≥768)无此规则 ⇒ 对局页保持
    在 chrome 内(桌面/多人零变化)。CSS 媒体查询首帧即生效 ⇒ 无 JS/hydration 闪烁。 */
