@@ -80,7 +80,9 @@ export default function Home() {
   }
 
   return (
-    <div className="animate-in" style={{ paddingBottom: 40 }}>
+    // 未登录态：外层不加 animate-in —— 其 fadeIn keyframe 带 transform，会使内部 position:fixed 的
+    //   全屏 Hero 相对本 div 而非视口定位（动画期错位）。登录态照常 fade-in。（🎨 首页派单④·🧭）
+    <div className={user ? 'animate-in' : undefined} style={{ paddingBottom: user ? 40 : 0 }}>
       <HeroSection user={user} envPollution={envPollution} snapshot={snapshot} />
       {user && meStats && <PersonalStatsCard meStats={meStats} />}
     </div>
@@ -117,8 +119,17 @@ function HeroSection({ user, envPollution = 0, snapshot }) {
     }
   }
 
+  // 首页派单④(🧭)：未登录态污染场铺满整个视口·零黑框 —— position:fixed inset:0 逃逸 RootShell
+  //   padded/maxWidth 的 <main>，去掉 border/borderRadius/marginBottom/minHeight 卡片形态。
+  //   登录态保持卡片式（下面还有个人档案卡·Hero 不能全屏盖住其他）→ 条件区分 user===null。
+  const immersive = !user
   return (
-    <div style={{
+    <div style={immersive ? {
+      position: 'fixed', inset: 0, zIndex: 1,
+      overflow: 'hidden', isolation: 'isolate',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: C.bg0, // shader 加载/兜底前的底色
+    } : {
       position: 'relative', overflow: 'hidden', isolation: 'isolate',
       padding: '28px',
       borderRadius: 20, marginBottom: 28, minHeight: 520,
