@@ -19,10 +19,6 @@ import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
-import {
-  LOADOUT_SLOT_META,
-  LOADOUT_SLOTS,
-} from '@/lib/constants'
 
 // FX 组件动态导入：避免 SSR 试图初始化 WebGL / Canvas
 const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
@@ -87,8 +83,6 @@ export default function Home() {
     <div className="animate-in" style={{ paddingBottom: 40 }}>
       <HeroSection user={user} envPollution={envPollution} snapshot={snapshot} />
       {user && meStats && <PersonalStatsCard meStats={meStats} />}
-      <LoadoutPreview />
-      <Footer />
     </div>
   )
 }
@@ -197,55 +191,6 @@ function PersonalStatsCard({ meStats }) {
       <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <Link href="/stash" style={miniLink}>🎒 查看账户库</Link>
       </div>
-    </div>
-  )
-}
-
-// ── 4 装备槽预览 ──────────────────────────────────
-function LoadoutPreview() {
-  return (
-    <div style={sectionCard}>
-      <SectionHeader title="🎒 装载 · 4 槽" subtitle="进入前预部署模块" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
-        {LOADOUT_SLOTS.map(slot => {
-          const meta = LOADOUT_SLOT_META[slot]
-          return (
-            <div key={slot} style={{
-              padding: '14px 14px 14px 16px',
-              borderRadius: 10,
-              background: C.bg2,
-              border: `1px solid ${meta.color}30`,
-              borderLeft: `3px solid ${meta.color}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>{meta.icon}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: meta.color }}>{meta.label}</span>
-              </div>
-              <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.7 }}>{meta.desc}</div>
-            </div>
-          )
-        })}
-      </div>
-      <div style={{
-        marginTop: 14, padding: '10px 14px', borderRadius: 8,
-        background: `${C.yellow}10`, border: `1px solid ${C.yellow}30`, fontSize: 11, color: C.yellow,
-      }}>
-        ⚠ 进入前最多带：4 装备 + 4 消耗品 = 8 件总载荷。死亡 = 全失，撤离 = 入库。
-      </div>
-    </div>
-  )
-}
-
-// ── Footer ────────────────────────────────────────
-function Footer() {
-  return (
-    <div style={{
-      marginTop: 28, padding: '20px 28px',
-      borderTop: `1px solid ${C.border}`,
-      textAlign: 'center', fontSize: 11, color: C.dim2,
-      fontFamily: 'monospace', letterSpacing: 1,
-    }}>
-      远星函馆 · Phase 15 · 深层路径已开放
     </div>
   )
 }

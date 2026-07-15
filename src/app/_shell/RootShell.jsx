@@ -145,7 +145,9 @@ export default function RootShell({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-      <Nav user={user} onLogout={handleLogout} />
+      {/* 未登录态（user===null，含 auth 加载中）整个顶栏 Nav 不渲染 —— 神秘极简入口，连品牌名都不露。
+          登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。 */}
+      {user && <Nav user={user} onLogout={handleLogout} />}
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
         {!configured ? (
           <div className="animate-in" style={{
