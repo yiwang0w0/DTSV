@@ -176,9 +176,12 @@ try {
 // ═══ ③ hook① 种子关内容注入(临时点亮 d6-seq1/2·10-avg A1·口径经 🧭 批)═══
 //   测试内 UPDATE enabled=true → 断言 guaranteed 掉落 + seq1 零战斗 + consumedEventDeck → finally 恢复 false。
 let seed12 = []
+let seedOrig = {}
 try {
-  const { data: seedRows } = await sb.from('content_pool').select('id, provenance').eq('entity_type', 'level')
-  seed12 = (seedRows || []).filter((r) => r.provenance?.source === 'seed' && [1, 2].includes(Number(r.provenance?.seq_hint))).map((r) => r.id)
+  const { data: seedRows } = await sb.from('content_pool').select('id, enabled, provenance').eq('entity_type', 'level')
+  const seedAll = (seedRows || []).filter((r) => r.provenance?.source === 'seed' && [1, 2].includes(Number(r.provenance?.seq_hint)))
+  seed12 = seedAll.map((r) => r.id)
+  seedOrig = Object.fromEntries(seedAll.map((r) => [r.id, r.enabled])) // 捕获原 enabled → finally 还原(勿 clobber 🧭 永久启用态)
   ck('hook①:d6 seq1-2 种子关存在', seed12.length === 2, JSON.stringify(seed12))
   if (seed12.length === 2) {
     await sb.from('content_pool').update({ enabled: true }).in('id', seed12)
@@ -204,10 +207,12 @@ try {
   }
 } catch (e) { ck('hook① 种子关执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 finally {
-  if (seed12.length) {
-    try { await sb.from('content_pool').update({ enabled: false }).in('id', seed12); console.log('SEED_TOGGLE_OFF ' + JSON.stringify(seed12)) }
-    catch (e) { console.error('SEED_RESTORE_FAIL', e.message, JSON.stringify(seed12)) }
+  // 逐 id 还原到**原** enabled(勿 clobber 🧭 永久启用态：若原为 true 则还原 true·原 false 则 false)。
+  for (const id of seed12) {
+    try { await sb.from('content_pool').update({ enabled: !!seedOrig[id] }).eq('id', id) }
+    catch (e) { console.error('SEED_RESTORE_FAIL', id, e.message) }
   }
+  if (seed12.length) console.log('SEED_RESTORED ' + JSON.stringify(seedOrig))
 }
 
 // ═══ 汇总 + 自清理 ═══
