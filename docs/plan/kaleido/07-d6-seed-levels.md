@@ -82,8 +82,8 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 | `move_btn` | 首次 `level_clear` | seq1 exit=survive_turns=3 可达成 | seq1→seq2 |
 | `level_header` | 首次 `move` 后 | seq2 存在 | seq2 |
 | `turn_counter` | 与 level_header 同批 | 同上 | seq2 |
-| `hp_bar` | 首次遭遇建立**前**(timing=before)| **seq2 combatSetup.enemy 入关注入**(权威首战敌·§1.1)| **seq2** |
-| `combat_panel` | 首次遭遇(安全上演)| 同上 + **敌人弱到必胜**(§0.2 算术保证)| **seq2** |
+| `hp_bar` | **首次 `search`**(timing=before·🔧 契约)| seq1 首搜即触发(覆盖污染/Ω/收缩全死亡向量·非仅 fight_start)| **seq1** |
+| `combat_panel` | 首次遭遇(安全上演)| **seq2 combatSetup.enemy 入关注入**(权威弱敌·§1.1)+ 敌弱到必胜(§0.2)| **seq2** |
 | `rules_card`(R6) | 首个带战斗模板关**入关前** | seq2 combat_mode=gauntlet(describe 非空)| seq2 |
 | `stance_ui` | 首个 stance_duel 精英关 | seq3 combat_mode=stance_duel | seq3 |
 | `convergence` | 版本终止常驻 | seq5 收敛 | seq5 |
@@ -93,7 +93,7 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 **⚠ 验证修正(4 项解锁的触发定义须改 · 提给 🔧/📖 经 🧭)**:
 - **inventory**:不能只靠概率掉落(survive_turns 可零掉落清关 → 空背包过 seq1-2)。要么 🔧 让 event_deck `guaranteed` 生效(**定向**投放 id27,非加权随机),要么改触发为确定性状态(如 run 开局赠 2 药 → inventory 非空 → 开局即解锁,视觉上仍可渐进 gate)。
 - **craft_btn**:①现无"拾取材料"传感动词(只有 `craft_attempt`,且它需 craft UI 已开 = **循环依赖**);触发须改为**状态检查**「inventory 首次含 recipe-material 类道具」。②仍依赖 id13 保底投放(同 inventory)。
-- **hp_bar(timing=before)**:`fight_start` 在遭遇**建立后**才发射(`route.js:47-55` diff encounter 态)⟹ 与 combat_panel **同批触发,无法严格 before**。修:hp_bar gate 前移到 **seq2 入关时**(movePlayer 入 combat_mode≠standard / combatSetup≠null 的关即解锁,先于首次 attack),combat_panel 仍在遭遇时 → 得真严格序。
+- **hp_bar(timing=before)· 已定(🔧 契约)**:`fight_start` 在遭遇**建立后**才发射(`route.js:47`)⟹ 无法严格 before。**🔧 决:hp_bar 挂首次 `search`**(seq1 首搜·覆盖污染/Ω/收缩等**全**死亡向量·比"seq2 入关"更强)→ hp_bar 在 seq1 即亮、严格先于 seq2 首战。(原"前移 seq2 入关"提案已 supersede·§9。)
 - **combat_panel(安全首战)**:seq1 的 `combatSetup:null` **不阻止**运行时刷怪(chamber id1 `max_npcs=1`,searchArea 可从 live npcPool 建遭遇)⟹ 首遭遇可能误落 seq1、且先于 hp_bar。修:seq1 须**运行时零战斗**(§8 要求:强制 seq1 chamber `max_npcs=0` 且 combatSetup=null 时 searchArea 跳过 npc 分支)。
 
 ### 1.1 内容注入消费器(🔧 已核并建 · 形状通过 · 2026-07-08)
@@ -144,7 +144,7 @@ provenance = { "source":"seed", "archetype":"search", "seq_hint":1, "anonymized"
 
 ## 3. seq2 种子关(encounter · 首次战斗 · 安全上演)
 
-**定位**:首次战斗。gauntlet 波次(满足 P1 闸门"3 模板均出现")但**数值弱到零风险**(时序法则:首战必安全)。hp_bar 先于遭遇亮起(🔧 timing=before),combat_panel 遭遇时亮起,rules_card 入关前展示波次规则。
+**定位**:首次战斗。gauntlet 波次(满足 P1 闸门"3 模板均出现")但**数值弱到零风险**(时序法则:首战必安全)。hp_bar 已在 seq1 首搜亮起(🔧 挂 search·先于本关首战),combat_panel 本关遭遇时亮起,rules_card 入关前展示波次规则。
 **chamber_ref**:`chamber_templates` id **5**(`anchor_combat_1` 锚点-残响游走区,type=combat_dense,pollution_base=35,max_npcs=4)。理由:combat_dense 匹配 encounter archetype;进入锚点走廊(区域推进第二段)。
 
 ```jsonc
