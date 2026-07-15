@@ -2,6 +2,18 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-08 / 🔧 ✅ hook① 内容注入消费器落地 —— AVG A1 阻塞已清·E2E 36/36·build 绿）
+
+- **✅ hook① 上 main（`e97c91d`）**：AVG 垂直切片(10-avg)唯一阻塞 A1。5 件 + 校验:
+  - **event_deck item_find 排空**(resolveSearchAction·isKaleidoRoom 门·1/search front-load·guaranteed 硬保证·consumedEventDeck 存 `gamevars.kaleido[chamberIdx]`·item id→name 查 item_pool·命中即 return)。
+  - **hook④ 零随机刷怪**(npc-spawn gate `:1411` 加 `&& !isKaleidoRoom(room)`)→ 战斗敌只从入关注入·seq1(start·无 move-in + 无 combatSetup)零战斗。
+  - **非 boss 入关注入**(movePlayer `:3488` boss 块泛化到任意 `nextChamber.kaleidoEnemy`·level 取 `ke.level`·`isBoss = archetype==='boss' || ke.level==='boss'` → 强制 boss level 保 bossDefeated/boss_kill 链)。
+  - **推进层重锁泛化**(advanceKaleidoProgress `:2734` boss 重锁扩到 `node.kaleidoEnemy && mode≠stance_duel && !encounter`·find by `mapId===templateId && hp>0`·usedChambers 保唯一无碰撞·stance_duel 由 LW-2 lock-until-death 自管排除)→ 弱敌可打完不遗弃半血。
+  - **hook⑥ `validateSeedLevel`**(runs.js·非致命 warn):boss_kill 缺敌 / guaranteed 超预算(#guaranteed ≤ survive_turns−(非首关 1))。`.eq('enabled',true)` 确认已在 `:2616`。
+- **验证 E2E 36/36**(30 回归零破 + §③ 6 新)：§③ 临时点亮 d6-seq1/2(id 2,3)→ 实测 guaranteed 硬保证(seq1 背包+2=id27+id13)/ seq1 零战斗(无 fight_start·attack@seq1)/ consumedEventDeck 记录 → finally 恢复 enabled=false;postgres MCP 查证五关全 false 无残留。build ✓ 绿。多人局中性(全 isKaleidoRoom 门·回归 boss_kill 链不破)。
+- **交接 🧭**：已报 → 🧭 将永久 UPDATE seq1-2 enabled=true → 🎨 AVG 壳接真内容。撤=收敛(extractPlayer 保持 throw·Kanata 拍板)。
+- **hook① 后队列**：LW-3 gauntlet 波次(seq2 现单敌·relock 已为波次编排铺底)/ D3 mergeGameRules / D5 seed 化。
+
 ## 研究简报（2026-07-08 / 🔧 · ui_unlocks 支撑 AVG 渐进披露引擎可行性 —— 🧭 命题·已 send）
 
 > Kanata AVG 愿景(登录直进 run·初始仅搜索按钮·每搜一次系统一件件浮现·「UI 即进度」)引擎可行性研究。3-reader workflow(w4eq8cw2p·Q2/Q3 绿·Q1 schema 超限我手补读 KaleidoRunView)。**总判:ui_unlocks 正是这个愿景的引擎,核心循环已架构性实现。**
