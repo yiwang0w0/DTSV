@@ -11,19 +11,27 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const { user, loading: authLoading, frontendOnly, beginFrontendSession } = useAuth()
+  const {
+    user, loading: authLoading, frontendOnly,
+    beginFrontendSession, beginGameEntry, transitioning,
+  } = useAuth()
 
   useEffect(() => {
-    if (!authLoading && frontendOnly && user) router.replace('/play')
-  }, [authLoading, frontendOnly, router, user])
+    if (!authLoading && frontendOnly && user && !transitioning) beginGameEntry({ variant: 'returning' })
+  }, [authLoading, beginGameEntry, frontendOnly, transitioning, user])
 
   async function handleLogin(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
     if (frontendOnly) {
+      const submitter = e.nativeEvent?.submitter
+      const rect = submitter?.getBoundingClientRect()
       beginFrontendSession({ email })
-      router.replace('/play')
+      beginGameEntry({
+        variant: 'auth',
+        origin: rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined,
+      })
       return
     }
     const { error, data } = await supabase.auth.signInWithPassword({ email, password })
@@ -66,7 +74,7 @@ export default function Login() {
               style={inputStyle} placeholder="••••••••" required />
           </div>
           {error && <div style={{ color: '#f85149', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(248,81,73,0.1)', borderRadius: 8 }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{
+          <button type="submit" disabled={loading || transitioning} style={{
             width: '100%', padding: '12px', borderRadius: 8, border: 'none',
             background: '#58a6ff', color: '#fff', fontSize: 14, fontWeight: 600,
             cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,

@@ -9,8 +9,9 @@
 //    导致它不能再 export viewport/metadata。）
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import EntryTransition from '@/components/EntryTransition'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 import {
@@ -116,10 +117,12 @@ function Nav({ user, onLogout }) {
 
 export default function RootShell({ children }) {
   const path = usePathname()
+  const router = useRouter()
   const configured = hasSupabaseConfig()
   const frontendOnly = isFrontendPreviewMode(configured)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [entryTransition, setEntryTransition] = useState(null)
   const immersivePreview = frontendOnly && path === '/play'
 
   useEffect(() => {
@@ -164,6 +167,17 @@ export default function RootShell({ children }) {
     return previewUser
   }
 
+  const beginGameEntry = useCallback(({ origin, variant = 'auth' } = {}) => {
+    setEntryTransition((current) => current || {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      origin,
+      variant,
+    })
+  }, [])
+
+  const finishGameEntry = useCallback(() => setEntryTransition(null), [])
+  const navigateIntoGame = useCallback(() => router.replace('/play'), [router])
+
   const handleLogout = async () => {
     if (frontendOnly) {
       try { window.localStorage.removeItem(FRONTEND_PREVIEW_SESSION_KEY) } catch {}
@@ -175,7 +189,15 @@ export default function RootShell({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, frontendOnly, beginFrontendSession, logout: handleLogout }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      frontendOnly,
+      beginFrontendSession,
+      beginGameEntry,
+      transitioning: Boolean(entryTransition),
+      logout: handleLogout,
+    }}>
       {/* 未登录态（user===null，含 auth 加载中）整个顶栏 Nav 不渲染 —— 神秘极简入口，连品牌名都不露。
           登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。 */}
       {user && !frontendOnly && !immersivePreview && <Nav user={user} onLogout={handleLogout} />}
@@ -184,6 +206,14 @@ export default function RootShell({ children }) {
         : { maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
         {children}
       </main>
+      {entryTransition && (
+        <EntryTransition
+          key={entryTransition.id}
+          {...entryTransition}
+          onNavigate={navigateIntoGame}
+          onComplete={finishGameEntry}
+        />
+      )}
     </AuthContext.Provider>
   )
 }

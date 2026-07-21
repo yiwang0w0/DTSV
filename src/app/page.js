@@ -27,14 +27,13 @@ const C = {
 }
 
 export default function Home() {
-  const { user, loading, frontendOnly } = useAuth()
-  const router = useRouter()
+  const { user, loading, frontendOnly, beginGameEntry, transitioning } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const envPollution = snapshot?.gamevars?.envPollution ?? (frontendOnly ? 40 : 0)
 
   useEffect(() => {
-    if (!loading && frontendOnly && user) router.replace('/play')
-  }, [frontendOnly, loading, router, user])
+    if (!loading && frontendOnly && user && !transitioning) beginGameEntry({ variant: 'returning' })
+  }, [beginGameEntry, frontendOnly, loading, transitioning, user])
 
   useEffect(() => {
     if (frontendOnly) return
