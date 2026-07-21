@@ -25,7 +25,7 @@ const OPENING_NAR = '供电恢复。可用功能：一项。' // search_btn nar_
 const NAR = {
   log_panel: '开始记录。——从你翻找的这一下算起。',
   hp_bar: '你动起来了。往后有损耗，得盯着了。——已开放：状况读数。',
-  inventory: '你需要地方放它。——已开放：随身储物。',
+  inventory: '你把它收了起来。',
   combat_panel: '有东西在动。它先看见了你。——已开放：自卫。',
   rules_card: '这一段，规矩不一样。——已张贴在门口。',
 }
@@ -64,6 +64,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const rootRef = useRef(null)
   const streamRef = useRef(null)
   const statusInlineRef = useRef(null)
+  const searchInlineRef = useRef(null)
   const statusSequenceStarted = useRef(false)
   const searchPendingRef = useRef(false)
   const timers = useRef([])
@@ -124,16 +125,21 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     const moveDelay = reduced ? 0 : 900
 
     const moveTimer = window.setTimeout(() => {
-      const sourceRect = statusInlineRef.current?.getBoundingClientRect()
+      const sourceRect = (statusInlineRef.current?.firstElementChild || statusInlineRef.current)?.getBoundingClientRect()
+      const actionSourceRect = searchInlineRef.current?.getBoundingClientRect()
       const narrow = window.innerWidth < 720
       const targetWidth = narrow
         ? Math.max(240, window.innerWidth - 24)
         : Math.min(360, Math.max(280, window.innerWidth * 0.34))
       const fallbackWidth = Math.min(440, window.innerWidth - 40)
       const from = sourceRect?.width
-        ? { top: sourceRect.top, left: sourceRect.left, width: sourceRect.width }
-        : { top: window.innerHeight * 0.46, left: (window.innerWidth - fallbackWidth) / 2, width: fallbackWidth }
-      const to = { top: narrow ? 12 : 18, left: narrow ? 12 : 18, width: targetWidth }
+        ? { top: sourceRect.top, left: sourceRect.left, width: sourceRect.width, height: sourceRect.height }
+        : { top: window.innerHeight * 0.46, left: (window.innerWidth - fallbackWidth) / 2, width: fallbackWidth, height: 45 }
+      const to = { top: narrow ? 12 : 18, left: narrow ? 12 : 18, width: targetWidth, height: from.height }
+      const actionFrom = actionSourceRect?.width
+        ? { top: actionSourceRect.top, left: actionSourceRect.left, width: actionSourceRect.width }
+        : { top: from.top + from.height + 10, left: from.left, width: from.width }
+      const actionTo = { top: to.top + to.height + 10, left: to.left, width: targetWidth }
 
       if (reduced) {
         setDialogFramed(true)
@@ -145,6 +151,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       setStatusFlight({
         from,
         to,
+        actionFrom,
+        actionTo,
         exitLeft: window.innerWidth + 24,
         enterLeft: -targetWidth - 24,
         leg: 'exit-start',
@@ -233,15 +241,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
-  const flightRect = statusFlight
-    ? statusFlight.leg === 'exiting'
-      ? { ...statusFlight.from, left: statusFlight.exitLeft }
-      : statusFlight.leg === 'enter-start'
-        ? { ...statusFlight.to, left: statusFlight.enterLeft }
-        : statusFlight.leg === 'entering'
-          ? statusFlight.to
-          : statusFlight.from
-    : null
+  const flightRect = wrapFlightRect(statusFlight, statusFlight?.from, statusFlight?.to)
+  const actionFlightRect = wrapFlightRect(statusFlight, statusFlight?.actionFrom, statusFlight?.actionTo)
 
   return (
     <div ref={rootRef} data-turn-count={turnCount} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
@@ -277,13 +278,12 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
             {searchReady && !dialogDocked && (
               <SearchActions
+                containerRef={searchInlineRef}
                 className="kaleido-materialize"
                 style={{ maxWidth: 440, marginTop: 8 }}
                 onSearch={onSearch}
                 disabled={!!combat || atRuleGate}
                 loading={searchPending}
-                inventoryUnlocked={isU('inventory')}
-                inventoryFlashing={flashing.has('inventory')}
               />
             )}
           </div>
@@ -299,19 +299,25 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         />
       )}
 
-      {(statusStage === 'flying' || statusStage === 'docked') && (
+      {statusStage === 'flying' && actionFlightRect && (
+        <SearchActions
+          className={`kaleido-action-flight is-${statusFlight.leg}`}
+          style={{ position: 'fixed', zIndex: 23, top: actionFlightRect.top, left: actionFlightRect.left, width: actionFlightRect.width, pointerEvents: 'none' }}
+          onSearch={onSearch}
+          disabled={!!combat || atRuleGate}
+          loading={searchPending}
+        />
+      )}
+
+      {statusStage === 'docked' && (
         <aside className="kaleido-left-rail">
-          {statusStage === 'docked'
-            ? <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
-            : <div className="kaleido-status-slot" aria-hidden="true" />}
-          {searchReady && dialogDocked && (
+          <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
+          {searchReady && (
             <SearchActions
               className="kaleido-materialize"
               onSearch={onSearch}
               disabled={!!combat || atRuleGate}
               loading={searchPending}
-              inventoryUnlocked={isU('inventory')}
-              inventoryFlashing={flashing.has('inventory')}
             />
           )}
         </aside>
@@ -371,9 +377,17 @@ function lineStyle(kind) {
   return { ...base, color: T.dimB } // log
 }
 
-function SearchActions({ onSearch, disabled, loading, inventoryUnlocked, inventoryFlashing, className = '', style }) {
+function wrapFlightRect(flight, from, to) {
+  if (!flight || !from || !to) return null
+  if (flight.leg === 'exiting') return { ...from, left: flight.exitLeft }
+  if (flight.leg === 'enter-start') return { ...to, left: flight.enterLeft }
+  if (flight.leg === 'entering') return to
+  return from
+}
+
+function SearchActions({ onSearch, disabled, loading, containerRef, className = '', style }) {
   return (
-    <div className={className} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, ...style }}>
+    <div ref={containerRef} className={className} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, ...style }}>
       <Btn
         variant="primary"
         sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }}
@@ -384,16 +398,6 @@ function SearchActions({ onSearch, disabled, loading, inventoryUnlocked, invento
       >
         🔦 搜索
       </Btn>
-      {inventoryUnlocked && (
-        <div
-          className={`kaleido-materialize${inventoryFlashing ? ' kaleido-flash-cyan' : ''}`}
-          title="随身储物"
-          style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: T.dim }}
-        >
-          <span style={{ fontSize: 17 }}>🎒</span>
-          <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.cyan }}>1</span>
-        </div>
-      )}
     </div>
   )
 }
