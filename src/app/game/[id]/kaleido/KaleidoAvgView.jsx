@@ -42,6 +42,7 @@ const FIND_LOG = '缝里卡着个东西。你把它抠了出来：锈蚀弹匣�
 const MOCK_ENEMY = { name: '游荡的壳', hp: 34, maxHp: 60, atk: 12, def: 4 }
 
 const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
+const SEARCH_COMMIT_DELAY = 1000
 let _lid = 0
 const nextId = () => (_lid += 1)
 
@@ -56,11 +57,13 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [atRuleGate, setAtRuleGate] = useState(false) // rules_card 门口告示闸门
   const [searchCount, setSearchCount] = useState(0)
   const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
+  const [searchPending, setSearchPending] = useState(false)
   const [seq, setSeq] = useState(1)
   const rootRef = useRef(null)
   const streamRef = useRef(null)
   const statusInlineRef = useRef(null)
   const statusSequenceStarted = useRef(false)
+  const searchPendingRef = useRef(false)
   const timers = useRef([])
   const [statusStage, setStatusStage] = useState('hidden') // hidden → inline → flying → docked
   const [statusFlight, setStatusFlight] = useState(null)
@@ -152,6 +155,17 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   // ── 动作:搜索 ──────────────────────────────────────────────────────────
   function onSearch() {
+    if (searchPendingRef.current) return
+    searchPendingRef.current = true
+    setSearchPending(true)
+    later(() => {
+      searchPendingRef.current = false
+      setSearchPending(false)
+      commitSearch()
+    }, SEARCH_COMMIT_DELAY)
+  }
+
+  function commitSearch() {
     if (phase === 'awake') setPhase('playing')
     const n = searchCount + 1
     setSearchCount(n)
@@ -229,6 +243,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
                 style={{ maxWidth: 440, marginTop: 8 }}
                 onSearch={onSearch}
                 disabled={!!combat || atRuleGate}
+                loading={searchPending}
                 inventoryUnlocked={isU('inventory')}
                 inventoryFlashing={flashing.has('inventory')}
               />
@@ -256,6 +271,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
               className="kaleido-materialize"
               onSearch={onSearch}
               disabled={!!combat || atRuleGate}
+              loading={searchPending}
               inventoryUnlocked={isU('inventory')}
               inventoryFlashing={flashing.has('inventory')}
             />
@@ -317,10 +333,17 @@ function lineStyle(kind) {
   return { ...base, color: T.dimB } // log
 }
 
-function SearchActions({ onSearch, disabled, inventoryUnlocked, inventoryFlashing, className = '', style }) {
+function SearchActions({ onSearch, disabled, loading, inventoryUnlocked, inventoryFlashing, className = '', style }) {
   return (
     <div className={className} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, ...style }}>
-      <Btn variant="primary" sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }} onClick={onSearch} disabled={disabled}>
+      <Btn
+        variant="primary"
+        sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }}
+        onClick={onSearch}
+        disabled={disabled}
+        loading={loading}
+        loadingText="搜索中"
+      >
         🔦 搜索
       </Btn>
       {inventoryUnlocked && (
