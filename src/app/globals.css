@@ -83,19 +83,47 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .kaleido-line-in { animation: kaleido-line-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.kaleido-inline-action {
-  appearance: none;
+.kaleido-inline-action,
+.kaleido-inline-action-pending {
+  display: inline-block;
+  box-sizing: border-box;
   margin: 0 1px;
   padding: 0 1px;
   border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
+  border-bottom: 1px solid transparent;
   color: inherit;
   font: inherit;
   letter-spacing: 0;
+  vertical-align: baseline;
+}
+.kaleido-inline-action {
+  appearance: none;
+  border-bottom-color: currentColor;
+  background: transparent;
   cursor: pointer;
   text-shadow: 0 0 10px rgba(88, 166, 255, 0.34);
   transition: color 160ms ease, border-color 160ms ease, text-shadow 160ms ease;
+}
+@keyframes kaleido-inline-action-arm {
+  0% {
+    opacity: 0.62;
+    border-bottom-color: transparent;
+    text-shadow: none;
+  }
+  55% {
+    opacity: 1;
+    color: #e6edf3;
+    text-shadow: 0 0 15px rgba(88, 166, 255, 0.76);
+  }
+  100% {
+    opacity: 1;
+    color: #58a6ff;
+    border-bottom-color: #58a6ff;
+    text-shadow: 0 0 10px rgba(88, 166, 255, 0.34);
+  }
+}
+.kaleido-inline-action.is-arming {
+  animation: kaleido-inline-action-arm 420ms ease-out backwards;
 }
 .kaleido-inline-action:hover:not(:disabled) {
   color: #e6edf3;
@@ -284,7 +312,7 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .kaleido-line-in, .kaleido-stamina-expand, .kaleido-materialize, .kaleido-flash-cyan { animation-duration: 0.01ms; }
+  .kaleido-line-in, .kaleido-inline-action.is-arming, .kaleido-stamina-expand, .kaleido-materialize, .kaleido-flash-cyan { animation-duration: 0.01ms; }
   .kaleido-caret::after { animation: none; opacity: 0; }
   .btn-loading-fill { animation: none; transform: scaleX(1); opacity: 0.45; }
   .kaleido-avg-dialog { transition-duration: 0.01ms; }

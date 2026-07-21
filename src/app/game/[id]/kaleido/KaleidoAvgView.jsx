@@ -188,7 +188,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   }
 
   function onRevealStamina() {
-    if (!hpUnlocked || staminaRevealed || statusStage === 'flying') return
+    if (!hpUnlocked || !dialogDocked || statusStage !== 'docked' || staminaRevealed) return
     setStaminaRevealed(true)
     // animationend 是主路径；此处防止浏览器未派发动画事件时流程停住。
     later(() => setStaminaExpanded(true), STAMINA_EXPAND_MS + 80)
@@ -254,6 +254,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
+  const statusActionReady = dialogDocked && statusStage === 'docked'
   const flightRect = statusFlight?.from || null
   const actionFlightRect = statusFlight?.actionFrom || null
 
@@ -283,15 +284,19 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
               {l.interaction === 'status' ? (
                 <>
                   {STATUS_PROMPT.before}
-                  <button
-                    type="button"
-                    className="kaleido-inline-action"
-                    onClick={onRevealStamina}
-                    disabled={!hpUnlocked || staminaRevealed || statusStage === 'flying'}
-                    aria-pressed={staminaRevealed}
-                  >
-                    {STATUS_PROMPT.action}
-                  </button>
+                  {statusActionReady ? (
+                    <button
+                      type="button"
+                      className={`kaleido-inline-action${staminaRevealed ? '' : ' is-arming'}`}
+                      onClick={onRevealStamina}
+                      disabled={staminaRevealed}
+                      aria-pressed={staminaRevealed}
+                    >
+                      {STATUS_PROMPT.action}
+                    </button>
+                  ) : (
+                    <span className="kaleido-inline-action-pending">{STATUS_PROMPT.action}</span>
+                  )}
                   {STATUS_PROMPT.after}
                 </>
               ) : l.text}
