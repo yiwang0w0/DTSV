@@ -55,6 +55,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [combat, setCombat] = useState(null) // 事件覆盖层:遭遇实例
   const [atRuleGate, setAtRuleGate] = useState(false) // rules_card 门口告示闸门
   const [searchCount, setSearchCount] = useState(0)
+  const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
   const [seq, setSeq] = useState(1)
   const rootRef = useRef(null)
   const streamRef = useRef(null)
@@ -102,7 +103,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   const hpUnlocked = isU('hp_bar')
 
-  // 状况读数先在文字流内实体化，再飞到左上角；随后对话框移到右侧。
+  // 状况读数先在文字流内实体化，再与对话框同时移向各自停靠位。
   useEffect(() => {
     if (!hpUnlocked || statusSequenceStarted.current) return undefined
     statusSequenceStarted.current = true
@@ -132,13 +133,13 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       frameA = window.requestAnimationFrame(() => {
         frameB = window.requestAnimationFrame(() => {
           setStatusFlight((flight) => (flight ? { ...flight, atTarget: true } : flight))
+          setDialogDocked(true)
         })
       })
     }, moveDelay)
 
     const dockTimer = window.setTimeout(() => {
       setStatusStage('docked')
-      setDialogDocked(true)
     }, dockDelay)
 
     return () => {
@@ -154,6 +155,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     if (phase === 'awake') setPhase('playing')
     const n = searchCount + 1
     setSearchCount(n)
+    setTurnCount((count) => count + 1)
     if (n === 1) {
       // 首搜:座舱结晶一拍 —— log 醒 + hp_bar(gauge-first) + inventory
       pushLine(SEARCH_LOGS[0], 'log')
@@ -190,7 +192,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const flightRect = statusFlight?.atTarget ? statusFlight?.to : statusFlight?.from
 
   return (
-    <div ref={rootRef} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
+    <div ref={rootRef} data-turn-count={turnCount} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
       {/* 污染场 shader 背景(转场介质·playing 后压暗让文字可读) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, opacity: phase === 'playing' ? 0.18 : 0.5, transition: 'opacity 1.4s ease' }}>
         <Shader name="pollution_field" pollution={0.4} intensity={phase === 'playing' ? 0.5 : 0.85} />
@@ -244,10 +246,12 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         />
       )}
 
-      {statusStage === 'docked' && (
+      {(statusStage === 'flying' || statusStage === 'docked') && (
         <aside className="kaleido-left-rail">
-          <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
-          {searchReady && (
+          {statusStage === 'docked'
+            ? <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
+            : <div className="kaleido-status-slot" aria-hidden="true" />}
+          {searchReady && dialogDocked && (
             <SearchActions
               className="kaleido-materialize"
               onSearch={onSearch}
