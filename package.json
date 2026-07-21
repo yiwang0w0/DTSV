@@ -2,12 +2,15 @@
   "name": "dts-game",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
-    "dev": "next dev",
-    "lint": "next lint",
+    "dev": "vinext dev",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "smoke": "node scripts/smoke-check.mjs",
-    "build": "next build",
-    "start": "next start"
+    "build": "vinext build",
+    "start": "vinext start"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -15,16 +18,27 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "0.5.2",
     "@supabase/supabase-js": "2.49.1",
-    "next": "14.2.21",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
     "autoprefixer": "10.4.20",
-    "eslint": "8.57.1",
-    "eslint-config-next": "14.2.21",
-    "locatorjs-nextjs-experimental": "^0.3.0",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
     "postcss": "8.4.49",
-    "tailwindcss": "3.4.17"
-  }
+    "react-server-dom-webpack": "19.2.6",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "8.0.13",
+    "wrangler": "4.92.0"
+  },
+  "type": "module"
 }

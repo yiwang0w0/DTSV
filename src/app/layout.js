@@ -5,6 +5,7 @@
 
 import './globals.css'
 import { DM_Sans, JetBrains_Mono, Noto_Sans_SC } from 'next/font/google'
+import { headers } from 'next/headers'
 import RootShell from './_shell/RootShell'
 import DevSourceJump from './_dev/DevSourceJump'
 
@@ -29,9 +30,28 @@ const notoSansSc = Noto_Sans_SC({
   weight: ['400', '500', '700'],
 })
 
-export const metadata = {
-  title: '远星函馆',
-  description: '远星函馆 —— 多人搜寻撤离',
+export async function generateMetadata() {
+  const requestHeaders = await headers()
+  const host = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host')
+  const protocol = requestHeaders.get('x-forwarded-proto') || 'https'
+  const origin = host ? `${protocol}://${host}` : 'https://dtsv.vercel.app'
+  const imageUrl = new URL('/og.png', origin).toString()
+
+  return {
+    title: '远星函馆',
+    description: '远星函馆 —— 多人搜寻撤离',
+    openGraph: {
+      title: '远星函馆',
+      description: '远星函馆 —— 多人搜寻撤离',
+      images: [{ url: imageUrl, width: 1536, height: 1024, alt: '远星函馆' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: '远星函馆',
+      description: '远星函馆 —— 多人搜寻撤离',
+      images: [imageUrl],
+    },
+  }
 }
 
 // 移动地基 (P1)：viewport-fit=cover 让内容延伸到刘海/圆角屏边缘（配合 globals.css 的 safe-area 工具类）；
