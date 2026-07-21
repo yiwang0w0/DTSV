@@ -170,11 +170,23 @@ body {
   gap: 10px;
 }
 .kaleido-status-flight {
-  transition:
-    top 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    left 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 760ms cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: top, left, width;
+}
+.kaleido-status-flight.is-exit-start,
+.kaleido-status-flight.is-enter-start {
+  transition: none;
+}
+.kaleido-status-flight.is-exiting {
+  transition: left 320ms cubic-bezier(0.55, 0.05, 0.85, 0.35);
+}
+.kaleido-status-flight.is-enter-start {
+  opacity: 0;
+}
+.kaleido-status-flight.is-entering {
+  opacity: 1;
+  transition:
+    left 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 80ms linear;
 }
 .kaleido-left-rail {
   position: fixed;

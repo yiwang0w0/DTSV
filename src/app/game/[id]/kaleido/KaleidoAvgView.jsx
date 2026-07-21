@@ -43,6 +43,8 @@ const MOCK_ENEMY = { name: '游荡的壳', hp: 34, maxHp: 60, atk: 12, def: 4 }
 
 const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 const SEARCH_COMMIT_DELAY = 1000
+const STATUS_EXIT_MS = 320
+const STATUS_ENTRY_MS = 380
 let _lid = 0
 const nextId = () => (_lid += 1)
 
@@ -106,7 +108,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   const hpUnlocked = isU('hp_bar')
 
-  // 状况读数先在文字流内实体化，再与对话框同时移向各自停靠位。
+  // 状况读数先向右离屏，再从左侧滑入停靠位；对话框与第一段同时重排。
   useEffect(() => {
     if (!hpUnlocked || statusSequenceStarted.current) return undefined
     statusSequenceStarted.current = true
@@ -115,8 +117,11 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let frameA = null
     let frameB = null
+    let frameC = null
+    let frameD = null
+    let exitTimer = null
+    let entryTimer = null
     const moveDelay = reduced ? 0 : 900
-    const dockDelay = reduced ? 40 : 1750
 
     const moveTimer = window.setTimeout(() => {
       const sourceRect = statusInlineRef.current?.getBoundingClientRect()
@@ -130,26 +135,51 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         : { top: window.innerHeight * 0.46, left: (window.innerWidth - fallbackWidth) / 2, width: fallbackWidth }
       const to = { top: narrow ? 12 : 18, left: narrow ? 12 : 18, width: targetWidth }
 
-      setStatusFlight({ from, to, atTarget: false })
+      if (reduced) {
+        setDialogFramed(true)
+        setDialogDocked(true)
+        setStatusStage('docked')
+        return
+      }
+
+      setStatusFlight({
+        from,
+        to,
+        exitLeft: window.innerWidth + 24,
+        enterLeft: -targetWidth - 24,
+        leg: 'exit-start',
+      })
       setStatusStage('flying')
       setDialogFramed(true)
       frameA = window.requestAnimationFrame(() => {
         frameB = window.requestAnimationFrame(() => {
-          setStatusFlight((flight) => (flight ? { ...flight, atTarget: true } : flight))
+          setStatusFlight((flight) => (flight ? { ...flight, leg: 'exiting' } : flight))
           setDialogDocked(true)
+
+          exitTimer = window.setTimeout(() => {
+            setStatusFlight((flight) => (flight ? { ...flight, leg: 'enter-start' } : flight))
+            frameC = window.requestAnimationFrame(() => {
+              frameD = window.requestAnimationFrame(() => {
+                setStatusFlight((flight) => (flight ? { ...flight, leg: 'entering' } : flight))
+                entryTimer = window.setTimeout(() => {
+                  setStatusStage('docked')
+                  setStatusFlight(null)
+                }, STATUS_ENTRY_MS + 30)
+              })
+            })
+          }, STATUS_EXIT_MS)
         })
       })
     }, moveDelay)
 
-    const dockTimer = window.setTimeout(() => {
-      setStatusStage('docked')
-    }, dockDelay)
-
     return () => {
       window.clearTimeout(moveTimer)
-      window.clearTimeout(dockTimer)
+      if (exitTimer) window.clearTimeout(exitTimer)
+      if (entryTimer) window.clearTimeout(entryTimer)
       if (frameA) window.cancelAnimationFrame(frameA)
       if (frameB) window.cancelAnimationFrame(frameB)
+      if (frameC) window.cancelAnimationFrame(frameC)
+      if (frameD) window.cancelAnimationFrame(frameD)
     }
   }, [hpUnlocked])
 
@@ -203,7 +233,15 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
-  const flightRect = statusFlight?.atTarget ? statusFlight?.to : statusFlight?.from
+  const flightRect = statusFlight
+    ? statusFlight.leg === 'exiting'
+      ? { ...statusFlight.from, left: statusFlight.exitLeft }
+      : statusFlight.leg === 'enter-start'
+        ? { ...statusFlight.to, left: statusFlight.enterLeft }
+        : statusFlight.leg === 'entering'
+          ? statusFlight.to
+          : statusFlight.from
+    : null
 
   return (
     <div ref={rootRef} data-turn-count={turnCount} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
@@ -256,7 +294,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         <StatusPanel
           me={me}
           flashing
-          className="kaleido-status-flight"
+          className={`kaleido-status-flight is-${statusFlight.leg}`}
           style={{ position: 'fixed', zIndex: 24, top: flightRect.top, left: flightRect.left, width: flightRect.width }}
         />
       )}
