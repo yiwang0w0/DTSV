@@ -132,8 +132,8 @@ body {
 .kaleido-avg-dialog.is-docked {
   top: 18px;
   bottom: 18px;
-  left: calc(50% + 9px);
-  width: min(640px, calc(50% - 36px));
+  left: calc(30px + clamp(280px, 34vw, 360px));
+  width: calc(100% - 48px - clamp(280px, 34vw, 360px));
   transform: translateX(0);
 }
 .kaleido-avg-dialog-stream {
@@ -144,7 +144,11 @@ body {
   mask-image: linear-gradient(180deg, transparent 0, #000 24px);
 }
 .kaleido-avg-dialog.is-docked .kaleido-avg-dialog-stream {
-  padding: 28px 24px;
+  padding: 28px 32px;
+}
+.kaleido-avg-dialog.is-docked .kaleido-avg-dialog-content {
+  max-width: 900px;
+  margin: 0;
 }
 .kaleido-avg-dialog-content {
   width: 100%;
@@ -161,10 +165,25 @@ body {
     width 760ms cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: top, left, width;
 }
+.kaleido-left-rail {
+  position: fixed;
+  z-index: 24;
+  top: 18px;
+  left: 18px;
+  width: clamp(280px, 34vw, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 @media (max-width: 719px) {
+  .kaleido-left-rail {
+    top: 12px;
+    left: 12px;
+    width: calc(100% - 24px);
+  }
   .kaleido-avg-dialog.is-docked {
-    top: 122px;
+    top: 132px;
     bottom: 12px;
     left: 12px;
     width: calc(100% - 24px);

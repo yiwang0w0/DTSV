@@ -212,7 +212,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
             <div
               ref={statusInlineRef}
               style={{
-                minHeight: statusStage === 'inline' || statusStage === 'flying' ? 78 : 0,
+                minHeight: statusStage === 'inline' || statusStage === 'flying' ? 54 : 0,
                 transition: 'min-height 320ms ease',
               }}
             >
@@ -221,32 +221,42 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
               )}
             </div>
 
-            {searchReady && (
-              <div className="kaleido-materialize" style={{ width: '100%', maxWidth: 440, marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Btn variant="primary" sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }} onClick={onSearch} disabled={!!combat || atRuleGate}>
-                  🔦 搜索
-                </Btn>
-                {isU('inventory') && (
-                  <div className={`kaleido-materialize${flashing.has('inventory') ? ' kaleido-flash-cyan' : ''}`}
-                       title="随身储物"
-                       style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: T.dim }}>
-                    <span style={{ fontSize: 17 }}>🎒</span>
-                    <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.cyan }}>1</span>
-                  </div>
-                )}
-              </div>
+            {searchReady && !dialogDocked && (
+              <SearchActions
+                className="kaleido-materialize"
+                style={{ maxWidth: 440, marginTop: 8 }}
+                onSearch={onSearch}
+                disabled={!!combat || atRuleGate}
+                inventoryUnlocked={isU('inventory')}
+                inventoryFlashing={flashing.has('inventory')}
+              />
             )}
           </div>
         </div>
       </div>
 
-      {(statusStage === 'flying' || statusStage === 'docked') && flightRect && (
+      {statusStage === 'flying' && flightRect && (
         <StatusPanel
           me={me}
-          flashing={statusStage === 'flying'}
+          flashing
           className="kaleido-status-flight"
           style={{ position: 'fixed', zIndex: 24, top: flightRect.top, left: flightRect.left, width: flightRect.width }}
         />
+      )}
+
+      {statusStage === 'docked' && (
+        <aside className="kaleido-left-rail">
+          <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
+          {searchReady && (
+            <SearchActions
+              className="kaleido-materialize"
+              onSearch={onSearch}
+              disabled={!!combat || atRuleGate}
+              inventoryUnlocked={isU('inventory')}
+              inventoryFlashing={flashing.has('inventory')}
+            />
+          )}
+        </aside>
       )}
 
       {/* ── 事件覆盖层(combat_panel·打断舞台) ──────────────────────────── */}
@@ -303,7 +313,29 @@ function lineStyle(kind) {
   return { ...base, color: T.dimB } // log
 }
 
+function SearchActions({ onSearch, disabled, inventoryUnlocked, inventoryFlashing, className = '', style }) {
+  return (
+    <div className={className} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, ...style }}>
+      <Btn variant="primary" sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }} onClick={onSearch} disabled={disabled}>
+        🔦 搜索
+      </Btn>
+      {inventoryUnlocked && (
+        <div
+          className={`kaleido-materialize${inventoryFlashing ? ' kaleido-flash-cyan' : ''}`}
+          title="随身储物"
+          style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: T.dim }}
+        >
+          <span style={{ fontSize: 17 }}>🎒</span>
+          <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.cyan }}>1</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StatusPanel({ me, flashing, className = '', style }) {
+  const hpPercent = Math.max(0, Math.min(100, Math.round((me.hp / Math.max(me.maxHp, 1)) * 100)))
+
   return (
     <div
       className={`${className}${flashing ? ' kaleido-flash-cyan' : ''}`.trim()}
@@ -319,16 +351,9 @@ function StatusPanel({ me, flashing, className = '', style }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, fontSize: 11 }}>
         <span style={{ color: T.dim }}>状况</span>
-        <span style={{ display: 'flex', gap: 10 }}>
-          <span style={{ color: T.orange }}>ATK {me.atk}</span>
-          <span style={{ color: T.cyan }}>DEF {me.def}</span>
-        </span>
+        <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{hpPercent}%</span>
       </div>
       <HpBar hp={me.hp} max={me.maxHp} h={7} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 10 }}>
-        <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me.hp}</span>
-        <span style={{ color: T.dim }}>{me.maxHp}</span>
-      </div>
     </div>
   )
 }
