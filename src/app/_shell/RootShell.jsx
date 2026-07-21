@@ -13,7 +13,11 @@ import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
-import { FRONTEND_PREVIEW_USER, isFrontendPreviewMode } from '@/lib/runtimeMode'
+import {
+  createFrontendPreviewUser,
+  FRONTEND_PREVIEW_SESSION_KEY,
+  isFrontendPreviewMode,
+} from '@/lib/runtimeMode'
 import { THEME } from '@/lib/theme'
 
 const AuthContext = createContext(null)
@@ -22,22 +26,17 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-function Nav({ user, onLogout, frontendOnly }) {
+function Nav({ user, onLogout }) {
   const path = usePathname()
-  const links = frontendOnly
-    ? [
-        { href: '/', label: '首页' },
-        { href: '/play', label: '界面预览' },
-      ]
-    : [
-        { href: '/', label: '首页' },
-        { href: '/rooms', label: '对局记录' },
-        { href: '/parameters', label: '参数' },
-        // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
-        ...(user ? [{ href: '/stash', label: '账户库' }] : []),
-        ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
-        ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
-      ]
+  const links = [
+    { href: '/', label: '首页' },
+    { href: '/rooms', label: '对局记录' },
+    { href: '/parameters', label: '参数' },
+    // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
+    ...(user ? [{ href: '/stash', label: '账户库' }] : []),
+    ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
+    ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
+  ]
 
   return (
     <header style={{
@@ -78,22 +77,20 @@ function Nav({ user, onLogout, frontendOnly }) {
           {user ? (
             <>
               <span style={{ color: THEME.dim }}>用户 {user.user_metadata?.username || user.email}</span>
-              {!frontendOnly && (
-                <button
-                  onClick={onLogout}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 8,
-                    border: `1px solid ${THEME.border}`,
-                    background: 'transparent',
-                    color: THEME.danger,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                  }}
-                >
-                  退出
-                </button>
-              )}
+              <button
+                onClick={onLogout}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  border: `1px solid ${THEME.border}`,
+                  background: 'transparent',
+                  color: THEME.danger,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                退出
+              </button>
             </>
           ) : (
             <Link
@@ -121,13 +118,18 @@ export default function RootShell({ children }) {
   const path = usePathname()
   const configured = hasSupabaseConfig()
   const frontendOnly = isFrontendPreviewMode(configured)
-  const [user, setUser] = useState(() => (frontendOnly ? FRONTEND_PREVIEW_USER : null))
-  const [loading, setLoading] = useState(() => !frontendOnly)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const immersivePreview = frontendOnly && path === '/play'
 
   useEffect(() => {
     if (frontendOnly) {
-      setUser(FRONTEND_PREVIEW_USER)
+      try {
+        const saved = window.localStorage.getItem(FRONTEND_PREVIEW_SESSION_KEY)
+        setUser(saved ? createFrontendPreviewUser(JSON.parse(saved)) : null)
+      } catch {
+        setUser(null)
+      }
       setLoading(false)
       return undefined
     }
@@ -150,17 +152,33 @@ export default function RootShell({ children }) {
     return () => subscription.unsubscribe()
   }, [frontendOnly])
 
+  const beginFrontendSession = ({ email, username }) => {
+    const previewUser = createFrontendPreviewUser({ email, username })
+    try {
+      window.localStorage.setItem(FRONTEND_PREVIEW_SESSION_KEY, JSON.stringify({
+        email: previewUser.email,
+        username: previewUser.user_metadata.username,
+      }))
+    } catch {}
+    setUser(previewUser)
+    return previewUser
+  }
+
   const handleLogout = async () => {
-    if (frontendOnly) return
+    if (frontendOnly) {
+      try { window.localStorage.removeItem(FRONTEND_PREVIEW_SESSION_KEY) } catch {}
+      setUser(null)
+      return
+    }
     await supabase.auth.signOut()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, frontendOnly }}>
+    <AuthContext.Provider value={{ user, loading, frontendOnly, beginFrontendSession, logout: handleLogout }}>
       {/* 未登录态（user===null，含 auth 加载中）整个顶栏 Nav 不渲染 —— 神秘极简入口，连品牌名都不露。
           登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。 */}
-      {user && !immersivePreview && <Nav user={user} onLogout={handleLogout} frontendOnly={frontendOnly} />}
+      {user && !frontendOnly && !immersivePreview && <Nav user={user} onLogout={handleLogout} />}
       <main style={immersivePreview
         ? { width: '100%', height: '100dvh', margin: 0, padding: 0, overflow: 'hidden' }
         : { maxWidth: 1200, margin: '0 auto', padding: '24px' }}>

@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/app/_shell/RootShell'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -10,11 +11,21 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { user, loading: authLoading, frontendOnly, beginFrontendSession } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && frontendOnly && user) router.replace('/play')
+  }, [authLoading, frontendOnly, router, user])
 
   async function handleLogin(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
+    if (frontendOnly) {
+      beginFrontendSession({ email })
+      router.replace('/play')
+      return
+    }
     const { error, data } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {

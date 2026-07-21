@@ -28,8 +28,13 @@ const C = {
 
 export default function Home() {
   const { user, loading, frontendOnly } = useAuth()
+  const router = useRouter()
   const [snapshot, setSnapshot] = useState(null)
   const envPollution = snapshot?.gamevars?.envPollution ?? (frontendOnly ? 40 : 0)
+
+  useEffect(() => {
+    if (!loading && frontendOnly && user) router.replace('/play')
+  }, [frontendOnly, loading, router, user])
 
   useEffect(() => {
     if (frontendOnly) return
@@ -48,8 +53,8 @@ export default function Home() {
     loadSnapshot()
   }, [frontendOnly])
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>加载中...</div>
+  if (loading || (frontendOnly && user)) {
+    return <div style={{ position: 'fixed', inset: 0, background: C.bg0 }} />
   }
 
   return (

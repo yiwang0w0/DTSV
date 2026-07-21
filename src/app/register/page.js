@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/app/_shell/RootShell'
 
 export default function Register() {
   const [username, setUsername] = useState('')
@@ -11,11 +12,21 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { user, loading: authLoading, frontendOnly, beginFrontendSession } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && frontendOnly && user) router.replace('/play')
+  }, [authLoading, frontendOnly, router, user])
 
   async function handleRegister(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
+    if (frontendOnly) {
+      beginFrontendSession({ email, username })
+      router.replace('/play')
+      return
+    }
     // 默认为普通用户，注册时设定分组信息；如果是指定管理员邮箱则自动加上 admin
     const metadata = { username, groups: ['user'] }
     if (email === '2949215486@qq.com') {
