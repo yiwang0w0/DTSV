@@ -56,8 +56,15 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [atRuleGate, setAtRuleGate] = useState(false) // rules_card 门口告示闸门
   const [searchCount, setSearchCount] = useState(0)
   const [seq, setSeq] = useState(1)
+  const rootRef = useRef(null)
   const streamRef = useRef(null)
+  const statusInlineRef = useRef(null)
+  const statusSequenceStarted = useRef(false)
   const timers = useRef([])
+  const [statusStage, setStatusStage] = useState('hidden') // hidden → inline → flying → docked
+  const [statusFlight, setStatusFlight] = useState(null)
+  const [dialogFramed, setDialogFramed] = useState(false)
+  const [dialogDocked, setDialogDocked] = useState(false)
 
   const isU = (k) => unlocked.has(k)
   const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.current.push(t); return t }
@@ -91,7 +98,56 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   useEffect(() => {
     const el = streamRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [lines])
+  }, [dialogDocked, lines])
+
+  const hpUnlocked = isU('hp_bar')
+
+  // 状况读数先在文字流内实体化，再飞到左上角；随后对话框移到右侧。
+  useEffect(() => {
+    if (!hpUnlocked || statusSequenceStarted.current) return undefined
+    statusSequenceStarted.current = true
+    setStatusStage('inline')
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let frameA = null
+    let frameB = null
+    const moveDelay = reduced ? 0 : 900
+    const dockDelay = reduced ? 40 : 1750
+
+    const moveTimer = window.setTimeout(() => {
+      const sourceRect = statusInlineRef.current?.getBoundingClientRect()
+      const narrow = window.innerWidth < 720
+      const targetWidth = narrow
+        ? Math.max(240, window.innerWidth - 24)
+        : Math.min(360, Math.max(280, window.innerWidth * 0.34))
+      const fallbackWidth = Math.min(440, window.innerWidth - 40)
+      const from = sourceRect?.width
+        ? { top: sourceRect.top, left: sourceRect.left, width: sourceRect.width }
+        : { top: window.innerHeight * 0.46, left: (window.innerWidth - fallbackWidth) / 2, width: fallbackWidth }
+      const to = { top: narrow ? 12 : 18, left: narrow ? 12 : 18, width: targetWidth }
+
+      setStatusFlight({ from, to, atTarget: false })
+      setStatusStage('flying')
+      setDialogFramed(true)
+      frameA = window.requestAnimationFrame(() => {
+        frameB = window.requestAnimationFrame(() => {
+          setStatusFlight((flight) => (flight ? { ...flight, atTarget: true } : flight))
+        })
+      })
+    }, moveDelay)
+
+    const dockTimer = window.setTimeout(() => {
+      setStatusStage('docked')
+      setDialogDocked(true)
+    }, dockDelay)
+
+    return () => {
+      window.clearTimeout(moveTimer)
+      window.clearTimeout(dockTimer)
+      if (frameA) window.cancelAnimationFrame(frameA)
+      if (frameB) window.cancelAnimationFrame(frameB)
+    }
+  }, [hpUnlocked])
 
   // ── 动作:搜索 ──────────────────────────────────────────────────────────
   function onSearch() {
@@ -131,9 +187,10 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
+  const flightRect = statusFlight?.atTarget ? statusFlight?.to : statusFlight?.from
 
   return (
-    <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', display: 'flex', flexDirection: 'column', isolation: 'isolate' }}>
+    <div ref={rootRef} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
       {/* 污染场 shader 背景(转场介质·playing 后压暗让文字可读) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, opacity: phase === 'playing' ? 0.18 : 0.5, transition: 'opacity 1.4s ease' }}>
         <Shader name="pollution_field" pollution={0.4} intensity={phase === 'playing' ? 0.5 : 0.85} />
@@ -144,33 +201,53 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         opacity: phase === 'boot' ? 1 : 0, transition: 'opacity 1.1s ease',
       }} />
 
-      {/* ── 顶部状态带(hp_bar·gauge-first 落此) ─────────────────────────── */}
-      <div style={{ position: 'relative', zIndex: 10, minHeight: 8, flexShrink: 0 }}>
-        {isU('hp_bar') && (
-          <div className={`kaleido-materialize${flashing.has('hp_bar') ? ' kaleido-flash-cyan' : ''}`}
-               style={{ margin: '10px 14px 0', padding: '8px 12px', background: 'rgba(13,17,23,0.72)', border: `1px solid ${T.border}`, borderRadius: 10, backdropFilter: 'blur(3px)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, fontSize: 11 }}>
-              <span style={{ color: T.dim }}>状况</span>
-              <span style={{ display: 'flex', gap: 10 }}><span style={{ color: T.orange }}>ATK {me.atk}</span><span style={{ color: T.cyan }}>DEF {me.def}</span></span>
-            </div>
-            <HpBar hp={me.hp} max={me.maxHp} h={7} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 10 }}>
-              <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me.hp}</span>
-              <span style={{ color: T.dim }}>{me.maxHp}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── 中央文字舞台(主体·逐段淡入·贴底自动滚) ───────────────────────── */}
-      <div ref={streamRef} style={{ position: 'relative', zIndex: 10, flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px 8px', WebkitMaskImage: 'linear-gradient(180deg, transparent 0, #000 24px)' }}>
-        <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* ── 文字舞台：解锁状况后长出框体，并整体滑到右侧 ─────────────────── */}
+      <div className={`kaleido-avg-dialog${dialogFramed ? ' is-framed' : ''}${dialogDocked ? ' is-docked' : ''}`}>
+        <div ref={streamRef} className="kaleido-avg-dialog-stream">
+          <div className="kaleido-avg-dialog-content">
           {lines.map((l) => (
             <div key={l.id} className="kaleido-line-in" style={lineStyle(l.kind)}>{l.text}</div>
           ))}
-          {/* 觉醒态:搜索按钮尚未浮现时，舞台底部留一点呼吸 */}
+
+            <div
+              ref={statusInlineRef}
+              style={{
+                minHeight: statusStage === 'inline' || statusStage === 'flying' ? 78 : 0,
+                transition: 'min-height 320ms ease',
+              }}
+            >
+              {statusStage === 'inline' && (
+                <StatusPanel me={me} flashing={flashing.has('hp_bar')} className="kaleido-materialize" />
+              )}
+            </div>
+
+            {searchReady && (
+              <div className="kaleido-materialize" style={{ width: '100%', maxWidth: 440, marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Btn variant="primary" sx={{ flex: 1, padding: '13px 0', fontSize: 15, fontWeight: 700, letterSpacing: 0 }} onClick={onSearch} disabled={!!combat || atRuleGate}>
+                  🔦 搜索
+                </Btn>
+                {isU('inventory') && (
+                  <div className={`kaleido-materialize${flashing.has('inventory') ? ' kaleido-flash-cyan' : ''}`}
+                       title="随身储物"
+                       style={{ flexShrink: 0, width: 46, height: 46, borderRadius: 8, background: T.bg2, border: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: T.dim }}>
+                    <span style={{ fontSize: 17 }}>🎒</span>
+                    <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.cyan }}>1</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {(statusStage === 'flying' || statusStage === 'docked') && flightRect && (
+        <StatusPanel
+          me={me}
+          flashing={statusStage === 'flying'}
+          className="kaleido-status-flight"
+          style={{ position: 'fixed', zIndex: 24, top: flightRect.top, left: flightRect.left, width: flightRect.width }}
+        />
+      )}
 
       {/* ── 事件覆盖层(combat_panel·打断舞台) ──────────────────────────── */}
       {combat && isU('combat_panel') && (
@@ -197,31 +274,12 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       {atRuleGate && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(2,5,10,0.7)', backdropFilter: 'blur(3px)', padding: 16 }}>
           <div className="kaleido-materialize" style={{ width: '100%', maxWidth: 420 }}>
-            <div style={{ textAlign: 'center', fontSize: 11, color: T.yellow, marginBottom: 8, letterSpacing: 2 }}>门口 · 已张贴</div>
+            <div style={{ textAlign: 'center', fontSize: 11, color: T.yellow, marginBottom: 8, letterSpacing: 0 }}>门口 · 已张贴</div>
             <KaleidoRuleCard combatMode={{ template_ref: 'stance_duel', params: { counterMul: 1.6 } }} envRules={[{ rule_key: 'pollution_accel', value: 1.5 }]} formulaOverrides={[]} />
             <Btn variant="primary" size="lg" sx={{ width: '100%', marginTop: 12 }} onClick={onEnterRuleLevel}>读过了，迈过门口 →</Btn>
           </div>
         </div>
       )}
-
-      {/* ── 底部行动坞(search·常驻·觉醒后浮现;+ 边缘抽屉 inventory 徽标) ──────── */}
-      <div style={{ position: 'relative', zIndex: 20, flexShrink: 0, padding: '10px 16px calc(12px + env(safe-area-inset-bottom))', display: 'flex', alignItems: 'center', gap: 10 }}>
-        {searchReady ? (
-          <Btn variant="primary" className="kaleido-materialize" sx={{ flex: 1, padding: '14px 0', fontSize: 15, fontWeight: 700, letterSpacing: 1 }} onClick={onSearch} disabled={!!combat || atRuleGate}>
-            🔦 搜索
-          </Btn>
-        ) : (
-          <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: T.dim2, padding: '14px 0' }}>……</div>
-        )}
-        {isU('inventory') && (
-          <div className={`kaleido-materialize${flashing.has('inventory') ? ' kaleido-flash-cyan' : ''}`}
-               title="随身储物"
-               style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 10, background: T.bg2, border: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: T.dim }}>
-            <span style={{ fontSize: 17 }}>🎒</span>
-            <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.cyan }}>1</span>
-          </div>
-        )}
-      </div>
 
       {/* dev 谐调器:仅独立预览页显示，正式 /play 不暴露测试入口。 */}
       {showDevControls && (
@@ -236,13 +294,43 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 }
 
 function lineStyle(kind) {
-  const base = { fontSize: 14, lineHeight: 1.85, letterSpacing: 0.2 }
+  const base = { fontSize: 14, lineHeight: 1.85, letterSpacing: 0 }
   if (kind === 'nar') return { ...base, color: T.cyan, fontStyle: 'italic' } // 「值班的」系统声
   if (kind === 'awake') return { ...base, color: T.text, fontWeight: 500 }
   if (kind === 'kill') return { ...base, color: T.yellow }
   if (kind === 'attack') return { ...base, color: T.orange }
   if (kind === 'system') return { ...base, color: T.dimB }
   return { ...base, color: T.dimB } // log
+}
+
+function StatusPanel({ me, flashing, className = '', style }) {
+  return (
+    <div
+      className={`${className}${flashing ? ' kaleido-flash-cyan' : ''}`.trim()}
+      style={{
+        padding: '9px 12px',
+        background: 'rgba(13,17,23,0.86)',
+        border: `1px solid ${T.border}`,
+        borderRadius: 8,
+        backdropFilter: 'blur(5px)',
+        boxShadow: '0 12px 34px rgba(0,0,0,0.24)',
+        ...style,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, fontSize: 11 }}>
+        <span style={{ color: T.dim }}>状况</span>
+        <span style={{ display: 'flex', gap: 10 }}>
+          <span style={{ color: T.orange }}>ATK {me.atk}</span>
+          <span style={{ color: T.cyan }}>DEF {me.def}</span>
+        </span>
+      </div>
+      <HpBar hp={me.hp} max={me.maxHp} h={7} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 10 }}>
+        <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{me.hp}</span>
+        <span style={{ color: T.dim }}>{me.maxHp}</span>
+      </div>
+    </div>
+  )
 }
 
 function DevBtn({ children, onClick, on, disabled }) {
