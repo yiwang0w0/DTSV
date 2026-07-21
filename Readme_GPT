@@ -1,4 +1,11 @@
-﻿## 2026-03-24 / Vercel 构建 lint 与字体接线修复
+﻿# 项目正式名称
+
+- 自 2026-07-21 起，本项目对外正式名称为「远星」。
+- 后续新增的 UI、文档与讨论统一使用「远星」作为产品名。
+- `DTSV` 仓库名、包名、现有网址与部署标识暂时保留，除非用户明确要求迁移。
+- 「远星函馆」仅在引用历史资料或作为明确的世界观专名时保留，不再作为当前产品名。
+
+## 2026-03-24 / Vercel 构建 lint 与字体接线修复
 - 已修复：
   - `src/lib/server/gameActions.js`：将动作分发里的 `useItem()` 重命名为 `performItemUse()`，避免被 ESLint 误判为 React Hook。
   - `src/app/admin/_tabs/UsersTab.jsx`：`loadUsers` 改为 `useCallback`，补齐 `useEffect` 依赖。

@@ -73,7 +73,7 @@ export default function EntryTransition({ id, origin, variant = 'auth', onNaviga
   return (
     <div
       role="status"
-      aria-label={`${target}，远星函馆`}
+      aria-label={`${target}，远星`}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         overflow: 'hidden', isolation: 'isolate', pointerEvents: 'all',
@@ -125,7 +125,7 @@ export default function EntryTransition({ id, origin, variant = 'auth', onNaviga
           fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: 0,
           opacity: settled ? 1 : 0.35, transition: 'opacity 180ms ease',
         }}>
-          远星函馆
+          远星
         </div>
       </div>
     </div>

@@ -46,7 +46,7 @@ function useReducedMotion() {
 }
 
 export default function ParticleText({
-  text = '远星函馆',
+  text = '远星',
   mode = 'decode',
   pollution = 0,
   color = '#bc8cff',

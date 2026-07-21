@@ -38,17 +38,17 @@ export async function generateMetadata() {
   const imageUrl = new URL('/og.png', origin).toString()
 
   return {
-    title: '远星函馆',
-    description: '远星函馆 —— 多人搜寻撤离',
+    title: '远星',
+    description: '远星：多人搜寻撤离',
     openGraph: {
-      title: '远星函馆',
-      description: '远星函馆 —— 多人搜寻撤离',
-      images: [{ url: imageUrl, width: 1536, height: 1024, alt: '远星函馆' }],
+      title: '远星',
+      description: '远星：多人搜寻撤离',
+      images: [{ url: imageUrl, width: 1536, height: 1024, alt: '远星' }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: '远星函馆',
-      description: '远星函馆 —— 多人搜寻撤离',
+      title: '远星',
+      description: '远星：多人搜寻撤离',
       images: [imageUrl],
     },
   }
