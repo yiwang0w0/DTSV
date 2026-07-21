@@ -9,7 +9,7 @@
 
 import dynamic from 'next/dynamic'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { T, Btn, HpBar, hpColor } from '../gameUi'
+import { T, Btn, HpBar, hpColor, StaminaBar, staminaColor } from '../gameUi'
 import { KaleidoRuleCard } from './kaleidoShell'
 
 const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
@@ -21,10 +21,15 @@ const AWAKEN_LINES = [
   '……现在，有一点。',
 ]
 const OPENING_NAR = '供电恢复。可用功能：一项。' // search_btn nar_line(N3·开场行)
+const STATUS_PROMPT = {
+  text: '你动起来了。试图确认一下自己的状态。',
+  before: '你动起来了。试图确认一下自己的',
+  action: '状态',
+  after: '。',
+}
 // N3 nar_line(揭示行·因果两拍的「因」)
 const NAR = {
   log_panel: '开始记录。——从你翻找的这一下算起。',
-  hp_bar: '你动起来了。往后有损耗，得盯着了。——已开放：状况读数。',
   inventory: '你把它收了起来。',
   combat_panel: '有东西在动。它先看见了你。——已开放：自卫。',
   rules_card: '这一段，规矩不一样。——已张贴在门口。',
@@ -45,6 +50,7 @@ const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 const SEARCH_COMMIT_DELAY = 1000
 const LAYOUT_TRANSITION_MS = 900
 const DIALOG_SETTLE_PAUSE = 180
+const STATUS_EXPAND_MS = 640
 let _lid = 0
 const nextId = () => (_lid += 1)
 
@@ -54,13 +60,14 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [lines, setLines] = useState([]) // 文字舞台:{ id, text, kind:'log'|'nar'|'awake' }
   const [unlocked, setUnlocked] = useState(() => new Set())
   const [flashing, setFlashing] = useState(() => new Set()) // 因果两拍:正在闪 cyan 的件
-  const [me, setMe] = useState({ hp: 78, maxHp: 100, atk: 22, def: 9 })
+  const [me] = useState({ hp: 78, maxHp: 100, stamina: 72, maxStamina: 100, atk: 22, def: 9 })
   const [combat, setCombat] = useState(null) // 事件覆盖层:遭遇实例
   const [atRuleGate, setAtRuleGate] = useState(false) // rules_card 门口告示闸门
   const [searchCount, setSearchCount] = useState(0)
   const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
   const [searchPending, setSearchPending] = useState(false)
   const [firstSearchDialogueSettled, setFirstSearchDialogueSettled] = useState(false)
+  const [statusExpanded, setStatusExpanded] = useState(false)
   const [seq, setSeq] = useState(1)
   const rootRef = useRef(null)
   const streamRef = useRef(null)
@@ -120,7 +127,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   // 状况读数先向右离屏，再从左侧滑入停靠位；对话框与第一段同时重排。
   useEffect(() => {
-    if (!hpUnlocked || !firstSearchDialogueSettled || statusSequenceStarted.current) return undefined
+    if (!hpUnlocked || !statusExpanded || !firstSearchDialogueSettled || statusSequenceStarted.current) return undefined
     statusSequenceStarted.current = true
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -170,12 +177,24 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       window.clearTimeout(moveTimer)
       if (settleTimer) window.clearTimeout(settleTimer)
     }
-  }, [firstSearchDialogueSettled, hpUnlocked])
+  }, [firstSearchDialogueSettled, hpUnlocked, statusExpanded])
 
   function onFirstSearchDialogueEnd() {
     if (dialogueSettleScheduled.current) return
     dialogueSettleScheduled.current = true
     later(() => setFirstSearchDialogueSettled(true), DIALOG_SETTLE_PAUSE)
+  }
+
+  function onRevealStatus() {
+    if (hpUnlocked) return
+    revealPiece('hp_bar')
+    // animationend 是主路径；此处防止浏览器未派发动画事件时流程停住。
+    later(() => setStatusExpanded(true), STATUS_EXPAND_MS + 80)
+  }
+
+  function onStatusExpandEnd(event) {
+    if (event.currentTarget !== event.target) return
+    setStatusExpanded(true)
   }
 
   // ── 动作:搜索 ──────────────────────────────────────────────────────────
@@ -199,8 +218,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       // 首搜:座舱结晶一拍 —— log 醒 + hp_bar(gauge-first) + inventory
       pushLine(SEARCH_LOGS[0], 'log')
       revealPiece('log_panel', NAR.log_panel)
-      // gauge-first:hp_bar 先于任何损耗叙事落定(时序法则)
-      later(() => revealPiece('hp_bar', NAR.hp_bar), 500)
+      // 先给出可点击的叙事提示；状况读数由玩家主动确认后展开。
+      later(() => pushLine(STATUS_PROMPT.text, 'nar', { interaction: 'status' }), 500)
       // 首物(seq1 保障):抽屉滑出
       later(() => {
         pushLine(FIND_LOG, 'log')
@@ -259,19 +278,37 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
               style={lineStyle(l.kind)}
               onAnimationEnd={l.settlesFirstSearch ? onFirstSearchDialogueEnd : undefined}
             >
-              {l.text}
+              {l.interaction === 'status' ? (
+                <>
+                  {STATUS_PROMPT.before}
+                  <button
+                    type="button"
+                    className="kaleido-inline-action"
+                    onClick={onRevealStatus}
+                    disabled={hpUnlocked}
+                    aria-pressed={hpUnlocked}
+                  >
+                    {STATUS_PROMPT.action}
+                  </button>
+                  {STATUS_PROMPT.after}
+                </>
+              ) : l.text}
             </div>
           ))}
 
             <div
               ref={statusInlineRef}
               style={{
-                minHeight: statusStage === 'inline' || statusStage === 'flying' ? 54 : 0,
+                minHeight: statusStage === 'flying' ? (statusFlight?.from?.height || 96) : 0,
                 transition: 'min-height 320ms ease',
               }}
             >
               {statusStage === 'inline' && (
-                <StatusPanel me={me} flashing={flashing.has('hp_bar')} className="kaleido-materialize" />
+                <div className="kaleido-status-expand" onAnimationEnd={onStatusExpandEnd}>
+                  <div className="kaleido-status-expand-inner">
+                    <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -422,6 +459,9 @@ function SearchActions({ onSearch, disabled, loading, containerRef, className = 
 
 function StatusPanel({ me, flashing, className = '', style }) {
   const hpPercent = Math.max(0, Math.min(100, Math.round((me.hp / Math.max(me.maxHp, 1)) * 100)))
+  const maxStamina = Math.max(me.maxStamina || 1, 1)
+  const stamina = Math.max(0, Math.min(maxStamina, me.stamina ?? maxStamina))
+  const staminaPercent = Math.round((stamina / maxStamina) * 100)
 
   return (
     <div
@@ -436,11 +476,17 @@ function StatusPanel({ me, flashing, className = '', style }) {
         ...style,
       }}
     >
+      <div style={{ color: T.dim, fontSize: 11, marginBottom: 8 }}>状况</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, fontSize: 11 }}>
-        <span style={{ color: T.dim }}>状况</span>
+        <span style={{ color: T.dimB }}>生命</span>
         <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{hpPercent}%</span>
       </div>
       <HpBar hp={me.hp} max={me.maxHp} h={7} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '9px 0 5px', fontSize: 11 }}>
+        <span style={{ color: T.dimB }}>体力</span>
+        <span style={{ color: staminaColor(stamina, maxStamina), fontFamily: 'monospace', fontWeight: 700 }}>{staminaPercent}%</span>
+      </div>
+      <StaminaBar value={stamina} max={maxStamina} h={7} />
     </div>
   )
 }
