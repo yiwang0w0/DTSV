@@ -13,6 +13,7 @@ import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
+import { FRONTEND_PREVIEW_USER, isFrontendPreviewMode } from '@/lib/runtimeMode'
 import { THEME } from '@/lib/theme'
 
 const AuthContext = createContext(null)
@@ -21,17 +22,22 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-function Nav({ user, onLogout }) {
+function Nav({ user, onLogout, frontendOnly }) {
   const path = usePathname()
-  const links = [
-    { href: '/', label: '首页' },
-    { href: '/rooms', label: '对局记录' },
-    { href: '/parameters', label: '参数' },
-    // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
-    ...(user ? [{ href: '/stash', label: '账户库' }] : []),
-    ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
-    ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
-  ]
+  const links = frontendOnly
+    ? [
+        { href: '/', label: '首页' },
+        { href: '/play', label: '界面预览' },
+      ]
+    : [
+        { href: '/', label: '首页' },
+        { href: '/rooms', label: '对局记录' },
+        { href: '/parameters', label: '参数' },
+        // Phase 31 re-home: BR 已并入 /game 对局（gametype===20），/br 独立页暂留 dormant 但移除导航入口。
+        ...(user ? [{ href: '/stash', label: '账户库' }] : []),
+        ...(user ? [{ href: '/profile', label: '个人主页' }] : []),
+        ...(isAdmin(user) ? [{ href: '/admin', label: '管理后台' }] : []),
+      ]
 
   return (
     <header style={{
@@ -72,20 +78,22 @@ function Nav({ user, onLogout }) {
           {user ? (
             <>
               <span style={{ color: THEME.dim }}>用户 {user.user_metadata?.username || user.email}</span>
-              <button
-                onClick={onLogout}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 8,
-                  border: `1px solid ${THEME.border}`,
-                  background: 'transparent',
-                  color: THEME.danger,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                }}
-              >
-                退出
-              </button>
+              {!frontendOnly && (
+                <button
+                  onClick={onLogout}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    border: `1px solid ${THEME.border}`,
+                    background: 'transparent',
+                    color: THEME.danger,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                  }}
+                >
+                  退出
+                </button>
+              )}
             </>
           ) : (
             <Link
@@ -110,12 +118,16 @@ function Nav({ user, onLogout }) {
 }
 
 export default function RootShell({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const path = usePathname()
   const configured = hasSupabaseConfig()
+  const frontendOnly = isFrontendPreviewMode(configured)
+  const [user, setUser] = useState(() => (frontendOnly ? FRONTEND_PREVIEW_USER : null))
+  const [loading, setLoading] = useState(() => !frontendOnly)
+  const immersivePreview = frontendOnly && path === '/play'
 
   useEffect(() => {
-    if (!configured) {
+    if (frontendOnly) {
+      setUser(FRONTEND_PREVIEW_USER)
       setLoading(false)
       return undefined
     }
@@ -136,40 +148,23 @@ export default function RootShell({ children }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [configured])
+  }, [frontendOnly])
 
   const handleLogout = async () => {
+    if (frontendOnly) return
     await supabase.auth.signOut()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, frontendOnly }}>
       {/* 未登录态（user===null，含 auth 加载中）整个顶栏 Nav 不渲染 —— 神秘极简入口，连品牌名都不露。
           登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。 */}
-      {user && <Nav user={user} onLogout={handleLogout} />}
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-        {!configured ? (
-          <div className="animate-in" style={{
-            marginTop: 40,
-            padding: '24px',
-            borderRadius: 16,
-            background: THEME.panel,
-            border: `1px solid ${THEME.border}`,
-            color: THEME.text,
-          }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>缺少 Supabase 环境变量</h2>
-            <p style={{ margin: '12px 0 0', color: THEME.dim, lineHeight: 1.7 }}>
-              当前运行环境没有检测到 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY`，
-              所以客户端无法初始化 Supabase，页面也无法正常登录或读取数据。
-            </p>
-            <p style={{ margin: '12px 0 0', color: THEME.dim, lineHeight: 1.7 }}>
-              请参考项目根目录的 `.env.example` 创建 `.env.local`，填入对应的 Supabase 配置后再重新启动应用。
-            </p>
-          </div>
-        ) : (
-          children
-        )}
+      {user && !immersivePreview && <Nav user={user} onLogout={handleLogout} frontendOnly={frontendOnly} />}
+      <main style={immersivePreview
+        ? { width: '100%', height: '100dvh', margin: 0, padding: 0, overflow: 'hidden' }
+        : { maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
+        {children}
       </main>
     </AuthContext.Provider>
   )

@@ -27,11 +27,13 @@ const C = {
 }
 
 export default function Home() {
-  const { user, loading } = useAuth()
+  const { user, loading, frontendOnly } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
-  const envPollution = snapshot?.gamevars?.envPollution || 0
+  const envPollution = snapshot?.gamevars?.envPollution ?? (frontendOnly ? 40 : 0)
 
   useEffect(() => {
+    if (frontendOnly) return
+
     async function loadSnapshot() {
       // 当前对局快照
       const { data } = await supabase
@@ -44,7 +46,7 @@ export default function Home() {
       setSnapshot(data || null)
     }
     loadSnapshot()
-  }, [])
+  }, [frontendOnly])
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 60, color: C.dim }}>加载中...</div>
@@ -54,7 +56,7 @@ export default function Home() {
     // 未登录态：外层不加 animate-in —— 其 fadeIn keyframe 带 transform，会使内部 position:fixed 的
     //   全屏 Hero 相对本 div 而非视口定位（动画期错位）。登录态照常 fade-in。（🎨 首页派单④·🧭）
     <div className={user ? 'animate-in' : undefined}>
-      <HeroSection user={user} envPollution={envPollution} snapshot={snapshot} />
+      <HeroSection user={user} frontendOnly={frontendOnly} envPollution={envPollution} snapshot={snapshot} />
     </div>
   )
 }
@@ -63,12 +65,16 @@ export default function Home() {
 // 设计稿来源：claude.ai/design 远星函馆 FX 演示。Hero 用「污染场」shader（fbm 域扭曲，柔和云团）+
 // 「decode」文字粒子（纯 DOM，0 Canvas）。pollution 用当前 active 对局的 envPollution 联动。
 // 注：原型 deep_path（隧道）首页太晕，按用户反馈改用 pollution_field 与设计稿一致。
-function HeroSection({ user, envPollution = 0, snapshot }) {
+function HeroSection({ user, frontendOnly, envPollution = 0, snapshot }) {
   const router = useRouter()
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState(null)
 
   async function handleStartRaid() {
+    if (frontendOnly) {
+      router.push('/play')
+      return
+    }
     if (snapshot?.id) {
       router.push(`/game/${snapshot.id}`)
       return
