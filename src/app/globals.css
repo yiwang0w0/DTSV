@@ -125,11 +125,11 @@ body {
   border-radius: 8px;
   background: transparent;
   transition:
-    left 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    top 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    bottom 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 760ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    left 900ms cubic-bezier(0.45, 0, 0.55, 1),
+    top 900ms cubic-bezier(0.45, 0, 0.55, 1),
+    bottom 900ms cubic-bezier(0.45, 0, 0.55, 1),
+    width 900ms cubic-bezier(0.45, 0, 0.55, 1),
+    transform 900ms cubic-bezier(0.45, 0, 0.55, 1),
     border-color 360ms ease,
     background-color 360ms ease,
     box-shadow 360ms ease;
@@ -169,30 +169,38 @@ body {
   flex-direction: column;
   gap: 10px;
 }
-.kaleido-status-flight,
-.kaleido-action-flight {
-  will-change: top, left, width;
+@keyframes kaleido-wrap-flight {
+  0% {
+    top: var(--wrap-from-top);
+    left: var(--wrap-from-left);
+    width: var(--wrap-from-width);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.55, 0.05, 0.85, 0.35);
+  }
+  38% {
+    top: var(--wrap-from-top);
+    left: calc(100vw + 24px);
+    width: var(--wrap-from-width);
+    opacity: 1;
+  }
+  38.01% {
+    top: var(--wrap-to-top);
+    left: var(--wrap-enter-left);
+    width: var(--wrap-to-width);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  42% { opacity: 1; }
+  100% {
+    top: var(--wrap-to-top);
+    left: var(--wrap-to-left);
+    width: var(--wrap-to-width);
+    opacity: 1;
+  }
 }
-.kaleido-status-flight.is-exit-start,
-.kaleido-status-flight.is-enter-start,
-.kaleido-action-flight.is-exit-start,
-.kaleido-action-flight.is-enter-start {
-  transition: none;
-}
-.kaleido-status-flight.is-exiting,
-.kaleido-action-flight.is-exiting {
-  transition: left 320ms cubic-bezier(0.55, 0.05, 0.85, 0.35);
-}
-.kaleido-status-flight.is-enter-start,
-.kaleido-action-flight.is-enter-start {
-  opacity: 0;
-}
-.kaleido-status-flight.is-entering,
-.kaleido-action-flight.is-entering {
-  opacity: 1;
-  transition:
-    left 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 80ms linear;
+.kaleido-wrap-flight {
+  animation: kaleido-wrap-flight 900ms linear both;
+  will-change: top, left, width, opacity;
 }
 .kaleido-left-rail {
   position: fixed;
@@ -225,7 +233,8 @@ body {
   .kaleido-line-in, .kaleido-materialize, .kaleido-flash-cyan { animation-duration: 0.01ms; }
   .kaleido-caret::after { animation: none; opacity: 0; }
   .btn-loading-fill { animation: none; transform: scaleX(1); opacity: 0.45; }
-  .kaleido-avg-dialog, .kaleido-status-flight, .kaleido-action-flight { transition-duration: 0.01ms; }
+  .kaleido-avg-dialog { transition-duration: 0.01ms; }
+  .kaleido-wrap-flight { animation: none; }
 }
 
 /* 对局页移动端全屏化 (P3)：窄屏(<768)逃逸 RootShell <Nav>(sticky z100) + padded <main> chrome，

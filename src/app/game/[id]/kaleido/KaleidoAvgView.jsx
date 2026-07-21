@@ -43,8 +43,8 @@ const MOCK_ENEMY = { name: '游荡的壳', hp: 34, maxHp: 60, atk: 12, def: 4 }
 
 const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 const SEARCH_COMMIT_DELAY = 1000
-const STATUS_EXIT_MS = 320
-const STATUS_ENTRY_MS = 380
+const LAYOUT_TRANSITION_MS = 900
+const DIALOG_SETTLE_PAUSE = 180
 let _lid = 0
 const nextId = () => (_lid += 1)
 
@@ -60,12 +60,15 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [searchCount, setSearchCount] = useState(0)
   const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
   const [searchPending, setSearchPending] = useState(false)
+  const [firstSearchDialogueSettled, setFirstSearchDialogueSettled] = useState(false)
   const [seq, setSeq] = useState(1)
   const rootRef = useRef(null)
   const streamRef = useRef(null)
   const statusInlineRef = useRef(null)
   const searchInlineRef = useRef(null)
+  const statusMaterialized = useRef(false)
   const statusSequenceStarted = useRef(false)
+  const dialogueSettleScheduled = useRef(false)
   const searchPendingRef = useRef(false)
   const timers = useRef([])
   const [statusStage, setStatusStage] = useState('hidden') // hidden → inline → flying → docked
@@ -76,13 +79,13 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const isU = (k) => unlocked.has(k)
   const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.current.push(t); return t }
 
-  const pushLine = useCallback((text, kind = 'log') => {
-    setLines((ls) => [...ls, { id: nextId(), text, kind }].slice(-60))
+  const pushLine = useCallback((text, kind = 'log', meta = {}) => {
+    setLines((ls) => [...ls, { ...meta, id: nextId(), text, kind }].slice(-60))
   }, [])
 
   // 因果两拍:nar 先落舞台(因) → 延迟让对应 UI 件材质化析出(果) + 边框闪 nar 同色
-  const revealPiece = useCallback((key, narText) => {
-    if (narText) pushLine(narText, 'nar')
+  const revealPiece = useCallback((key, narText, lineMeta) => {
+    if (narText) pushLine(narText, 'nar', lineMeta)
     later(() => {
       setUnlocked((s) => new Set(s).add(key))
       setFlashing((s) => new Set(s).add(key))
@@ -109,20 +112,19 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   const hpUnlocked = isU('hp_bar')
 
+  useEffect(() => {
+    if (!hpUnlocked || statusMaterialized.current) return
+    statusMaterialized.current = true
+    setStatusStage('inline')
+  }, [hpUnlocked])
+
   // 状况读数先向右离屏，再从左侧滑入停靠位；对话框与第一段同时重排。
   useEffect(() => {
-    if (!hpUnlocked || statusSequenceStarted.current) return undefined
+    if (!hpUnlocked || !firstSearchDialogueSettled || statusSequenceStarted.current) return undefined
     statusSequenceStarted.current = true
-    setStatusStage('inline')
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    let frameA = null
-    let frameB = null
-    let frameC = null
-    let frameD = null
-    let exitTimer = null
-    let entryTimer = null
-    const moveDelay = reduced ? 0 : 900
+    let settleTimer = null
 
     const moveTimer = window.setTimeout(() => {
       const sourceRect = (statusInlineRef.current?.firstElementChild || statusInlineRef.current)?.getBoundingClientRect()
@@ -153,43 +155,28 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         to,
         actionFrom,
         actionTo,
-        exitLeft: window.innerWidth + 24,
-        enterLeft: -targetWidth - 24,
-        leg: 'exit-start',
       })
       setStatusStage('flying')
       setDialogFramed(true)
-      frameA = window.requestAnimationFrame(() => {
-        frameB = window.requestAnimationFrame(() => {
-          setStatusFlight((flight) => (flight ? { ...flight, leg: 'exiting' } : flight))
-          setDialogDocked(true)
+      setDialogDocked(true)
 
-          exitTimer = window.setTimeout(() => {
-            setStatusFlight((flight) => (flight ? { ...flight, leg: 'enter-start' } : flight))
-            frameC = window.requestAnimationFrame(() => {
-              frameD = window.requestAnimationFrame(() => {
-                setStatusFlight((flight) => (flight ? { ...flight, leg: 'entering' } : flight))
-                entryTimer = window.setTimeout(() => {
-                  setStatusStage('docked')
-                  setStatusFlight(null)
-                }, STATUS_ENTRY_MS + 30)
-              })
-            })
-          }, STATUS_EXIT_MS)
-        })
-      })
-    }, moveDelay)
+      settleTimer = window.setTimeout(() => {
+        setStatusStage('docked')
+        setStatusFlight(null)
+      }, LAYOUT_TRANSITION_MS)
+    }, 0)
 
     return () => {
       window.clearTimeout(moveTimer)
-      if (exitTimer) window.clearTimeout(exitTimer)
-      if (entryTimer) window.clearTimeout(entryTimer)
-      if (frameA) window.cancelAnimationFrame(frameA)
-      if (frameB) window.cancelAnimationFrame(frameB)
-      if (frameC) window.cancelAnimationFrame(frameC)
-      if (frameD) window.cancelAnimationFrame(frameD)
+      if (settleTimer) window.clearTimeout(settleTimer)
     }
-  }, [hpUnlocked])
+  }, [firstSearchDialogueSettled, hpUnlocked])
+
+  function onFirstSearchDialogueEnd() {
+    if (dialogueSettleScheduled.current) return
+    dialogueSettleScheduled.current = true
+    later(() => setFirstSearchDialogueSettled(true), DIALOG_SETTLE_PAUSE)
+  }
 
   // ── 动作:搜索 ──────────────────────────────────────────────────────────
   function onSearch() {
@@ -215,7 +202,12 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       // gauge-first:hp_bar 先于任何损耗叙事落定(时序法则)
       later(() => revealPiece('hp_bar', NAR.hp_bar), 500)
       // 首物(seq1 保障):抽屉滑出
-      later(() => { pushLine(FIND_LOG, 'log'); revealPiece('inventory', NAR.inventory) }, 1600)
+      later(() => {
+        pushLine(FIND_LOG, 'log')
+        revealPiece('inventory', NAR.inventory, { settlesFirstSearch: true })
+      }, 1600)
+      // animationend 是主路径；此处只防浏览器禁用动画后没有事件。
+      later(() => setFirstSearchDialogueSettled(true), 2600)
     } else {
       pushLine(SEARCH_LOGS[n % SEARCH_LOGS.length], 'log')
       if (n === 3) later(() => pushLine('好像有什么在更深处。', 'log'), 400)
@@ -241,8 +233,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
-  const flightRect = wrapFlightRect(statusFlight, statusFlight?.from, statusFlight?.to)
-  const actionFlightRect = wrapFlightRect(statusFlight, statusFlight?.actionFrom, statusFlight?.actionTo)
+  const flightRect = statusFlight?.from || null
+  const actionFlightRect = statusFlight?.actionFrom || null
 
   return (
     <div ref={rootRef} data-turn-count={turnCount} style={{ position: 'relative', height: '100%', overflow: 'hidden', background: '#05070c', isolation: 'isolate' }}>
@@ -261,7 +253,14 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         <div ref={streamRef} className="kaleido-avg-dialog-stream">
           <div className="kaleido-avg-dialog-content">
           {lines.map((l) => (
-            <div key={l.id} className="kaleido-line-in" style={lineStyle(l.kind)}>{l.text}</div>
+            <div
+              key={l.id}
+              className="kaleido-line-in"
+              style={lineStyle(l.kind)}
+              onAnimationEnd={l.settlesFirstSearch ? onFirstSearchDialogueEnd : undefined}
+            >
+              {l.text}
+            </div>
           ))}
 
             <div
@@ -294,15 +293,42 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         <StatusPanel
           me={me}
           flashing
-          className={`kaleido-status-flight is-${statusFlight.leg}`}
-          style={{ position: 'fixed', zIndex: 24, top: flightRect.top, left: flightRect.left, width: flightRect.width }}
+          className="kaleido-status-flight kaleido-wrap-flight"
+          style={{
+            position: 'fixed',
+            zIndex: 24,
+            top: flightRect.top,
+            left: flightRect.left,
+            width: flightRect.width,
+            '--wrap-from-top': `${statusFlight.from.top}px`,
+            '--wrap-from-left': `${statusFlight.from.left}px`,
+            '--wrap-from-width': `${statusFlight.from.width}px`,
+            '--wrap-to-top': `${statusFlight.to.top}px`,
+            '--wrap-to-left': `${statusFlight.to.left}px`,
+            '--wrap-to-width': `${statusFlight.to.width}px`,
+            '--wrap-enter-left': `${-statusFlight.to.width - 24}px`,
+          }}
         />
       )}
 
       {statusStage === 'flying' && actionFlightRect && (
         <SearchActions
-          className={`kaleido-action-flight is-${statusFlight.leg}`}
-          style={{ position: 'fixed', zIndex: 23, top: actionFlightRect.top, left: actionFlightRect.left, width: actionFlightRect.width, pointerEvents: 'none' }}
+          className="kaleido-action-flight kaleido-wrap-flight"
+          style={{
+            position: 'fixed',
+            zIndex: 23,
+            top: actionFlightRect.top,
+            left: actionFlightRect.left,
+            width: actionFlightRect.width,
+            pointerEvents: 'none',
+            '--wrap-from-top': `${statusFlight.actionFrom.top}px`,
+            '--wrap-from-left': `${statusFlight.actionFrom.left}px`,
+            '--wrap-from-width': `${statusFlight.actionFrom.width}px`,
+            '--wrap-to-top': `${statusFlight.actionTo.top}px`,
+            '--wrap-to-left': `${statusFlight.actionTo.left}px`,
+            '--wrap-to-width': `${statusFlight.actionTo.width}px`,
+            '--wrap-enter-left': `${-statusFlight.actionTo.width - 24}px`,
+          }}
           onSearch={onSearch}
           disabled={!!combat || atRuleGate}
           loading={searchPending}
@@ -375,14 +401,6 @@ function lineStyle(kind) {
   if (kind === 'attack') return { ...base, color: T.orange }
   if (kind === 'system') return { ...base, color: T.dimB }
   return { ...base, color: T.dimB } // log
-}
-
-function wrapFlightRect(flight, from, to) {
-  if (!flight || !from || !to) return null
-  if (flight.leg === 'exiting') return { ...from, left: flight.exitLeft }
-  if (flight.leg === 'enter-start') return { ...to, left: flight.enterLeft }
-  if (flight.leg === 'entering') return to
-  return from
 }
 
 function SearchActions({ onSearch, disabled, loading, containerRef, className = '', style }) {
