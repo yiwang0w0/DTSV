@@ -50,7 +50,7 @@ const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 const SEARCH_COMMIT_DELAY = 1000
 const LAYOUT_TRANSITION_MS = 900
 const DIALOG_SETTLE_PAUSE = 180
-const STATUS_EXPAND_MS = 640
+const STAMINA_EXPAND_MS = 640
 let _lid = 0
 const nextId = () => (_lid += 1)
 
@@ -67,7 +67,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
   const [searchPending, setSearchPending] = useState(false)
   const [firstSearchDialogueSettled, setFirstSearchDialogueSettled] = useState(false)
-  const [statusExpanded, setStatusExpanded] = useState(false)
+  const [staminaRevealed, setStaminaRevealed] = useState(false)
+  const [staminaExpanded, setStaminaExpanded] = useState(false)
   const [seq, setSeq] = useState(1)
   const rootRef = useRef(null)
   const streamRef = useRef(null)
@@ -127,7 +128,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   // 状况读数先向右离屏，再从左侧滑入停靠位；对话框与第一段同时重排。
   useEffect(() => {
-    if (!hpUnlocked || !statusExpanded || !firstSearchDialogueSettled || statusSequenceStarted.current) return undefined
+    const staminaIsExpanding = staminaRevealed && !staminaExpanded
+    if (!hpUnlocked || staminaIsExpanding || !firstSearchDialogueSettled || statusSequenceStarted.current) return undefined
     statusSequenceStarted.current = true
 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -177,7 +179,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       window.clearTimeout(moveTimer)
       if (settleTimer) window.clearTimeout(settleTimer)
     }
-  }, [firstSearchDialogueSettled, hpUnlocked, statusExpanded])
+  }, [firstSearchDialogueSettled, hpUnlocked, staminaExpanded, staminaRevealed])
 
   function onFirstSearchDialogueEnd() {
     if (dialogueSettleScheduled.current) return
@@ -185,16 +187,16 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     later(() => setFirstSearchDialogueSettled(true), DIALOG_SETTLE_PAUSE)
   }
 
-  function onRevealStatus() {
-    if (hpUnlocked) return
-    revealPiece('hp_bar')
+  function onRevealStamina() {
+    if (!hpUnlocked || staminaRevealed || statusStage === 'flying') return
+    setStaminaRevealed(true)
     // animationend 是主路径；此处防止浏览器未派发动画事件时流程停住。
-    later(() => setStatusExpanded(true), STATUS_EXPAND_MS + 80)
+    later(() => setStaminaExpanded(true), STAMINA_EXPAND_MS + 80)
   }
 
-  function onStatusExpandEnd(event) {
+  function onStaminaExpandEnd(event) {
     if (event.currentTarget !== event.target) return
-    setStatusExpanded(true)
+    setStaminaExpanded(true)
   }
 
   // ── 动作:搜索 ──────────────────────────────────────────────────────────
@@ -218,8 +220,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
       // 首搜:座舱结晶一拍 —— log 醒 + hp_bar(gauge-first) + inventory
       pushLine(SEARCH_LOGS[0], 'log')
       revealPiece('log_panel', NAR.log_panel)
-      // 先给出可点击的叙事提示；状况读数由玩家主动确认后展开。
-      later(() => pushLine(STATUS_PROMPT.text, 'nar', { interaction: 'status' }), 500)
+      // 状况与生命条仍按原流程出现；叙事中的「状态」只展开第二层体力读数。
+      later(() => revealPiece('hp_bar', STATUS_PROMPT.text, { interaction: 'status' }), 500)
       // 首物(seq1 保障):抽屉滑出
       later(() => {
         pushLine(FIND_LOG, 'log')
@@ -284,9 +286,9 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
                   <button
                     type="button"
                     className="kaleido-inline-action"
-                    onClick={onRevealStatus}
-                    disabled={hpUnlocked}
-                    aria-pressed={hpUnlocked}
+                    onClick={onRevealStamina}
+                    disabled={!hpUnlocked || staminaRevealed || statusStage === 'flying'}
+                    aria-pressed={staminaRevealed}
                   >
                     {STATUS_PROMPT.action}
                   </button>
@@ -304,11 +306,13 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
               }}
             >
               {statusStage === 'inline' && (
-                <div className="kaleido-status-expand" onAnimationEnd={onStatusExpandEnd}>
-                  <div className="kaleido-status-expand-inner">
-                    <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
-                  </div>
-                </div>
+                <StatusPanel
+                  me={me}
+                  flashing={flashing.has('hp_bar')}
+                  staminaRevealed={staminaRevealed}
+                  staminaExpanded={staminaExpanded}
+                  onStaminaExpandEnd={onStaminaExpandEnd}
+                />
               )}
             </div>
 
@@ -330,6 +334,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         <StatusPanel
           me={me}
           flashing
+          staminaRevealed={staminaRevealed}
+          staminaExpanded
           className="kaleido-status-flight kaleido-wrap-flight"
           style={{
             position: 'fixed',
@@ -374,7 +380,13 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
       {statusStage === 'docked' && (
         <aside className="kaleido-left-rail">
-          <StatusPanel me={me} flashing={flashing.has('hp_bar')} />
+          <StatusPanel
+            me={me}
+            flashing={flashing.has('hp_bar')}
+            staminaRevealed={staminaRevealed}
+            staminaExpanded={staminaExpanded}
+            onStaminaExpandEnd={onStaminaExpandEnd}
+          />
           {searchReady && (
             <SearchActions
               className="kaleido-materialize"
@@ -457,7 +469,15 @@ function SearchActions({ onSearch, disabled, loading, containerRef, className = 
   )
 }
 
-function StatusPanel({ me, flashing, className = '', style }) {
+function StatusPanel({
+  me,
+  flashing,
+  staminaRevealed = false,
+  staminaExpanded = false,
+  onStaminaExpandEnd,
+  className = '',
+  style,
+}) {
   const hpPercent = Math.max(0, Math.min(100, Math.round((me.hp / Math.max(me.maxHp, 1)) * 100)))
   const maxStamina = Math.max(me.maxStamina || 1, 1)
   const stamina = Math.max(0, Math.min(maxStamina, me.stamina ?? maxStamina))
@@ -482,11 +502,20 @@ function StatusPanel({ me, flashing, className = '', style }) {
         <span style={{ color: hpColor(me.hp, me.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>{hpPercent}%</span>
       </div>
       <HpBar hp={me.hp} max={me.maxHp} h={7} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '9px 0 5px', fontSize: 11 }}>
-        <span style={{ color: T.dimB }}>体力</span>
-        <span style={{ color: staminaColor(stamina, maxStamina), fontFamily: 'monospace', fontWeight: 700 }}>{staminaPercent}%</span>
-      </div>
-      <StaminaBar value={stamina} max={maxStamina} h={7} />
+      {staminaRevealed && (
+        <div
+          className={staminaExpanded ? 'kaleido-stamina-expanded' : 'kaleido-stamina-expand'}
+          onAnimationEnd={staminaExpanded ? undefined : onStaminaExpandEnd}
+        >
+          <div className="kaleido-stamina-expand-inner">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '9px 0 5px', fontSize: 11 }}>
+              <span style={{ color: T.dimB }}>体力</span>
+              <span style={{ color: staminaColor(stamina, maxStamina), fontFamily: 'monospace', fontWeight: 700 }}>{staminaPercent}%</span>
+            </div>
+            <StaminaBar value={stamina} max={maxStamina} h={7} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
