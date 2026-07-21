@@ -1,0 +1,4 @@
+interface:
+  display_name: "远星递进式 UI"
+  short_description: "复用远星的叙事先行、UI递进显现、文字解码与同步转场规范"
+  default_prompt: "使用 $build-progressive-game-ui 扩展远星界面，并保持既有递进显现与动画时序。"
