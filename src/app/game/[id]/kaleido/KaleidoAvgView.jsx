@@ -45,7 +45,7 @@ const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 let _lid = 0
 const nextId = () => (_lid += 1)
 
-export default function KaleidoAvgView({ onExit }) {
+export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   // phase: boot(黑幕冷开场) → awake(觉醒行+搜索) → playing(舞台激活)
   const [phase, setPhase] = useState('boot')
   const [lines, setLines] = useState([]) // 文字舞台:{ id, text, kind:'log'|'nar'|'awake' }
@@ -223,12 +223,14 @@ export default function KaleidoAvgView({ onExit }) {
         )}
       </div>
 
-      {/* dev 谐调器:驱动 seq1-2 关键触发(真接通后由 action 响应驱动) */}
-      <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 50, display: 'flex', gap: 6 }}>
-        <DevBtn on={!!combat} disabled={phase !== 'playing' || !!combat} onClick={onEncounter}>遭遇</DevBtn>
-        <DevBtn on={atRuleGate} disabled={phase !== 'playing' || atRuleGate} onClick={onApproachRuleLevel}>规则关</DevBtn>
-        {onExit && <DevBtn onClick={onExit}>✕</DevBtn>}
-      </div>
+      {/* dev 谐调器:仅独立预览页显示，正式 /play 不暴露测试入口。 */}
+      {showDevControls && (
+        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 50, display: 'flex', gap: 6 }}>
+          <DevBtn on={!!combat} disabled={phase !== 'playing' || !!combat} onClick={onEncounter}>遭遇</DevBtn>
+          <DevBtn on={atRuleGate} disabled={phase !== 'playing' || atRuleGate} onClick={onApproachRuleLevel}>规则关</DevBtn>
+          {onExit && <DevBtn onClick={onExit}>✕</DevBtn>}
+        </div>
+      )}
     </div>
   )
 }

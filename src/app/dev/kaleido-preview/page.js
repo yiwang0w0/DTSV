@@ -74,7 +74,7 @@ export default function KaleidoPreviewPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 11, color: T.dim2 }}>390 × 844（手机基线 · 沉浸全屏）</div>
             <div style={{ width: 390, height: 844, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
-              <KaleidoAvgView key={avgKey} />
+              <KaleidoAvgView key={avgKey} showDevControls />
             </div>
           </div>
         </div>
