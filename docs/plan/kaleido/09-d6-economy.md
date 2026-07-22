@@ -121,10 +121,10 @@
 | 加防件(+2def)| 卡扣×2 | 1.0 | ✅ 已建 |
 | 顶力剂(burst)| 线圈×2 | 0.8 | ✅ 已建(kaleido buff「顶力」atk+10·1T)|
 | 撑住剂(def+5×3T)| 垫片×2 | 0.9 | ✅ 已建(kaleido buff「撑住」def+5·3T)|
-| 扩容件(+15hp)| 管段×1 + 芯子×1 | 1.0 | ✅ 行+配方已建;**效果值待 🔧 `maxHpDelta` 列**(一行 UPDATE 补丁)|
+| 扩容件(+15hp)| 管段×1 + 芯子×1 | 1.0 | ✅ 行+配方已入库;效果值补丁已出(`max_hp_delta=15`·待执行)|
 
 > **战术剂通路**:`item_pool.on_use_buff_ids` → `calcItemEffect`(gameEngine.js:139)→ `newBuffIds` → `applyBuff`(gameActions.js:2331)。已建 2 条 kaleido 尺度 buff 行(多人 buff 行原样不动)。
-> **✅ 扩容件已恢复**(🧭 裁 (a)·2026-07-22:🔧 补 `maxHpDelta` 钩子已派):行与配方入经济 SQL,**效果值待该列落地后一行 UPDATE 补**(SQL 末附补丁)。→ 08 §4 的 **+30hp 分量回来** → prepared 回 atk16/def9/**hp130** → **seq5 boss 260/34/8 维持 08 §2 原曲线**(prepared 74-86%),**平衡定稿不动**。
+> **✅ 扩容件闭环**(🧭 裁 (a)·2026-07-22):经济 SQL **已执行入库**(行+配方);🔧 裁定并建列 **`item_pool.max_hp_delta`**(NOT NULL DEFAULT 0·非 `max_hp`:扁平增量不走公式·属 stamina_restore 族·与引擎 `maxHpDelta` 1:1),钩子已落地(**maxHp 与 hp 同量抬**·守卫:抬升排在治疗后 + `alive` 门 —— 与本节「+15 并补满 15」逐字一致)。剩余一行已出 `scripts/kaleido-d6-extend-maxhp-patch.sql`(待执行)。→ 08 §4 的 **+30hp 分量到位** → prepared 回 atk16/def9/**hp130** → **seq5 boss 260/34/8 维持 08 §2 原曲线**(74-86%),**平衡定稿一个数不动**。
 
 - **co-align 守则(📖)**:碎块/卡扣(硬/连接)→ 强化;线圈(蓄劲)→ 顶力;垫片(软)→ 撑住 —— 语义相符,不软垫拼爆发。
 - **搜刮基底 + 合成补足**(additive):搜刮(捡强化件)给基底,合成(散件换强化件)补足到 prepared;彻底者两者兼得,casual 者只基底停 solid+(§3/§6.2)。

@@ -94,11 +94,10 @@ INSERT INTO item_recipe_ingredients (recipe_id, item_id, quantity, is_consumed) 
 --   WHERE r.name LIKE '合成·%' ORDER BY r.name, i.name;
 -- SELECT id,name,type,target,value,duration FROM buff_pool WHERE name IN ('顶力','撑住');
 
--- ── ⏳ 扩容件效果值补丁(待 🔧 `maxHpDelta` 列落地后单独执行 · 本批不含)──
---   本批已建「扩容件」行 + 配方(管段+芯子),但**效果值尚未写入**(现 item_pool 无 maxHp 承载列)。
---   🔧 迁移加列后(列名以 🔧 为准),补这一行即生效 +15 maxHp:
---     UPDATE item_pool SET <maxhp_column> = 15 WHERE name = '扩容件';
---   届时 08 §4 的 +30hp 分量完整(2 件 × +15)→ prepared 回 hp130 → boss 260/34/8 维持 08 §2 曲线。
---   ⚠ 在该补丁执行前,扩容件可拾可合成但**无属性效果**(不影响其余 12 行与 4 配方)。
+-- ── ✅ 扩容件效果值补丁 = 已出独立文件(列名已裁定)──
+--   🔧 裁定列名 = **`max_hp_delta`**(非 max_hp;理由:扁平增量不走公式·属 stamina_restore 族·与引擎 maxHpDelta 1:1),
+--   列已建并应用(NOT NULL DEFAULT 0·`scripts/kaleido-item-max-hp-delta.sql`),引擎钩子已落地。
+--   剩余一行已出:**`scripts/kaleido-d6-extend-maxhp-patch.sql`**(`UPDATE item_pool SET max_hp_delta=15 WHERE name='扩容件'`)。
+--   → 本文件**无需再改/再跑**(已执行);补丁独立执行即让 08 §4 的 +30hp 分量到位。
 
 COMMIT;
