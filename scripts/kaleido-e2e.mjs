@@ -6,7 +6,9 @@
 // 语义注记:入关 turnCount 重置后,进关的 move 本身计为新关第 1 回合(02 §2.2 move=消耗动词)。
 // LW-1(97f3e32)后:seq5=boss_kill —— 入关自动遭遇 boss,attackNpc 磨死(公共击杀链置 bossDefeated)过关。
 // 前置:仓库根 .env.local 含 NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY(vercel env pull 可得)。
-// 跑:仓库根建临时 tsconfig(paths @/*→src/*) · npx tsx scripts/kaleido-e2e.mjs · 每次改 kaleido 状态机后必跑
+// 跑(仓库根):`npx tsx --tsconfig scripts/tsconfig.e2e.json scripts/kaleido-e2e.mjs` · 每次改 kaleido 状态机后必跑
+//   ⚠ 路径映射走 scripts/tsconfig.e2e.json(专用文件)。**别在仓库根建 tsconfig.json** —— 会被 next build
+//     接管并强改 moduleResolution,导致 build/sites-vite-plugin.ts 解析 'vite' 类型失败而编译红(实测踩过)。
 // ─────────────────────────────────────────────────────────────────
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -306,9 +308,11 @@ try {
   const meU = room?.gamevars?.players?.[u.id]
   // ⚠ 特征化断言(记录当前引擎映射事实,非期望终态):calcItemEffect 只对 kind='weapon'→atkDelta / 'armor'→defDelta
   //   产出增量;item_pool 现只有 consumable/tech_fragment/platform_part/omega_matter,consumable 仅产 hpDelta
-  //   → id24(def=50)被忽略 ⟹ 「持久 stat 件」当前不可达,loadout_panel 的这一支无法 E2E 验。
-  //   **⚙️ 09 备好 stat 件(给 kind='armor'/'weapon' 或引擎补 consumable stat 映射)后:本断言会翻红,
-  //     届时改为断言 def 上升 + loadout_panel 解锁**——翻红即提醒,不是回归。
+  //   → id24(def=50)被忽略 ⟹ **atk/def 这一支**仍不可达。
+  //   **更新(2026-07-22·🧭 裁决 a)**:maxHp 支已打通(item_pool.max_hp_delta → maxHpDelta 钩子),
+  //   loadout_panel 的「持久 stat 件」触发**已可达且已被 §⑩ 覆盖**;本节继续盯 atk/def 支的缺口。
+  //   **⚙️ 备好 atk/def stat 件(给 kind='armor'/'weapon' 或引擎补 consumable stat 映射)后:本断言会翻红,
+  //     届时改为断言 def 上升**——翻红即提醒,不是回归。
   ck('B4/gap:持久 stat 件当前不可达(consumable 的 def 被 calcItemEffect 忽略)', (meU?.def ?? 0) === defBefore, JSON.stringify({ defBefore, defAfter: meU?.def, note: 'kind=consumable 只产 hpDelta' }))
   const { data: bEv } = await sb.from('player_events').select('verb,payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
   ck('B4/gap:loadout_panel 未解锁(触发已实现·待 ⚙️ 内容就位)', !(bEv || []).some((e) => e.payload?.ui_key === 'loadout_panel'), JSON.stringify((bEv || []).map((e) => e.payload?.ui_key)))
@@ -374,6 +378,81 @@ try {
   }
   ck('源头:kaleido 事件不再刷 legacy battle(连续动作后仍为空)', !relock, String(relock))
 } catch (e) { ck('⑧ battle 软锁执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑨ convergence_preview 终态分支(📖 N3 §5 两条 blocking 警告 · 钉死)═══
+//   口径:**仅通关(boss_kill)授予首次解锁**;abandon 不触发(违 §1.4「系统不为逃兵留档」——前屏「账该合了」
+//   后屏「没人记这笔账」自打脸);死亡不授予(否则 seq1 早死在体验最薄处烧掉这个后段披露拍)。
+//   测法:把 clearedSeq 顶到**末关前一格**(4/5)再走终止路径 —— 若判据被误写成「run 收束」而非
+//   「clearedSeq 达末关」,这两例必然误发,本节即翻红。确定性,不靠随机。
+try {
+  // (a) abandon 不触发
+  const uA = mkUser('abandon'); out.ids.users.push(uA.id)
+  const rA = await startKaleidoRun(sb, uA)
+  out.ids.rooms.push(rA.roomId); out.ids.runs.push(rA.runId)
+  await act(uA, rA.roomId, 'search') // 先产生若干正常解锁(证明通道是通的)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', rA.roomId).single()
+    r.gamevars.kaleido.clearedSeq = 4; r.gamevars.kaleido.currentSeq = 5 // 顶到末关前一格
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', rA.roomId) }
+  await act(uA, rA.roomId, 'abandonRun')
+  const { data: evA } = await sb.from('player_events').select('payload').eq('player_id', uA.id).eq('verb', 'ui_unlock')
+  const keysA = (evA || []).map((e) => e.payload?.ui_key)
+  ck('B4/终态:abandon **不**触发 convergence_preview(不为逃兵留档)', !keysA.includes('convergence_preview'), JSON.stringify(keysA))
+  ck('B4/终态:abandon 前的正常解锁仍在(证明通道非哑火)', keysA.length > 0, JSON.stringify(keysA))
+
+  // (b) 死亡不授予首次解锁(仅复用已解锁面板 —— 复用属呈现层,引擎侧只需「不发」)
+  const uD = mkUser('deadconv'); out.ids.users.push(uD.id)
+  const rD = await startKaleidoRun(sb, uD)
+  out.ids.rooms.push(rD.roomId); out.ids.runs.push(rD.runId)
+  let roomD = await getRoom(rD.roomId)
+  const beforeMeD = roomD.gamevars.players[uD.id]
+  { roomD.gamevars.kaleido.clearedSeq = 4; roomD.gamevars.kaleido.currentSeq = 5
+    const p = roomD.gamevars.players[uD.id]; p.alive = false; p.hp = 0
+    await sb.from('rooms').update({ gamevars: roomD.gamevars }).eq('id', rD.roomId) }
+  roomD = await getRoom(rD.roomId)
+  // 阵亡玩家的动作会被分发器 throw,故直接调共享入口(= 路由边界同一函数)走真求值路径
+  await applyKaleidoPostAction(sb, roomD, uD, 'search', { beforeMe: beforeMeD, beforeClearedSeq: 4, beforeGamestate: roomD.gamestate })
+  const { data: evD } = await sb.from('player_events').select('payload').eq('player_id', uD.id).eq('verb', 'ui_unlock')
+  const keysD = (evD || []).map((e) => e.payload?.ui_key)
+  ck('B4/终态:死亡**不**授予 convergence_preview 首次解锁', !keysD.includes('convergence_preview'), JSON.stringify(keysD))
+  // precedes 锚点随 payload 下发(📖 警告:before 锚收敛页,非 boss 开打前 → 🎨 靠它接对拍点)
+  const { data: evC } = await sb.from('player_events').select('payload').eq('verb', 'ui_unlock').in('player_id', out.ids.users)
+  const cp = (evC || []).find((e) => e.payload?.ui_key === 'convergence_preview')
+  ck('B4/锚点:convergence_preview 事件 timing=before(通关路径已发)', cp?.payload?.timing === 'before', JSON.stringify(cp?.payload))
+} catch (e) { ck('⑨ convergence_preview 终态分支执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑩ maxHpDelta 钩子(🧭 裁决 a · 解 ⚙️ 扩容件与 08 §4 战力预算)═══
+//   item_pool.max_hp_delta(新列·缺省 0)→ calcItemEffect.maxHpDelta → resolveUseItemAction 同量抬 maxHp+hp。
+//   测法:临时给 id27 写 15 → 用掉 → 断言双抬 15 + loadout_panel(statGained 支)解锁 → finally 还原**原值**。
+let mhOrig = null
+try {
+  const { data: it0 } = await sb.from('item_pool').select('id,name,max_hp_delta').eq('id', 27).single()
+  mhOrig = it0?.max_hp_delta ?? 0
+  ck('maxHpDelta:承载列 item_pool.max_hp_delta 存在且存量为 0(零行为变化)', mhOrig === 0, JSON.stringify(it0))
+  await sb.from('item_pool').update({ max_hp_delta: 15 }).eq('id', 27)
+  const u = mkUser('maxhp'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    const p = r.gamevars.players[u.id]; p.inventory = [...(p.inventory || []), it0.name]
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  let room = await getRoom(roomId)
+  const b = room?.gamevars?.players?.[u.id]
+  const hpB = b?.hp ?? 0, maxB = b?.maxHp ?? 0
+  room = await act(u, roomId, 'useItem', { itemName: it0.name })
+  const a = room?.gamevars?.players?.[u.id]
+  ck('maxHpDelta:maxHp +15(永久抬底)', (a?.maxHp ?? 0) - maxB === 15, JSON.stringify({ maxB, maxA: a?.maxHp }))
+  ck('maxHpDelta:hp 同量 +15(撑大即刻可用·09 §4「并补满」)', (a?.hp ?? 0) - hpB === 15, JSON.stringify({ hpB, hpA: a?.hp, maxA: a?.maxHp }))
+  ck('maxHpDelta:道具被消耗(不可重复吃增益)', !(a?.inventory || []).includes(it0.name), JSON.stringify(a?.inventory))
+  const { data: mEv } = await sb.from('player_events').select('payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
+  ck('maxHpDelta→B4:持久 stat 件兑现 → loadout_panel 解锁(§⑥ gap 的另一支现已可达)',
+    (mEv || []).some((e) => e.payload?.ui_key === 'loadout_panel'), JSON.stringify((mEv || []).map((e) => e.payload?.ui_key)))
+} catch (e) { ck('⑩ maxHpDelta 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+finally {
+  if (mhOrig !== null) {
+    try { await sb.from('item_pool').update({ max_hp_delta: mhOrig }).eq('id', 27); console.log('MAXHP_RESTORED ' + mhOrig) }
+    catch (e) { console.error('MAXHP_RESTORE_FAIL', e.message) }
+  }
+}
 
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length

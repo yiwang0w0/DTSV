@@ -2,6 +2,21 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-22b / 🔧 ✅ maxHpDelta 钩子 + B4 nar_line 接线 + 终态分支钉死 —— E2E 65/65·build 绿）
+
+- **✅ maxHpDelta 钩子（🧭 裁决 a·解 ⚙️ 扩容件与 08 §4 战力预算）**：
+  - `calcItemEffect` 加 `maxHpDelta`（**扁平值·不走公式**，同 `stamina_restore` 家族的防御式读法 `Number(item.max_hp_delta) || 0`）；`resolveUseItemAction` 加分支 **maxHp 与 hp 同量抬**（09 §4「+15 并补满」）。
+  - **列名裁定 = `max_hp_delta`**（⚙️ 在 `scripts/kaleido-d6-economy-content.sql:20` 等这个确认）。理由：本值不走 `*_formula`（与 `heal`/`atk`/`def` 不同族），且 item 行上的裸 `max_hp` 会被误读成「道具自身的 hp」；与引擎字段 `maxHpDelta` 1:1。**列已建**（`scripts/kaleido-item-max-hp-delta.sql`·加列 + NOT NULL DEFAULT 0·幂等·已应用并查证）。⚙️ 只差一行 `UPDATE item_pool SET max_hp_delta = 15 WHERE name='扩容件'`。
+  - **两个自己加的守卫**：①放在 `hpDelta` **之后** —— 治疗那步按**旧** maxHp 夹紧（`me.maxHp` 含装备加成），扩容再抬底，语义不串；②`alive !== false` 门 —— 否则被本道具打倒的玩家 hp 由 0 抬回正数 = **静默复活**。
+  - **无重复吃增益**：consume 路径末尾必扣库存；`inspect_keep` 在效果链前就 return。**多人局零变化**：存量行该列全 0 ⇒ `result.maxHpDelta=0` ⇒ 分支不进入。
+  - **副产**：B4 `loadout_panel` 的「持久 stat 件」支**由此变为可达**（`statGained` 检 maxHp 抬高），§⑥ 记录的 gap 现只剩 atk/def 支（consumable 的 def 仍被 `calcItemEffect` 忽略）。
+- **✅ B4 三条 nar_line 接线（📖 `88d6694` 供稿）+ 两条 blocking 警告照办**：
+  - 三条按 N3 §1 表**逐字**入注册表。⚠ 它们仍是「——已开放:X」宣告式，而教义 11 §2 已**禁用**该句式 → 📖 将在去宣告化批次重写。**判定逻辑零依赖文本**（`match` 不读 `nar_line`，下发只经 `buildUnlockEventsPayload` 透传）⟹ 届时只换字符串。
+  - **警告 1（before 锚点）**：`convergence_preview` 的 before 锚**切收敛页之前**，不是 boss 开打前 —— 与 `hp_bar`/`rules_card` 的 before 语义不同、禁止类推。已加 `precedes: ['收敛页']` 把锚点**当数据下发**给 🎨（而非只写注释）。
+  - **警告 2（终态分支）**：核对现判据 `clearedSeq 达末关` **天然**满足「只有通关授予首次解锁」：abandon 走 `abandonKaleidoRun` 不动 `clearedSeq`；死亡不过关故不进位。**不是碰巧对**——E2E §⑨ 把 `clearedSeq` 顶到 4/5 再分别走 abandon / 死亡两路径钉死，若判据被误写成「run 收束」必翻红。
+- **E2E 56→65**：+§⑨ 终态分支四条（abandon 不触发 / abandon 前正常解锁仍在，证明通道非哑火 / 死亡不授予 / 通关路径 timing=before）；+§⑩ maxHpDelta 五条（列存量为 0 / maxHp+15 / hp 同量+15 / 道具被消耗 / loadout_panel 解锁）。**两节都用「临时改数据→finally 还原原值」**，不靠随机。
+- **🔧 工具链修**：新增 `scripts/tsconfig.e2e.json`，跑法改 `npx tsx --tsconfig scripts/tsconfig.e2e.json scripts/kaleido-e2e.mjs`。此前每跑一次 E2E 要在**仓库根**建临时 `tsconfig.json` 再删——忘删会被 `next build` 接管并强改 `moduleResolution`，导致 `build/sites-vite-plugin.ts` 解析 `vite` 类型失败而编译红（本次实测踩到）。专用文件放 `scripts/` 下，Next 不会读，**footgun 消除**。
+
 ## 最近变更（2026-07-22 / 🔧 ✅ D3 逐关规则覆盖 + legacy battle 软锁根治 —— E2E 56/56×3 连绿·build 绿）
 
 - **✅ D3 mergeGameRules 落地（🧭 解冻令放行）**：seq3-5 规则关的逐关覆盖链打通。

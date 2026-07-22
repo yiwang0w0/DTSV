@@ -2380,6 +2380,16 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
     )
   }
 
+  // ── 上限扩容件（🧭 裁决 a·09 §4「+15 maxHp 并补满 15」）：maxHp 与 hp **同量抬**（撑大一圈即刻可用）。
+  //   置于 hpDelta 之后：治疗那一步按**旧** maxHp 夹紧（me.maxHp 含装备加成），扩容再抬底，语义不串。
+  //   存量道具无 max_hp_delta 列/值 ⇒ result.maxHpDelta=0 ⇒ 本块不进入（多人局逐字节不变）。
+  //   `alive !== false` 门:已被本道具打倒的玩家不再抬上限——否则 hp 由 0 抬回正数 = 静默复活。
+  if (result.maxHpDelta && nextPlayer.alive !== false) {
+    nextPlayer.maxHp = Math.max(1, (nextPlayer.maxHp || 0) + result.maxHpDelta)
+    nextPlayer.hp = Math.min(nextPlayer.maxHp, (nextPlayer.hp || 0) + result.maxHpDelta)
+    appendResolutionLog(resolution, `${player.name} 使用 ${itemName}，HP 上限 +${result.maxHpDelta}`, 'buff')
+  }
+
   if (result.atkDelta) {
     nextPlayer.atk = Math.max(0, (nextPlayer.atk || 0) + result.atkDelta)
     appendResolutionLog(resolution, `${player.name} 使用 ${itemName}，ATK +${result.atkDelta}`, 'buff')

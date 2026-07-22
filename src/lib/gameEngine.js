@@ -102,7 +102,12 @@ export function calcDamage(attacker, defender, rules, weaponSubKind = '', rng = 
  * @returns {{ hpDelta, atkDelta, defDelta, newBuffIds, log }}
  */
 export function calcItemEffect(item, player, rules) {
-  const result = { hpDelta: 0, atkDelta: 0, defDelta: 0, staminaDelta: 0, newBuffIds: [], log: '' }
+  const result = { hpDelta: 0, atkDelta: 0, defDelta: 0, staminaDelta: 0, maxHpDelta: 0, newBuffIds: [], log: '' }
+
+  // ── 上限扩容（🧭 裁决 a·2026-07-22）：防御式读 item_pool.max_hp_delta 新列；老库/老道具该列缺省 0
+  //   ⇒ maxHpDelta=0 ⇒ 存量道具零触发、多人局零行为变化（同 stamina_restore 的加列惯例）。
+  //   与 kind 无关（扁平值·不走公式）：consume 路径末尾**必扣库存**，故任何 kind 都不会重复吃增益。
+  result.maxHpDelta = Number(item.max_hp_delta) || 0
 
   if (item.kind === 'consumable') {
     // 治疗公式

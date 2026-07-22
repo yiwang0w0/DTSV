@@ -69,7 +69,7 @@ kaleido 局动作响应信封**扩一个顶层兄弟键**:
 
 ---
 
-## 2. ui_key 清单(12 项)→ 触发映射 + P1 状态
+## 2. ui_key 清单(15 项)→ 触发映射 + P1 状态
 
 > 触发器 = 引擎持有的规则注册表(§3.1)。🎨 不消费触发细节,只消费 §1 两个出口。本表给 📖 写 `nar_line`、给 ⚙️ 排「seq1-2 投放下限」对齐。**P1 状态**列标明哪些触发在当前代码即可点亮、哪些待后续件落地。
 
@@ -85,9 +85,19 @@ kaleido 局动作响应信封**扩一个顶层兄弟键**:
 | `turn_counter` | `move` | after | 首次 move(与 level_header 同批·注册表内排后) | **LIVE** |
 | `rules_card` | `move` | **before** | `entering_nonstandard_level` | **LIVE**(E2E 实测:采样器出非标准 combat_mode 关即触发;D3 落 env_rules 后条件再扩) |
 | `stance_ui` | `fight_start` | before | `combat_mode==='stance_duel'` | **LIVE**(E2E 实测:读关 node 的 kaleidoMode,非遭遇实例 → 无需 LW-2 前置) |
-| `craft_btn` | `search` | after | `craft_material_gained` | **P1 DEAD·LIVE when** 配方材料可搜出(⚙️ 投放 + item kind 判据) |
+| `craft_btn` | `search` | after | `craft_material_gained` | **LIVE**(2026-07-08 接通:kind∈材料 → hook① drain 置 `hasCraftMat`) |
+| `loadout_panel`〔B4〕 | `craftItemRecipe` / `useItem` | after | 首次 craft 成功(`hasCrafted` 0→1) **或** 首次持久 stat 件(`atk`/`def`/`maxHp` 抬高) | **LIVE**(maxHp 支已通:`item_pool.max_hp_delta` → `maxHpDelta` 钩子;atk/def 支待 ⚙️ 出 weapon/armor kind 件) |
+| `prep_readout`〔B4〕 | `move` | **before** | `entering_boss_level`(node.archetype='boss' 或 exit=boss_kill) | **LIVE** |
+| `convergence_preview`〔B4〕 | 状态 diff | **before** | `clearedSeq` 达末关(=通关那一拍) | **LIVE**(⚠ 终态分支见下) |
 | `convergence` | —(终止常驻) | — | — | 非解锁物;通关/死亡常驻(endingResult) |
 
+> **⚠ `convergence_preview` 的两条硬口径(📖 N3 §5 blocking 警告 · E2E §⑨ 钉死 · 2026-07-22)**
+> 1. **`before` 锚点 = 切收敛页之前,不是「boss 开打前」**。触发事件是 `boss_kill`/run 终止**本身**;浮现拍落在结算页之前。与 `hp_bar`/`rules_card` 的 before(锚"伤害发生前"/"规则生效前")**语义不同,禁止类推**——误接成 boss 开打前会剧透结局,且那时账还没得算。payload 的 `precedes: ['收敛页']` 即为此锚点下发给 🎨。
+> 2. **只有通关授予首次解锁**:`abandon` **不触发**(违 N3 §1.4「系统不为逃兵留档」——前屏「账该合了」后屏「没人记这笔账」自打脸);**死亡不授予**首次解锁(否则 seq1 早死会在体验最薄处烧掉这个后段披露拍),死亡终态**仅复用已解锁面板**(呈现层行为,引擎侧只需"不发")。
+>    引擎判据 `clearedSeq 达末关` 天然同时满足三者:abandon 走 `abandonKaleidoRun` 不动 `clearedSeq`;死亡不过关故不进位;唯有清掉末关(=boss_kill 通关)命中。**E2E §⑨ 把 `clearedSeq` 顶到 4/5 再走 abandon/死亡两路径**,若判据被误写成「run 收束」必翻红。
+>
+> **nar_line 现状(2026-07-22)**:B4 三条已由 📖 供稿(N3 §1 表)并逐字入注册表,但仍是「——已开放:X」**宣告式**,而教义 11 §2 推论已**禁用**该句式 → 📖 将在「去宣告化」批次重写。判定逻辑**零依赖**文本(`match` 不读 `nar_line`,下发只经 `buildUnlockEventsPayload` 透传)⟹ 届时**只换字符串**,无逻辑改动。
+>
 > **E2E 实测修正(30/30·2026-07-07)**:`rules_card`/`stance_ui` 在 P1 **即 LIVE**——采样器(`runs.js combatModeFor`)按 archetype 产出非标准 combat_mode(stance_duel 等);判定读**关 node** 的 `kaleidoMode.template_ref`(非遭遇实例),故无需 LW-2/D3 前置(实测解锁序含此二键)。唯一 P1-DEAD = `craft_btn`(配方材料判据待 item kind + ⚙️ 投放)——无声降级:条件恒 false,不解锁、不报错、不占位,⚙️ 投放到位即点亮。故 🎨 骨架须含全 11 件条件渲染(除 craft_btn 外 P1 均可能触发)。
 
 ### 2.1 条件谓词(condition)—— 路由边界前后态 diff 求值

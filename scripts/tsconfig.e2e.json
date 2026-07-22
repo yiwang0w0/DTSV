@@ -1,0 +1,11 @@
+{
+  "//": "E2E/脚本专用 tsconfig：只为给 tsx 提供 @/* → src/* 的路径映射（scripts/kaleido-e2e.mjs 等原生 ESM 脚本 import 服务端模块时需要）。",
+  "//2": "⚠ 刻意**不叫** tsconfig.json、**不放仓库根**：根 tsconfig.json 会被 next build 接管并强改 moduleResolution，导致 build/sites-vite-plugin.ts 解析 'vite' 类型失败而编译红（实测踩过）。",
+  "//3": "跑法：npx tsx --tsconfig scripts/tsconfig.e2e.json scripts/kaleido-e2e.mjs",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
+}

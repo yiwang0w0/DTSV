@@ -74,23 +74,31 @@ export const KALEIDO_UI_UNLOCKS = [
     match: (c) => c.action === 'search' && craftMatGained(c), // LIVE(2026-07-08)：搜到 kind∈材料(hook① drain 置 hasCraftMat)即解锁
   },
   // ── B4 后段披露（doc 10 §4 · ⚙️ 设计 · 绑「准备度兑现」瞬间 · 治倒挂曲线 + 后半崩塌）──
-  //   三件全在现有循环内(合成/战力/收敛),不含污染/Ω/残片/buff/立绘(守 B3)。nar_line 待 📖 N3 B4 供稿。
+  //   三件全在现有循环内(合成/战力/收敛),不含污染/Ω/残片/buff/立绘(守 B3)。
+  //   ⚠ 三条 nar_line = 📖 N3 §1 表**现稿逐字取**(88d6694)。它们仍是「——已开放:X」宣告式,而教义 11 §2
+  //     推论已**禁用**该句式 → 📖 将在「去宣告化」批次重写,🧭 转来后**只换这三个字符串**。
+  //     判定逻辑**零依赖**文本(match 不读 nar_line;下发只经 buildUnlockEventsPayload 透传)⇒ 换字即完事。
   {
     ui_key: 'loadout_panel', timing: 'after',
-    nar_line: '', // TODO(📖 N3·B4)：待供稿（兑现瞬间＝「搜刮/合成变成实力」）
+    nar_line: '这一件算在你身上了。你比刚进来时结实了一点。——已开放：清点。',
     // 首次 craft 成功（craftItemRecipe 置 hasCrafted）**或** 首次用持久 stat 件（useItem 抬 atk/def/maxHp）
     match: (c) => (!c.beforeMe?.hasCrafted && !!c.afterMe?.hasCrafted) || (c.action === 'useItem' && statGained(c)),
   },
   {
     ui_key: 'prep_readout', timing: 'before', precedes: ['boss 对峙'],
-    nar_line: '', // TODO(📖 N3·B4)
+    nar_line: '前面那个，和你之前碰见的不是一回事。——已开放：掂量。',
     // entering_boss_level：move 入 boss 关时(R6「生效前展示」)——先于 boss 对峙浮现
     match: (c) => isMove(c.action) && isBossNode(c.node),
   },
   {
-    ui_key: 'convergence_preview', timing: 'before',
-    nar_line: '', // TODO(📖 N3·B4)
-    // run 收束前一拍：本动作使 clearedSeq 达末关(= boss_kill 过关/收敛瞬间),先于收敛页硬切
+    ui_key: 'convergence_preview', timing: 'before', precedes: ['收敛页'],
+    nar_line: '不再往里了。这一趟的账，该合了。——已开放：合计。',
+    // ⚠ 时序锚点(📖 N3 §5 blocking 警告·**勿与 hp_bar/rules_card 的 before 类推**)：
+    //   本条 before 锚的是**切收敛页之前**,不是「boss 开打前」——触发事件是 boss_kill/run 终止**本身**。
+    //   误接成 boss 开打前 = 剧透结局,且那时账还没得算。故 precedes 明写「收敛页」下发给 🎨。
+    // ⚠ 终态分支(同上)：**仅通关授予首次解锁**;abandon 不触发;死亡不授予(仅复用已解锁面板)。
+    //   判据 `clearedSeq 达末关` 天然满足三者:abandon 走 abandonKaleidoRun 不动 clearedSeq;
+    //   死亡不过关故 clearedSeq 不进位;唯有清掉末关(=boss_kill 通关)这一拍命中。见 E2E §⑨ 钉死。
     match: (c) => (c.afterClearedSeq ?? 0) >= (c.levelCount ?? 5) && (c.beforeClearedSeq ?? 0) < (c.levelCount ?? 5),
   },
 ]
