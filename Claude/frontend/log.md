@@ -22,6 +22,19 @@
 5. **`next build` 与 `next dev` 不能同时跑**，会写坏 `.next`（症状：`Cannot find module './xxxx.js'` 的 500）。流程固定为：先按端口找 PID `taskkill` 掉 3100 → `rm -rf .next` → build。**永远只杀自己那个 PID，不要 `taskkill /IM node.exe`**（3000 是 Kanata 的 dev）。
 6. **P1-c 的 `statusActionReady` 我已摸清范围**（免得恢复时重查）：它现在是**全局编舞门** —— 只要 hp_bar 未解锁，舞台上**每个**带 `interaction` 的行都渲染成不可点的 `span`（含开场那句「翻找」）。要解耦成**逐行门**：判据从「全局 statusActionReady」改为「该行自己的 uiKey 是否已解锁 + 该行自己的动作是否可用」，`UI_ACTIONS` 已是 per-key 结构（`{uiKey,before,word,after,hint}`），容器不用动，只换门的取值来源。
 
+### 恢复后第一件事的**具体约束**（🧭 停工前口头给的，HANDOFF 里没有，落这儿免得丢）
+- 顺序：等 🧭 批复 🔧 的**字段落点草案**（doc 14 已出）→ 才开 P1-c，且**必须与 🔧 同 PR 合**。
+- **同 PR 的精确理由**（比 HANDOFF §5 那句「半批上线 = 引擎与画面互相打脸」精确得多）：
+  doc 14 的信封 `kind` 会新增 **`hide` / `restore`** 两个取值，而**今天的客户端消费端是无条件 `keys.add`**
+  （`useKaleidoUiUnlocks.applyServerEvents` → `commitUnlocks`，只增不减）⇒ 这两个 kind 一旦先行下发，
+  会被**渲染成「获得」** —— 玩家会看到「失去某件 UI」被演成「解锁某件 UI」，方向完全反了。
+  ⟹ **🔧 不得先行下发；我的 kind 分流必须与之同批。** 这也正是「渲染判据要可收缩」那条的落点。
+- 我承诺过、但按停工令**没有开工**的两件 P1-c 前置（恢复后立刻做，顺序不变）：
+  ① 「移除 / 被夺 / 临时遮蔽」三态的呈现语言草案（现 `globals.css` 的 `kaleido-*` **全是入场动效，
+  一条移除动画都没有**）；② `statusActionReady` 解耦成逐行门（范围已摸清，见上文第 6 条）。
+- ⚠ HANDOFF §6 的 🎨 行「SSR 直链顶栏闪（🎨 判断值不值）」**已过期**：已判定不治、🧭 已批准，
+  配方与代价全文在 `src/app/_shell/immersiveRoute.js`。恢复后请 🧭 更新其文件（那是 🧭 的域，我未代改）。
+
 ### 方法论（这轮验证下来确实管用的两条）
 - **验证脚本要声明自己的边界。** `scripts/smoke-immersive-route.mjs` 头部明写了它*不能*证明什么（纯函数表达不了 effect 时序）—— 防的是后人误读「15/15 全绿」为「时序也钉死了」。同理删掉了一格入参与上一格逐字节相同的自证循环用例。
 - **通用检查直接提交进 `scripts/`，别只在本地跑**（🧭 嘱记）。我那个 ui_key 键对拍只在 scratchpad 跑完就报结论 ⇒ 🔧 白核实一轮后自己重写（`scripts/check-ui-key-parity.mjs`，已进 gate，做法照我的）。方法被采纳了，但绕了一圈。
