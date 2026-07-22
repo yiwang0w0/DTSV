@@ -40,6 +40,27 @@
   ⇒ **要么改选房的权重表达式(动多人共享路径·要 🧭 批)，要么给 kaleido 一条独立的选房过滤**。这是机制、归 🔧；建表挂道具是数据、归 ⚙️。
 - **前置(归 🔧)**：kaleido 关卡现在**不能指定 chamber** —— `sampleRun` 先 `pickChamber` 再 `seedMatch` 覆盖内容(`runs.js:175-197`)，种子关只换内容不换房 ⇒ 要让 kaleido 抽到专属池，得让关卡能指定 chamber 或给 kaleido 独立分房路径。
 
+### E-0b. 🔴🔴 **多人主线回归：残片发现系统全局静默失效约 2.5 个月**（⚙️ `87519616` 后续报 · 🔧 已实证）
+
+> **这条不是 kaleido，是多人主线。** 停工中未修（🧭 两次令「别开新活」），但**证据已闭合，恢复后建议优先级高于一切 kaleido 项**。
+
+- **机理**：`src/lib/server/fragments.js:129` 的 `.select(...)` 里选了 **`maps`** 列，而该列**早已重命名为 `_legacy_maps`**（实测 `information_schema`：`maps` 存在数=**0**，`_legacy_maps`=**1**）⇒ PostgREST 报错 ⇒ `:135` `const { data: candidates } = await query` **只解构 `data`、把 `error` 丢了** ⇒ `candidates` 恒 `undefined` ⇒ `:136` `return null`。**全链无声。**
+- **实证（postgres 只读）**：`player_fragments` 全表 **2 行**，最近一行 `2026-05-12`，**近 30 天 0 行**；而 `fragment_pool` 有 **15 个 enabled** 残片。⇒ Phase 18–24a 整套（三链 / 知识图谱 / F01–F15）**线上一件都发不出来**。
+- ⚠ **这是本会话第三次同形状**：`const { data } = await ...` **吞掉 `error`**（前两次：我自己的 `profiles` 读→裁小账号列 BUG-1、`profiles` 写不带 `.select()` 匹配 0 行也算成功）。**supabase-js 返回 `{data,error}` 而不 throw** ⇒ 「不接 error」= 静默失败，本仓已因此吃三次亏。**建议做成 gate 断言**（禁 `const { data } = await client.from(`，必须同时接 `error`）。
+- **连带（归 🔧，修那一列时要同批）**：残片发现调用点 `gameActions.js:1704` **没有 kaleido 门**（我的 hook④ 给随机刷怪加了，残片没有）⇒ 一旦修好，kaleido 玩家会读到第五/六纪元 lore，而 **kaleido canon 是第 3–4 纪元** ⇒ 破叙事设定。📖 那边已记档。
+
+### E-0c. ⚙️ 修订后的「药链」修法（比我们俩最初的都好，且**前置全消失**）
+
+⚙️ 接受了我对 `spawn_weight=0` 的反驳后，顺着往下查发现**前提就不对**：kaleido 的两条注入通道**本来就不走房池** ——
+hook①（`:1433` `isKaleidoRoom` 门内、按 **item id** 投放）与周期保底（`:1481` 按 **name** 查库），**都不碰 `bundle.itemPool`**。
+⇒ **要的不是「换一个房池」，是「别抽那个房池」** ⇒ **专属 chamber、`spawn_weight`、以及我提的「关卡能否指定 chamber」那层前置，全部不需要。**
+
+修法两处，均 kaleido-scoped、零多人变化（**我复核结构属实**）：
+- **(a)** `:1581` 的散落道具分支（`bundle.itemPool` 的唯一消费者，与 `:1573` 尸体分支相互独立）加 `&& !isKaleidoRoom(room)` —— **与 hook④(`:1516`) 同一形状**。一行杀掉 `heal=300` 泄漏。
+- **(b)** hook① 的 `findIndex` 现在只吃 `e.guaranteed`（`:1450`）⇒ **带 `weight` 的非保底条目没有任何消费者**（这正是「weight→掉率映射未定」那个洞的真身）。扩成：保底排空后对非保底条目按 `weight` 加权 roll ⇒ **`p` 从 event_deck 来，而 event_deck 是 kaleido 专属数据 ⇒ 掉率完全回到 ⚙️ 手里，纯数据可调、零共享表。**
+
+⚠ 四个旋钮**仍然照旧别开**，等 (a)(b) + event_deck 回指（cadence SQL 冻结中）一起开。
+
 ### E. 未解决、且没有 owner 的
 - **N7 叙事兜底通道在 `src/` 零实现** ⇒ 法则一的公平性目前**没有任何实现在支撑**。设计稿已出 = `docs/plan/kaleido/15-narrative-cue-channel.md`（🧭 已把它从 12 改号为 15，解与 `12-step-progression.md` 的撞号），未落地。
 - **重置作业形态未定**（我倾向惰性到期 + 定期清理，见 doc 13 / DDL 末注）。
