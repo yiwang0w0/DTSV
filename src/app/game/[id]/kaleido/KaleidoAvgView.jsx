@@ -11,40 +11,24 @@ import dynamic from 'next/dynamic'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { T, Btn, HpBar, hpColor, StaminaBar, staminaColor } from '../gameUi'
 import { KaleidoRuleCard } from './kaleidoShell'
+import { UI_KEYS } from './kaleidoUiUnlocks'
+import {
+  AVG_AWAKEN_LINES as AWAKEN_LINES,
+  AVG_SEARCH_LOGS as SEARCH_LOGS,
+  AVG_FIND_LOG as FIND_LOG,
+  AVG_MOCK_ENEMY as MOCK_ENEMY,
+  actionText,
+  narFor,
+  previewNarFor,
+  uiAction,
+} from './kaleidoAvgCopy'
 
 const Shader = dynamic(() => import('@/components/fx/Shader'), { ssr: false })
 
-// ── 占位文案(seq1-2) ──────────────────────────────────────────────────────
-// C4 冷开局觉醒行(占位·真血肉待 📖/Kanata):首次点击前先有静态文字，不是裸按钮。
-const AWAKEN_LINES = [
-  '很久没有回音了。',
-  '……现在，有一点。',
-]
-const OPENING_NAR = '供电恢复。可用功能：一项。' // search_btn nar_line(N3·开场行)
-const STATUS_PROMPT = {
-  text: '你动起来了。试图确认一下自己的状态。',
-  before: '你动起来了。试图确认一下自己的',
-  action: '状态',
-  after: '。',
-}
-// N3 nar_line(揭示行·因果两拍的「因」)
-const NAR = {
-  log_panel: '开始记录。——从你翻找的这一下算起。',
-  inventory: '你把它收了起来。',
-  combat_panel: '有东西在动。它先看见了你。——已开放：自卫。',
-  rules_card: '这一段，规矩不一样。——已张贴在门口。',
-}
-// 搜索结果占位池(测「文字重复烦不烦」——刻意给多样变体)
-const SEARCH_LOGS = [
-  '你翻找了一下。锈迹、灰、更多的锈。',
-  '手指探进一道缝。空的。',
-  '有东西硌了一下手——只是块碎壳。',
-  '这里被人翻过了。很久以前。',
-  '风从看不见的地方漏进来。',
-  '一排编号，褪得只剩三个字符。你记下了。',
-]
-const FIND_LOG = '缝里卡着个东西。你把它抠了出来：锈蚀弹匣。'
-const MOCK_ENEMY = { name: '游荡的壳', hp: 34, maxHp: 60, atk: 12, def: 4 }
+// P2：文案全部下沉到 kaleidoAvgCopy / kaleidoUiUnlocks —— 组件侧零硬编码。
+//   开场行 = search_btn 的 nar_line 同源（不再另写一份）；可交互词走结构化元数据（永不字符串搜索）。
+const OPENING_NAR = narFor(UI_KEYS.SEARCH)
+const STATUS_PROMPT = uiAction(UI_KEYS.HP)
 
 const NAR_DELAY = 620 // 因果两拍:nar 落舞台 → 件延迟材质化(ms)
 const SEARCH_COMMIT_DELAY = 1000
@@ -178,8 +162,9 @@ export default function KaleidoAvgView({
   }, [live, coldOpenDone, logs, pushLine])
 
   // 解锁 nar_line（服务端权威·D2 信封）新增 → 追加进舞台
-  //   ⚠ P2 待办：hp_bar 那行的「状态」交互词目前仍取组件常量 STATUS_PROMPT（下阶段挪到数据层 action:{word,uiKey}），
-  //     此处以 key 挂 interaction 元数据作桥（非字符串搜索，符合 skill 纪律），保住已批准的「文字原位变按钮」编舞。
+  //   交互词（P2）：以 key 查 UI_ACTIONS 挂 interaction 元数据（**永不字符串搜索**），该行改由结构化
+  //   before/word/after 渲染。⚠ 副作用：这一拍会**覆盖服务端 nar 的显示文本** —— 目前只有 hp_bar 一条，
+  //   悬案已送 🧭（见 kaleidoAvgCopy.js 的 UI_ACTIONS 注释）；📖 补上带交互词的 nar 后此覆盖即可撤。
   useEffect(() => {
     if (!live || !coldOpenDone) return
     const nar = unlocks.narLog || []
@@ -188,11 +173,11 @@ export default function KaleidoAvgView({
     seenNar.current = nar.length
     // 锚点 = 「含 hp_bar 的那一批」的最后一条 —— 它的 animationend 就是 180ms 停顿的起算点。
     //   只标含 hp_bar 的批次，避免更早的批次抢跑把停顿算在错误的一拍上。
-    const anchorAt = fresh.some((n) => n.key === 'hp_bar') ? fresh.length - 1 : -1
+    const anchorAt = fresh.some((n) => n.key === UI_KEYS.HP) ? fresh.length - 1 : -1
     playing.current += fresh.length
     fresh.forEach((n, i) => pushLine(n.text, 'nar', {
       queued: true,
-      ...(n.key === 'hp_bar' ? { interaction: 'status' } : null),
+      ...(uiAction(n.key) ? { interaction: n.key } : null),
       ...(i === anchorAt ? { settlesFirstSearch: true } : null),
     }))
   }, [live, coldOpenDone, unlocks?.narLog, pushLine])
@@ -338,13 +323,13 @@ export default function KaleidoAvgView({
     if (n === 1) {
       // 首搜:座舱结晶一拍 —— log 醒 + hp_bar(gauge-first) + inventory
       pushLine(SEARCH_LOGS[0], 'log')
-      revealPiece('log_panel', NAR.log_panel)
+      revealPiece(UI_KEYS.LOG, previewNarFor(UI_KEYS.LOG))
       // 状况与生命条仍按原流程出现；叙事中的「状态」只展开第二层体力读数。
-      later(() => revealPiece('hp_bar', STATUS_PROMPT.text, { interaction: 'status' }), 500)
+      later(() => revealPiece(UI_KEYS.HP, actionText(STATUS_PROMPT), { interaction: UI_KEYS.HP }), 500)
       // 首物(seq1 保障):抽屉滑出
       later(() => {
         pushLine(FIND_LOG, 'log')
-        revealPiece('inventory', NAR.inventory, { settlesFirstSearch: true })
+        revealPiece(UI_KEYS.INVENTORY, previewNarFor(UI_KEYS.INVENTORY), { settlesFirstSearch: true })
       }, 1600)
       // animationend 是主路径；此处只防浏览器禁用动画后没有事件。
       later(() => setFirstSearchDialogueSettled(true), 2600)
@@ -357,7 +342,7 @@ export default function KaleidoAvgView({
   // ── 动作:遭遇(首战·seq2) ──────────────────────────────────────────────
   function onEncounter() { // 预览 sim 专用（真数据由 search 结果自然带出遭遇）
     setSimCombat({ ...MOCK_ENEMY })
-    revealPiece('combat_panel', NAR.combat_panel)
+    revealPiece(UI_KEYS.COMBAT, previewNarFor(UI_KEYS.COMBAT))
   }
   function onStrike() {
     if (live) { onAttackLive?.(); return }
@@ -372,7 +357,7 @@ export default function KaleidoAvgView({
   // ── 动作:进规则关(rules_card 门口告示闸门·seq2) ────────────────────────
   function onApproachRuleLevel() {
     setAtRuleGate(true)
-    revealPiece('rules_card', NAR.rules_card)
+    revealPiece(UI_KEYS.RULES_CARD, previewNarFor(UI_KEYS.RULES_CARD))
   }
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
@@ -406,23 +391,24 @@ export default function KaleidoAvgView({
               style={lineStyle(l.kind)}
               onAnimationEnd={(l.queued || l.settlesFirstSearch) ? (e) => handleLineEnd(l, e) : undefined}
             >
-              {l.interaction === 'status' ? (
+              {uiAction(l.interaction) ? (
                 <>
-                  {STATUS_PROMPT.before}
+                  {uiAction(l.interaction).before}
                   {statusActionReady ? (
                     <button
                       type="button"
-                      className={`kaleido-inline-action${staminaRevealed ? '' : ' is-arming'}`}
+                      // 隐蔽度走数据（教义 §5）：hint 决定描边等级，组件不硬编码视觉。
+                      className={`kaleido-inline-action hint-${uiAction(l.interaction).hint || 'underline'}${staminaRevealed ? '' : ' is-arming'}`}
                       onClick={onRevealStamina}
                       disabled={staminaRevealed}
                       aria-pressed={staminaRevealed}
                     >
-                      {STATUS_PROMPT.action}
+                      {uiAction(l.interaction).word}
                     </button>
                   ) : (
-                    <span className="kaleido-inline-action-pending">{STATUS_PROMPT.action}</span>
+                    <span className="kaleido-inline-action-pending">{uiAction(l.interaction).word}</span>
                   )}
-                  {STATUS_PROMPT.after}
+                  {uiAction(l.interaction).after}
                 </>
               ) : l.text}
             </div>

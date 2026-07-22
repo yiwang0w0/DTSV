@@ -125,6 +125,21 @@ body {
 .kaleido-inline-action.is-arming {
   animation: kaleido-inline-action-arm 420ms ease-out backwards;
 }
+/* 隐蔽度 / 提示等级（教义 11 §2 推论 + §5：数据化，不硬编码视觉）。
+   underline = 默认明示（上面的 border-bottom + 微光）；subtle = 只靠措辞与位置暗示（去描边、留一点微光）；
+   none = 完全不提示（与普通叙述无异，全靠玩家自己想到去点）。hint 值由 kaleidoAvgCopy 的 UI_ACTIONS 给。 */
+.kaleido-inline-action.hint-subtle {
+  border-bottom-color: transparent;
+  text-shadow: 0 0 8px rgba(88, 166, 255, 0.18);
+}
+.kaleido-inline-action.hint-none {
+  border-bottom-color: transparent;
+  text-shadow: none;
+}
+.kaleido-inline-action.hint-none.is-arming,
+.kaleido-inline-action.hint-subtle.is-arming {
+  animation: none; /* 隐蔽态不做「上膛」提示动画，否则等于把位置喊出来 */
+}
 .kaleido-inline-action:hover:not(:disabled) {
   color: #e6edf3;
   border-bottom-color: #e6edf3;
