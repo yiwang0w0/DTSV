@@ -3019,8 +3019,13 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     }
     const nextRoom = await persistRoom(client, room, nextGamevars, logs, {})
 
-    // 流血致死 → 立刻走同一条死亡收敛（不能等下个动作：阵亡玩家被各 handler 首行 throw 挡在门外，
-    //   run 会永久停在 active）。放在 persist 之后 ⇒ 死亡态已落库再标 run 终态，顺序与「带死人进来」一致。
+    // ⚠⚠ 不变量（本轮最容易被后人"优化"掉的一条，删它之前先读完）：
+    //   **流血致死必须在「当拍」收敛 run，不能留给下一个动作。**
+    //   因为阵亡玩家被各 handler 首行 `throw` 挡在门外（14 处）⇒ **他再也进不来** ⇒ 没有"下一个动作"
+    //   来补收敛 ⇒ run 永久停在 `active`、死亡事件永不发出。
+    //   这是「fail-late 的前提是『还有下一拍』；终局拍上没有下一拍，fail-late 等于 fail-forever」的一个实例
+    //   （同源判据见 H3 与 emitPlayerEvents 的 await）。
+    //   放在 persist 之后 ⇒ 死亡态先落库再标 run 终态，顺序与「带死人进来」那条完全一致。
     if (!nextMe.alive) {
       await convergeDead(nextMe)
       return nextRoom
