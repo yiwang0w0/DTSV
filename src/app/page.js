@@ -64,6 +64,10 @@ export default function Home() {
   }, [frontendOnly])
 
   // 登录态一律自动进场（解码转场覆盖屏幕），不闪一下 Hero；未登录才渲染纯入口屏。
+  // ⚠ 反向锚：`src/app/_shell/immersiveRoute.js` 对登录态 `/` 判「沉浸」（顶栏 Nav 不渲染 +
+  //   <main> 去边距 100dvh/overflow:hidden），**前提就是这里的早返回** —— 登录态首页没有任何
+  //   需要顶栏的内容。若要放宽本早返回（例如登录态也想看 Hero / 首页加公告），
+  //   **必须同时**改那边的判据，否则登录用户会在首页失去顶栏且内容被裁掉。
   if (loading || user) {
     return <div style={{ position: 'fixed', inset: 0, background: C.bg0 }} />
   }

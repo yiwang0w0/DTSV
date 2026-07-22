@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/app/_shell/RootShell'
 import { ENTITY_TYPE_META, JUMP_CONFIG, KALEIDO, POLLUTION_CONFIG, POLLUTION_TIER_META, RUN_GOALS, STAMINA_CONFIG } from '@/lib/constants'
@@ -268,8 +268,12 @@ export default function GameClientPage() {
   // KP0-R-C C3：?kaleido=1 提示参数 —— room 载入前（首帧）即可跳过订阅，堵「先订阅后退订」瞬态。
   //   仅单人入口卡跳转携带；多人链接永不带 → 多人局 hint 恒 false、订阅行为逐字节不变。
   //   自愈：room 载入后实测非 kaleido（手工拼参场景）→ 清 hint → 效果重跑、正常订阅。
-  const [kaleidoHint, setKaleidoHint] = useState(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('kaleido') === '1')
+  //   ⚠ 必须读 useSearchParams（路由状态），**不能**读 window.location.search：Next 14 的 URL 更新在
+  //     commit 阶段（HistoryUpdater 的 insertion effect），客户端跳转时渲染期拿到的仍是**旧 URL** ⇒
+  //     `router.replace('/game/X?kaleido=1')` 过来时旧写法恒得 false，而全文只有下面一处把它置 false、
+  //     再无置 true 的地方 ⇒ hint 永远点不亮（这条实测复现过）。
+  const searchParams = useSearchParams()
+  const [kaleidoHint, setKaleidoHint] = useState(() => searchParams.get('kaleido') === '1')
   useEffect(() => {
     if (kaleidoHint && room && !isKaleidoRoom(room)) setKaleidoHint(false)
   }, [kaleidoHint, room])
@@ -278,10 +282,15 @@ export default function GameClientPage() {
   //   （GPT skill 契约：游戏界面不显示顶部导航栏或开发控制项）。
   //   多人/BR：isKaleido 恒 false ⇒ 全程置 false ⇒ 顶栏与边距逐字节不变（红线：多人渲染路径零改动）。
   //   卸载时复位，保证从对局页导航到别处顶栏能回来。
+  //   🐛 BUG-A 补窗口：`|| kaleidoHint` 覆盖「落地 /game/[id] 后 → room 异步回来前」那段 ——
+  //     那段 isKaleido 还是 false，顶栏会继续渲染。kaleidoHint 在上面的 useState 初始化时就从
+  //     `?kaleido=1` 读到 ⇒ **落地第一帧**顶栏就不渲染，不必等 room。
+  //     多人安全：多人/BR 链接永不带 `?kaleido=1`（三处生成点全在 kaleido run 上）⇒ kaleidoHint 恒 false
+  //     ⇒ 表达式与改前等价；万一手工拼参进多人房，上面的自愈 effect 会清 hint、本 effect 随即复位。
   useEffect(() => {
-    setImmersiveRun?.(isKaleido)
+    setImmersiveRun?.(isKaleido || kaleidoHint)
     return () => setImmersiveRun?.(false)
-  }, [isKaleido, setImmersiveRun])
+  }, [isKaleido, kaleidoHint, setImmersiveRun])
 
   useEffect(() => {
     if (!user) return undefined
@@ -1107,7 +1116,23 @@ export default function GameClientPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inGame, meBase?.alive, roomId, user?.id])
 
-  if (authLoading || loading) {
+  // 🐛 BUG-B（切标签页回来动画重播）：`&& !room` 是关键 —— 只在**还没拿到房间**时才切到 spinner 这棵树。
+  //   根因不是「同一挂载内重复调用」而是**真·整树卸载重挂**：supabase auth-js 自己在 window 上挂了
+  //   `visibilitychange`，hidden→visible 必进 `_recoverAndRefresh`，session 未临期也**无条件**广播
+  //   SIGNED_IN，且 `currentSession` 来自 localStorage 的 JSON.parse ⇒ **user 每次都是全新对象引用**；
+  //   `_notifyAllSubscribers` 无去重 → RootShell 无身份比较直接 setUser → loadEquipments 依赖整个 user
+  //   对象 → hydrateRoom → loadInitial 重跑 → `setLoading(true)` → 这里早返回 ⇒ KaleidoAvgView 被整棵
+  //   卸载，重挂后 phase 回 'boot'、lines/unlocked 清空、ref 归零 ⇒ `[]` 依赖的冷开场 effect 自然又跑一遍。
+  //   一旦 room 到手就再不切换到另一棵树 ⇒ 已挂载的树不会被后台重拉掀翻。
+  //   ⚠ 收窄到 `room && isKaleido`：这条早返回是**多人/BR 与 kaleido 共用**的。若写成 `&& !room`，
+  //     多人局后台重拉时棋盘会留在屏上**且按钮全部可点** —— 玩家此时出手产生 turn N+1，而 loadInitial
+  //     早先发出的那个 select 随后带着 turn N 的旧快照回来覆盖，造成状态回滚。多人保持原样 ⇒ 逐字节不变。
+  //   ⚠ 不去 RootShell 比较 user.id 钉死引用：`GameClientPage` 的 realtime effect 依赖 user 对象，
+  //     那是多人局**唯一的 focus-recovery**（hidden→visible 重订阅 + 整局重拉）；钉死会让多人玩家挂后台
+  //     回来后永久丢失期间的 rooms UPDATE（supabase realtime 无补发）。同族回归还有 stash/profile/br。
+  //   ⚠ 也不记「冷开场已播」标记：那会反转我在下面写死的取舍（宁可重播也不吞掉那一次开场），
+  //     且 StrictMode 下 setup→cleanup→setup 会让定时器全被清光、AVG 停在黑幕。
+  if ((authLoading || loading) && !(room && isKaleido)) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: T.bg0, color: T.dim, flexDirection: 'column', gap: 14 }}>
         <div style={{ width: 32, height: 32, border: `3px solid ${T.border}`, borderTopColor: T.cyan, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />

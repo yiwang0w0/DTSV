@@ -13,6 +13,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import EntryTransition from '@/components/EntryTransition'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
+import { isImmersiveShell } from './immersiveRoute'
 import { postGameApi } from '@/lib/gameApi'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 import {
@@ -125,13 +126,16 @@ export default function RootShell({ children }) {
   const [loading, setLoading] = useState(true)
   const [entryTransition, setEntryTransition] = useState(null)
   const runPromiseRef = useRef(null) // 并行发起的 /api/kaleido/run 承诺（转场期预热，navigate 那拍消费）
-  const immersivePreview = frontendOnly && path === '/play'
-  // 🐛 Bug②（Kanata 线上实测：/game/179?kaleido=1 顶部仍有完整 Nav）：沉浸态**由对局页自己声明**，
-  //   不靠 path 猜 —— `/game/[id]` 既跑 kaleido 也跑多人/BR，按路径藏会**动到多人渲染路径**（红线）。
-  //   GameClientPage 在 isKaleido 时置 true、离开时置 false ⇒ 多人局这个值恒 false，顶栏一如既往。
+  // 沉浸态（顶栏 Nav 不渲染 + <main> 去边距全屏）。判据与其依据见 ./immersiveRoute.js。
   //   契约依据：GPT skill「游戏界面不显示顶部导航栏或开发控制项」。
+  //   ⚠ 必须是**渲染期同步派生**，不能改成 state + effect 释放：那样堵不住第一帧，
+  //     且 run 请求挂起时会永久锁死（🧭 对抗验证已否决那个版本）。
+  // ⚠ 这里**不能**用 useSearchParams 读 `?kaleido=1`：RootShell 在根布局里，该 hook 会让所有
+  //   预渲染页 CSR bailout（实测 13 个页面构建直接报 missing-suspense-with-csr-bailout）。
+  //   对局页的「落地零帧」改由**发起方在跳转前置位 immersiveRun** 解决（见 navigateIntoGame /
+  //   rooms 的入口卡），不依赖目的地子组件的 effect 回传。
   const [immersiveRun, setImmersiveRun] = useState(false)
-  const immersive = immersivePreview || immersiveRun
+  const immersive = isImmersiveShell({ user, frontendOnly, path, immersiveRun })
 
   useEffect(() => {
     if (frontendOnly) {
@@ -191,12 +195,29 @@ export default function RootShell({ children }) {
   const finishGameEntry = useCallback(() => setEntryTransition(null), [])
   // 转场落地：真实模式 → /game/<roomId>?kaleido=1（该页渲染 AVG + 真 ui_unlocks 数据）；预览模式 → /play 预览壳（不动）。
   //   失败一律兜到 /rooms，保住逃生路径，绝不把用户卡死在转场里。
+  //   ⚠ 看门狗不是可选项：`.catch(() => null)` 只接 reject，**接不住挂起**（服务端生成慢 / 网关 504 前的
+  //     长挂 / 移动网络断流）。而登录态 `/` 现在判沉浸 ⇒ 顶栏没了，`/` 的正文又是纯黑 fixed div，
+  //     幕布 1120ms 就自行卸载 ⇒ 请求一挂起，用户面对的是「无顶栏 + 零可点元素」的死屏。
+  //     超时兜到 /rooms，与下面 `else` 同款逃生语义 —— 让「离开 /」这件事不依赖网络。
+  const NAV_WATCHDOG_MS = 8000
   const navigateIntoGame = useCallback(async () => {
     if (frontendOnly) { router.replace('/play'); return }
-    const res = await (runPromiseRef.current || postGameApi('/api/kaleido/run', {}).catch(() => null))
+    const pending = runPromiseRef.current || postGameApi('/api/kaleido/run', {}).catch(() => null)
+    const res = await Promise.race([
+      pending,
+      new Promise((resolve) => setTimeout(() => resolve(null), NAV_WATCHDOG_MS)),
+    ])
     runPromiseRef.current = null
-    if (res?.roomId) router.replace(`/game/${res.roomId}?kaleido=1`)
-    else router.replace('/rooms')
+    if (res?.roomId) {
+      // 跳转**前**置沉浸位：目的地的第一次提交就没有顶栏，不必等 GameClientPage 的 passive effect
+      //   回传（那是 paint 之后，必然先露一帧带顶栏的画面）。
+      //   目的地随后由自己的 effect 接管（`isKaleido || kaleidoHint`）——是 kaleido 就维持 true，
+      //   不是就落回 false，所以这里置位不会「粘住」。
+      setImmersiveRun(true)
+      router.replace(`/game/${res.roomId}?kaleido=1`)
+    } else {
+      router.replace('/rooms')
+    }
   }, [frontendOnly, router])
 
   const handleLogout = async () => {

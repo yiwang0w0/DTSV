@@ -39,7 +39,7 @@ function formatDate(dateStr) {
 }
 
 export default function RoomsPage() {
-  const { user } = useAuth()
+  const { user, setImmersiveRun } = useAuth()
   const router = useRouter()
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +80,10 @@ export default function RoomsPage() {
       //   realtime 订阅（多人链接永不带该参数 → 多人局严格中性）。
       const { roomId } = await postGameApi('/api/kaleido/run', {})
       if (roomId) {
+        // 跳转**前**置沉浸位 ⇒ kaleido 对局页的第一次提交就没有顶栏。
+        //   这条路径没有解码幕布遮挡，若等目的地 passive effect 回传会实打实闪一下顶栏。
+        //   目的地随后自己接管（是 kaleido 维持 true / 不是则落回 false），不会粘住。
+        setImmersiveRun?.(true)
         router.push(`/game/${roomId}?kaleido=1`)
       } else {
         setKaleidoError('未能创建单人 run')
