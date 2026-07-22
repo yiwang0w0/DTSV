@@ -39,7 +39,8 @@ export async function POST(request) {
     if (isKaleidoRoom(room)) {
       const beforeMe = roomData?.gamevars?.players?.[auth.user.id] || null
       const beforeClearedSeq = roomData?.gamevars?.kaleido?.clearedSeq ?? 0
-      const res = await applyKaleidoPostAction(supabase, room, auth.user, payload.action, { beforeMe, beforeClearedSeq })
+      const beforeGamestate = roomData?.gamestate // B4：收敛动作本身放行(守卫判「动作前」是否已结束)
+      const res = await applyKaleidoPostAction(supabase, room, auth.user, payload.action, { beforeMe, beforeClearedSeq, beforeGamestate })
       room = res.room
       unlockEvents = res.unlockEvents || []
     }

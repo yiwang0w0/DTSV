@@ -2428,7 +2428,13 @@ async function craftItemRecipe(client, room, gamevars, user, payload) {
   }
 
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
-  setResolutionPlayer(resolution, user.id, { ...player, inventory: out.nextInventory })
+  // B4 loadout_panel：kaleido 局首次 craft 成功置 hasCrafted（单调·条件展开→多人局不加字段·严格中性）
+  //   → 路由边界 evaluateUnlocks 检 before/after 转变即解锁「整备面板」（搜刮/合成变实力的兑现瞬间）。
+  setResolutionPlayer(resolution, user.id, {
+    ...player,
+    inventory: out.nextInventory,
+    ...(out.success && isKaleidoRoom(room) ? { hasCrafted: true } : {}),
+  })
 
   const consumedTxt = (out.consumed || []).map(c => `${c.name}×${c.qty}`).join(' + ') || '材料'
   if (out.success) {
@@ -2904,10 +2910,12 @@ export async function applyKaleidoPostAction(client, room, user, action, preCont
     const already = Array.isArray(afterMe.uiUnlocks) ? afterMe.uiUnlocks : []
     const newKeys = evaluateUnlocks({
       action, beforeMe, afterMe, beforeClearedSeq, afterClearedSeq, node, fightStart, already,
+      levelCount: KALEIDO.LEVEL_COUNT, // B4 convergence_preview：本动作使 clearedSeq 达末关 = 收束前一拍
     })
-    // gamestate===2(已收敛/通关)不再持久化 UI 进度——run 结束，UI 渐进无意义;
-    //   且规避对已收房的二次写。正常流程收敛动作(seq5 boss kill)可触发的 move_btn 早已解锁 → newKeys 恒空,此为兜底。
-    if (newKeys.length > 0 && room?.gamestate !== 2) {
+    // 已收敛房不再持久化 UI 进度(规避对已收房二次写)。**判据用「动作前」gamestate**:
+    //   收敛动作本身(boss kill → advance 写 endingResult → lifecycle 收房 gamestate=2)必须放行,
+    //   否则 B4 `convergence_preview`(恰在收束那一拍触发)会被自己的守卫挡掉。只有「本就已结束的房」才跳过。
+    if (newKeys.length > 0 && (preContext.beforeGamestate ?? room?.gamestate) !== 2) {
       const merged = Array.from(new Set([...already, ...newKeys])).sort()
       const nextPlayer = { ...afterMe, uiUnlocks: merged }
       const nextGamevars = { ...gv, players: { ...gv.players, [user.id]: nextPlayer } }

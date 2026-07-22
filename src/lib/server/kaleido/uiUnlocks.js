@@ -73,6 +73,26 @@ export const KALEIDO_UI_UNLOCKS = [
     nar_line: '这两样，拼得到一起。——已开放：动手做。',
     match: (c) => c.action === 'search' && craftMatGained(c), // LIVE(2026-07-08)：搜到 kind∈材料(hook① drain 置 hasCraftMat)即解锁
   },
+  // ── B4 后段披露（doc 10 §4 · ⚙️ 设计 · 绑「准备度兑现」瞬间 · 治倒挂曲线 + 后半崩塌）──
+  //   三件全在现有循环内(合成/战力/收敛),不含污染/Ω/残片/buff/立绘(守 B3)。nar_line 待 📖 N3 B4 供稿。
+  {
+    ui_key: 'loadout_panel', timing: 'after',
+    nar_line: '', // TODO(📖 N3·B4)：待供稿（兑现瞬间＝「搜刮/合成变成实力」）
+    // 首次 craft 成功（craftItemRecipe 置 hasCrafted）**或** 首次用持久 stat 件（useItem 抬 atk/def/maxHp）
+    match: (c) => (!c.beforeMe?.hasCrafted && !!c.afterMe?.hasCrafted) || (c.action === 'useItem' && statGained(c)),
+  },
+  {
+    ui_key: 'prep_readout', timing: 'before', precedes: ['boss 对峙'],
+    nar_line: '', // TODO(📖 N3·B4)
+    // entering_boss_level：move 入 boss 关时(R6「生效前展示」)——先于 boss 对峙浮现
+    match: (c) => isMove(c.action) && isBossNode(c.node),
+  },
+  {
+    ui_key: 'convergence_preview', timing: 'before',
+    nar_line: '', // TODO(📖 N3·B4)
+    // run 收束前一拍：本动作使 clearedSeq 达末关(= boss_kill 过关/收敛瞬间),先于收敛页硬切
+    match: (c) => (c.afterClearedSeq ?? 0) >= (c.levelCount ?? 5) && (c.beforeClearedSeq ?? 0) < (c.levelCount ?? 5),
+  },
 ]
 
 const BY_KEY = Object.fromEntries(KALEIDO_UI_UNLOCKS.map((e) => [e.ui_key, e]))
@@ -89,6 +109,17 @@ function invGrew(c) {
 function nonstandardNode(node) {
   const ref = node?.kaleidoMode?.template_ref
   return !!ref && ref !== 'standard'
+}
+// B4：持久 stat 件兑现 —— 本动作抬高了 atk/def/maxHp（useItem 的 atkDelta/defDelta/maxHpDelta 直改玩家属性·非计时 buff）。
+function statGained(c) {
+  const b = c.beforeMe || {}, a = c.afterMe || {}
+  return (Number(a.atk) || 0) > (Number(b.atk) || 0)
+    || (Number(a.def) || 0) > (Number(b.def) || 0)
+    || (Number(a.maxHp) || 0) > (Number(b.maxHp) || 0)
+}
+// B4：boss 关判定（entering_boss_level）—— archetype 优先，exit=boss_kill 兜底（种子关/采样关都覆盖）。
+function isBossNode(node) {
+  return node?.archetype === 'boss' || node?.kaleidoExit?.type === 'boss_kill'
 }
 function craftMatGained(c) {
   // 配方材料 = item kind ∈ CRAFT_MATERIAL_KINDS。hook① drain 搜到材料时置 player.hasCraftMat(单调),

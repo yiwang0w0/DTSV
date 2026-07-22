@@ -39,12 +39,13 @@ const getRoom = async (id) => (await sb.from('rooms').select('*').eq('id', id).s
 async function act(user, roomId, action, extra = {}) {
   // 复刻路由边界:动作前快照(before) → executeGameAction → applyKaleidoPostAction(推进+事件+ui_unlocks)。
   //   route.js 从预取 roomData 取 before;E2E 动作前 fetch 取 before(单线程,fetch 与 exec 间无并发变更)。
-  const { data: pre } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+  const { data: pre } = await sb.from('rooms').select('gamevars, gamestate').eq('id', roomId).single()
   const beforeMe = pre?.gamevars?.players?.[user.id] || null
   const beforeClearedSeq = pre?.gamevars?.kaleido?.clearedSeq ?? 0
+  const beforeGamestate = pre?.gamestate // B4 convergence_preview：收敛动作本身须放行(守卫用动作前 gamestate)
   let room = await executeGameAction(sb, user, { roomId, action, ...extra }, {})
   if (isKaleidoRoom(room)) {
-    const res = await applyKaleidoPostAction(sb, room, user, action, { beforeMe, beforeClearedSeq })
+    const res = await applyKaleidoPostAction(sb, room, user, action, { beforeMe, beforeClearedSeq, beforeGamestate })
     room = res.room
     room.__unlockEvents = res.unlockEvents // 内存挂载·供断言(非持久)
   }
@@ -150,6 +151,9 @@ try {
   // 运行时镜像:最终房 player.uiUnlocks 含已解锁键(随 room 下发)
   const finalMe = rr?.gamevars?.players?.[u.id]
   ck('镜像:players[uid].uiUnlocks 含 hp_bar/log_panel/move_btn 且含种子 search_btn', Array.isArray(finalMe?.uiUnlocks) && ['search_btn', 'hp_bar', 'log_panel', 'move_btn'].every((k) => finalMe.uiUnlocks.includes(k)), JSON.stringify(finalMe?.uiUnlocks))
+  // ── B4 后段披露(doc 10 §4)：prep_readout 于入 boss 关 / convergence_preview 于收束前 ──
+  ck('B4:prep_readout 入 boss 关解锁(entering_boss_level·before)', unlockedKeys.includes('prep_readout'), JSON.stringify(unlockRows.filter((e) => e.payload?.ui_key === 'prep_readout').map((e) => `seq${e.level_seq}`)))
+  ck('B4:convergence_preview 收束前解锁(clearedSeq 达末关)', unlockedKeys.includes('convergence_preview'), JSON.stringify(unlockRows.filter((e) => e.payload?.ui_key === 'convergence_preview').map((e) => `seq${e.level_seq}`)))
 } catch (e) { ck('通关 run 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
 // ═══ ② 死亡收敛 run ═══
@@ -284,6 +288,30 @@ try {
   // 高熵序列两次全等 → seed 化生效(若走 Math.random,6-attack 累积 crit/counter 序列几无可能逐字节相同)
   ck('D5:同状态×2 重放 6-attack 序列逐字节一致(seed 化生效)', results[0] === results[1], results[0])
 } catch (e) { ck('D5 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑥ B4 loadout_panel(持久 stat 件兑现 → 整备面板浮现)═══
+//   触发二支之一:首次用持久 stat 件(useItem 抬 atk/def/maxHp)。另一支「首次 craft 成功」现无配方(item_recipes 空)不可测,
+//   由 hasCrafted 旗标覆盖(craftItemRecipe 成功即置·kaleido 门)。用 id24 结构强化液(def+50·唯一带 stat 的道具)。
+try {
+  const u = mkUser('b4'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    const p = r.gamevars.players[u.id]; p.inventory = [...(p.inventory || []), '结构强化液']
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  let room = await getRoom(roomId)
+  const defBefore = room?.gamevars?.players?.[u.id]?.def ?? 0
+  room = await act(u, roomId, 'useItem', { itemName: '结构强化液' })
+  const meU = room?.gamevars?.players?.[u.id]
+  // ⚠ 特征化断言(记录当前引擎映射事实,非期望终态):calcItemEffect 只对 kind='weapon'→atkDelta / 'armor'→defDelta
+  //   产出增量;item_pool 现只有 consumable/tech_fragment/platform_part/omega_matter,consumable 仅产 hpDelta
+  //   → id24(def=50)被忽略 ⟹ 「持久 stat 件」当前不可达,loadout_panel 的这一支无法 E2E 验。
+  //   **⚙️ 09 备好 stat 件(给 kind='armor'/'weapon' 或引擎补 consumable stat 映射)后:本断言会翻红,
+  //     届时改为断言 def 上升 + loadout_panel 解锁**——翻红即提醒,不是回归。
+  ck('B4/gap:持久 stat 件当前不可达(consumable 的 def 被 calcItemEffect 忽略)', (meU?.def ?? 0) === defBefore, JSON.stringify({ defBefore, defAfter: meU?.def, note: 'kind=consumable 只产 hpDelta' }))
+  const { data: bEv } = await sb.from('player_events').select('verb,payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
+  ck('B4/gap:loadout_panel 未解锁(触发已实现·待 ⚙️ 内容就位)', !(bEv || []).some((e) => e.payload?.ui_key === 'loadout_panel'), JSON.stringify((bEv || []).map((e) => e.payload?.ui_key)))
+} catch (e) { ck('B4 loadout_panel 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
