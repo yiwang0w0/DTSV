@@ -9,6 +9,8 @@
 
 - 项目内技能入口：`.agents/skills/build-progressive-game-ui/SKILL.md`。
 - 具体动画配方：`.agents/skills/build-progressive-game-ui/references/effect-recipes.md`。
+- 远星开局的自包含行为规范：`.agents/skills/build-progressive-game-ui/references/farstar-opening-spec.md`。
+- 该技能默认可跨仓库使用；上述项目路径仅在目标工作树实际存在时读取，不作为运行前提。
 - 后续扩展开局、增加逐步解锁控件或调整文字解码与转场时，先加载该技能，再以当前代码为最终事实来源。
 
 ## 2026-07-21 / 状态确认的递进式交互

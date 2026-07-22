@@ -1,61 +1,45 @@
 ---
 name: build-progressive-game-ui
-description: Build and extend the progressive, diegetic game UI used by 远星, including narrative-first control reveals, plain-text-to-button activation, synchronized wrap transitions, text decoding, action fill progress, expandable status panels, reduced-motion handling, and timing validation. Use when modifying the opening flow, adding an unlockable control, tuning existing effects, or reusing these patterns in another game interface.
+description: Design and implement narrative-first progressive game UIs in any web game, including controls that emerge from story text, synchronized layout transitions, decoded text, action-fill feedback, expandable status panels, reduced-motion handling, and timing validation. Use when creating or extending an opening flow, adding an unlockable control, tuning these effects, reproducing the Farstar opening, or adapting the interaction language to a different repository.
 ---
 
 # Build Progressive Game UI
 
 把界面当作叙事结果，而不是开局就存在的控制台。先让玩家理解一个概念，再让对应控件在原位获得可交互形态，最后才允许它移动、展开或承载更多信息。
 
-## Core Rule
+## Select The Context
+
+先检查当前工作区，再决定采用哪种模式。不要假设调用 Skill 的仓库就是远星，也不要把缺少某个项目文件误判为实现不存在。
+
+1. 使用 `rg --files`、项目清单和现有组件定位真实入口、样式与状态管理方式。
+2. 当前仓库没有远星文件时，使用**通用模式**：读取 [references/effect-recipes.md](references/effect-recipes.md)，把模式映射到现有框架和命名。
+3. 用户明确提到远星、要求复现远星开局，或仓库中存在相符实现时，使用**远星模式**：额外读取 [references/farstar-opening-spec.md](references/farstar-opening-spec.md)。该文档是自包含行为规范，不要求目标仓库存在任何固定路径。
+4. 没有代码仓库时，先输出或实现独立原型；不要为了验证示例路径而中断任务。
+5. 只描述当前可访问工作区的事实。若某实现可能位于另一分支、私有部署源或本地工作树，明确限定结论，不猜测其作者或来源。
+
+## Core Rules
 
 - 先叙事，后控件；先理解，后操作。
 - 将“出现”“可点击”“展开”“迁移”建模为不同阶段，不要用一个布尔值同时表达多个含义。
 - 新 UI 必须从已经发生的故事或动作中长出来，不要提前展示未来功能。
 - 动画必须服务于空间连续性：玩家应能看懂一个元素去了哪里、为何变化。
 - 不用可见说明文字解释界面或动画；让文案、位置和反馈本身完成教学。
+- 保留目标项目的组件、状态和样式习惯；不要为了套用配方重写无关架构。
 
 ## Workflow
 
-1. 先读当前实现和长期决策：
-   - `src/app/game/[id]/kaleido/KaleidoAvgView.jsx`
-   - `src/app/globals.css`
-   - `src/app/game/[id]/gameUi.js`
-   - 涉及入口文字解码时再读 `src/components/EntryTransition.jsx`
-   - `Readme_GPT`
-2. 把新增功能画成显式阶段。沿用现有主阶段 `hidden -> inline -> flying -> docked`；把语义状态独立命名，例如 `staminaRevealed` 与 `staminaExpanded`。
-3. 先写叙事因果。动作尚不可用时渲染普通文字；只有在布局和语义都准备好后，才在同一位置替换为按钮。两种形态保持相同字体、行高和盒模型，避免瞬间跳位。
-4. 把动画完成作为状态边界。优先监听 `animationend`，忽略子元素冒泡事件，并提供与 CSS 时长匹配的超时兜底。
-5. 同步布局迁移。需要一起移动的状态框、动作按钮和对话框必须在同一次 React 提交中进入过渡状态，使用同一条 CSS 时间线和同一持续时间。
+1. 找到当前叙事流、动作处理、HUD、全局动画和响应式规则。文件名由目标仓库决定。
+2. 把新增功能画成显式阶段。例如 `hidden -> inline -> flying -> docked`；把语义状态独立命名，例如 `detailsRevealed` 与 `detailsExpanded`。
+3. 先写叙事因果。动作尚不可用时渲染普通文字；只有布局和语义都准备好后，才在同一位置替换为按钮。两种形态保持相同字体、行高和盒模型。
+4. 把动画完成作为状态边界。优先监听 `animationend` 或 `transitionend`，忽略子元素冒泡事件，并提供与 CSS 时长匹配的超时兜底。
+5. 同步布局迁移。需要一起移动的元素必须在同一次状态提交中进入过渡阶段，使用同一条时间线和持续时间。
 6. 只在布局稳定后测量。若面板仍在展开，先等待展开完成；飞行动画期间保留来源高度作为占位，避免周围内容回流。
-7. 为窄屏和 `prefers-reduced-motion` 提供相同的最终状态。减少动画不能改变可用功能、顺序或解锁结果。
-8. 若形成新的长期交互原则，更新 `Readme_GPT`；一次性的微调不要堆进长期文档。
-
-## Farstar Invariants
-
-- 游戏界面不显示顶部导航栏或开发控制项。
-- 首次搜索按钮先播放 `1000ms` 背景填充，再提交搜索结果；填充期间锁定重复点击。
-- 首轮对话最后一行完成后等待 `180ms`，再开始整体重排，避免文本仍在入场时测量。
-- 状况框和搜索按钮先向右滑出，再从左侧滑入；它们与对话框靠右停驻共用 `900ms` 时间线。
-- 状况框初次出现时自动显示“状况”、生命百分比和生命条；不显示 ATK、DEF 或 `78/100` 形式的原始数值。
-- 对话中的“状态”在迁移完成前必须是普通文字；停驻完成后原位变为文字按钮。
-- 点击“状态”后，现有状况框向下生长，并在 `640ms` 内显现体力百分比和体力条；不要替换成另一个面板。
-- 当前开局不显示背包按钮。
-- 紧凑面板圆角不超过 `8px`，字距为 `0`，文字、按钮和动画占位在桌面与移动端都不能互相覆盖。
-
-## Effect Selection
-
-实现或组合动画前，读取 [references/effect-recipes.md](references/effect-recipes.md)。优先复用已有状态机、类名和时间常量；只有在新的叙事行为确实需要不同语义时才增加新阶段。
+7. 为窄屏和 `prefers-reduced-motion` 提供相同的最终状态。减少动画不能改变功能、顺序或解锁结果。
+8. 按目标项目的文档习惯记录真正长期的交互原则；若没有长期文档，不要强行创建或要求 `Readme_GPT`。
 
 ## Validation
 
-依次执行：
-
-```powershell
-git diff --check
-$env:NEXT_PUBLIC_APP_MODE='frontend'; npm.cmd run build
-npm.cmd run smoke
-```
+先读取目标仓库已有脚本，再运行对应的格式检查、构建和测试。不要假设所有项目都使用 npm、Next.js、Sites 或固定环境变量。
 
 逐项确认：
 
@@ -67,4 +51,4 @@ npm.cmd run smoke
 - 减少动态效果模式直接到达同一最终状态。
 - 桌面与窄屏均无重叠、裁切和横向溢出。
 
-项目包含 `.openai/hosting.json` 时，完成运行时界面改动后按 Sites 发布流程验证并部署。只修改本技能或文档时不创建无意义的站点版本。
+只有目标项目本身包含 `.openai/hosting.json` 时，才使用 Sites 发布流程；仅修改 Skill 或文档时不创建站点版本。

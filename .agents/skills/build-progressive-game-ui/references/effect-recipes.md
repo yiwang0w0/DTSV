@@ -1,10 +1,9 @@
 # Progressive UI Effect Recipes
 
-这里记录可复用实现骨架。当前代码始终是最终事实来源；下列时长是远星开局的基准，不是所有场景都必须照搬。
+这里记录不依赖特定仓库路径的实现骨架。目标项目代码始终是最终事实来源；示例时长仅用于说明时序关系。
 
 ## Contents
 
-- [Code Map](#code-map)
 - [Text Becomes Action](#text-becomes-action)
 - [Expandable Panel](#expandable-panel)
 - [Synchronized Wrap Transition](#synchronized-wrap-transition)
@@ -12,13 +11,6 @@
 - [Decoded Text](#decoded-text)
 - [Timing Gates](#timing-gates)
 - [Failure Patterns](#failure-patterns)
-
-## Code Map
-
-- 主状态机与叙事序列：`src/app/game/[id]/kaleido/KaleidoAvgView.jsx`
-- 动画、响应式与减少动态效果：`src/app/globals.css`
-- 状态条组件：`src/app/game/[id]/gameUi.js`
-- 入口文字解码：`src/components/EntryTransition.jsx`
 
 ## Text Becomes Action
 
@@ -107,11 +99,11 @@ window.setTimeout(commitAction, SEARCH_COMMIT_DELAY);
 
 文字解码分离“最终字符串”和“当前显示字符串”。逐步固定已解析字符，仅随机化尚未解析的字符；不要改变容器宽度。可用两层轻微偏色的伪影制造短暂故障感，但主文字始终可读。
 
-入口实现参考 `EntryTransition.jsx`：解码、定格、遮黑、导航和退场分别有明确时点。`prefers-reduced-motion` 下跳过乱码循环，直接显示最终文本并完成导航。
+把解码、定格、遮黑、导航和退场设为不同阶段。`prefers-reduced-motion` 下跳过乱码循环，直接显示最终文本并完成同一导航结果。
 
 ## Timing Gates
 
-开局基准常量：
+一组可调整的基准常量：
 
 ```js
 const SEARCH_COMMIT_DELAY = 1000;
@@ -120,7 +112,7 @@ const STAMINA_EXPAND_MS = 640;
 const LAYOUT_TRANSITION_MS = 900;
 ```
 
-JS 常量与 CSS 动画时长必须同步。关键流程优先由动画结束事件推进，定时器只作为兜底。新的时长集中定义，不要把魔法数字散落在事件处理器里。
+这些数值对应远星参考开局；其他项目按节奏调整。JS 常量与 CSS 动画时长必须同步。关键流程优先由动画结束事件推进，定时器只作为兜底。新的时长集中定义，不要把魔法数字散落在事件处理器里。
 
 ## Failure Patterns
 
