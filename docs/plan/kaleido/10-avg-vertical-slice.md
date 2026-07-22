@@ -67,3 +67,33 @@
 - **守 B3**(doc 10 §0.B3):三件**全在现有循环内**(合成/战力/收敛)——**不含污染/Ω 倒计时/残片图鉴/buff/立绘上屏**(那些各需 +1 ui_key·按需后加)。
 - **实现分工**(全量阶段):🔧 = 3 ui_key 触发判定 + 持久化(并入 06 注册表·05 §1.3 清单扩到 15 项);🎨 = 条件渲染 + 因果两拍动效;📖 = 3 条 nar_line + 面板文案(描述制)。⚙️(本轨)= 本设计 + `prep_readout` 的"准备度对比"用什么数值口径(可复用 08 §2 的 atk/def/hp vs boss 曲线)。
 - **P1 闸门增益**:`prep_readout` 让准备度闸门**对玩家可读** → 直接支撑"可玩且成立"(玩家理解为何输/赢·不闷亏);后半披露拍支撑"到第二/第 N 个 UI 元素的时间"指标延伸到后段。
+
+---
+
+## 5. 方向调整(2026-07-22 · Kanata 拍板「A:GPT 呈现层为主」)
+
+**背景**:GPT 侧在 main 上推了 20 条(`97e95bd..b78ec93`,fast-forward 叠在我方工作之上·我方提交零丢失),已实现:
+- **登录直进 run**(`src/app/play/page.js` + login/register 跳转改)、**解码入场转场**(`src/components/EntryTransition.jsx`)、**首页纯入口**
+- **渐进 UI**:状态/体力**从对话浮现** → 对话停驻后**文字原位变按钮** → 体力在状况面板内展开(commit `f151924`/`76ca496`/`7a84fdf`)
+- **项目改名「远星」**(`8a38df7`)、frontend-only 预览模式(`src/lib/runtimeMode.js`)
+- **构建栈更换**:`next dev/build` → **`vinext`**;Next 14.2.21 → **16.2.6**;新增 **Vite 8 + @cloudflare/vite-plugin + worker/** + `.openai/hosting.json`(OpenAI Sites 托管)
+- **改写 `KaleidoAvgView.jsx`(408 行)**(取代 🎨 原型)、新增 skill `.agents/skills/build-progressive-game-ui/`(含 `references/farstar-opening-spec.md` 精确到毫秒的交互不变量)
+
+### 5.1 分工重划(生效)
+
+| 域 | 归属 | 说明 |
+|---|---|---|
+| **呈现层**(AVG UI / 转场 / 渐进浮现 / 托管) | **GPT 主导** | 六轨**不再自建 AVG 壳**;🎨 转为在 GPT 实现之上继续 |
+| 引擎(ui_unlocks / 种子关消费器 / 战斗 / seed) | 🔧 | GPT 未碰,继续供给 |
+| 内容数值(种子关 / 经济 / 平衡) | ⚙️ | 同上 |
+| 叙事(nar_line / 血肉) | 📖 + Kanata 自驱专线 | 同上 |
+| 安全(RLS / 越权) | 🔒 | 同上 |
+
+- **§2.2 的「🎨 独立取景框原型 AVG 壳」作废**(已被 GPT 实现取代);原验证点(冷开局钩子 / 因果两拍 / 文字节奏)转为**对 GPT 实现的手感验证**。
+- 🎨 首个动作 = 读 main 上 GPT 新实现 + skill,产出「两套差异 + 怎么合」对照,再动手。
+
+### 5.2 待处理(Kanata)
+
+1. **构建栈/部署走向未定**:线上 `dtsv.vercel.app` 仍是旧版(顶栏仍「远星函馆」),GPT 新构建未上线——`vinext build` 与 Vercel 的兼容性存疑。走 Vercel(Next)还是 Cloudflare/Sites 待定。
+2. **skill 冲突条**:`.agents/skills/build-progressive-game-ui/SKILL.md` 要求「更新 `Readme_GPT`」——**与我方铁律冲突**(Readme_GPT 只读不改)。我方一律**跳过该条**,长期交互原则写入 `Claude/frontend/`。
+3. GPT 修改了 `Claude/engine/log.md`(3 行,内容无害)——对称铁律提示,已记录不追究。

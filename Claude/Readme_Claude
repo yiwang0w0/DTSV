@@ -19,6 +19,15 @@
 
 **KALEIDO 世界线 = 第 3-4 纪元(失衡→拓荒),非仅第 3 纪元**。此前 05/N1/N3/N4/narrative-vision §二 把它窄化为「失衡时代(第三纪元)单点」并明确排除第 4 纪元——是中控/📖 转述把 Kanata 的「3-4」收窄成「3」,现勘正。定案:①时间跨度 = 失衡(3)→拓荒(4);②玩家 = **结构工程体**,3-4 全程不变;③**PI-1 探针 = 系统另一条平行线,玩家独立不入**(「工程体贯穿·PI 平行不入」);④「禁引导者/PI 称呼」铁律**保留**,但论证从「PI 尚未诞生(时序)」改为「岗位错位:系统不以 PI 称呼工程体」(旧论证作废——拓荒已在范围内)。玩家可见文案**零改**(本就深埋不说、不提纪元、禁 PI);改的是设计文档锚点表述 + 禁 PI 论证 + KALEIDO↔小说 PI-1 时序关系。⚙️「深界情报(第六纪元)出界」修法**不受影响**(6>4 仍出界)。🧭 已改 05+hub;📖 系统性修订 narrative-vision/N1/N3/N4 中。
 
+## ⚠⚠ 分工重划(2026-07-22 · Kanata 拍板「A:GPT 呈现层为主」· 全轨必读)
+
+GPT 侧在 main 推了 20 条(`97e95bd..b78ec93`·fast-forward·**我方提交零丢失**),已实现登录直进 run(`/play`)+ 解码入场转场 + 首页纯入口 + **渐进 UI(状态/体力从对话浮现 · 文字原位变按钮)** + 项目改名**「远星」** + **构建栈换 vinext/Vite8/Cloudflare Worker(Next 14→16 · OpenAI Sites 托管)** + **改写 KaleidoAvgView(408 行)** + 新 skill `.agents/skills/build-progressive-game-ui/`。
+
+**Kanata 拍板 A** → **呈现层(AVG UI/转场/渐进浮现/托管)归 GPT 主导,六轨不再自建 AVG 壳**;六轨供给底层:🔧 引擎(ui_unlocks/消费器/战斗/seed)· ⚙️ 内容数值 · 📖 叙事 · 🔒 安全(GPT 均未碰)。详见 `docs/plan/kaleido/10-avg-vertical-slice.md §5`。
+- 🎨 首个动作 = 读 main 新实现 + skill → 产出「两套差异 + 怎么合」对照 → 在其上继续(自建原型作废)。
+- **铁律补充**:GPT skill 要求「更新 Readme_GPT」——**我方一律跳过**,长期交互原则写 `Claude/frontend/`。
+- **待 Kanata**:构建栈/部署走向(线上仍旧版·`vinext build` 与 Vercel 兼容性存疑)。
+
 ## ⚠ 方向拍板(2026-07-15 · AVG 垂直切片启动)
 
 **KALEIDO 呈现方向 = 文字 AVG + 渐进披露**(登录→转场→初始只搜索按钮→系统随搜索渐进浮现)。四轨可行性研究完成(可行值得做);Kanata 拍板决策 + 落地计划 = `docs/plan/kaleido/10-avg-vertical-slice.md`。要点:B1 UI即进度=一次性开场/B2 撤=收敛/B3 只做现有循环/B4 采纳披露后移;叙事血肉(>2500行)= Kanata 自驱独立线不阻塞。**唯一阻塞 A1 = hook① 未落地 + 种子关 enabled=false(空壳测不了)**。落地 = 先做 seq1-2 垂直切片(不全量),验证冷开局钩子/因果两拍/文字节奏再签大单。派单:🔧 hook①最优先+点亮 / 🎨 AVG 壳原型(dev/kaleido-preview) / ⚙️ seq1-2 cadence修+B4 / 📖 歇(血肉等 Kanata)。
