@@ -1,5 +1,32 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-23 · 🎨 停工收口 —— P0 前置批 / BUG-A·B / 只在上下文里的判断落盘
+
+> 停工前按 🧭 要求做的收口。工作树干净，本轮四个 commit 全已推 main：
+> `2a36851`(P0 前置批) · `2999a46`+`02ab154`(线上三 bug 首修) · `969f633f`(BUG-A/B 修正版) · `b0ff12cf`(SSR 边界记档)。
+> 交接见 `Claude/HANDOFF.md`：🎨 = **待命，等 P1-c（必须与 🔧 同 PR 合）**。
+
+### 已写进代码注释的（恢复时读源码即可，不必回翻对话）
+- `src/app/_shell/immersiveRoute.js` —— 沉浸判据三条的依据；**`useSearchParams` 不能进根布局**（实测 13 个预渲染页 CSR bailout）；「渲染期能判掉的绝不交给子组件 effect 回传」铁律；SSR 直链顶栏闪的**两条治法 + 代价 + 什么情况该翻案（PWA）**；与 `page.js` 早返回的跨文件隐式不变量（两端都加了反向锚）。
+- `GameClientPage.jsx` —— **Next 14 的 URL 在 commit 阶段才更新**，故渲染期读 `window.location.search` 恒得旧值（实测复现）；BUG-B 的完整根因链（supabase auth-js 的 `visibilitychange` → 整树卸载重挂）；`&& !(room && isKaleido)` 为何必须收窄到 kaleido（多人会出**状态回滚**）；为何不去 RootShell 钉死 user 引用（那是多人唯一的 focus-recovery）。
+- `RootShell.jsx` —— 看门狗为何不是可选项（`.catch` 接 reject **接不住挂起**）。
+- `useKaleidoUiUnlocks.js` —— `deriveStubUnlocks`（要停）与 `readServerUnlocks`（**不能停**，是 D1 权威来源）的区别；`deriveStub` 仅 dev 谐调器可开。
+- `kaleidoUiUnlocks.js` —— `REVEAL_ORDER` 同时是**白名单**，不在表里的键会被静默丢弃。
+- `kaleidoAvgCopy.js` —— hp_bar 本地覆盖是**临时特例**及其撤销条件；`AVG_PREVIEW_NAR_OVERRIDES` 待 📖 重写后清空。
+
+### 只在上下文里、这次补落盘的六条
+1. **本地 `.env.local` 是占位 Supabase ⇒ 登不进真实账号态。** 这是我每份报告都带「哪半截验不了」的根因。可用 `NEXT_PUBLIC_APP_MODE=frontend npx next dev -p 3100` 进预览登录态（`localStorage` 播种 `dtsv.frontend-preview.session`），但**它只覆盖 frontendOnly 分支** —— 凡判据里带 `!frontendOnly` 的（如登录态 `/` 判沉浸）一律测不到，只能线上验。
+2. **`&& !(room && isKaleido)` 有个附带效应**：kaleido 树现在比改前**早一次提交**挂载（`hydrateRoom` 先 `setRoom`，再 await 两个网络请求才 `setLoading(false)`），那一拍装备/NPC 数据还没到。AVG 只显示百分比、`me` 来自已就位的 `gamevars`，所以目前无害；**将来若 AVG 要显示装备派生值（ATK/DEF 绝对值），这里会先渲染一拍不完整数据**。
+3. **`package-lock.json` 会被 `next dev`/`build` 自动 patch**（"Found lockfile missing swc dependencies"）。构建栈是 🧭 的域 ⇒ **每次提交前 `git checkout -- package-lock.json`**，否则会带进无关 diff。
+4. **ESLint `@next/next` plugin conflict 是本地 worktree 嵌套产生的假报**（父目录也有 `.eslintrc.json`）。**`next build` 的 exit code 才是权威门**，看到这条别去追。
+5. **`next build` 与 `next dev` 不能同时跑**，会写坏 `.next`（症状：`Cannot find module './xxxx.js'` 的 500）。流程固定为：先按端口找 PID `taskkill` 掉 3100 → `rm -rf .next` → build。**永远只杀自己那个 PID，不要 `taskkill /IM node.exe`**（3000 是 Kanata 的 dev）。
+6. **P1-c 的 `statusActionReady` 我已摸清范围**（免得恢复时重查）：它现在是**全局编舞门** —— 只要 hp_bar 未解锁，舞台上**每个**带 `interaction` 的行都渲染成不可点的 `span`（含开场那句「翻找」）。要解耦成**逐行门**：判据从「全局 statusActionReady」改为「该行自己的 uiKey 是否已解锁 + 该行自己的动作是否可用」，`UI_ACTIONS` 已是 per-key 结构（`{uiKey,before,word,after,hint}`），容器不用动，只换门的取值来源。
+
+### 方法论（这轮验证下来确实管用的两条）
+- **验证脚本要声明自己的边界。** `scripts/smoke-immersive-route.mjs` 头部明写了它*不能*证明什么（纯函数表达不了 effect 时序）—— 防的是后人误读「15/15 全绿」为「时序也钉死了」。同理删掉了一格入参与上一格逐字节相同的自证循环用例。
+- **通用检查直接提交进 `scripts/`，别只在本地跑**（🧭 嘱记）。我那个 ui_key 键对拍只在 scratchpad 跑完就报结论 ⇒ 🔧 白核实一轮后自己重写（`scripts/check-ui-key-parity.mjs`，已进 gate，做法照我的）。方法被采纳了，但绕了一圈。
+- **「我的改动造出的新死角」直接补上，不用等派单**（🧭 授权）—— 本轮的 8s 看门狗即此例：留着比改了更糟，而中控不一定看得见。
+
 ## 2026-07-22 · 🎨 AVG 复刻 P1:真数据接线 + 登录直进 KALEIDO + 180ms 触发源重做
 
 > 方向沿革（🧭 两次更正）：自建 AVG 壳作废 → 改以 GPT 分支实现为**样板复刻**（主线仍是我方六轨 · Vercel/Next，**不引入 vinext/Vite**）。关键发现：GPT **没有推倒我的原型，是在它上面扩写** —— 冷开场/revealPiece/commitSearch/战斗覆盖/规则闸门/lineStyle/DevBtn 逐字节存活；且其呈现层**零构建栈绑定**（只用 next/dynamic·next/navigation·react hooks·我方模块·纯 CSS）—— 我用仓库里还在的 Next 14.2.21 + React 18.3.1 直接 build 通过即为证，这条证据被 🧭 用来把主线构建栈拉回 Next（`e917266`）。
