@@ -1,5 +1,15 @@
 # 📖 剧情轨 · 变更日志(倒序置顶)
 
+## 2026-07-22 · B4 三条披露 nar_line + 面板文案(注册表 12→15 · 对抗复核折入)
+
+- 依 🧭 解冻令(垂直切片手感闸门通过 · doc 10 §4「披露后移·绑准备度兑现」⚙️ 设计·Kanata 采纳),交付 [N3](../../docs/narrative/kaleido-n3-static-layer.md) §1 新增 3 行 + 新增 §5 面板文案:
+  - `loadout_panel`(整备·首次 craft/用持久件·after):「这一件算在你身上了。你比刚进来时结实了一点。——已开放：清点。」/ 面板「清点」
+  - `prep_readout`(准备度·入 boss 关前·**before**):「前面那个，和你之前碰见的不是一回事。——已开放：掂量。」/ 面板「掂量」
+  - `convergence_preview`(收敛预览·boss_kill 后切收敛页前·**before**):「不再往里了。这一趟的账，该合了。——已开放：合计。」/ 面板「合计」
+- **对抗复核(两镜头)全折入 6 处**:①**abandon 分支自打脸**(触发「run 收束」网住 abandon,违 §1.4「系统不为逃兵留档」)→ 限 `boss_kill`+死亡、**abandon 不触发**、**首次解锁只 boss_kill 授予**(防 seq1 早死在最薄处烧掉后段披露拍)②**before 锚点歧义**(可被接成 boss 开打前=剧透)→ 明写 **before 锚收敛页、非 boss_kill** ③「到头了」逐字撞 seq5 `description` 首句 → 改「不再往里了」;面板去重复的「这一趟」④「刚醒时」在 run2+ 无所指(ui_unlocks 账号级持久,老玩家每局带此面板)→「刚进来时」⑤「你这些」指代空转 →「你身上这些」(回扣「算在你身上」)⑥「清点」同词异指 → 落注为**刻意回响**(seq1「没人清点过」→ seq4「已开放：清点」= 授权闭环)。
+- **另修既有 canon bug**([N4 seq3-5](../../docs/narrative/kaleido-n4-seed-levels-seq3-5.md)):seq5 `enter_text`「**那东西**在黑里」误用 **id8 专属描述称**(boss 是 id10 独立实体)——会污染「见 3 次才命名」计数并与 `prep_readout`「和你之前碰见的不是一回事」正面冲突 → 改「**有东西**在黑里」(通用描述先行,`enemy.name`「黑里的那个」由此句结晶)。
+- §1.4 加「B4 前口径」标注(注册表 12→15);**05 §1.3 待 🔧 同步扩至 15 项**(其 hp_bar 时机亦仍旧值)。**叙事血肉(>2500 行)仍 = Kanata 自驱专线**,不进技术阻塞路径。
+
 ## 2026-07-08(凌晨)· N6 AVG 剧情完整性研究(🧭 命题·先不落文案)
 
 - 依 🧭 命题(Kanata 定 KALEIDO 完整形态=文字 AVG,剧情从配角变承载体),交付 [`docs/narrative/kaleido-n6-avg-narrative-study.md`](../../docs/narrative/kaleido-n6-avg-narrative-study.md):叙事弧/缺口清单/工作量冲击/结构建议。
