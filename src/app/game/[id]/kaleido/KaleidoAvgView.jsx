@@ -99,6 +99,14 @@ export default function KaleidoAvgView({
   const statusSequenceStarted = useRef(false)
   const dialogueSettleScheduled = useRef(false)
   const searchPendingRef = useRef(false)
+  // ── 180ms 停顿的触发源（🧭 裁决）────────────────────────────────────────
+  //   主判据：本批 unlockEvents **最后一条**的 animationend —— 确定性，且与 sim 路径**同构**
+  //     （复用同一个 settlesFirstSearch 元数据 + 同一个 onFirstSearchDialogueEnd，不引入第二套语义）。
+  //   跨批交错：批 B 可能在批 A 的行还在淡入时到达 ⇒ 播放队列计数，
+  //     「锚点行已结束 **且** 队列排空」才放行，不抢在后到的行前面收尾。
+  //   去抖：仅作**兜底**（浏览器彻底禁用动画 / animationend 丢失时流程不卡死），**不作主判据**。
+  const playing = useRef(0)         // 播放队列深度 = 正在淡入的真数据行数
+  const settleArmed = useRef(false) // 锚点行已结束，等队列排空
   const timers = useRef([])
   const seenLogs = useRef(0) // P1：真 logs 已追加到舞台的游标
   const seenNar = useRef(0)  // P1：解锁 nar_line 已追加的游标
@@ -165,7 +173,8 @@ export default function KaleidoAvgView({
     if (logs.length < seenLogs.current) seenLogs.current = 0 // 换 run 重置
     const fresh = logs.slice(seenLogs.current)
     seenLogs.current = logs.length
-    fresh.forEach((l) => pushLine(l?.text || '', l?.type || 'log'))
+    playing.current += fresh.length // 入播放队列（queued 行的 animationend 会出队）
+    fresh.forEach((l) => pushLine(l?.text || '', l?.type || 'log', { queued: true }))
   }, [live, coldOpenDone, logs, pushLine])
 
   // 解锁 nar_line（服务端权威·D2 信封）新增 → 追加进舞台
@@ -177,7 +186,15 @@ export default function KaleidoAvgView({
     if (nar.length < seenNar.current) seenNar.current = 0
     const fresh = nar.slice(seenNar.current)
     seenNar.current = nar.length
-    fresh.forEach((n) => pushLine(n.text, 'nar', n.key === 'hp_bar' ? { interaction: 'status' } : undefined))
+    // 锚点 = 「含 hp_bar 的那一批」的最后一条 —— 它的 animationend 就是 180ms 停顿的起算点。
+    //   只标含 hp_bar 的批次，避免更早的批次抢跑把停顿算在错误的一拍上。
+    const anchorAt = fresh.some((n) => n.key === 'hp_bar') ? fresh.length - 1 : -1
+    playing.current += fresh.length
+    fresh.forEach((n, i) => pushLine(n.text, 'nar', {
+      queued: true,
+      ...(n.key === 'hp_bar' ? { interaction: 'status' } : null),
+      ...(i === anchorAt ? { settlesFirstSearch: true } : null),
+    }))
   }, [live, coldOpenDone, unlocks?.narLog, pushLine])
 
   // 新解锁 → 因果两拍：nar 已落舞台，延迟 NAR_DELAY 后件材质化析出 + 闪 nar 同色
@@ -195,12 +212,12 @@ export default function KaleidoAvgView({
 
   const hpUnlocked = isU('hp_bar')
 
-  // live：首搜叙事批次落定 → 停顿 DIALOG_SETTLE_PAUSE → 放行 900ms 同步迁移。
-  //   sim 路径用「最后一行的 animationend」（settlesFirstSearch）；live 的解锁事件异步到达、没有确定的「最后一行」，
-  //   故用「一段时间无新行」去抖判定批次结束，再补 180ms 停顿——与规范同一节拍，只是触发源不同。
+  // 兜底（**不是主判据**）：主判据是上面那套「锚点行 animationend + 队列排空」。
+  //   仅当浏览器根本不派发 animationend（动画被彻底禁用 / 事件丢失）时，用「一段时间无新行」把流程救回来。
+  //   窗口取 1800ms —— 远大于单行淡入 500ms + 180ms 停顿，确保正常路径永远先到，兜底不抢跑。
   useEffect(() => {
     if (!live || !coldOpenDone || !hpUnlocked || firstSearchDialogueSettled) return undefined
-    const t = setTimeout(() => setFirstSearchDialogueSettled(true), 700 + DIALOG_SETTLE_PAUSE)
+    const t = setTimeout(() => setFirstSearchDialogueSettled(true), 1800)
     return () => clearTimeout(t)
   }, [live, coldOpenDone, hpUnlocked, firstSearchDialogueSettled, lines])
 
@@ -265,10 +282,26 @@ export default function KaleidoAvgView({
     }
   }, [firstSearchDialogueSettled, hpUnlocked, staminaExpanded, staminaRevealed])
 
-  function onFirstSearchDialogueEnd() {
+  // 队列排空检查：锚点行结束 + 队列深度归零 ⇒ 停 DIALOG_SETTLE_PAUSE 再放行 900ms 迁移。
+  //   sim 路径不入队（playing 恒 0）⇒ 锚点一结束即排空，行为与改造前逐字节一致。
+  function drainSettle() {
+    if (!settleArmed.current || playing.current > 0) return
     if (dialogueSettleScheduled.current) return
     dialogueSettleScheduled.current = true
     later(() => setFirstSearchDialogueSettled(true), DIALOG_SETTLE_PAUSE)
+  }
+
+  function onFirstSearchDialogueEnd() {
+    settleArmed.current = true
+    drainSettle()
+  }
+
+  // 舞台每行淡入结束：真数据行出队；锚点行同时点火。两者都走排空判定。
+  function handleLineEnd(line, event) {
+    if (event.currentTarget !== event.target) return
+    if (line.queued) playing.current = Math.max(0, playing.current - 1)
+    if (line.settlesFirstSearch) settleArmed.current = true
+    drainSettle()
   }
 
   function onRevealStamina() {
@@ -371,7 +404,7 @@ export default function KaleidoAvgView({
               key={l.id}
               className="kaleido-line-in"
               style={lineStyle(l.kind)}
-              onAnimationEnd={l.settlesFirstSearch ? onFirstSearchDialogueEnd : undefined}
+              onAnimationEnd={(l.queued || l.settlesFirstSearch) ? (e) => handleLineEnd(l, e) : undefined}
             >
               {l.interaction === 'status' ? (
                 <>
