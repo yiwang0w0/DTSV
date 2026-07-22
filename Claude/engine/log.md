@@ -26,6 +26,20 @@
 1. **`releaseEncounter` 流血但不计回合**。计回合会改 `survive_turns` 清关速度 = ⚙️ 没要的平衡变更；「走开要花血」只需要花血。⟹ **流血集 ⊋ 计回合集是刻意的**。
 2. **`stance_duel`(seq3) 自带 `hit()` 不读 `game_rules`** ⇒ D3 的逐关 damage/crit 覆盖在该关**静默不生效**。🧭 已裁「现在不改、记为已知限制、将来走 `stance` 参数表达」——**此限制的载体在 `kaleido/rules.js` 头注**，别让它随重构蒸发。
 
+### E-0. 🔴 停工后新增的跨轨阻塞（⚙️ `87519616` 报 + 🔧 复核 + 🔧 追加一条它没看到的）
+
+> **停工期间不做,但恢复时这条排在 P1 前面还是后面要 🧭 定** —— 它决定 `d` 的开关能不能开。
+
+- **⚙️ 的两条我逐条查证属实**：
+  - **kaleido 的 13 件道具(id 32-44)`chamber_template_ids` 全是空数组** ⇒ 搜索池按 `chamber_template_ids.includes(tid)` 过滤(`gameActions.js:330`)⇒ **一件都抽不到**，加权掉率 `p` 恒 0。
+  - **id22「结构修复包」`heal=300`、挂 13 个房** ⇒ kaleido 玩家 maxHp=100，一次捡到浪费 200。因为 **kaleido 没有专属 chamber(25 个全共享)**，它搜的是多人标定道具。
+- **⚠ 由此推出的硬结论(⚙️ 说得对，我复核同意)**：`kaleido_bleed_per_action` **必须与药那一侧同时开**。单独开保底是最坏组合 —— 确定的扣 + 稀疏的补，⚙️ 实测该制度趋向必死。**⇒ 我实现的四个旋钮，在链通之前一个都不要打开。**
+- **🔧 追加一条 ⚙️ 没看到的(否则它的修法会静默漏)**：它提议「建 kaleido 专属 chamber，`spawn_weight=0` 不进多人 raidPath」——
+  **`spawn_weight=0` 起不到排除作用**：两侧选房都写的是 `(c) => c.spawn_weight || 1`（kaleido `runs.js:152` / 多人 `pathGenerator.js:55`）⇒ **`0 || 1 = 1`**，权重 0 的房**照样会被抽中**，而且**会漏进多人 raidPath**（破多人红线）。
+  真正的排除杠杆只有 `enabled !== false`（两侧都认），但那会把它从 kaleido 也一起排除掉。
+  ⇒ **要么改选房的权重表达式(动多人共享路径·要 🧭 批)，要么给 kaleido 一条独立的选房过滤**。这是机制、归 🔧；建表挂道具是数据、归 ⚙️。
+- **前置(归 🔧)**：kaleido 关卡现在**不能指定 chamber** —— `sampleRun` 先 `pickChamber` 再 `seedMatch` 覆盖内容(`runs.js:175-197`)，种子关只换内容不换房 ⇒ 要让 kaleido 抽到专属池，得让关卡能指定 chamber 或给 kaleido 独立分房路径。
+
 ### E. 未解决、且没有 owner 的
 - **N7 叙事兜底通道在 `src/` 零实现** ⇒ 法则一的公平性目前**没有任何实现在支撑**。设计稿已出 = `docs/plan/kaleido/15-narrative-cue-channel.md`（🧭 已把它从 12 改号为 15，解与 `12-step-progression.md` 的撞号），未落地。
 - **重置作业形态未定**（我倾向惰性到期 + 定期清理，见 doc 13 / DDL 末注）。
