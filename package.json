@@ -9,6 +9,7 @@
     "dev": "next dev",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "smoke": "node scripts/smoke-check.mjs",
+    "gate": "node scripts/gate.mjs",
     "build": "next build",
     "start": "next start",
     "dev:vite": "vinext dev",

@@ -65,7 +65,7 @@ import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STA
 import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
 import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
 import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
-import { UI_SEED, CRAFT_MATERIAL_KINDS, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
+import { UI_SEED, isCraftMaterialKind, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
 import { mergeGameRules } from '@/lib/server/kaleido/rules'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
@@ -1420,7 +1420,17 @@ async function resolveSearchAction(client, room, gamevars, user) {
   //   预算不变式(#guaranteed ≤ 可用 search 数)保证清关前发完 —— 由 sampleRun 侧校验(runs.js)守。多人局跳过。
   if (isKaleidoRoom(room)) {
     const cur = getResolutionPlayer(resolution, user.id) || afterEvent
-    const kalS = resolution.gamevars.kaleido || {}
+    const kalS0 = resolution.gamevars.kaleido || {}
+    // ── 周期保底·记账（⚙️ step1 载重前提·§3）───────────────────────────────
+    //   「每 N 次合格搜索必给 1 件」。**先记账再谈发放**：本搜若被下面的关内 guaranteed 提前 return，
+    //   这一搜仍必须计数，否则周期会越走越偏。计数 run 级、**跨关不重置**（step1 卡关场景是同一关里无限搜，
+    //   「每关一次」的粒度救不了最坏运气 —— 实测 N 最坏 25~32 vs 周期保底 40）。
+    const cg0 = kalS0.cycleGuarantee
+    const cgOn = !!cg0 && (Number(cg0.everyN) || 0) > 0
+    const kalS = cgOn
+      ? { ...kalS0, cycleGuarantee: { ...cg0, count: (Number(cg0.count) || 0) + 1 } }
+      : kalS0
+    if (cgOn) resolution.gamevars = { ...resolution.gamevars, kaleido: kalS }
     const cIdx = cur.chamberIndex ?? 0
     const deck = Array.isArray(currentChamber?.kaleidoEventDeck) ? currentChamber.kaleidoEventDeck : []
     const consumedMap = (kalS.consumedEventDeck && typeof kalS.consumedEventDeck === 'object') ? kalS.consumedEventDeck : {}
@@ -1430,8 +1440,8 @@ async function resolveSearchAction(client, room, gamevars, user) {
       try {
         const { data: itemRow } = await client.from('item_pool').select('id, name, kind').eq('id', deck[gi].item.id).maybeSingle()
         if (itemRow?.name) {
-          // 配方材料(kind∈CRAFT_MATERIAL_KINDS)→ 置 hasCraftMat(单调)→ 路由边界 craftMatGained 解锁 craft_btn。
-          const isMat = CRAFT_MATERIAL_KINDS.includes(itemRow.kind)
+          // 配方材料(排除式判据:非 consumable/equipment 即材料)→ 置 hasCraftMat(单调)→ 边界 craftMatGained 解锁 craft_btn。
+          const isMat = isCraftMaterialKind(itemRow.kind)
           setResolutionPlayer(resolution, user.id, {
             ...cur,
             inventory: [...(cur.inventory || []), itemRow.name],
@@ -1446,6 +1456,44 @@ async function resolveSearchAction(client, room, gamevars, user) {
         }
       } catch (e) {
         console.error('[kaleido hook①] guaranteed item 投放失败:', e?.message)
+      }
+    }
+
+    // ── 周期保底·发放（排在关内 guaranteed **之后**：解锁链优先）────────────────
+    //   本搜若被关内 guaranteed 占用(已 return)，判据用 `>=` 而非 `===` ⇒ 下一搜自动补发，不吞。
+    //   config 在 startKaleidoRun 由 game_rules 播种进 gamevars（run 自描述·可重放·E2E 可直接注入）；
+    //   未配置(everyN=0/缺 item) ⇒ 整块不进入 ⇒ 存量 run 与多人局逐字节不变。
+    const cg = kalS.cycleGuarantee
+    if (cgOn && cg.item && ((Number(cg.count) || 0) - (Number(cg.lastAt) || 0)) >= (Number(cg.everyN) || 0)) {
+      try {
+        const { data: itemRow, error: itErr } = await client.from('item_pool')
+          .select('id, name, kind').eq('name', cg.item).maybeSingle()
+        if (itErr) throw new Error(itErr.message)
+        if (!itemRow?.name) {
+          // 配置指向不存在的道具 ⇒ 不静默发幽灵物品，也不重试刷屏：推进 lastAt 跳过本周期 + 告警。
+          console.warn(`[kaleido 周期保底] 配置的道具不存在，跳过本周期: ${cg.item}`)
+          resolution.gamevars = {
+            ...resolution.gamevars,
+            kaleido: { ...kalS, cycleGuarantee: { ...cg, lastAt: Number(cg.count) || 0 } },
+          }
+        } else {
+          const cur2 = getResolutionPlayer(resolution, user.id) || cur
+          const isMat2 = isCraftMaterialKind(itemRow.kind)
+          setResolutionPlayer(resolution, user.id, {
+            ...cur2,
+            inventory: [...(cur2.inventory || []), itemRow.name],
+            ...(isMat2 ? { hasCraftMat: true } : {}),
+          })
+          resolution.gamevars = {
+            ...resolution.gamevars,
+            kaleido: { ...kalS, cycleGuarantee: { ...cg, lastAt: Number(cg.count) || 0 } },
+          }
+          appendResolutionLog(resolution, `${player.name} 搜到了 ${itemRow.name}`, 'system')
+          return persistResolutionWithPollution(client, room, resolution, user.id)
+        }
+      } catch (e) {
+        // 不推进 lastAt ⇒ 下一搜重试（保底是载重前提，宁可重试也不能吞）。
+        console.error('[kaleido 周期保底] 投放失败(下一搜重试):', e?.message)
       }
     }
   }
@@ -2329,6 +2377,14 @@ async function resolveUseItemAction(client, room, gamevars, user, itemName) {
   const haveCount = (player.inventory || []).filter(it => it === itemName).length
   if (haveCount <= 0) throw new Error(`你没有 ${itemName}`)
 
+  // ── 不可使用 kind 守卫（🧭 派单 ③·2026-07-22）──────────────────────────────
+  //   合成材料本就不该能「使用」。此前点它 = 走 consume 支 → calcItemEffect 全零 → 所有 if (result.X)
+  //   日志块跳过 → 但末尾 removeInventoryItem **无条件执行** ⇒ **道具没了、属性没变、日志一个字没有**（静默销毁）。
+  //   inspect_* 模式不受影响（它在效果链前就 return，「查看材料」是合理动作）。
+  if (isCraftMaterialKind(itemDef.kind) && (itemDef.use_mode || 'consume') === 'consume') {
+    throw new Error(`${itemName} 是合成材料，不能直接使用`)
+  }
+
   const resolution = createActionResolution({ room, actorId: user.id, gamevars })
   const nextPlayer = { ...player, lootPrompt: null }
 
@@ -2742,6 +2798,10 @@ export async function startKaleidoRun(client, user) {
       console.error('[kaleido] profiles.ui_unlocks 读取异常(本 run 禁写账号列·防裁小):', e?.message)
     }
     const seedUnlocks = Array.from(new Set([...UI_SEED, ...accountUnlocks])).sort()
+    // 周期保底配置(⚙️ step1 §3 载重前提)：数值归 ⚙️ —— 走 game_rules 两键,**默认关闭**(n=0)。
+    //   ⚙️ 定稿值:G=16 · 修补剂(heal30)。开启只需 UPSERT 这两行 game_rules,无需改代码/发版。
+    const cycleEveryN = Math.max(0, Math.floor(Number(getRule(rules, 'kaleido_cycle_guarantee_n', 0)) || 0))
+    const cycleItem = String(getRule(rules, 'kaleido_cycle_guarantee_item', '') || '').trim()
     const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: seedUnlocks })
     const gamevars = normalizeGamevars(room.gamevars)
     const nextGamevars = {
@@ -2749,7 +2809,14 @@ export async function startKaleidoRun(client, user) {
       players: { ...gamevars.players, [user.id]: player },
       raidPath: nodes,
       //   accountReadFailed 只在读失败时**出现**(条件展开):正常 run 的 kaleido 块逐字节同旧。
-      kaleido: { runId: run.run_id, currentSeq: 1, clearedSeq: 0, ...(accountReadFailed ? { accountReadFailed: true } : {}) },
+      //   cycleGuarantee 同理:game_rules 未配置(n≤0/无 item) ⇒ 键不出现 ⇒ 存量行为零变化。
+      //   播种进 gamevars 而非每动作现查 game_rules,原因有三:①loadGameRules 是**进程级全局 memo 无 TTL**
+      //   (D3 实测),run 中途改规则读不到,不如开局定死;②run 自描述 ⇒ 可重放、可离线 sim;③E2E 可直接注入。
+      kaleido: {
+        runId: run.run_id, currentSeq: 1, clearedSeq: 0,
+        ...(accountReadFailed ? { accountReadFailed: true } : {}),
+        ...(cycleEveryN > 0 && cycleItem ? { cycleGuarantee: { everyN: cycleEveryN, item: cycleItem, count: 0, lastAt: 0 } } : {}),
+      },
     }
     const nextRoom = await persistRoom(client, room, nextGamevars, [
       createLogEntry(`${getDisplayName(user)} 进入万华镜 · 第 1/${KALEIDO.LEVEL_COUNT} 关「${nodes[0].name}」`, 'system'),

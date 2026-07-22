@@ -104,11 +104,6 @@ export function calcDamage(attacker, defender, rules, weaponSubKind = '', rng = 
 export function calcItemEffect(item, player, rules) {
   const result = { hpDelta: 0, atkDelta: 0, defDelta: 0, staminaDelta: 0, maxHpDelta: 0, newBuffIds: [], log: '' }
 
-  // ── 上限扩容（🧭 裁决 a·2026-07-22）：防御式读 item_pool.max_hp_delta 新列；老库/老道具该列缺省 0
-  //   ⇒ maxHpDelta=0 ⇒ 存量道具零触发、多人局零行为变化（同 stamina_restore 的加列惯例）。
-  //   与 kind 无关（扁平值·不走公式）：consume 路径末尾**必扣库存**，故任何 kind 都不会重复吃增益。
-  result.maxHpDelta = Number(item.max_hp_delta) || 0
-
   if (item.kind === 'consumable') {
     // 治疗公式
     const healFormula = item.heal_formula || getRule(rules, 'item_heal_formula', 'heal')
@@ -139,6 +134,20 @@ export function calcItemEffect(item, player, rules) {
       playerDef: player.def,
     })
   }
+
+  // ── 扁平增量三件（kind 无关·不走公式·**置于 kind 分支之后**）───────────────────
+  //   防御式读 item_pool 的 *_delta 新列；老库/老道具该列缺省 0 ⇒ delta=0 ⇒ 存量道具零触发、
+  //   多人局零行为变化（沿用 stamina_restore 的加列惯例）。consume 路径末尾**必扣库存** ⇒ 任何 kind 都不会重复吃。
+  //   用 `+=` 而非 `=`：不覆盖上面 weapon/armor 分支算出的值（那两支今天是死代码——ITEM_KIND_META 无此二
+  //   kind——但若将来复活，两者应叠加而不是互相吃掉；删死分支是另一件事，不混批）。
+  //   ⚠ 为什么不改成「按现有 atk/def 字段驱动」（🎨 的提议·经我查证否决）：
+  //     全库 `atk<>0 OR def<>0` 只有 3 行 —— id24 结构强化液(consumable·def=50·**多人存量**·当前恒哑)
+  //     + ⚙️ 的 id32/id33。按字段驱动会让 id24 **突然开始生效** ⇒ 破「多人局零行为变化」铁律。
+  //     加新列则**存量列语义一个字不动、新列只有 kaleido 新道具有值** ⇒ 中性是**结构上不可能被破**的，
+  //     而不是靠「我数过只有 3 行」这种审计结论来保证。这条差别在铁律层面很重要。
+  result.maxHpDelta += Number(item.max_hp_delta) || 0
+  result.atkDelta   += Number(item.atk_delta) || 0
+  result.defDelta   += Number(item.def_delta) || 0
 
   // 触发 Buff
   if (item.on_use_buff_ids && item.on_use_buff_ids.length > 0) {

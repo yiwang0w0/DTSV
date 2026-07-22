@@ -12,10 +12,21 @@
 // 初始种子集(Kanata 定向:开局只有一个搜索按钮)。startKaleidoRun 以此为底 ∪ 账号已解锁集。
 export const UI_SEED = ['search_btn']
 
-// 配方材料 item kind（craft_btn 触发口径·2026-07-08 查证）：item_pool 仅 4 kind = consumable(可用) +
-//   tech_fragment/platform_part/omega_matter(材料)。recipe 表暂空 → 按 kind 判材料（非 consumable 即材料）。
-//   hook① drain 搜到此类 kind → 置 player.hasCraftMat（单调）→ craftMatGained 检首次获得材料。
-export const CRAFT_MATERIAL_KINDS = ['tech_fragment', 'platform_part', 'omega_matter']
+// 配方材料判据（craft_btn 触发口径）——**排除式，不是白名单**。
+//   2026-07-22 订正（🧭 审出的静默断链）：原实现是正向白名单 ['tech_fragment','platform_part','omega_matter']，
+//   而上一版注释写的口径一直是「非 consumable 即材料」——**注释与实现相反**。⚙️ 新增 kind='material' 的 6 个
+//   散件入库后，白名单不含它 ⇒ isMat 恒 false ⇒ hasCraftMat 不置位 ⇒ **craft_btn 永不解锁，且无任何报错**。
+//   根因不是「少写一个字符串」，是**每加一个 kind 就静默漏一次**。故改回排除式：
+//     材料 = kind ∉ NON_MATERIAL_KINDS（能直接使用/装备的那些）
+//   ⇒ 新增材料类 kind 自动被认；只有新增**可用**类 kind 才需动这张表（那种改动必然伴随使用逻辑，不会被忘）。
+//   ⚠ 本文件刻意保持「纯模块·无 @/ 别名」以便原生 Node smoke ⇒ 不 import constants.js 的 ITEM_KIND_META；
+//     两处 kind 台账的同步由 scripts/check-item-kinds.mjs（串进 npm run gate）守。
+export const NON_MATERIAL_KINDS = ['consumable', 'equipment']
+export function isCraftMaterialKind(kind) {
+  return !!kind && !NON_MATERIAL_KINDS.includes(kind)
+}
+// 快照(仅供台账/断言可读性用)。**运行时判据一律走 isCraftMaterialKind**，不要再拿它做 includes。
+export const CRAFT_MATERIAL_KINDS = ['material', 'tech_fragment', 'platform_part', 'omega_matter']
 
 // nar_line:📖 N3 供稿(P1 方案 A 引擎内联,经 unlockEvents 流转,组件侧零硬编码——06 §5 决策 2)。
 //   hp_bar 文案由「首次遭遇前」改为「首次 search」后待 📖 复核(06 §5 决策 3)。

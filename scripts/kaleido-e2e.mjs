@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js'
 import { startKaleidoRun, executeGameAction, advanceKaleidoProgress, applyKaleidoPostAction } from '../src/lib/server/gameActions.js'
 import { isKaleidoRoom } from '../src/lib/roomState.js'
 import { mergeGameRules } from '../src/lib/server/kaleido/rules.js'
+import { isCraftMaterialKind } from '../src/lib/server/kaleido/uiUnlocks.js'
 
 function loadEnv() {
   for (const p of ['.env.local', 'D:/Fragments/DTSV/.env.local']) {
@@ -485,6 +486,70 @@ try {
   const { data: fEv } = await sb.from('player_events').select('payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
   ck('fail-closed:标记态下 ui_unlock 事件照发(遥测不丢)', (fEv || []).length > 0, JSON.stringify((fEv || []).map((e) => e.payload?.ui_key)))
 } catch (e) { ck('⑪ fail-closed 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑫ 周期保底(⚙️ step1 §3 载重前提 · 每 N 次合格搜索必给 1 件 · run 级跨关不重置)═══
+//   config 由 startKaleidoRun 从 game_rules 播种进 gamevars.kaleido.cycleGuarantee(默认关)。
+//   此处直接注入 config(N=2·修补剂)→ 搜若干次 → 断言:①按周期给 ②跨关不重置 ③关内 guaranteed 占用
+//   的那一搜不吞保底(下一搜补发)。全确定性,不靠掉率。
+try {
+  const u = mkUser('cycle'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  ck('周期保底:未配置时 gamevars 无 cycleGuarantee 键(存量/多人零变化)',
+    room?.gamevars?.kaleido?.cycleGuarantee === undefined, JSON.stringify(room?.gamevars?.kaleido))
+  // 注入 config：每 2 搜必给 1 瓶修补剂
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.kaleido.cycleGuarantee = { everyN: 2, item: '修补剂', count: 0, lastAt: 0 }
+    // 清掉关内 guaranteed 的干扰(本节只测周期保底)：标记 seq1 的 deck 全部已消费
+    r.gamevars.kaleido.consumedEventDeck = { 0: [0, 1, 2] }
+    r.gamevars.players[u.id].inventory = []
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  const invOf = (r) => (r?.gamevars?.players?.[u.id]?.inventory || []).filter((n) => n === '修补剂').length
+  room = await act(u, roomId, 'search') // count=1 → 未到周期
+  const after1 = invOf(room)
+  room = await act(u, roomId, 'search') // count=2 → 必给
+  const after2 = invOf(room)
+  ck('周期保底:第 2 搜(N=2)必给 1 瓶', after2 - after1 === 1, JSON.stringify({ after1, after2, cg: room?.gamevars?.kaleido?.cycleGuarantee }))
+  ck('周期保底:lastAt 推进到本次 count(不连发)', (room?.gamevars?.kaleido?.cycleGuarantee?.lastAt ?? -1) === 2, JSON.stringify(room?.gamevars?.kaleido?.cycleGuarantee))
+  room = await act(u, roomId, 'search') // count=3 → 未到下个周期
+  ck('周期保底:第 3 搜不再给(周期未到)', invOf(room) === after2, JSON.stringify({ n: invOf(room), cg: room?.gamevars?.kaleido?.cycleGuarantee }))
+  // 跨关不重置：清关 → move → 计数继续累加(不归零)
+  let guard = 0
+  while (clearedSeq(room) < 1 && guard < 12) { room = await act(u, roomId, 'search'); guard++ }
+  const cntBeforeMove = room?.gamevars?.kaleido?.cycleGuarantee?.count ?? 0
+  room = await act(u, roomId, 'move')
+  const cgAfterMove = room?.gamevars?.kaleido?.cycleGuarantee
+  ck('周期保底:跨关不重置(move 后 count 不归零)', (cgAfterMove?.count ?? 0) >= cntBeforeMove && cntBeforeMove > 0,
+    JSON.stringify({ cntBeforeMove, after: cgAfterMove }))
+} catch (e) { ck('⑫ 周期保底执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑬ 道具效果链三处(🧭 派单 · material 静默销毁 / atk_delta·def_delta / 材料判据排除式)═══
+try {
+  const u = mkUser('itemfx'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  // ③ material 守卫：材料点「使用」必须被拒,且**道具还在**(此前是静默销毁)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.players[u.id].inventory = ['碎块']
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  let msg = ''
+  try { await act(u, roomId, 'useItem', { itemName: '碎块' }) } catch (e) { msg = e.message }
+  ck('材料守卫:material 点使用被拒(不再静默销毁)', msg.includes('合成材料'), msg)
+  const room2 = await getRoom(roomId)
+  ck('材料守卫:被拒后道具仍在背包(未被吃掉)',
+    (room2?.gamevars?.players?.[u.id]?.inventory || []).includes('碎块'),
+    JSON.stringify(room2?.gamevars?.players?.[u.id]?.inventory))
+  // ② 材料判据排除式：kind='material' 现在算材料(此前白名单漏它 → craft_btn 静默断链)
+  ck('材料判据:kind=material 被认作配方材料(排除式判据)', isCraftMaterialKind('material'), 'material')
+  ck('材料判据:consumable/equipment 不是材料', !isCraftMaterialKind('consumable') && !isCraftMaterialKind('equipment'), 'ok')
+  ck('材料判据:未来新增的未知 kind 自动算材料(不再每加一 kind 漏一次)', isCraftMaterialKind('brand_new_kind_2027'), 'ok')
+  // ① atk_delta / def_delta：列尚未建(待 🧭 审批 DDL)⇒ 现在应恒 0；列建好并补值后本断言翻红即提醒接续
+  const { data: fxRow } = await sb.from('item_pool').select('*').eq('name', '加力件').maybeSingle()
+  const hasCol = fxRow && Object.prototype.hasOwnProperty.call(fxRow, 'atk_delta')
+  ck('atk_delta 列状态登记(未建=待 🧭 审 DDL;已建则应有值)',
+    !hasCol || Number(fxRow.atk_delta) >= 0, JSON.stringify({ hasCol, atk_delta: fxRow?.atk_delta, atk: fxRow?.atk }))
+} catch (e) { ck('⑬ 道具效果链执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length

@@ -2,6 +2,21 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-22d / 🔧 ✅ 周期保底 + 道具效果链三处 + P0 gate —— E2E 79/79×3·gate 8/8·build 绿）
+
+- **✅ 周期保底（🔴 阻塞 ⚙️ step1 定稿的载重前提）**：`event_deck.guaranteed` 是**每关一次**，而 step1 的卡关场景是**在同一关里无限搜** ⇒ 保底给完一次就不再续（⚙️ harness：N 最坏 25~32 vs 周期保底 40，对 M=21 的余量从 1.9× 掉到 1.2~1.5×）。
+  - 新机制：**每 N 次合格搜索必给 1 件**，计数 **run 级、跨关不重置**。
+  - **config 播种进 `gamevars.kaleido.cycleGuarantee`**（`startKaleidoRun` 从 `game_rules` 两键读：`kaleido_cycle_guarantee_n` / `kaleido_cycle_guarantee_item`，**默认关**）。不每动作现查 game_rules 的三个理由：①`loadGameRules` 是**进程级全局 memo 无 TTL**（D3 实测），run 中途改规则读不到；②run 自描述 ⇒ 可重放/可离线 sim；③E2E 可直接注入。**⚙️ 开启只需 UPSERT 两行 game_rules，不必改代码发版。**
+  - 两个必须的细节：①**先记账再谈发放** —— 本搜若被关内 guaranteed 提前 `return`，这一搜仍要计数，否则周期越走越偏；②判据用 `count - lastAt >= everyN` 而非 `===` ⇒ 被占用的那一搜**下一搜自动补发，不吞**。③配置指向不存在的道具 ⇒ 推进 `lastAt` 跳过本周期 + 告警（不发幽灵物品、也不每搜重试刷屏）；真异常则**不推进** lastAt，下搜重试（保底是载重前提，宁可重试也不能吞）。
+- **✅ 道具效果链三处（🧭 派单）**：
+  - ① **加力件/加防件是哑的**：`atkDelta`/`defDelta` 只在 `kind==='weapon'/'armor'` 时产，而 `ITEM_KIND_META` **根本没有这两个 kind** ⇒ 死代码；⚙️ 的件是 `consumable`+`atk=2` ⇒ `calcItemEffect` 全零 ⇒ 所有日志块跳过，**但末尾 `removeInventoryItem` 无条件执行** ⇒ **道具没了、属性没变、日志一个字没有**。修：加 `atk_delta`/`def_delta` 扁平列（kind 无关），**置于 kind 分支之后并用 `+=`**（不覆盖死分支将来复活时的算值）。**DDL 已写好但按流程未跑**（`scripts/kaleido-item-atk-def-delta.sql`，待 🧭 审 + 转 🔒）。引擎读法防御式 ⇒ 代码可先上、列后建、⚙️ 再补值，三者无先后依赖。
+  - **否决「按现有 atk/def 字段驱动」**（🎨 提议）：实测全库 `atk<>0 OR def<>0` **只有 3 行**，其中 **id24 结构强化液是多人存量道具**（consumable·def=50·当前恒哑），按字段驱动会让它**突然生效** ⇒ 破多人零变化铁律。加列则**中性是结构上不可能被破的**，而不是靠「我数过只有 3 行」的审计结论。
+  - ② **`CRAFT_MATERIAL_KINDS` 根因不是少写一个字符串**：注释写的口径一直是「非 consumable 即材料」（排除式），实现却是**正向白名单** ⇒ **每加一个 kind 就静默漏一次**（这次是 `material`，下次还会有）。改回排除式 `isCraftMaterialKind(kind) = kind ∉ ['consumable','equipment']`，新增材料类 kind 自动被认。
+  - ③ **material 点「使用」直接 throw**（此前 = 静默销毁）。`inspect_*` 模式不受影响（在效果链前 return）。
+- **✅ P0 gate（🧭 批准并提优先级）**：本仓**没有 CI**，`npm run smoke` 只跑一个不碰 kaleido 的脚本，6 个 `smoke-kaleido-*` 与新检查**零 runner 引用** ⇒ 所有「门」都是「靠人记得跑」。新增 `npm run gate`（`scripts/gate.mjs`）串起 8 步。
+  - 其中 `scripts/check-ui-key-parity.mjs` 是**跨栈一致性门**（服务端注册表 ⟷ 客户端 `UI_KEYS`/`REVEAL_ORDER` **双向精确匹配**）。⚠ 🧭 说「🎨 已经写好了，收编即可」——**实测仓库里没有这个脚本**（`2a36851` 只改了 4 个源文件），故自写。**做了负对照**：摘掉 `REVEAL_ORDER` 里一个 B4 键 → FAIL 且指名 `loadout_panel`，还原 → PASS ⇒ 证明它确实抓得到 BUG-2 那个形态。
+- **E2E 68→79**：+§⑫ 周期保底五条（未配置无键 / 第 N 搜必给 / lastAt 推进不连发 / 未到周期不给 / **跨关不重置**）+§⑬ 道具链六条（material 被拒且**道具还在** / 排除式判据三条含「未来未知 kind 自动算材料」/ atk_delta 列状态登记）。
+
 ## 最近变更（2026-07-22c / 🔧 ✅ 账号集 fail-closed 修（自查出的数据丢失级 bug）—— E2E 68/68·build 绿）
 
 > 来源：教义(doc 11)架构评估的地面取证顺带查出的**现网 bug**，与教义本身无关，独立修复先行。
