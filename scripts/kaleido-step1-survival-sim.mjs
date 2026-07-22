@@ -169,3 +169,75 @@ for (const t2 of [10, 12, 13, 14]) {
   const r = LSens(4, 16, 0.06, 1, [30], [20, t2, 4])
   console.log(`  档2阈 ≤${t2} 拍 (0药时 hp≤${t2 * 4}·窗口 ${t2 * 4 - 35} HP): L=30 档1 ${pct(r[0].t[0])} · 档2 ${pct(r[0].t[1])} · 档3 ${pct(r[0].t[2])}  死亡 ${pct(r[0].dead)}`)
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 【重推 v2】掉血框架改为「负伤持续流血 · 每个消耗性动作都在流」(🧭 批)
+//   ⟹ search / move / attack / release / **item_use(喝药)** 全部扣血。
+//   动作构成显式化(🧭 要求):以后关卡结构一变,套表即可,不必重推模型。
+// ═══════════════════════════════════════════════════════════════════
+const T2 = 12   // 档2 阈已批准 ≤10 → ≤12 拍
+
+// drinkAt: 'eager'=一有就喝 / 数字=hp 低于该值才喝 / 'hoard'=囤到 20
+function simStep1({ d = 4, VAR = 1, G = 16, p = 0.06, L = 30, moves = 2, attacks = 4, releases = 1, drinkAt = 35 }) {
+  let hp = HP0, potions = 0, dead = false, nSearch = 0
+  const seen = [false, false, false]
+  // 动作序列:L 次搜索 + 其它消耗性动作,均匀交错
+  const acts = [...Array(L).fill('search'), ...Array(moves).fill('move'),
+                ...Array(attacks).fill('attack'), ...Array(releases).fill('release')]
+  for (let i = acts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[acts[i], acts[j]] = [acts[j], acts[i]] }
+  const wantDrink = () => potions > 0 && (drinkAt === 'eager' ? hp < MAXHP - 5 : hp < drinkAt)
+  const tick = () => { hp -= drawDrain(d, VAR); if (hp <= 0) dead = true }   // 任何消耗性动作都流血
+  for (const a of acts) {
+    while (!dead && wantDrink()) { potions--; tick(); if (dead) break; hp = Math.min(MAXHP, hp + HEAL) } // 喝药也是消耗动作
+    if (dead) break
+    tick(); if (dead) break
+    if (a === 'search') { nSearch++; if (G > 0 && nSearch % G === 0) potions++; else if (Math.random() < p) potions++ }
+    const b = (hp + potions * HEAL) / d
+    ;[20, T2, 4].forEach((th, t) => { if (b <= th) seen[t] = true })
+  }
+  return { dead, seen }
+}
+
+function batch(cfg, runs = 6000) {
+  let dead = 0; const t = [0, 0, 0]
+  for (let i = 0; i < runs; i++) { const r = simStep1(cfg); if (r.dead) dead++; r.seen.forEach((s, k) => { if (s) t[k]++ }) }
+  return { dead: dead / runs, t: t.map((x) => x / runs) }
+}
+
+console.log('\n═══ 重推 v2:每个消耗性动作都流血(🧭 批准的新口径)═══')
+console.log('动作构成(显式输入):L=30 搜 · move 2 · attack 4 · release 1  ⟹ 总消耗动作 37 + 喝药')
+console.log('  用药策略        档1    档2(≤12拍)  档3    死亡率')
+for (const [label, drinkAt] of [['一有就喝', 'eager'], ['hp<35(基线)', 35], ['囤到 hp<20', 20]]) {
+  const r = batch({ drinkAt })
+  console.log(`  ${label.padEnd(14)} ${pct(r.t[0]).padStart(4)}   ${pct(r.t[1]).padStart(5)}     ${pct(r.t[2]).padStart(4)}   ${pct(r.dead).padStart(4)}`)
+}
+console.log('\n  【对照】旧口径(只有搜索扣血)· hp<35:')
+{
+  const r = LSens(4, 16, 0.06, 1, [30], [20, T2, 4])
+  console.log(`  ${'仅搜索扣血'.padEnd(14)} ${pct(r[0].t[0]).padStart(4)}   ${pct(r[0].t[1]).padStart(5)}     ${pct(r[0].t[2]).padStart(4)}   ${pct(r[0].dead).padStart(4)}`)
+}
+
+console.log('\n【重推 v2 · 重新定标】新动作面下扫 d/G(目标:档1~90 · 档2~55-60 · 档3~15-20 · 死亡~0)')
+console.log('  d  G   p     档1    档2    档3   死亡率')
+for (const c of [
+  { d: 3, G: 16, p: 0.06 }, { d: 3, G: 14, p: 0.06 }, { d: 3, G: 12, p: 0.06 },
+  { d: 4, G: 12, p: 0.08 }, { d: 4, G: 10, p: 0.08 }, { d: 4, G: 8, p: 0.10 },
+  { d: 3, G: 18, p: 0.05 },
+]) {
+  const r = batch({ ...c, drinkAt: 35 })
+  console.log(`  ${c.d}  ${String(c.G).padStart(2)}  ${c.p.toFixed(2)}  ${pct(r.t[0]).padStart(4)}  ${pct(r.t[1]).padStart(5)}  ${pct(r.t[2]).padStart(4)}  ${pct(r.dead).padStart(5)}`)
+}
+
+console.log('\n【动作构成敏感度】(🧭 要求:构成显式化,关卡结构变了套表即可) d=4 G=10 p=0.08 · drinkAt=35')
+console.log('  构成(搜/移/战/放)        档1    档2    档3   死亡率   总消耗动作')
+for (const c of [
+  { L: 30, moves: 2, attacks: 0, releases: 2 },   // 全程躲战
+  { L: 30, moves: 2, attacks: 4, releases: 1 },   // 基线
+  { L: 30, moves: 2, attacks: 8, releases: 0 },   // 硬打
+  { L: 20, moves: 2, attacks: 4, releases: 1 },   // 短 L
+  { L: 40, moves: 3, attacks: 6, releases: 1 },   // 长 L
+]) {
+  const r = batch({ d: 4, G: 10, p: 0.08, drinkAt: 35, ...c })
+  const tag = `${c.L}/${c.moves}/${c.attacks}/${c.releases}`
+  console.log(`  ${tag.padEnd(24)} ${pct(r.t[0]).padStart(4)}  ${pct(r.t[1]).padStart(5)}  ${pct(r.t[2]).padStart(4)}  ${pct(r.dead).padStart(5)}      ${c.L + c.moves + c.attacks + c.releases}`)
+}
