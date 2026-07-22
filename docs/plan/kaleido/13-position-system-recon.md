@@ -97,7 +97,7 @@ kaleido = **`raidPath` + `chamberIndex` 线性阶梯**：`runs.js:158 sampleRun`
 | 段 | 需要什么 | 现状 |
 |---|---|---|
 | ① 门这个物件存在于某关 | `kaleidoFixtures: [{ fid:'door_a', kind:'door', word:'门', hint:'subtle', actionKind:'operate' }]` 挂在节点上 | ❌ 字段不存在。加它要**三处同改**（`chamberToNode` 白名单逐 key 拷贝 / `sampleRun` 读键 / `buildLevelRows`）——漏一处静默丢弃，本仓 `env_rules` 真踩过 |
-| ② 玩家看得到「门」这个词 | 走 doc 12 的 `lure`/`offer` 行（带 `action.word`） | ❌ 通道未实现（doc 12 待会签） |
+| ② 玩家看得到「门」这个词 | 走 doc 15 的 `lure`/`offer` 行（带 `action.word`） | ❌ 通道未实现（doc 15 待会签） |
 | ③ 玩家点它 | `interact` 动词（`route.js` 对动词无知 ⇒ route 零改动；handler 首行 `isKaleidoRoom` 守卫；**不进 `TURN_ACTIONS`**） | ❌ 未实现 |
 | ④ 世界真的变了 | `kaleido_scene_state` upsert：`(scene_key='chamber:<template_key>', prop_key='door_a') → {closed:true}` | ❌ 表未建（待 🧭/🔒 批） |
 | ⑤ 这个改动**永不复原** | `reset_scope='permanent'`（🧭 已裁：门的恢复周期 = 永不） | ✅ 形状已预留 |

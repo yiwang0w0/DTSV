@@ -87,13 +87,13 @@ kind ∈ { 'unlock', 'offer', 'threshold_clue', 'lure', 'hide', 'restore' }
 |---|---|---|---|
 | `unlock` | 键进 `uiKnown`（玩家点了 / `gate:'auto'` 自置） | **是** | 进渲染集 + 播浮现 + 落 narLog |
 | `offer` | 键进 `uiOffered`（世界打印了那一行） | **否**（藏 `action.uiKey`） | 只落叙事行；**不进渲染集** |
-| `threshold_clue` | 阈值线索（doc 12） | **否** | 只落叙事行 |
-| `lure` | 发现诱饵（doc 12） | **否** | 只落叙事行（可带可点词） |
+| `threshold_clue` | 阈值线索（doc 15） | **否** | 只落叙事行 |
+| `lure` | 发现诱饵（doc 15） | **否** | 只落叙事行（可带可点词） |
 | `hide` | 键进 `uiHidden` | **是** | **移出**渲染集 + 播失去 |
 | `restore` | 键离开 `uiHidden` | **是** | 重回渲染集 |
 
 **不变式（由形状保证，非纪律保证）**：**只有 `unlock`/`hide`/`restore` 带顶层 `ui_key`；其余一律不带。**
-⇒ 今天客户端 `if (!e || typeof e.ui_key !== 'string') continue`（`useKaleidoUiUnlocks.js:101`）**已经**把叙事类挡在渲染集之外，**零改动**（doc 12 §1 的论证）。
+⇒ 今天客户端 `if (!e || typeof e.ui_key !== 'string') continue`（`useKaleidoUiUnlocks.js:101`）**已经**把叙事类挡在渲染集之外，**零改动**（doc 15 §1 的论证）。
 ⚠ 但 `hide`/`restore` 带顶层 `ui_key` 且今天的消费端是**无条件 `keys.add`** ⇒ **旧客户端会把「失去」渲染成「获得」**。
 ⟹ **`hide`/`restore` 必须与 🎨 的 kind 分流同批上线，不得先行下发。** 这是本草案里唯一的跨轨同批约束，请 🧭 排。
 
@@ -148,4 +148,4 @@ kind ∈ { 'unlock', 'offer', 'threshold_clue', 'lure', 'hide', 'restore' }
 
 - `discoverUi` 轻动词的实现细节（🧭 已批准我直接实现，但它依赖本草案的 `uiOffered` 形状 ⇒ 草案批复后落）。
 - 场景状态表 `kaleido_scene_state`（见 doc 13，独立 DDL）。
-- `d`（每搜掉血）—— **全仓不存在且从未派单**（doc 12 §4.1）。它不属本草案，但 H1 与 step1 都卡在它上面。
+- `d`（每搜掉血）—— **全仓不存在且从未派单**（doc 15 §4.1）。它不属本草案，但 H1 与 step1 都卡在它上面。
