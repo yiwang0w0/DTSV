@@ -6,11 +6,14 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
+    "dev": "next dev",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "smoke": "node scripts/smoke-check.mjs",
-    "build": "vinext build",
-    "start": "vinext start"
+    "build": "next build",
+    "start": "next start",
+    "dev:vite": "vinext dev",
+    "build:vite": "vinext build",
+    "start:vite": "vinext start"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
