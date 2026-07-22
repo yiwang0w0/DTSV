@@ -29,6 +29,10 @@
 - **⚙️** seq1-2 cadence 修(id27 列材料前 / seq1 `max_npcs=0` / 材料改指新散件 / 修 07 §1 陈旧 hp_bar=seq2 表述)保证 live 浮现序 = 首搜→[log,inventory,hp_bar]、首物(seq1)先于首遇(seq2);+ B4 披露后移设计稿。
 - **验证点**:①冷开局有没有钩子(会不会 10 秒跳出)②「因果两拍」手感对不对 ③文字重复烦不烦(占位血肉先测节奏)。
 
+### 2.4 ✅ 闸门结论(2026-07-22 · Kanata 实测)
+
+**垂直切片手感验收 = 通过**(Kanata 原话:「AVG 编舞的手感没问题」)。冷开局钩子(C4)/ 因果两拍 / 文字节奏 / GPT 编舞层(1000ms 填充 · 900ms 迁移 · 「状态」原位变按钮 · 640ms 体力展开)**全部成立** ⇒ 按 §2.3 **进入全量,见 §6**。
+
 ### 2.3 垂直切片验证通过 → 才决定是否全量
 (全量 = C2 的 2500 行叙事 + 全 AVG 呈现 + 登录直进 + 剩余 seq3-5)。**先用最小成本看「感觉对不对」,再签大单。**
 
@@ -103,3 +107,24 @@
 1. **构建栈/部署走向未定**:线上 `dtsv.vercel.app` 仍是旧版(顶栏仍「远星函馆」),GPT 新构建未上线——`vinext build` 与 Vercel 的兼容性存疑。走 Vercel(Next)还是 Cloudflare/Sites 待定。
 2. **skill 冲突条**:`.agents/skills/build-progressive-game-ui/SKILL.md` 要求「更新 `Readme_GPT`」——**与我方铁律冲突**(Readme_GPT 只读不改)。我方一律**跳过该条**,长期交互原则写入 `Claude/frontend/`。
 3. ~~GPT 修改了 `Claude/engine/log.md`~~ —— **该条撤销**(🔧 查证:`3387077..b78ec93` 区间内 GPT **未碰**任何 Claude 侧文档;原命中的 log.md 改动是 🔧 自己的待命锚点提交 `3387077`,被我方区间口径误归因)。**不存在对称铁律事件。**
+
+---
+
+## 6. 全量推进(2026-07-22 · 闸门通过后解冻)
+
+> 触发:§2.4 手感闸门通过。此前所有「缓到 Kanata 手感拍板」的项**全部解冻**。
+> **叙事血肉(>2500 行)仍是 Kanata 自驱专线**,不进技术阻塞路径。
+
+### 6.1 排序与分工
+
+| # | 轨 | 内容 | 依赖 |
+|---|---|---|---|
+| 1 | ⚙️ | **SQL 链定稿**:kaleido 经济内容行(新道具/材料 6 散件)→ cadence 修(seq1-2 改指新散件)→ seq3-5 SQL(按 🔧 payload 批复:敌人单一来源 · boss 乙值 260/34/8) | 交 🧭 审 → 🧭 经 postgres MCP 执行 → seq3-5 点亮 |
+| 2 | 🔧 | **D3 mergeGameRules**(seq3-5 规则关 · formula_overrides 白名单 damage/defense/crit + 入关 clearRulesCache)+ **B4 三 ui_key**(`loadout_panel`/`prep_readout`/`convergence_preview` 触发判定 + 持久化 · 06 注册表扩至 15 项) | D3 独立;B4 需 ⚙️ 的 prep_readout 数值口径 |
+| 3 | 🎨 | **P2→P5**(nar_line 回数据层 / 12 ui_key 补齐(背包按 A 跳过) / 窄屏+移动化 / 收敛页+关间横幅)+ **真实模式登录直进**(转场 → `/api/kaleido/run` → AVG 真数据)+ **B4 三件渲染**(因果两拍) | B4 渲染依赖 🔧 触发 |
+| 4 | 📖 | **B4 三条 nar_line** + 面板文案(描述制);叙事血肉 = Kanata 自驱专线 | — |
+| 5 | 🔒 | 触发审:D3 白名单面 / B4 新 ui_key 持久化(RLS 沿用 profiles.ui_unlocks 守卫)/ ⚙️ 新 SQL 内容行 | 各项落地后 |
+
+### 6.2 P1 闸门(全量后的下一道)
+
+原 6 条不变(R1-R12 复核 / 同 seed 回放一致 / 3 模板 bot clear_rate / Kanata 亲测可玩且成立 / 「不哑」/ 「到第二个 UI 元素的时间」)。**seq3-5 点亮 + B4 落地后**具备完整实测条件。
