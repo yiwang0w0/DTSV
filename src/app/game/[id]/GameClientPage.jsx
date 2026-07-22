@@ -14,7 +14,8 @@ import { getGameApi, postGameApi } from '@/lib/gameApi'
 import { useToast } from '../../admin/_shared/ui'
 import CraftModal from './CraftModal'
 import ItemCraftModal from './ItemCraftModal'
-import KaleidoRunView from './kaleido/KaleidoRunView'
+import KaleidoAvgView from './kaleido/KaleidoAvgView'
+import { KaleidoConvergenceScreen, KaleidoLevelClearBanner } from './kaleido/kaleidoShell'
 import { useKaleidoUiUnlocks, buildUnlockCtx } from './kaleido/useKaleidoUiUnlocks'
 import ResponsiveGameLayout from './ResponsiveGameLayout'
 import LootModal from './LootModal'
@@ -1103,7 +1104,7 @@ export default function GameClientPage() {
   if (!room) return null
 
   // ══════════════════════════════════════════════════════════════════════
-  // KP1-C v2（05 §1 渐进披露）：kaleido 单人局走独立 KaleidoRunView（A Dark Room 式，
+  // KP1-C v2（05 §1 渐进披露）：kaleido 单人局走独立 KaleidoAvgView（AVG 文字舞台 + 因果两拍，
   //   初始仅搜索按钮 → 逐件解锁浮现）。早返回 ⇒ 多人局完全不经过这里、下方 3 栏壳一字不改。
   //   共享模态（Toast/合成/拾取）在此重挂，保证 kaleido 内合成/拾取/提示可用。
   // ══════════════════════════════════════════════════════════════════════
@@ -1125,45 +1126,39 @@ export default function GameClientPage() {
           .btn-loading-fill{animation:btnLoadingFill 1.1s cubic-bezier(.22,.61,.36,1) forwards;will-change:transform,opacity}
           @keyframes spin{to{transform:rotate(360deg)}}
         `}</style>
-        <KaleidoRunView
-          unlocks={kaleidoUnlocks}
-          seq={kaleidoSeq}
-          levelCount={KALEIDO.LEVEL_COUNT}
-          turnCount={meBase?.turnCount ?? 0}
-          exitCondition={kaleidoNode?.kaleidoExit}
-          combatMode={kaleidoNode?.kaleidoMode || { template_ref: 'standard', params: {} }}
-          envRules={kaleidoNode?.envRules || []}
-          formulaOverrides={kaleidoNode?.formulaOverrides || []}
-          me={me}
-          invCount={invCount}
-          itemsByName={itemsByName}
-          encounter={encounterInstance}
-          isStanceLevel={kaleidoNode?.kaleidoMode?.template_ref === 'stance_duel'}
-          logs={gamevars?.log || []}
-          busy={busy}
-          busyAction={busyAction}
-          canAct={!!me?.alive && room.gamestate !== 2}
-          gameEnded={room.gamestate === 2 || !!kaleidoEndStatus}
-          onSearch={() => runGameAction('search')}
-          onAttack={() => runGameAction('attackNpc')}
-          onStanceAttack={(stance) => runGameAction('attackNpc', { stance })}
-          onRelease={() => runGameAction('releaseEncounter')}
-          onUseItem={(name) => runGameAction('useItem', { itemName: name })}
-          onOpenEquipCraft={() => setCraftOpen(true)}
-          onOpenItemCraft={() => setItemCraftOpen(true)}
-          onAdvance={handleKaleidoContinue}
-          canAdvance={(kal?.clearedSeq ?? 0) >= kaleidoSeq && kaleidoSeq < KALEIDO.LEVEL_COUNT}
-          banner={showKaleidoClearBanner ? {
-            show: true,
-            seq: kaleidoSeq,
-            nextSeq: Math.min(kaleidoSeq + 1, KALEIDO.LEVEL_COUNT),
-            onContinue: handleKaleidoContinue,
-            onStay: () => setKaleidoStaySeq(kaleidoSeq),
-            busy,
-          } : null}
-          convergence={kaleidoEndStatus ? {
-            status: kaleidoEndStatus,
-            summary: {
+        {/* AVG 呈现骨架吃真 ui_unlocks 数据（P1）——登录直进后落在这里 */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <KaleidoAvgView
+            unlocks={kaleidoUnlocks}
+            logs={gamevars?.log || []}
+            me={me}
+            encounter={encounterInstance}
+            combatMode={kaleidoNode?.kaleidoMode || { template_ref: 'standard', params: {} }}
+            envRules={kaleidoNode?.envRules || []}
+            formulaOverrides={kaleidoNode?.formulaOverrides || []}
+            busy={busy}
+            canAct={!!me?.alive && room.gamestate !== 2 && !kaleidoEndStatus}
+            onSearch={() => runGameAction('search')}
+            onAttack={() => runGameAction('attackNpc')}
+            onRelease={() => runGameAction('releaseEncounter')}
+          />
+        </div>
+        {/* 关间横幅 / 收敛页：两件已是 fixed overlay·纯 prop，直接挂在 AVG 之上
+            （P5 的核心随本次并入，避免切 AVG 时丢掉终局呈现）*/}
+        {showKaleidoClearBanner && (
+          <KaleidoLevelClearBanner
+            seq={kaleidoSeq}
+            nextSeq={Math.min(kaleidoSeq + 1, KALEIDO.LEVEL_COUNT)}
+            levelCount={KALEIDO.LEVEL_COUNT}
+            busy={busy}
+            onContinue={handleKaleidoContinue}
+            onStay={() => setKaleidoStaySeq(kaleidoSeq)}
+          />
+        )}
+        {kaleidoEndStatus && (
+          <KaleidoConvergenceScreen
+            status={kaleidoEndStatus}
+            summary={{
               levelsCleared: kal?.clearedSeq ?? 0,
               levelCount: KALEIDO.LEVEL_COUNT,
               turnCount: meBase?.turnCount ?? 0,
@@ -1171,16 +1166,16 @@ export default function GameClientPage() {
               itemsCarried: (meBase?.inventory || []).length,
               cause: gamevars?.endingResult?.bannerText
                 || (kaleidoEndStatus === 'dead' ? `于第 ${kaleidoSeq} 关阵亡` : ''),
-            },
-            codex: (gamevars?.raidPath || []).map((n, i) => ({
+            }}
+            codex={(gamevars?.raidPath || []).map((n, i) => ({
               seq: i + 1,
               name: n?.name || `第 ${i + 1} 关`,
               cleared: (kal?.clearedSeq ?? 0) >= i + 1,
-            })),
-            onRestart: handleKaleidoRestart,
-            onLobby: () => router.push('/rooms'),
-          } : null}
-        />
+            }))}
+            onRestart={handleKaleidoRestart}
+            onLobby={() => router.push('/rooms')}
+          />
+        )}
       </div>
     )
   }

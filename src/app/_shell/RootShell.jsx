@@ -10,9 +10,10 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import EntryTransition from '@/components/EntryTransition'
 import { hasSupabaseConfig, supabase } from '@/lib/supabase'
+import { postGameApi } from '@/lib/gameApi'
 import { ensureAdminMetadata, isAdmin } from '@/lib/auth'
 import {
   createFrontendPreviewUser,
@@ -123,6 +124,7 @@ export default function RootShell({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [entryTransition, setEntryTransition] = useState(null)
+  const runPromiseRef = useRef(null) // 并行发起的 /api/kaleido/run 承诺（转场期预热，navigate 那拍消费）
   const immersivePreview = frontendOnly && path === '/play'
 
   useEffect(() => {
@@ -168,15 +170,28 @@ export default function RootShell({ children }) {
   }
 
   const beginGameEntry = useCallback(({ origin, variant = 'auth' } = {}) => {
+    // 真实模式：转场一开始就**并行**开/续 KALEIDO run（startKaleidoRun 幂等自愈：active 续接 / ended 开新 / 30s 冷却），
+    //   等到转场的 navigate 那一拍 roomId 通常已就绪 —— 不让网络往返拖慢编舞节拍。
+    if (!frontendOnly && !runPromiseRef.current) {
+      runPromiseRef.current = postGameApi('/api/kaleido/run', {}).catch(() => null)
+    }
     setEntryTransition((current) => current || {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       origin,
       variant,
     })
-  }, [])
+  }, [frontendOnly])
 
   const finishGameEntry = useCallback(() => setEntryTransition(null), [])
-  const navigateIntoGame = useCallback(() => router.replace('/play'), [router])
+  // 转场落地：真实模式 → /game/<roomId>?kaleido=1（该页渲染 AVG + 真 ui_unlocks 数据）；预览模式 → /play 预览壳（不动）。
+  //   失败一律兜到 /rooms，保住逃生路径，绝不把用户卡死在转场里。
+  const navigateIntoGame = useCallback(async () => {
+    if (frontendOnly) { router.replace('/play'); return }
+    const res = await (runPromiseRef.current || postGameApi('/api/kaleido/run', {}).catch(() => null))
+    runPromiseRef.current = null
+    if (res?.roomId) router.replace(`/game/${res.roomId}?kaleido=1`)
+    else router.replace('/rooms')
+  }, [frontendOnly, router])
 
   const handleLogout = async () => {
     if (frontendOnly) {

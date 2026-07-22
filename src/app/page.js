@@ -31,9 +31,13 @@ export default function Home() {
   const [snapshot, setSnapshot] = useState(null)
   const envPollution = snapshot?.gamevars?.envPollution ?? (frontendOnly ? 40 : 0)
 
+  // 登录直进 KALEIDO（🧭 并入 P1）：登录态进首页即触发解码转场 → 真 run（真实模式）/ 预览壳（frontendOnly）。
+  //   ⚠ 纪律①：只在**首页这一次性入口**触发；绝不挂 RootShell 的 onAuthStateChange 做跳转
+  //     （token 刷新 / 切 tab 都会 fire，会把人从 admin/stash/多人页强拽进 run·砸全站）。
+  //   ⚠ 纪律②逃生路径：真实模式顶栏保留，进 run 后仍可从导航回 admin / 账户库 / 多人。
   useEffect(() => {
-    if (!loading && frontendOnly && user && !transitioning) beginGameEntry({ variant: 'returning' })
-  }, [beginGameEntry, frontendOnly, loading, transitioning, user])
+    if (!loading && user && !transitioning) beginGameEntry({ variant: 'returning' })
+  }, [beginGameEntry, loading, transitioning, user])
 
   useEffect(() => {
     if (frontendOnly) return
@@ -52,7 +56,8 @@ export default function Home() {
     loadSnapshot()
   }, [frontendOnly])
 
-  if (loading || (frontendOnly && user)) {
+  // 登录态一律自动进场（解码转场覆盖屏幕），不闪一下 Hero；未登录才渲染纯入口屏。
+  if (loading || user) {
     return <div style={{ position: 'fixed', inset: 0, background: C.bg0 }} />
   }
 
