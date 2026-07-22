@@ -140,6 +140,41 @@ body {
 .kaleido-inline-action.hint-subtle.is-arming {
   animation: none; /* 隐蔽态不做「上膛」提示动画，否则等于把位置喊出来 */
 }
+
+/* 逃生路径：AVG 对局页角落的「切断信号」。顶栏 Nav 在对局页已隐藏，这是唯一出口。
+   静息几乎不可见 → hover/focus 才浮出来：既守住教义「不做元层控件」的气质，又保证需要时找得到。
+   safe-area 内缩，避免撞刘海 / 手势条。 */
+.kaleido-run-escape {
+  position: fixed;
+  right: calc(12px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 60;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b949e;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  opacity: 0.14;
+  cursor: pointer;
+  transition: opacity 240ms ease, color 240ms ease, border-color 240ms ease;
+}
+.kaleido-run-escape:hover,
+.kaleido-run-escape:focus-visible {
+  opacity: 0.78;
+  color: #c9d1d9;
+  border-color: rgba(139, 148, 158, 0.35);
+}
+.kaleido-run-escape:focus-visible {
+  outline: 1px solid #58a6ff;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kaleido-run-escape { transition-duration: 0.01ms; }
+}
+
 .kaleido-inline-action:hover:not(:disabled) {
   color: #e6edf3;
   border-bottom-color: #e6edf3;

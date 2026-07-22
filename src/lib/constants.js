@@ -151,6 +151,9 @@ export const ITEM_KIND_META = {
   omega_matter:  { label: 'Ω物质',    color: '#f0883e', icon: '⚛️' },
   equipment:     { label: '装备',     color: '#3fb950', icon: '🛡️' },
   consumable:    { label: '消耗品',   color: '#d29922', icon: '💊' },
+  // ⚙️ kaleido 材料散件（碎块/卡扣/线圈/垫片/管段/芯子）。刻意取中性钢灰（= 主题 dim 同色）——
+  //   散件是最不起眼的一档，颜色不该跟 5 类彩色抢注意力；且与既有 5 色零冲突。🔩 未被占用。
+  material:      { label: '散件',     color: '#8b949e', icon: '🔩' },
 }
 
 // ── NPC 等级（保留，用于兼容） ────────────────────────────

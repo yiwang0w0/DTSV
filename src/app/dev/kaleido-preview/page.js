@@ -107,6 +107,8 @@ export default function KaleidoPreviewPage() {
                   onSearch={() => { set({ searched: true }); pushLog('你翻找了一下。锈迹、灰、更多的锈。', 'system') }}
                   onAttack={() => { set({ encounter: false, everFought: true }); pushLog('你先出手。它退回暗处。', 'kill') }}
                   onRelease={() => { set({ encounter: false }); pushLog('你绕开了它。', 'system') }}
+                  // 逃生路径（对局页顶栏已隐藏时的唯一出口）——dev 侧只做可见性/手感验证，不真跳转。
+                  onExit={() => pushLog('（dev）切断信号 —— 线上此处 router.push("/rooms")。', 'system')}
                 />
               ) : (
                 <KaleidoAvgView key={avgKey} showDevControls />

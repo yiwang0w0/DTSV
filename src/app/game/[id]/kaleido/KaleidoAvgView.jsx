@@ -550,12 +550,29 @@ export default function KaleidoAvgView({
         </div>
       )}
 
+      {/* 逃生路径（🧭 红线）：对局页顶栏 Nav 已隐藏，这里留唯一出口。
+          按 Diegetic UI 教义做成**世界内**动作而非元层按钮 —— 全局叙事把这趟 run 当作一条信号
+          （转场词「连接恢复」·死亡登记行「信号中断。单位登记为：失联。」），所以离开 = 「切断信号」。
+          隐蔽度与教义一致：静息几乎不可见（opacity .14），hover/focus 才浮出来 —— 不抢注意力，但需要时找得到。
+          非破坏性、故不设二次确认：/api/kaleido/run 幂等自愈（active 续接），切断后回来继续同一个 run。 */}
+      {/* 闸门只挡 boot 那 700ms 黑幕（此时屏上什么都没有）；awake 起就可用 ——
+          否则「首搜之前」玩家既没顶栏也没出口，会被锁死在冷开场里。 */}
+      {onExit && phase !== 'boot' && (
+        <button
+          type="button"
+          className="kaleido-run-escape"
+          onClick={onExit}
+          title="切断信号（回大厅；这趟 run 保留，回来可继续）"
+        >
+          切断信号
+        </button>
+      )}
+
       {/* dev 谐调器:仅独立预览页显示，正式 /play 不暴露测试入口。 */}
       {showDevControls && (
         <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 50, display: 'flex', gap: 6 }}>
           <DevBtn on={!!combat} disabled={phase !== 'playing' || !!combat} onClick={onEncounter}>遭遇</DevBtn>
           <DevBtn on={atRuleGate} disabled={phase !== 'playing' || atRuleGate} onClick={onApproachRuleLevel}>规则关</DevBtn>
-          {onExit && <DevBtn onClick={onExit}>✕</DevBtn>}
         </div>
       )}
     </div>

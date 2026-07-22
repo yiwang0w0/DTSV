@@ -151,7 +151,7 @@ function buildPlayerView(player, equippedInstances) {
 
 export default function GameClientPage() {
   const { id: roomId } = useParams()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, setImmersiveRun } = useAuth()
   const router = useRouter()
   const { show: toast, Container: ToastContainer } = useToast()
 
@@ -272,6 +272,15 @@ export default function GameClientPage() {
   useEffect(() => {
     if (kaleidoHint && room && !isKaleidoRoom(room)) setKaleidoHint(false)
   }, [kaleidoHint, room])
+
+  // 🐛 Bug②：向 RootShell 声明「本页是 KALEIDO 沉浸对局」⇒ 顶栏 Nav 不渲染 + <main> 去边距全屏
+  //   （GPT skill 契约：游戏界面不显示顶部导航栏或开发控制项）。
+  //   多人/BR：isKaleido 恒 false ⇒ 全程置 false ⇒ 顶栏与边距逐字节不变（红线：多人渲染路径零改动）。
+  //   卸载时复位，保证从对局页导航到别处顶栏能回来。
+  useEffect(() => {
+    setImmersiveRun?.(isKaleido)
+    return () => setImmersiveRun?.(false)
+  }, [isKaleido, setImmersiveRun])
 
   useEffect(() => {
     if (!user) return undefined
@@ -1141,6 +1150,9 @@ export default function GameClientPage() {
             onSearch={() => runGameAction('search')}
             onAttack={() => runGameAction('attackNpc')}
             onRelease={() => runGameAction('releaseEncounter')}
+            // 逃生路径：顶栏在对局页已隐藏 ⇒ AVG 角落的「切断信号」是唯一出口。
+            //   回 /rooms 即回到有顶栏的世界（admin / 账户库 / 多人都可达）；run 不结束，回来续接。
+            onExit={() => router.push('/rooms')}
           />
         </div>
         {/* 关间横幅 / 收敛页：两件已是 fixed overlay·纯 prop，直接挂在 AVG 之上

@@ -10,7 +10,7 @@ import { useAuth } from '@/app/_shell/RootShell'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { postGameApi } from '@/lib/gameApi'
 
@@ -27,17 +27,24 @@ const C = {
 }
 
 export default function Home() {
-  const { user, loading, frontendOnly, beginGameEntry, transitioning } = useAuth()
+  const { user, loading, frontendOnly, beginGameEntry } = useAuth()
   const [snapshot, setSnapshot] = useState(null)
   const envPollution = snapshot?.gamevars?.envPollution ?? (frontendOnly ? 40 : 0)
 
   // 登录直进 KALEIDO（🧭 并入 P1）：登录态进首页即触发解码转场 → 真 run（真实模式）/ 预览壳（frontendOnly）。
   //   ⚠ 纪律①：只在**首页这一次性入口**触发；绝不挂 RootShell 的 onAuthStateChange 做跳转
   //     （token 刷新 / 切 tab 都会 fire，会把人从 admin/stash/多人页强拽进 run·砸全站）。
-  //   ⚠ 纪律②逃生路径：真实模式顶栏保留，进 run 后仍可从导航回 admin / 账户库 / 多人。
+  //   ⚠ 纪律②逃生路径：进 run 后 AVG 角落留低调出口（顶栏在对局页已隐藏，见 RootShell immersiveRun）。
+  //   🐛 Bug①（Kanata 线上实测：转场反复播放数次才进游戏）：原守卫只有 `!transitioning` —— 转场播完
+  //     `transitioning` 归 false，而 `router.replace` 是异步的、此刻**还没离开首页** ⇒ effect 再次触发 ⇒
+  //     循环到 navigate 赢得竞速为止。改用**本次挂载一次性闸**（useRef）：不依赖转场布尔，也不做全局/持久
+  //     标记（持久标记会让第二次正常进入失效）。组件重新挂载 ⇒ ref 重置 ⇒ 下次进首页照常直进。
+  const entryStartedRef = useRef(false)
   useEffect(() => {
-    if (!loading && user && !transitioning) beginGameEntry({ variant: 'returning' })
-  }, [beginGameEntry, loading, transitioning, user])
+    if (loading || !user || entryStartedRef.current) return
+    entryStartedRef.current = true
+    beginGameEntry({ variant: 'returning' })
+  }, [beginGameEntry, loading, user])
 
   useEffect(() => {
     if (frontendOnly) return

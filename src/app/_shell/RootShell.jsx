@@ -126,6 +126,12 @@ export default function RootShell({ children }) {
   const [entryTransition, setEntryTransition] = useState(null)
   const runPromiseRef = useRef(null) // 并行发起的 /api/kaleido/run 承诺（转场期预热，navigate 那拍消费）
   const immersivePreview = frontendOnly && path === '/play'
+  // 🐛 Bug②（Kanata 线上实测：/game/179?kaleido=1 顶部仍有完整 Nav）：沉浸态**由对局页自己声明**，
+  //   不靠 path 猜 —— `/game/[id]` 既跑 kaleido 也跑多人/BR，按路径藏会**动到多人渲染路径**（红线）。
+  //   GameClientPage 在 isKaleido 时置 true、离开时置 false ⇒ 多人局这个值恒 false，顶栏一如既往。
+  //   契约依据：GPT skill「游戏界面不显示顶部导航栏或开发控制项」。
+  const [immersiveRun, setImmersiveRun] = useState(false)
+  const immersive = immersivePreview || immersiveRun
 
   useEffect(() => {
     if (frontendOnly) {
@@ -210,13 +216,15 @@ export default function RootShell({ children }) {
       frontendOnly,
       beginFrontendSession,
       beginGameEntry,
+      setImmersiveRun,
       transitioning: Boolean(entryTransition),
       logout: handleLogout,
     }}>
       {/* 未登录态（user===null，含 auth 加载中）整个顶栏 Nav 不渲染 —— 神秘极简入口，连品牌名都不露。
-          登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。 */}
-      {user && !frontendOnly && !immersivePreview && <Nav user={user} onLogout={handleLogout} />}
-      <main style={immersivePreview
+          登录态照常显示（登录用户要导航，零改动）。🎨 首页派单②③(🧭)。
+          沉浸态（预览壳 /play · KALEIDO AVG 对局页）一并不渲染 —— 见上方 immersiveRun 注释。 */}
+      {user && !frontendOnly && !immersive && <Nav user={user} onLogout={handleLogout} />}
+      <main style={immersive
         ? { width: '100%', height: '100dvh', margin: 0, padding: 0, overflow: 'hidden' }
         : { maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
         {children}
