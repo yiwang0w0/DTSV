@@ -64,7 +64,7 @@ import {
 import { POLLUTION_CONFIG, LOADOUT_SLOTS, SIGNAL_LOCK, HIGH_RISK, BR_CONFIG, STAMINA_CONFIG, JUMP_CONFIG, KALEIDO, KALEIDO_GAME_TYPE } from '@/lib/constants'
 import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/kaleido/runs'
 import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
-import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
+import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST, BLEED_ACTIONS as KALEIDO_BLEED_ACTION_LIST } from '@/lib/server/kaleido/events'
 import { UI_SEED, isCraftMaterialKind, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
 import { mergeGameRules } from '@/lib/server/kaleido/rules'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
@@ -2678,6 +2678,8 @@ export async function createRoom(client, user, payload = {}) {
 // 消耗性动词（02 §2.2：search/attack/craft/item_use/move·真源在 events.js TURN_ACTIONS，
 //   与发射映射 ACTION_VERB 解耦——flee/spare 发射不计回合，craftItem 计回合 in-handler 发射）
 const KALEIDO_TURN_ACTIONS = new Set(KALEIDO_TURN_ACTION_LIST)
+// 流血动词集（step1 负伤机制）：= 消耗性动词 ∪ {releaseEncounter}。**流血 ⊋ 计回合**（见 events.js 注释）。
+const KALEIDO_BLEED_ACTIONS = new Set(KALEIDO_BLEED_ACTION_LIST)
 
 // 房间已收但 run 仍 active（域真源同步失败/竞态）→ 按房间终局补收敛（KP0-R S2①③ 自愈）。
 async function repairConvergeKaleidoRun(client, runId, room) {
@@ -2814,6 +2816,10 @@ export async function startKaleidoRun(client, user) {
     //   ⚙️ 定稿值:G=16 · 修补剂(heal30)。开启只需 UPSERT 这两行 game_rules,无需改代码/发版。
     const cycleEveryN = Math.max(0, Math.floor(Number(getRule(rules, 'kaleido_cycle_guarantee_n', 0)) || 0))
     const cycleItem = String(getRule(rules, 'kaleido_cycle_guarantee_item', '') || '').trim()
+    // step1 负伤流血 d（⚙️ 数值·同范式：game_rules 两键，**默认关**）。开启只需 UPSERT 两行，不改代码。
+    //   ⚠ ⚙️ 的曲线正按「每消耗性动作都流」重推（原 N/L 是「只有搜索扣血」下算的），数值以它重跑后为准。
+    const bleedPerAction = Math.max(0, Math.floor(Number(getRule(rules, 'kaleido_bleed_per_action', 0)) || 0))
+    const bleedJitter = Math.max(0, Math.floor(Number(getRule(rules, 'kaleido_bleed_jitter', 0)) || 0))
     const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: seedUnlocks })
     const gamevars = normalizeGamevars(room.gamevars)
     const nextGamevars = {
@@ -2828,6 +2834,7 @@ export async function startKaleidoRun(client, user) {
         runId: run.run_id, currentSeq: 1, clearedSeq: 0,
         ...(accountReadFailed ? { accountReadFailed: true } : {}),
         ...(cycleEveryN > 0 && cycleItem ? { cycleGuarantee: { everyN: cycleEveryN, item: cycleItem, count: 0, lastAt: 0 } } : {}),
+        ...(bleedPerAction > 0 ? { bleed: { perAction: bleedPerAction, jitter: bleedJitter } } : {}),
       },
     }
     const nextRoom = await persistRoom(client, room, nextGamevars, [
@@ -2863,7 +2870,9 @@ export async function advanceKaleidoProgress(client, room, user, action) {
     if (!me) return room
 
     // 死亡收敛（R9：内容不减损，只标 run 终态；房间已由 lifecycle alivenum===0 判负）
-    if (!me.alive) {
+    //   提成局部函数：除「带着死人进来」外，**本动作流血致死**也要走同一条收敛（否则玩家死了但 run 仍 active，
+    //   而各 handler 对阵亡玩家首行 throw ⇒ 他再也进不来 ⇒ run 永久悬空）。
+    const convergeDead = async (deadMe) => {
       // KP0-R S4：.select 拿实际转移行 → death 事件只在首次转移发一次（死后重复动作不再发）
       const { data: transitioned } = await client.from('runs')
         .update({ status: 'dead', converged_at: new Date().toISOString() })
@@ -2879,9 +2888,12 @@ export async function advanceKaleidoProgress(client, room, user, action) {
           if (dl?.reason) reason = dl.reason
         } catch {}
         await emitPlayerEvents(client, [ // KP0-R S4：await——Vercel 响应后冻结会丢未决 promise
-          buildDeathEvent(user.id, { runId: kal.runId, levelSeq: kaleidoLevelSeq(me), reason }), // 物理关（缺陷B）
+          buildDeathEvent(user.id, { runId: kal.runId, levelSeq: kaleidoLevelSeq(deadMe), reason }), // 物理关（缺陷B）
         ])
       }
+    }
+    if (!me.alive) {
+      await convergeDead(me)
       return room
     }
     if (room.gamestate === 2) {
@@ -2889,13 +2901,54 @@ export async function advanceKaleidoProgress(client, room, user, action) {
       await repairConvergeKaleidoRun(client, kal.runId, room)
       return room
     }
-    if (!KALEIDO_TURN_ACTIONS.has(action)) return room
+    const isTurnAction = KALEIDO_TURN_ACTIONS.has(action)
+    const doesBleed = KALEIDO_BLEED_ACTIONS.has(action)
+    if (!isTurnAction && !doesBleed) return room
 
-    // 回合 +1（R4：每消耗性动词一回合；旧档 ?? 0 兜底）
-    const nextMe = { ...me, turnCount: (me.turnCount ?? 0) + 1 }
+    // ── step1 负伤流血 d（⚙️ 口径 · 🧭 批 · 2026-07-23）────────────────────────────
+    //   「负伤在持续流血」：**每个消耗性动作都流**（含 releaseEncounter —— 走开也要花血，
+    //   否则「零成本放过遭遇」就是免费出路，走开不再是决策）。
+    //   config 由 startKaleidoRun 从 game_rules 播种进 gamevars.kaleido.bleed（默认关 ⇒ 键不出现
+    //   ⇒ 存量 run 与多人局逐字节不变），与周期保底同范式：run 自描述、可重放、E2E 可直接注入。
+    //   方差走 **run-seed PRNG**（非 Math.random）⇒ 守 R1「同 seed 回放一致」（同 D5 手法）。
+    const bleedCfg = kal.bleed
+    let bleedDmg = 0
+    if (doesBleed && bleedCfg && (Number(bleedCfg.perAction) || 0) > 0) {
+      const base = Math.max(0, Math.floor(Number(bleedCfg.perAction) || 0))
+      const jit = Math.max(0, Math.floor(Number(bleedCfg.jitter) || 0))
+      if (jit > 0) {
+        // 均匀取 [base-jit, base+jit]（⚙️：期望不变、防玩家精确数拍）
+        const rng = mulberry32(kaleidoHashStr(`${kal.runId || 'kaleido'}:${me.chamberIndex ?? 0}:${me.turnCount ?? 0}:${action}:bleed`))
+        bleedDmg = base - jit + Math.floor(rng() * (2 * jit + 1))
+      } else {
+        bleedDmg = base
+      }
+      bleedDmg = Math.max(0, bleedDmg)
+    }
+
+    // 回合 +1（R4：每消耗性动词一回合；旧档 ?? 0 兜底）。**流血 ⊋ 计回合**：releaseEncounter 只流血不计回合。
+    const nextMe = { ...me, ...(isTurnAction ? { turnCount: (me.turnCount ?? 0) + 1 } : {}) }
+    if (bleedDmg > 0) {
+      nextMe.hp = Math.max(0, (nextMe.hp ?? 0) - bleedDmg)
+      nextMe.alive = nextMe.hp > 0
+    }
+
+    // 只流血不计回合的动作（releaseEncounter）：落血 + 可能的死亡收敛，然后收工——
+    //   不进关卡逻辑（不判 exit、不重锁、不推进 clearedSeq），免得动到过关节奏。
+    if (!isTurnAction) {
+      if (bleedDmg <= 0) return room
+      const bledRoom = await persistRoom(client, room, {
+        ...gamevars,
+        players: { ...gamevars.players, [user.id]: nextMe },
+      }, [createLogEntry(`${me.name} 的伤口又渗了一些（-${bleedDmg}）`, 'damage')], {})
+      if (!nextMe.alive) await convergeDead(nextMe)
+      return bledRoom
+    }
     const seq = (nextMe.chamberIndex ?? 0) + 1 // 当前关 = 物理位置（§2.5 level_seq ↔ chamberIndex）
     const node = (gamevars.raidPath || [])[nextMe.chamberIndex ?? 0]
     const logs = []
+    // 流血日志（📖 的措辞框架未到，先用中性描述式一行；教义禁「系统宣告式」，故不写「你损失了 N HP」的仪表口吻）
+    if (bleedDmg > 0) logs.push(createLogEntry(`${me.name} 的伤口又渗了一些（-${bleedDmg}）`, 'damage'))
     let nextKal = kal
     let converged = false
 
@@ -2965,6 +3018,13 @@ export async function advanceKaleidoProgress(client, room, user, action) {
       ...(converged ? { endingResult: { key: 'kaleido_clear', name: '万华镜 · 通关', bannerText: `${KALEIDO.LEVEL_COUNT} 关全数达成。` } } : {}),
     }
     const nextRoom = await persistRoom(client, room, nextGamevars, logs, {})
+
+    // 流血致死 → 立刻走同一条死亡收敛（不能等下个动作：阵亡玩家被各 handler 首行 throw 挡在门外，
+    //   run 会永久停在 active）。放在 persist 之后 ⇒ 死亡态已落库再标 run 终态，顺序与「带死人进来」一致。
+    if (!nextMe.alive) {
+      await convergeDead(nextMe)
+      return nextRoom
+    }
 
     // 域真源同步（runs/levels）+ level_clear 事件；失败仅记错（下动作可重判，不阻断）
     if (nextKal !== kal) {

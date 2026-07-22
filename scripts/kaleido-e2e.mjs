@@ -596,6 +596,50 @@ try {
   //   ⇒ 后两条是**不变式守卫**，不是 H3 的回归网；**version 那条才是**。别把它们的绿当成 H3 已被覆盖。
 } catch (e) { ck('⑭ H3 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
+// ═══ ⑮ step1 负伤流血 d（⚙️ 口径:每**消耗性动作**都流·非只有搜索）═══
+//   config 由 startKaleidoRun 从 game_rules 播种,默认关。此处直接注入(N=固定值·无方差)验四件:
+//   ①默认关时键不出现 ②每个消耗性动作都扣 ③**releaseEncounter 也扣但不计回合** ④流血致死立刻收敛 run。
+try {
+  const u = mkUser('bleed'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  ck('流血:未配置时 gamevars 无 bleed 键(存量/多人零变化)',
+    room?.gamevars?.kaleido?.bleed === undefined, JSON.stringify(room?.gamevars?.kaleido))
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.kaleido.bleed = { perAction: 4, jitter: 0 }   // 固定值 → 断言可算
+    const p = r.gamevars.players[u.id]; p.hp = 500; p.maxHp = 500  // 够撑过清关流程
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  room = await getRoom(roomId)
+  const hp0 = room?.gamevars?.players?.[u.id]?.hp
+  room = await act(u, roomId, 'search')
+  const me1 = room?.gamevars?.players?.[u.id]
+  ck('流血:search 扣 d(4)', hp0 - (me1?.hp ?? 0) === 4, JSON.stringify({ hp0, hp1: me1?.hp }))
+  // releaseEncounter 需要真遭遇 → 清 seq1 进 seq2(gauntlet 入关自动遭遇)
+  let g = 0
+  while (clearedSeq(room) < 1 && g < 12) { room = await act(u, roomId, 'search'); g++ }
+  room = await act(u, roomId, 'move')
+  const meB = room?.gamevars?.players?.[u.id]
+  ck('流血:seq2 入关已有遭遇(releaseEncounter 前置成立)', !!meB?.encounter, JSON.stringify({ enc: !!meB?.encounter }))
+  const hpB = meB?.hp, turnB = meB?.turnCount
+  // releaseEncounter：流血但**不计回合**（刻意与 TURN_ACTIONS 区分）
+  room = await act(u, roomId, 'releaseEncounter')
+  const me2 = room?.gamevars?.players?.[u.id]
+  ck('流血:releaseEncounter 也扣血(零成本洞已堵)', (hpB ?? 0) - (me2?.hp ?? 0) === 4, JSON.stringify({ hpB, hp2: me2?.hp }))
+  ck('流血:releaseEncounter **不计回合**(不动过关节奏)', me2?.turnCount === turnB, JSON.stringify({ turnB, turn2: me2?.turnCount }))
+  // 流血致死 → run 立刻收敛 dead（不能等下个动作：阵亡玩家被 handler 挡在门外）
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.players[u.id].hp = 3   // < d ⇒ 下一动作必死
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  room = await act(u, roomId, 'search')
+  const me3 = room?.gamevars?.players?.[u.id]
+  ck('流血:致死(hp 归零·alive=false)', me3?.alive === false && me3?.hp === 0, JSON.stringify({ hp: me3?.hp, alive: me3?.alive }))
+  const { data: bRun } = await sb.from('runs').select('status,converged_at').eq('run_id', runId).single()
+  ck('流血:致死当拍 run 即收敛 dead(不留悬空 active)', bRun?.status === 'dead' && !!bRun?.converged_at, JSON.stringify(bRun))
+  const { data: bEv } = await sb.from('player_events').select('verb').eq('player_id', u.id).eq('verb', 'death')
+  ck('流血:death 事件恰 1 条', (bEv || []).length === 1, String((bEv || []).length))
+} catch (e) { ck('⑮ 负伤流血执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
 console.log('E2E_ASSERTIONS=' + JSON.stringify(A, null, 1))

@@ -27,6 +27,17 @@ export const ACTION_VERB = {
 //   craftItem 计回合但不在边界发射（in-handler 发）；flee/spare 发射但不计回合。
 export const TURN_ACTIONS = ['search', 'attackNpc', 'craftItem', 'useItem', 'move', 'advanceChamber']
 
+// ── 流血动词（step1 负伤机制 · 2026-07-23 · ⚙️ 口径变更经 🧭 批）─────────────────
+//   口径**不是**「搜索导致掉血」，而是「**负伤在持续流血，每个消耗性动作都在流**」。
+//   三条理由（🧭 采纳 ⚙️ 提议）：
+//     ① 堵掉 `releaseEncounter` 的零成本洞 —— 走开是正当策略，但走开也要花血，免费就不是决策；
+//     ② 贴 Kanata 的原用词「**负伤 BUFF**」——是伤在流血，不是翻找在流血；
+//     ③ 结构性收益：以后新增动作**默认落在流血面里**，不用每次再想一遍会不会又开一个零成本洞。
+//   ⚠ 与 TURN_ACTIONS 的区别是**刻意的**：`releaseEncounter` **流血但不计回合** ——
+//     计回合会改 survive_turns 的清关速度（那是 ⚙️ 没要的平衡变更），而流血只花血、不改过关节奏。
+//   ⚠ kaleido-scoped：多人局不读本表（Phase 37 的 releaseEncounter 语义原样不动）。
+export const BLEED_ACTIONS = [...TURN_ACTIONS, 'releaseEncounter']
+
 // 事件 level_seq 归因的**唯一口径**（KP0-R 缺陷B）：物理关 = player.chamberIndex + 1。
 //   不用 gamevars.kaleido.currentSeq——advance 过关后 currentSeq 已指向下一关，会把「清关那记动作」
 //   及「清关后滞留原关的动作」错标到还没进入的下一关；chamberIndex 只由 movePlayer 推进，是真实物理关。

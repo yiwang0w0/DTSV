@@ -107,7 +107,12 @@ kaleido = **`raidPath` + `chamberIndex` 线性阶梯**：`runs.js:158 sampleRun`
 **由此确认三件事**：
 
 1. **`scene_key` 用 `chamber:<template_key>` 成立** —— `template_key` 跨 run 稳定（`runs.js:117`），两个 run 走到「同一个房间」能对上号。⇒ ④⑦ 的身份问题**不是阻塞**。
-2. **`restore_at`「永不」必须是合法取值**（🧭 点名）。**形状定为 `reset_scope TEXT NOT NULL DEFAULT 'daily'`，取值 `'daily' | 'permanent'`；`'permanent'` 即「永不」。**
-   不用 `restore_at TIMESTAMPTZ NULL` 表示永不 —— NULL 语义在「未设置」与「永不」之间有歧义，而这条一旦读错就是**把存档点锚给重置了**（N8「后面来的找得到这儿」变成假陈述）。**枚举比可空时间戳安全。**
-   按日重置 = `DELETE FROM kaleido_scene_state WHERE reset_scope='daily'`，一条语句，`'permanent'` 结构上不可能被扫到。
+2. **恢复周期是「参数」不是「档位」** —— ⚠ **本条已按 🧭 转达的 Kanata 原话订正（2026-07-23）**，我原先提的两档枚举 `reset_scope:'daily'|'permanent'` **被否**：
+
+   > 「灯 = 日常（当天有效，次日复原），**但有的『灯』，比如重大事件玩家拿炸药给一个区块炸毁了，我们可能需要过几天才恢复** …… **这个不是固定的**。」
+
+   ⇒ 形状改为 **`restore_at TIMESTAMPTZ NULL`，`NULL = 永不恢复`**；重置**按到期扫描**。
+   已定三例：**安全屋的门 = NULL（永不）** / 灯 = 次日 / 炸毁区块 = 数天后。
+   **我原来的反对理由（NULL 在「未设置」与「永不」之间有歧义）不成立**：本表的行**只有被写入时才存在**，「未设置」这个状态根本不落行 ⇒ NULL 只有一种含义。枚举真正的代价才是硬的 —— 加「三天」「一周」要改 schema + 改重置作业 + 迁存量，而参数化零成本。
+   DDL 见 `scripts/kaleido-item-...` 同批的 `scripts/kaleido-scene-state.sql`（待审）。
 3. **step1 里程碑现在是「进度关键件」** —— 不关门就推不进 step1 ⇒ ①②③④⑥ **五段全在关键路径上**，任何一段没落地，step1 就没有出口。这比原来的「首次到达某地」重得多（那个只需要位置判定）。**建议 🧭 按这条重估 step1 的排期依赖。**

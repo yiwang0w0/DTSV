@@ -2,6 +2,20 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-23b / 🔧 ✅ step1 负伤流血 d（地基）+ 场景状态 DDL 待审 —— E2E 91/91×3·gate 9/9·build 绿）
+
+- **✅ `d` 负伤流血落地（🧭 派单·口径已按 ⚙️ 变更）**：**不是**「搜索导致掉血」，而是「**负伤在持续流血，每个消耗性动作都在流**」。
+  - 动作面 `BLEED_ACTIONS = TURN_ACTIONS ∪ {releaseEncounter}`（`kaleido/events.js`）。**流血 ⊋ 计回合是刻意的**：`releaseEncounter` **流血但不计回合** —— 计回合会改 `survive_turns` 的清关速度（⚙️ 没要的平衡变更），而流血只花血、不动过关节奏。这条是我自己的判断，已报 🧭。
+  - 顺带堵死了自己上一轮报的那个洞：`releaseEncounter` 零成本放过遭遇 ⇒ 走开不再免费。
+  - config 走 `game_rules` 两键（`kaleido_bleed_per_action` / `kaleido_bleed_jitter`）播种进 `gamevars.kaleido.bleed`，**默认关 ⇒ 键不出现 ⇒ 存量 run 与多人局逐字节不变**。与周期保底同范式（run 自描述·可重放·E2E 可注入），⚙️ 开启只需 UPSERT 两行。
+  - **方差走 run-seed PRNG 不走 `Math.random`**（守 R1「同 seed 回放一致」，同 D5 手法）。
+  - **死亡收敛提成局部函数 `convergeDead` 并在流血致死当拍调用** —— 否则玩家死了但 run 仍 `active`，而各 handler 对阵亡玩家首行 `throw` ⇒ **他再也进不来 ⇒ run 永久悬空**。这是本次唯一的结构性风险点，E2E 已钉。
+- **✅ `kaleido_scene_state` DDL 已写（`scripts/kaleido-scene-state.sql`·待 🧭 审·不自跑）**。
+- **⚠ 我上一版的 `reset_scope` 两档枚举被 Kanata 否了，doc 13 已订正**：恢复周期是**参数不是档位**（「炸毁的区块可能过几天才恢复，这个不是固定的」）⇒ 改 `restore_at TIMESTAMPTZ NULL`，`NULL = 永不`，按到期扫描。
+  **而且我原来的反对理由是错的**：我说「NULL 在『未设置』与『永不』之间有歧义」——但本表的行**只有被写入时才存在**，「未设置」根本不落行 ⇒ NULL 只有一种含义。枚举的代价才是真的（加档位要改 schema + 改作业 + 迁存量）。
+- **一处待 🧭 定**：重置作业形态。我倾向**惰性到期 + 定期清理**（读侧本来就要过滤 ⇒ 零新增基础设施、天然幂等；DELETE 只是回收行，晚跑几小时无语义影响），优于在 Vercel serverless 上跑改状态的 cron。
+- **E2E 83→91**：+§⑮ 七条（默认关无键 / search 扣 d / **releaseEncounter 也扣** / **releaseEncounter 不计回合** / 致死 / 致死当拍 run 即 dead / death 事件恰一条）。
+
 ## 最近变更（2026-07-23 / 🔧 ✅ 条件 A/B + A3 + 字段落点草案 —— E2E 83/83·gate 9/9·build 绿）
 
 - **✅ 条件 A（🧭 审出的静默失效·写进 SQL 注释给 ⚙️）**：我初稿写的「旧 atk/def 列保持原值不动」**是错的**。`ItemsTab.jsx:166-167` 显示的是 `item.atk`（**死列**），补值后「加力件」会同时有 `atk=2`（死列·后台显示它）与 `atk_delta=2`（活列·真生效）⇒ 管理员改成 5 → 界面显示 5 → **实际仍是 2**。已改口径：id32/id33 的旧列**同批归零**（它们在旧列上本就无效果 ⇒ 归零 = 零行为变化）；**id24 结构强化液的 def=50 保持不动**（那是真设计记录·多人存量）。
