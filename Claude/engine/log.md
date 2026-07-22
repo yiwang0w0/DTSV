@@ -10,6 +10,8 @@
   - **更糟的一层(我自己写错的)**：supabase-js 是**返回** `{data, error}` 而非 throw ⇒ 原来的 `try/catch` 只兜网络级异常，**普通查询错误连日志都不打**，静默回落。
 - **修 = fail-closed**：显式接 `error` → 标 `gamevars.kaleido.accountReadFailed` → 该 run **跳过 profiles 写**（房内解锁照常推进、事件照发，只是不落账号列；下个 run 读成功即自然恢复）。「行不存在且无 error」= 新玩家正常态，**不算失败**，照常可写。写入侧也补了 `error` 显式接收（原来同样静默）。标记走**条件展开**，正常 run 的 `kaleido` 块逐字节同旧。
 - **E2E 65→68**：+§⑪ 三条（正常 run 不带标记 / 标记态下房内解锁仍推进 / 标记态下事件照发）。**诚实标注可测性边界**：E2E 用纯内存随机 uid，而 `profiles.id` 有 FK → `auth.users`，故**无法构造真 profiles 行** ⇒ 账号列的写/不写没有自动化网（需 🔒 裁 E2E 能否碰 auth 表）。§⑪ 只钉「不误伤 + 不阻断」两件可测的。
+- **补修二（🧭 教义 11 §3.1 对抗验证指出，我复核属实）· update 匹配 0 行也算成功**：`.update()` 不带 `.select()` 时 supabase-js **不 reject、error 为 null**，⇒ profiles 行不存在时账号持久化**静默空转**。已加 `.select('id')` + 0 行告警。**实测结论(打脸但必须记)**：E2E 用户全都没有 profiles 行 ⇒ **账号级持久化在历次 E2E 里从未真正执行过**，Commit B 当时「E2E 验证通过」只覆盖了房内镜像那一半。与 H4 结论一致。
+- **顺手修掉一个潜伏的 flaky gate（§④ LW-3）**：该节只发**一次** `attackNpc` 就断言 wave-1 已死。但 D5 seed 化后命中仍是 per-run 掷骰（命中率 0.85）⇒ 约 **15% 的 run 会因首击 miss 翻红**（本次实测撞上）。改为最多 4 击的有界循环（全 miss 概率 0.05%），连跑 3 次 68/68。**这类「单发假设 + 掷骰」是本仓 flaky gate 的固定模式，§③ 那次也是同一类。**
 
 ## 最近变更（2026-07-22b / 🔧 ✅ maxHpDelta 钩子 + B4 nar_line 接线 + 终态分支钉死 —— E2E 65/65·build 绿）
 

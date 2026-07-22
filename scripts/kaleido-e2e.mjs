@@ -245,7 +245,12 @@ try {
   { const { data: rG } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
     const p = rG.gamevars.players[u.id]; p.atk = 200; p.hp = 8000; p.maxHp = 8000
     await sb.from('rooms').update({ gamevars: rG.gamevars }).eq('id', roomId) }
-  room = await act(u, roomId, 'attackNpc') // 杀 wave-1 → 推进层生成 wave-2
+  // 杀 wave-1 → 推进层生成 wave-2。**必须循环**:D5 seed 化后命中仍是 per-run 掷骰(命中率 0.85),
+  //   单发断言会在约 15% 的 run 上因首击 miss 翻红(实测踩到)。最多 4 击兜底(全 miss 概率 0.05%)。
+  for (let a = 0; a < 4; a++) {
+    room = await act(u, roomId, 'attackNpc')
+    if (room?.gamevars?.players?.[u.id]?.gauntletWave === 2) break
+  }
   const meW2 = room?.gamevars?.players?.[u.id]
   const w2Id = meW2?.encounter?.instanceId
   ck('LW-3:wave-1 死后生成 wave-2(gauntletWave=2·新实例·encounter 重锁)', meW2?.gauntletWave === 2 && !!w2Id && w2Id !== wave1Id, JSON.stringify({ wave: meW2?.gauntletWave, newInst: w2Id !== wave1Id }))

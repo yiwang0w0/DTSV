@@ -2978,9 +2978,14 @@ export async function applyKaleidoPostAction(client, room, user, action, preCont
         if (kal.accountReadFailed) {
           console.warn('[kaleido] 本 run 开局账号集读取失败 → 跳过 profiles.ui_unlocks 写(防裁小);解锁仅在房内生效')
         } else {
+          //   ⚠ 必须带 `.select('id')`(🧭 教义 11 §3.1 对抗验证指出):不带时 supabase-js 的 update
+          //   **匹配 0 行也算成功**(不 reject、error 为 null)⇒ profiles 行不存在时账号持久化**静默空转**,
+          //   看起来一直在写、其实一个字节没落。带 select 才能拿到命中行数、把「没写成」变成可观测信号。
           try {
-            const { error: upErr } = await client.from('profiles').update({ ui_unlocks: merged }).eq('id', user.id)
+            const { data: upRows, error: upErr } = await client.from('profiles')
+              .update({ ui_unlocks: merged }).eq('id', user.id).select('id')
             if (upErr) console.error('[kaleido] profiles.ui_unlocks 持久化失败(不阻断·下动作补写):', upErr.message)
+            else if (!upRows || upRows.length === 0) console.warn('[kaleido] profiles.ui_unlocks 写命中 0 行(该 uid 无 profiles 行)→ 账号级进度未落库;本 run 房内解锁不受影响')
           } catch (e) { console.error('[kaleido] profiles.ui_unlocks 持久化异常(不阻断·下动作补写):', e?.message) }
         }
       } catch (e) {
