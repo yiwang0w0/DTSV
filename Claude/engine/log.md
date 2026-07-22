@@ -2,6 +2,18 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-23 / 🔧 ✅ 条件 A/B + A3 + 字段落点草案 —— E2E 83/83·gate 9/9·build 绿）
+
+- **✅ 条件 A（🧭 审出的静默失效·写进 SQL 注释给 ⚙️）**：我初稿写的「旧 atk/def 列保持原值不动」**是错的**。`ItemsTab.jsx:166-167` 显示的是 `item.atk`（**死列**），补值后「加力件」会同时有 `atk=2`（死列·后台显示它）与 `atk_delta=2`（活列·真生效）⇒ 管理员改成 5 → 界面显示 5 → **实际仍是 2**。已改口径：id32/id33 的旧列**同批归零**（它们在旧列上本就无效果 ⇒ 归零 = 零行为变化）；**id24 结构强化液的 def=50 保持不动**（那是真设计记录·多人存量）。
+- **✅ 条件 B（admin 盲区）**：`ITEM_COLS`（`api/admin/item-pool/route.js:11`）补 `atk_delta`/`def_delta`/`max_hp_delta` —— 此前三列**后台既看不到也改不了**（⚙️ 的扩容件 +15 就处在这个盲区）。`ItemsTab` 列表 + 编辑表单拆成「📈 永久增量（真生效）」与「⚔️ 战斗属性（旧列·当前无效果）」两段，死列置灰 + 明写警告。
+- **✅ A3（🎨 报）**：`itemPoolPreview.js` 的 kind 选项写死 `weapon/armor/consumable/special`，与当前 6 个 kind **一个都对不上**（除 consumable）⇒ 筛选器筛不出东西。改为从 `ITEM_KIND_META` 同源派生，并把三个 delta 列加进字段表。
+- **⚠ 未做浏览器验证（诚实标注）**：admin 页需登录管理员账号，而**输入密码不在我可执行范围内**。本批 admin 改动只有 build + gate 背书，**视觉未验**。请 🧭/🎨 或 Kanata 登录后看一眼「道具池」tab（预期：加力件显示 `ATK +2` 走新列、旧列灰显「ATK(旧) 2」）。
+- **✅ 字段落点草案（doc 14·待 🧭 审）**：`uiCommitted`（profiles 写的唯一源·护栏靠命名）/ `uiKnown` / `uiOffered`（对象带 beat）/ `uiHidden` / `uiUnlocks`（投影）+ `profiles.kaleido_step` 独立列。
+  - **存档点提交定序**：场景状态 → step → uiCommitted → run 账本；**run 账本最后落**（只有它落了下次才不重复提交）。失败方向**刻意选「宁可重复提交，不可丢」**（前三者皆幂等）。
+  - **「step 推进成功但 UI 提交失败」= 接受错位、不补偿** —— §4 已定两者作用域本就该错位，补偿反而制造 step 回滚（而 step 定义是永不回滚）。
+  - **信封 `kind` 六值**，不变式：**只有 `unlock`/`hide`/`restore` 带顶层 `ui_key`** ⇒ 叙事类被今天的客户端 `continue` 天然挡住、零改动。⚠ 但 `hide`/`restore` 会被**旧客户端渲染成「获得」** ⇒ **必须与 🎨 的 kind 分流同批上线**（草案里唯一的跨轨同批约束）。
+- **✅ doc 13 增补「关上那扇门」样例走查**：七段里**五段在关键路径上且全未落地** ⇒ step1 里程碑从「首次到达某地」改成「关上门」后**重了一个量级**（原来只需位置判定）。`reset_scope` 形状定为**枚举 `'daily'|'permanent'`** 而非可空时间戳 —— NULL 在「未设置」与「永不」之间有歧义，读错就是把存档点锚重置了。
+
 ## 最近变更（2026-07-22e / 🔧 ✅ H3 修（铁律路径静默失败）+ 教义不变式门 —— E2E 83/83·gate 9/9·build 绿）
 
 - **✅ H3 修**：`resolveSearchAction` 的「持续效果致死」分支走 `persistResolutionAsync`（DB 写 fire-and-forget，却**立刻返回 version+1 的乐观 room**）⇒ 路由边界的 ui_unlocks persist 拿乐观 version 做 CAS ⇒ 后台写未落即 0 行命中 → `VersionConflictError` → 被吞 ⇒ **解锁不落库、事件不发**。而这正是 06 §1.3 明文要保的那条（首搜当回合致死也必须下发 hp_bar），**且死亡后玩家再进不了 `applyKaleidoPostAction` ⇒ 不可自愈**。

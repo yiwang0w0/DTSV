@@ -8,9 +8,15 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase, getRequestUser } from '@/lib/serverSupabase'
 import { isAdmin } from '@/lib/auth'
 
+// ⚠ 扁平增量三列（atk_delta/def_delta/max_hp_delta）**必须在此白名单里**（🧭 条件 B·2026-07-23）：
+//   它们是 `calcItemEffect` 真正生效的那三个值（kind 无关、不走公式）；而旧的 atk/def 只对
+//   kind='weapon'/'armor' 生效，那两个 kind 在 ITEM_KIND_META 里根本不存在 ⇒ 旧列是死列。
+//   不加进白名单 ⇒ 后台**看不到也改不了真正生效的值**，只能改死列 ⇒ 界面陈述与实际效果脱钩（无报错）。
+//   （`max_hp_delta` 此前就处在这个盲区：⚙️ 的扩容件 +15 有值，后台既看不到也改不了。）
 const ITEM_COLS = ['name', 'kind', 'sub_kind', 'atk', 'def', 'heal', 'effect', 'amount', '_legacy_maps',
   'description', 'on_use_buff_ids', 'heal_formula', 'atk_formula', 'def_formula', 'use_mode', 'inspect_text',
-  'chamber_template_ids', 'stamina_restore', 'jump_charge', 'bundle_count', 'tag_ids']
+  'chamber_template_ids', 'stamina_restore', 'jump_charge', 'bundle_count', 'tag_ids',
+  'atk_delta', 'def_delta', 'max_hp_delta']
 
 export async function POST(request) {
   const supabase = createServerSupabase()

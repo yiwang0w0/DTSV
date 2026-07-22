@@ -79,6 +79,7 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
   function openAdd() {
     setEditItem({
       name: '', kind: 'consumable', sub_kind: '', atk: 0, def: 0, heal: 0, effect: 0, amount: 1,
+      atk_delta: 0, def_delta: 0, max_hp_delta: 0,
       chamber_template_ids: [], tag_ids: [], description: '', on_use_buff_ids: [], heal_formula: '', atk_formula: '', def_formula: '',
       // Phase 17: 使用模式 + 情报文本
       use_mode: 'consume', inspect_text: '',
@@ -163,8 +164,14 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
                   </div>
                   {item.description && <div style={{ fontSize: 12, color: '#8b949e', marginBottom: 4 }}>{item.description}</div>}
                   <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
-                    {item.atk > 0 && <span style={{ color: '#f85149' }}>ATK +{item.atk}</span>}
-                    {item.def > 0 && <span style={{ color: '#58a6ff' }}>DEF +{item.def}</span>}
+                    {/* 扁平增量三列 = 真正生效的值（kind 无关）。旧 atk/def 只对 weapon/armor 生效，
+                        而这两个 kind 在 ITEM_KIND_META 里不存在 ⇒ 是死列。故死列标「(旧)」并置灰，
+                        避免管理员改了它以为生效（🧭 条件 B·界面陈述必须与生效值对齐）。 */}
+                    {item.atk_delta > 0 && <span style={{ color: '#f85149' }}>ATK +{item.atk_delta}</span>}
+                    {item.def_delta > 0 && <span style={{ color: '#58a6ff' }}>DEF +{item.def_delta}</span>}
+                    {item.max_hp_delta > 0 && <span style={{ color: '#ff7b72' }}>HP上限 +{item.max_hp_delta}</span>}
+                    {item.atk > 0 && <span style={{ color: '#6e7681' }} title="旧列：仅对 weapon/armor 生效，而这两个 kind 已不存在 ⇒ 当前无效果">ATK(旧) {item.atk}</span>}
+                    {item.def > 0 && <span style={{ color: '#6e7681' }} title="旧列：仅对 weapon/armor 生效，而这两个 kind 已不存在 ⇒ 当前无效果">DEF(旧) {item.def}</span>}
                     {item.heal > 0 && <span style={{ color: '#3fb950' }}>HEAL +{item.heal}</span>}
                     {item.effect > 0 && <span style={{ color: '#d29922' }}>效果值 {item.effect}</span>}
                     <span style={{ color: '#8b949e' }}>权重 {item.amount ?? 1}</span>
@@ -276,23 +283,47 @@ export default function ItemsTab({ items, buffPool, onRefresh, toast }) {
               </div>
             </div>
 
-            {/* ─── 战斗属性 ─── */}
-            <div style={SECTION_TITLE}>⚔️ 战斗属性</div>
+            {/* ─── 永久增量（真正生效的三列·kind 无关）─── */}
+            <div style={SECTION_TITLE}>📈 永久增量（使用后永久改属性）</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
-                <label style={LABEL}>ATK 攻击</label>
-                <input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} />
-                <div style={HINT}>装备/使用时增加的攻击力</div>
+                <label style={LABEL}>ATK 增量</label>
+                <input type="number" style={INPUT} value={editItem.atk_delta ?? 0} onChange={e => setEditItem({ ...editItem, atk_delta: Number(e.target.value) })} />
+                <div style={HINT}>使用后**永久** +ATK（任意 kind 生效）</div>
               </div>
               <div>
-                <label style={LABEL}>DEF 防御</label>
+                <label style={LABEL}>DEF 增量</label>
+                <input type="number" style={INPUT} value={editItem.def_delta ?? 0} onChange={e => setEditItem({ ...editItem, def_delta: Number(e.target.value) })} />
+                <div style={HINT}>使用后**永久** +DEF（任意 kind 生效）</div>
+              </div>
+              <div>
+                <label style={LABEL}>HP 上限增量</label>
+                <input type="number" style={INPUT} value={editItem.max_hp_delta ?? 0} onChange={e => setEditItem({ ...editItem, max_hp_delta: Number(e.target.value) })} />
+                <div style={HINT}>使用后 maxHp 与 hp **同量**抬高</div>
+              </div>
+            </div>
+
+            {/* ─── 战斗属性（旧列·当前无效果）─── */}
+            <div style={SECTION_TITLE}>⚔️ 战斗属性（旧列 · 当前无效果）</div>
+            <div style={{ fontSize: 11, color: '#d29922', marginBottom: 8 }}>
+              ⚠ 下面三项里的 ATK/DEF 只对 <code>kind=weapon/armor</code> 生效，而这两个 kind 已不在类型表中 ⇒
+              <b> 改它们不会有任何效果</b>。要让道具真的加攻/防，请用上面的「永久增量」。（HEAL 仍然有效。）
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={LABEL}>ATK 攻击（旧）</label>
+                <input type="number" style={INPUT} value={editItem.atk} onChange={e => setEditItem({ ...editItem, atk: Number(e.target.value) })} />
+                <div style={HINT}>死列：仅 weapon kind 生效</div>
+              </div>
+              <div>
+                <label style={LABEL}>DEF 防御（旧）</label>
                 <input type="number" style={INPUT} value={editItem.def} onChange={e => setEditItem({ ...editItem, def: Number(e.target.value) })} />
-                <div style={HINT}>装备/使用时增加的防御力</div>
+                <div style={HINT}>死列：仅 armor kind 生效</div>
               </div>
               <div>
                 <label style={LABEL}>HEAL 治疗</label>
                 <input type="number" style={INPUT} value={editItem.heal} onChange={e => setEditItem({ ...editItem, heal: Number(e.target.value) })} />
-                <div style={HINT}>使用时恢复的生命值</div>
+                <div style={HINT}>使用时恢复的生命值（有效）</div>
               </div>
             </div>
 

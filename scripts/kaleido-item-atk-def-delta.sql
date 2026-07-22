@@ -39,8 +39,20 @@ COMMENT ON COLUMN item_pool.def_delta IS
 --     WHERE table_name='item_pool' AND column_name IN ('atk_delta','def_delta');
 --   SELECT count(*) FROM item_pool WHERE atk_delta <> 0 OR def_delta <> 0;   -- 迁移后应为 0（⚙️ 补值前）
 --
--- ⚙️ 后续补丁（本文件不含·归 ⚙️ 的经济批）——把值从旧列迁到新列：
---   UPDATE item_pool SET atk_delta = 2 WHERE name = '加力件';
---   UPDATE item_pool SET def_delta = 2 WHERE name = '加防件';
---   -- ⚠ 旧的 atk/def 列**保持原值不动**（它们是设计记录，且 admin ItemsTab 仍在读写）。
---   -- ⚠ id24 结构强化液**不要**补 def_delta —— 它是多人存量道具，补了就等于给多人局加强度。
+-- ⚙️ 后续补丁（本文件不含·归 ⚙️ 的经济批）——把值从旧列迁到新列。
+--   ⚠⚠ 【条件 A · 🧭 审出的静默失效 · 2026-07-23 订正本段】旧列必须**同批归零**，不能「保持原值不动」：
+--
+--     UPDATE item_pool SET atk_delta = 2, atk = 0 WHERE name = '加力件';
+--     UPDATE item_pool SET def_delta = 2, def = 0 WHERE name = '加防件';
+--
+--   为什么改口径（本文件初稿写的是「旧列保持不动」，那是错的）：
+--     admin 的 `ItemsTab.jsx:166-167` 显示的是 `item.atk`/`item.def`（**死列**），而 `ITEM_COLS`
+--     (`src/app/api/admin/item-pool/route.js:11`) 又不含 `atk_delta`/`def_delta`/`max_hp_delta`。
+--     ⇒ 补值后「加力件」会同时有 atk=2（死列·admin 显示它）与 atk_delta=2（活列·真正生效）。
+--     管理员把界面上那个 2 改成 5 → 界面显示 5 → **实际效果仍是 2**，无报错、无痕迹。
+--     这与 `calcItemEffect` 那个「注释与实现相反」是同一类病：**界面陈述与生效值脱钩**。
+--     对这两件 kaleido 新道具，旧列**不是设计记录，是重复记账** —— 且它们在旧列上本就毫无效果
+--     （kind='consumable' 走不到 weapon/armor 死分支），故归零 = 零行为变化。
+--
+--   ⚠ `id24 结构强化液` 的 `def=50` **保持不动**：那个是真的设计记录（多人存量道具、语义属旧 kind 体系）。
+--   ⚠ 同理 id24 **不要**补 `def_delta` —— 补了就等于给多人局加强度（破多人零行为变化）。

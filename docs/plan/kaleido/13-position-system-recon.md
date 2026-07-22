@@ -87,3 +87,27 @@ kaleido = **`raidPath` + `chamberIndex` 线性阶梯**：`runs.js:158 sampleRun`
    ⚠ 由此带出一个**要 ⚙️ 认的经济问题**：按开关**不烧回合** = 免费试探，与法则二「探索要争取」在经济上矛盾。教义 §3.4 的 `actionKind:'notice'|'operate'` 分野正是为此——「注意到」零代价、「操作」应有代价。
 
 **建议期**：跟 step1 图结构同期（不早于它），**不排进 P1 投影重构**。
+
+---
+
+## 6. 样例走查：「关上那扇门」（step1 里程碑 · 第一个 `operate` 实例 · 2026-07-23 增补）
+
+🧭：「拿它验证比抽象讨论有用。」下面把这一条从触发到持久走一遍，逐段标出**现在缺什么**。
+
+| 段 | 需要什么 | 现状 |
+|---|---|---|
+| ① 门这个物件存在于某关 | `kaleidoFixtures: [{ fid:'door_a', kind:'door', word:'门', hint:'subtle', actionKind:'operate' }]` 挂在节点上 | ❌ 字段不存在。加它要**三处同改**（`chamberToNode` 白名单逐 key 拷贝 / `sampleRun` 读键 / `buildLevelRows`）——漏一处静默丢弃，本仓 `env_rules` 真踩过 |
+| ② 玩家看得到「门」这个词 | 走 doc 12 的 `lure`/`offer` 行（带 `action.word`） | ❌ 通道未实现（doc 12 待会签） |
+| ③ 玩家点它 | `interact` 动词（`route.js` 对动词无知 ⇒ route 零改动；handler 首行 `isKaleidoRoom` 守卫；**不进 `TURN_ACTIONS`**） | ❌ 未实现 |
+| ④ 世界真的变了 | `kaleido_scene_state` upsert：`(scene_key='chamber:<template_key>', prop_key='door_a') → {closed:true}` | ❌ 表未建（待 🧭/🔒 批） |
+| ⑤ 这个改动**永不复原** | `reset_scope='permanent'`（🧭 已裁：门的恢复周期 = 永不） | ✅ 形状已预留 |
+| ⑥ step 推进到 1 | 第二张注册表 `KALEIDO_STEPS` 的 `match` 读「本动作是否 close 了 door_a」 | ❌ 注册表未建（形状见 doc 14 §3） |
+| ⑦ 下一个单位进来看到门是关的 | 读 `kaleido_scene_state`，注入节点渲染态 | ❌ 读侧未接 |
+
+**由此确认三件事**：
+
+1. **`scene_key` 用 `chamber:<template_key>` 成立** —— `template_key` 跨 run 稳定（`runs.js:117`），两个 run 走到「同一个房间」能对上号。⇒ ④⑦ 的身份问题**不是阻塞**。
+2. **`restore_at`「永不」必须是合法取值**（🧭 点名）。**形状定为 `reset_scope TEXT NOT NULL DEFAULT 'daily'`，取值 `'daily' | 'permanent'`；`'permanent'` 即「永不」。**
+   不用 `restore_at TIMESTAMPTZ NULL` 表示永不 —— NULL 语义在「未设置」与「永不」之间有歧义，而这条一旦读错就是**把存档点锚给重置了**（N8「后面来的找得到这儿」变成假陈述）。**枚举比可空时间戳安全。**
+   按日重置 = `DELETE FROM kaleido_scene_state WHERE reset_scope='daily'`，一条语句，`'permanent'` 结构上不可能被扫到。
+3. **step1 里程碑现在是「进度关键件」** —— 不关门就推不进 step1 ⇒ ①②③④⑥ **五段全在关键路径上**，任何一段没落地，step1 就没有出口。这比原来的「首次到达某地」重得多（那个只需要位置判定）。**建议 🧭 按这条重估 step1 的排期依赖。**
