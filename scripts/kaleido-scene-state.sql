@@ -29,14 +29,19 @@ CREATE TABLE IF NOT EXISTS kaleido_scene_state (
   prop_key    TEXT        NOT NULL,
   value       JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
-  -- ⚠ 恢复周期是**参数不是档位**（Kanata 明确否掉两档枚举 · 教义 §8.2）：
-  --   「有的『灯』，比如重大事件玩家拿炸药给一个区块炸毁了，我们可能需要过几天才恢复……这个不是固定的。」
-  --   ⇒ restore_at = 该改动的到期时刻；**NULL = 永不恢复**。
-  --   已定三例：安全屋的门 = NULL（永不·它是存档点锚，复原会让「后面来的找得到这儿」变成假陈述）
-  --            灯 = 次日某时  /  炸毁区块 = 数天后
-  --   重置作业**按到期扫描**：DELETE FROM kaleido_scene_state WHERE restore_at IS NOT NULL AND restore_at <= now();
-  --   ⇒ 加「三天」「一周」零 schema 改动（这正是否掉枚举的理由）。
-  restore_at  TIMESTAMPTZ NULL,
+  -- ⚠ 恢复周期是**参数不是档位**（Kanata：「炸毁一个区块可能需要过几天才恢复……这个不是固定的」）。
+  --   **形状 = 🧭 最终裁定的第三解**（2026-07-23）：`NOT NULL` + 用 **`'infinity'` 表示「永不恢复」**。
+  --   为什么不是 `NULL = 永不`（🔧 原提案）：NULL 在「未设置」与「永不」之间有歧义，而这条读错的后果是
+  --     **把存档点锚给重置了**（N8「后面来的找得到这儿」变成假陈述）。
+  --   为什么不是 `reset_scope:'daily'|'permanent'` 两档枚举（🔧 更早的提案）：表达不了「几天」，
+  --     且加档位要改 schema + 改重置作业 + 迁存量。
+  --   ⇒ `'infinity'` 同时满足两边：无 NULL 歧义、「几天」= `now() + interval '3 days'` 零 schema 改动，
+  --     且 `DELETE ... WHERE restore_at <= now()` 对 `'infinity'` **永远不成立** ——
+  --     这是与枚举**同等的结构性保证**，不是靠人记得多写一个条件。
+  --   ⚠ **`'infinity'` = 永不复原；当前唯一持有者 = 安全屋的门（存档点锚）。** 下一个人改这张表前先读这句。
+  --   已定三例：门 = `'infinity'` / 灯 = 次日某时 / 炸毁区块 = 数天后。
+  --   重置作业按到期扫描：DELETE FROM kaleido_scene_state WHERE restore_at <= now();
+  restore_at  TIMESTAMPTZ NOT NULL DEFAULT 'infinity'::timestamptz,
 
   -- 「前一个单位的痕迹」叙事用（教义 §8：单位是消耗品、世界在累积）。可空。
   changed_by  UUID        NULL,
@@ -46,9 +51,10 @@ CREATE TABLE IF NOT EXISTS kaleido_scene_state (
   PRIMARY KEY (scene_key, prop_key)
 );
 
--- 到期扫描用（重置作业的唯一查询形态）。partial index：永不恢复的行不进索引，扫描只碰会过期的。
+-- 到期扫描用（重置作业的唯一查询形态）。partial index：`'infinity'`（永不复原）的行不进索引，
+--   扫描只碰会过期的那些 —— 门这类存档点锚连索引都不占。
 CREATE INDEX IF NOT EXISTS idx_kaleido_scene_state_restore_at
-  ON kaleido_scene_state (restore_at) WHERE restore_at IS NOT NULL;
+  ON kaleido_scene_state (restore_at) WHERE restore_at <> 'infinity'::timestamptz;
 
 -- RLS：照 content_pool 范式 —— 公开读（客户端要能看到「灯是开的」）+ 仅 service_role 写。
 ALTER TABLE kaleido_scene_state ENABLE ROW LEVEL SECURITY;
@@ -64,8 +70,10 @@ BEGIN
   END IF;
 END $$;
 
+COMMENT ON COLUMN kaleido_scene_state.restore_at IS
+  '该改动的复原时刻。**''infinity'' = 永不复原**（当前唯一持有者 = 安全屋的门，它是存档点锚，复原会让「后面来的找得到这儿」变成假陈述）。重置作业：DELETE WHERE restore_at <= now()。';
 COMMENT ON TABLE kaleido_scene_state IS
-  'KALEIDO 场景改动的跨单位持久层。UI 解锁随存档点回滚，本表**永不随单位回滚**（教义 11 §8）。restore_at NULL = 永不恢复。';
+  'KALEIDO 场景改动的跨单位持久层。UI 解锁随存档点回滚，本表**永不随单位回滚**（教义 11 §8）。';
 
 -- 验证（执行后手跑）：
 --   SELECT count(*) FROM kaleido_scene_state;                          -- 0

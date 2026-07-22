@@ -111,7 +111,9 @@ kaleido = **`raidPath` + `chamberIndex` 线性阶梯**：`runs.js:158 sampleRun`
 
    > 「灯 = 日常（当天有效，次日复原），**但有的『灯』，比如重大事件玩家拿炸药给一个区块炸毁了，我们可能需要过几天才恢复** …… **这个不是固定的**。」
 
-   ⇒ 形状改为 **`restore_at TIMESTAMPTZ NULL`，`NULL = 永不恢复`**；重置**按到期扫描**。
+   ⇒ **最终形状（🧭 裁定的第三解·2026-07-23）**：`restore_at TIMESTAMPTZ **NOT NULL** DEFAULT 'infinity'`，**「永不」= `'infinity'`**。
+   它同时保住了两边：无 NULL 的「未设置/永不」歧义（我最初担心的那条），又能表达「几天」这种连续参数；
+   且 `DELETE ... WHERE restore_at <= now()` 对 `'infinity'` **永远不成立** ⇒ 与枚举**同等的结构性保证**，不靠人记得写条件。
    已定三例：**安全屋的门 = NULL（永不）** / 灯 = 次日 / 炸毁区块 = 数天后。
    **我原来的反对理由（NULL 在「未设置」与「永不」之间有歧义）不成立**：本表的行**只有被写入时才存在**，「未设置」这个状态根本不落行 ⇒ NULL 只有一种含义。枚举真正的代价才是硬的 —— 加「三天」「一周」要改 schema + 改重置作业 + 迁存量，而参数化零成本。
    DDL 见 `scripts/kaleido-item-...` 同批的 `scripts/kaleido-scene-state.sql`（待审）。
