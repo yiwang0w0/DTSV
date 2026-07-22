@@ -84,6 +84,40 @@ for (const c of CANDS) {
 //     它 runtime 可精确算,且能区分「40血3瓶(安全)」vs「40血0瓶(危险)」——百分比做不到。
 function beatsLeft(hp, potions, d) { return (hp + potions * HEAL) / d }
 
+// 掉血方差(🧭:要但要小 —— "不改变期望、只模糊边界")。VAR=0 定值;VAR=1 → 均匀 {d-1,d,d+1},期望不变。
+function drawDrain(d, VAR) { return VAR === 0 ? d : d + (Math.floor(Math.random() * (2 * VAR + 1)) - VAR) }
+
+// L 敏感度 + 死亡率:在前 L 搜内各档触发率 与 死亡率
+function LSens(d, G, p, VAR, Ls = [20, 30, 50], tiers_ = [20, 10, 4], runs = 4000) {
+  const out = Ls.map(() => ({ t: [0, 0, 0], dead: 0 }))
+  for (let i = 0; i < runs; i++) {
+    let hp = HP0, potions = 0, n = 0
+    const seen = Ls.map(() => [false, false, false]); const died = Ls.map(() => false)
+    while (n < Math.max(...Ls) && hp > 0) {
+      while (hp < USE_AT && potions > 0) { potions--; hp = Math.min(MAXHP, hp + HEAL) }
+      hp -= drawDrain(d, VAR); n++
+      if (hp <= 0) { Ls.forEach((L, k) => { if (n <= L) died[k] = true }); break }
+      if (G > 0 && n % G === 0) potions++
+      else if (Math.random() < p) potions++
+      const b = (hp + potions * HEAL) / d
+      Ls.forEach((L, k) => {
+        if (n <= L) for (let t = 0; t < 3; t++) if (b <= tiers_[t] && !seen[k][t]) { seen[k][t] = true; out[k].t[t]++ }
+      })
+    }
+    Ls.forEach((L, k) => { if (died[k]) out[k].dead++ })
+  }
+  return out.map((o) => ({ t: o.t.map((x) => x / runs), dead: o.dead / runs }))
+}
+
+console.log('\n【L 敏感度】(🧭:L 当变量铺 · L 该由"想要什么紧迫感"倒推)  d=4 G=16 p=0.06')
+for (const VAR of [0, 1]) {
+  const r = LSens(4, 16, 0.06, VAR)
+  console.log(`  方差 ±${VAR}:`)
+  ;[20, 30, 50].forEach((L, k) => {
+    console.log(`    L=${String(L).padStart(2)} 搜: 档1 ${pct(r[k].t[0]).padStart(4)} · 档2 ${pct(r[k].t[1]).padStart(4)} · 档3 ${pct(r[k].t[2]).padStart(4)}   死亡率 ${pct(r[k].dead)}`)
+  })
+}
+
 function anchorCalib(d, G, p, tiers_ = [20, 10, 4], horizon = 30) {
   // 统计:normal(前 horizon 搜)与 stuck(全程至死)各档触发次数
   let normHit = [0, 0, 0], stuckHit = [0, 0, 0], runs = 2000
