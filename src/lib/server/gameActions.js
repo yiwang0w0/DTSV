@@ -66,6 +66,7 @@ import { sampleRun, buildLevelRows, evaluateExitCondition } from '@/lib/server/k
 import { getCombatMode, hashStr as kaleidoHashStr } from '@/lib/server/kaleido/combatModes'
 import { emitPlayerEvents, buildActionEvent, buildDeathEvent, kaleidoLevelSeq, TURN_ACTIONS as KALEIDO_TURN_ACTION_LIST } from '@/lib/server/kaleido/events'
 import { UI_SEED, CRAFT_MATERIAL_KINDS, evaluateUnlocks, buildUnlockEventsPayload, unlockTiming } from '@/lib/server/kaleido/uiUnlocks'
+import { mergeGameRules } from '@/lib/server/kaleido/rules'
 import { applyMoveStamina, applyStaminaCost, restoreStamina } from '@/lib/stamina'
 // ── Phase 31 re-home: BR「100 房网格 + 大时钟」纯函数（gamevars 路径，复用独立 /br 模块的纯算法源） ──
 import { computeClock, effectivePhase, clampPhaseSeconds, clampMaxPhase } from '@/lib/server/br/clock'
@@ -1396,7 +1397,7 @@ async function resolveSearchAction(client, room, gamevars, user) {
 
   // ── 事件系统：on_search 钩子 ──
   try {
-    await processEventTrigger(client, resolution, user.id, 'on_search', { mapId })
+    await processEventTrigger(client, resolution, user.id, 'on_search', { mapId, kaleido: isKaleidoRoom(room) })
   } catch (e) {
     console.error('[searchArea] event trigger 失败:', e?.message)
   }
@@ -1405,7 +1406,12 @@ async function resolveSearchAction(client, room, gamevars, user) {
     return persistResolutionWithPollution(client, room, resolution, user.id)
   }
   if (afterEvent.battle) {
-    return persistResolutionWithPollution(client, room, resolution, user.id)
+    // KALEIDO 兜底（不可复现红的根治·10-avg A1）：kaleido 局绝不在此早返 —— legacy `battle` 无人消费
+    //   （kaleido 战斗走 encounter），置位后此处会**永久早返** → hook① guaranteed 哑火 + 搜索空转（软锁）。
+    //   源头已在 events.js 排除刷怪事件；此处清字段续算，兼容「字段已被历史局写脏」的存量房。
+    //   多人局分支不变（!isKaleidoRoom 恒真 → 原样早返）。
+    if (!isKaleidoRoom(room)) return persistResolutionWithPollution(client, room, resolution, user.id)
+    setResolutionPlayer(resolution, user.id, { ...afterEvent, battle: null })
   }
 
   // ── KALEIDO hook①（10-avg A1）：event_deck guaranteed item_find 排空（1/search·front-load·硬保证）──
@@ -1863,11 +1869,19 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
     }
   }
 
-  const [rules, buffPool, equippedInstances] = await Promise.all([
+  const [rulesGlobal, buffPool, equippedInstances] = await Promise.all([
     loadGameRules(client),
     loadBuffPool(client),
     fetchEquippedInstances(client, room.id, [user.id]),
   ])
+  // ── D3 逐关规则覆盖 ─────────────────────────────────────────────────
+  //   kaleido 局:用当前关 node 的 env_rules/formula_overrides 合出**新** rules 对象供本次结算。
+  //   ⚠ 绝不写回 loadGameRules 的全局单例 `_rulesCache`(跨房共享·污染所有请求);无覆盖时 mergeGameRules
+  //   原样返回同一对象 → 未覆盖关/多人局逐字节零变化(多人局连 rNode 都不取)。
+  const rNode = isKaleidoRoom(room) ? (gamevars.raidPath || [])[player.chamberIndex ?? 0] : null
+  const rules = rNode
+    ? mergeGameRules(rulesGlobal, rNode.kaleidoEnvRules, rNode.kaleidoFormulaOverrides)
+    : rulesGlobal
   const myEquips = groupEquipsByOwner(equippedInstances)[user.id] || []
   let me = buildCombatPlayer(player, myEquips)
   const weapon = myEquips.find(eq => eq.tier?.series?.slot === 'weapon')
@@ -1989,7 +2003,7 @@ async function resolveNpcAttackAction(client, room, gamevars, user, payload = {}
     setKilledNpcFlag(resolution, instance.npc.name)
 
     try {
-      await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: instance.npc.name })
+      await processEventTrigger(client, resolution, user.id, 'on_kill_npc', { npcName: instance.npc.name, kaleido: isKaleidoRoom(room) })
     } catch (e) {
       console.error('[attackNpc] event trigger 失败:', e?.message)
     }
@@ -3630,7 +3644,7 @@ async function movePlayer(client, room, gamevars, user, payloadSelection = 'A') 
 
   // on_enter_map 事件钩子（保持事件 API 兼容，传 templateId 作 mapId）
   try {
-    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId: nextChamber.templateId })
+    await processEventTrigger(client, resolution, user.id, 'on_enter_map', { mapId: nextChamber.templateId, kaleido: isKaleidoRoom(room) })
   } catch (e) {
     console.error('[movePlayer] event trigger 失败:', e?.message)
   }

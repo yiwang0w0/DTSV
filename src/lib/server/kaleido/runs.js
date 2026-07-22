@@ -134,6 +134,10 @@ function chamberToNode(chamber, idx, seq, levelCount, ctx) {
     kaleidoMode: ctx.combatMode,      // { template_ref, params, describe }
     kaleidoEnemy: ctx.enemy,          // combatSetup（gauntlet/stance_duel live + 离线 sim 用）
     kaleidoEventDeck: ctx.eventDeck,
+    // D3 逐关规则覆盖：种子关 payload 的 env_rules/formula_overrides 带到运行时 node
+    //   （此前只写进 levels 表且恒空，运行时读的是 raidPath → 覆盖等于丢弃）。缺省空数组 = 无覆盖。
+    kaleidoEnvRules: ctx.envRules || [],
+    kaleidoFormulaOverrides: ctx.formulaOverrides || [],
     seedLevelId: ctx.seedLevelId || null, // 命中 content_pool 种子关时的来源 id（buildLevelRows gen_meta.source）
     levelId: null,
   }
@@ -185,6 +189,8 @@ export function sampleRun(seed, { levelCount = 5, pools = {} } = {}) {
         combatMode: p.combat_mode || combatModeFor(arch, s, levelCount),
         enemy: p.combatSetup?.enemy || null,
         eventDeck: p.event_deck || [],
+        envRules: p.env_rules || [],                  // D3：逐关环境规则
+        formulaOverrides: p.formula_overrides || [],  // D3：逐关公式覆盖(白名单 damage|defense|crit)
         seedLevelId: seedMatch.id,
       }))
       continue
@@ -243,8 +249,8 @@ export function buildLevelRows(runId, nodes, seed) {
       gen_meta: { source: node.seedLevelId ? 'seed' : 'sampled', seed },
       combat_mode: node.kaleidoMode || { template_ref: 'standard', params: {}, describe: '' },
       combatSetup: node.kaleidoEnemy ? { enemy: node.kaleidoEnemy } : null,
-      env_rules: [],
-      formula_overrides: [],
+      env_rules: node.kaleidoEnvRules || [],                   // D3：域真源随 node（此前恒空 → 覆盖丢失）
+      formula_overrides: node.kaleidoFormulaOverrides || [],
       event_deck: node.kaleidoEventDeck || [],
       exit_condition: node.kaleidoExit,
       difficulty_band: { target_clear_rate: [0.4, 0.7] },

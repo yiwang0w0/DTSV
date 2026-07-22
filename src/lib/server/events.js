@@ -78,6 +78,13 @@ export async function processEventTrigger(client, resolution, userId, triggerTyp
   const candidates = []
   for (const event of events) {
     if (!matchesTrigger(event, triggerType, context, gamevars, userId)) continue
+    // KALEIDO（10-avg A1·安全首战法则）：kaleido 局整条排除「会刷怪」的事件。
+    //   kaleido 战斗只走 encounter（种子关 combatSetup 入关注入），legacy `battle` 字段无人消费；
+    //   一旦被事件置位，resolveSearchAction 的 `if (afterEvent.battle)` 会**此后每次 search 都早返**
+    //   → hook① guaranteed 掉落哑火 + 搜索循环空转（实测：E2E §③ 偶发红的真因）。
+    //   整条排除而非只跳效果 —— 否则留下「残响扑了过来」却无敌可打的幻影战斗叙事。
+    //   context.kaleido 仅由 kaleido 调用点传入 → 多人局候选集逐字节不变。
+    if (context?.kaleido && hasBattleSpawn(event)) continue
 
     const h = history[event.id] || { count: 0, lastTurn: -Infinity }
     if (event.once && h.count > 0) continue
@@ -98,6 +105,11 @@ export async function processEventTrigger(client, resolution, userId, triggerTyp
   await applyEventEffects(client, picked, resolution, userId, context)
 
   return picked
+}
+
+// 事件是否含刷怪效果（spawn_npc / trigger_battle）—— kaleido 排除口径。
+function hasBattleSpawn(event) {
+  return (event?.effects || []).some((e) => e?.type === 'spawn_npc' || e?.type === 'trigger_battle')
 }
 
 // ── 触发匹配 ──────────────────────────────
@@ -270,6 +282,9 @@ async function applyOneEffect(client, effect, player, gv, context, userId) {
 
     case 'spawn_npc':
     case 'trigger_battle': {
+      // KALEIDO 双保险：候选集已整条排除（processEventTrigger），此处再兜一层空转，
+      //   防今后有人绕开候选过滤直调本函数时把 legacy battle 写进 kaleido 局。
+      if (context?.kaleido) return {}
       // 优先按 entity_type 从 npc_pool 加权抽取
       let npc = null
       if (effect.entity_type && client) {

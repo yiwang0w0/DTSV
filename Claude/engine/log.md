@@ -2,6 +2,20 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-22 / 🔧 ✅ D3 逐关规则覆盖 + legacy battle 软锁根治 —— E2E 56/56×3 连绿·build 绿）
+
+- **✅ D3 mergeGameRules 落地（🧭 解冻令放行）**：seq3-5 规则关的逐关覆盖链打通。
+  - 新纯模块 [kaleido/rules.js](src/lib/server/kaleido/rules.js)：`mergeGameRules(global, envRules, formulaOverrides)`；白名单 `FORMULA_OVERRIDE_KEYS = {damage:[damage_formula,atk_base_multiplier], defense:[def_base_multiplier], crit:[crit_rate,crit_multiplier]}`，名单外键静默忽略 + warn。
+  - **接线三处**：`chamberToNode` 带 `kaleidoEnvRules/kaleidoFormulaOverrides` 到运行时 node；`sampleRun` seedMatch 取 `payload.env_rules/formula_overrides`；`buildLevelRows` 由 node 写回 levels 行（**此前恒空 → 作者写的覆盖等于丢弃**）。消费点 = `resolveNpcAttackAction`（战斗结算前合出本次 rules）。
+  - **⚠ 派单更正（实测·已报 🧭）**：原派单要求「入关 `clearRulesCache` 调用点」——**实测错误，未采纳**。`loadGameRules` 是**进程级全局 memo 单例**（gameEngine.js:19·无 TTL·kaleido/多人/admin 共享同一对象身份），而逐关覆盖来自 **node（内存）不来自 DB**：清缓存不会带来逐关值，只会造成**跨房全局副作用**（所有房下次重查库）。改为「每次消费合出新对象、绝不写回 `_rulesCache`」；无覆盖时**原样返回同一身份** → 未覆盖关/多人局零拷贝零变化。
+- **✅ legacy `battle` 软锁根治（本次真正的收获·E2E §③ 偶发红的真因）**：
+  - **症状**：D3 期间 E2E 由 48/48 掉到 49/53，4 红全在 §③(hook① 种子掉落)，且**两次红的形态不同**（一次 0 件、一次 1 件），随后 3 次复跑又全绿 —— 典型 flaky gate。
+  - **定位**：加 env 门控探针打 drain 前置条件 → 逐条排除（种子内容未变/node 携带 deck 正确/item_pool id 全在/查询无错），最后定位到 drain **上游**：事件系统 `on_search` 的 `spawn_npc`/`trigger_battle` 效果会置 `player.battle`（legacy 字段），而 `resolveSearchAction` 在 `if (afterEvent.battle)` 处早返 —— **kaleido 无人消费该字段**（战斗走 encounter），置位后**此后每次 search 全部空转**：hook① guaranteed 哑火 + 零产出 + 「残响扑了过来」却无敌可打的幻影叙事。**这是 LW-1 同级软锁，不是测试问题。** 触发条件 = 采样关 templateId 落在 2/3（event_pool id 2/4/5 挂刷怪效果）→ 随房随机 ⟹ 偶发红。
+  - **修**：①**源头**（events.js·`processEventTrigger`）kaleido 候选集**整条排除**含 `spawn_npc`/`trigger_battle` 的事件（整条而非只跳效果：否则留幻影叙事）；②`applyOneEffect` 同类效果加 kaleido 空转双保险；③`resolveSearchAction` 兜底：kaleido 局遇脏 `battle` **清字段续算**而非早返（兼容已被历史局写脏的存量房）。
+  - **多人局逐字节不变自证**：`context.kaleido` 仅由 3 个 kaleido 调用点传 `isKaleidoRoom(room)` → 多人恒 false，候选集/效果/早返分支全走原路径；smoke ✓ + build ✓。
+- **E2E 扩到 56 断言**：+§⑦ D3 五条（纯函数四条：无覆盖同一身份/env 生效不污染原对象/白名单内生效/名单外忽略 + 集成一条：注入 `crit_rate=1,crit_multiplier=10` → seq2 wave-1 一击毙）；+§⑧ 软锁三条（**注入脏 battle** 确定性复现：清字段不早返 / 脏态下 guaranteed 仍投放 / 连续动作后不再被事件重新置位）。**连跑 3 次 56/56**（原 flaky 场景）。
+- **待办/在途**：📖 欠 B4 三 nar_line（`loadout_panel`/`prep_readout`/`convergence_preview` 现为空串占位）；⚙️ `prep_readout` 数值口径已给待接；**`stance_duel`(seq3) 自带 `hit()` 不读 game_rules ⟹ 逐关 damage 覆盖在该关静默不生效**（已报 🧭·D3 边界）。
+
 ## 最近变更（2026-07-08 / 🔧 ✅ hook① 内容注入消费器落地 —— AVG A1 阻塞已清·E2E 36/36·build 绿）
 
 - **✅ hook① 上 main（`e97c91d`）**：AVG 垂直切片(10-avg)唯一阻塞 A1。5 件 + 校验:

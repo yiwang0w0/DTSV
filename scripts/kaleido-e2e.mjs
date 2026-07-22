@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { startKaleidoRun, executeGameAction, advanceKaleidoProgress, applyKaleidoPostAction } from '../src/lib/server/gameActions.js'
 import { isKaleidoRoom } from '../src/lib/roomState.js'
+import { mergeGameRules } from '../src/lib/server/kaleido/rules.js'
 
 function loadEnv() {
   for (const p of ['.env.local', 'D:/Fragments/DTSV/.env.local']) {
@@ -312,6 +313,67 @@ try {
   const { data: bEv } = await sb.from('player_events').select('verb,payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
   ck('B4/gap:loadout_panel 未解锁(触发已实现·待 ⚙️ 内容就位)', !(bEv || []).some((e) => e.payload?.ui_key === 'loadout_panel'), JSON.stringify((bEv || []).map((e) => e.payload?.ui_key)))
 } catch (e) { ck('B4 loadout_panel 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑦ D3 逐关规则覆盖(mergeGameRules 纯函数 + node 注入集成)═══
+try {
+  // (a) 纯函数语义:无覆盖→同一身份(零行为变化)/ env 生效且不改原对象 / 白名单内生效 / 白名单外忽略
+  const g = { damage_formula: 'atk * atkMultiplier - def * defMultiplier', crit_rate: 0.1, search_item_chance: 0.5 }
+  ck('D3:无覆盖返回同一对象(零拷贝·零行为变化)', mergeGameRules(g, [], []) === g, 'same identity')
+  const m1 = mergeGameRules(g, [{ key: 'search_item_chance', value: 0.9 }], [])
+  ck('D3:env_rules 覆盖生效且不污染原对象', m1.search_item_chance === 0.9 && g.search_item_chance === 0.5, JSON.stringify({ merged: m1.search_item_chance, global: g.search_item_chance }))
+  const m2 = mergeGameRules(g, [], [{ key: 'crit_rate', value: 1 }, { key: 'player_attack_accuracy', value: 0 }])
+  ck('D3:formula_override 白名单内生效(crit_rate)', m2.crit_rate === 1, String(m2.crit_rate))
+  ck('D3:白名单外键被忽略(player_attack_accuracy 不可覆盖)', m2.player_attack_accuracy === undefined, String(m2.player_attack_accuracy))
+
+  // (b) 集成:把 formula_override 注入 run 的 seq2 node → 富战斗按覆盖结算(必暴击×10 → 9 伤变 90 → 18hp 敌一击毙)
+  const u = mkUser('d3'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  let s = 0
+  while (clearedSeq(room) < 1 && s < 12) { room = await act(u, roomId, 'search'); s++ } // 清 seq1
+  room = await act(u, roomId, 'move') // 进 seq2(wave-1 18hp)
+  const encId = room?.gamevars?.players?.[u.id]?.encounter?.instanceId
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.raidPath[1].kaleidoFormulaOverrides = [{ key: 'crit_rate', value: 1 }, { key: 'crit_multiplier', value: 10 }]
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  let dead = false
+  for (let a = 0; a < 3 && !dead; a++) { // 命中率 0.85 → 最多 3 击兜底(全 miss 概率 0.3%)
+    room = await act(u, roomId, 'attackNpc')
+    dead = !(room?.gamevars?.npcInstances || []).some((i) => i.id === encId && i.hp > 0)
+  }
+  ck('D3:逐关 formula_override 真生效(必暴击×10 → wave-1 一击毙)', dead, JSON.stringify({ encId, dead }))
+} catch (e) { ck('D3 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
+// ═══ ⑧ legacy battle 软锁根治(2026-07-22·§③ 偶发红真因)═══
+//   事件系统 on_search/on_enter_map 的 spawn_npc/trigger_battle 会置 player.battle(legacy 字段)。
+//   kaleido 无人消费该字段(战斗走 encounter),而 resolveSearchAction 在 `if (afterEvent.battle)` 早返
+//   → 置位后**此后每次 search 全部空转**:hook① guaranteed 哑火 + 零产出(软锁·LW-1 同级)。
+//   本节把「字段已脏」这一存量态直接注入,验证 kaleido 清字段续算(而非早返)——确定性,不靠事件随机。
+try {
+  const u = mkUser('battlelock'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  // 注入脏 battle 字段(模拟历史局/绕过源头拦截的写入)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.players[u.id].battle = { npc: { name: '幻影残响', hp: 30 }, npcHp: 30, npcMaxHp: 30, turn: 1, log: [] }
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  let room = await act(u, roomId, 'search')
+  const meB = room?.gamevars?.players?.[u.id]
+  ck('软锁:kaleido search 清 legacy battle 字段(不早返)', !meB?.battle, JSON.stringify(meB?.battle))
+  ck('软锁:battle 脏态下 hook① guaranteed 仍投放(硬保证不被软锁吃掉)',
+    (meB?.inventory || []).length > 0 && Array.isArray(room?.gamevars?.kaleido?.consumedEventDeck?.[0]),
+    JSON.stringify({ inv: meB?.inventory, consumed: room?.gamevars?.kaleido?.consumedEventDeck }))
+  // 源头:kaleido 候选集排除含 spawn_npc/trigger_battle 的事件 → 连搜 6 次不得再出现 battle
+  let relock = false
+  for (let i = 0; i < 6 && !relock; i++) {
+    room = await act(u, roomId, 'search')
+    if (room?.gamevars?.players?.[u.id]?.battle) relock = true
+    // 过关就进下一关继续搜(换 templateId 换事件池);未达成则门禁拒绝——留在原关继续搜即可
+    try { room = await act(u, roomId, 'move') } catch { /* 本关目标未达成:正常,继续搜 */ }
+  }
+  ck('源头:kaleido 事件不再刷 legacy battle(连续动作后仍为空)', !relock, String(relock))
+} catch (e) { ck('⑧ battle 软锁执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
