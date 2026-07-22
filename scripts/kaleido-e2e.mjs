@@ -454,6 +454,33 @@ finally {
   }
 }
 
+// ═══ ⑪ 账号集 fail-closed 闸门(2026-07-22 · 防「一次读抖动裁小老玩家账号列」)═══
+//   背景:applyKaleidoPostAction 对 profiles.ui_unlocks 是**无条件全列覆盖写**,基底是开局读到的账号集。
+//   若开局读失败回落空集,覆盖写会把老玩家的账号集永久裁成 ['search_btn'] ∪ 本 run 新键(不可逆)。
+//   现改 fail-closed:读失败标 gamevars.kaleido.accountReadFailed → 本 run 跳过 profiles 写。
+//   ⚠ 可测性边界(诚实标注):E2E 用的是**纯内存随机 uid**,而 profiles.id 有 FK → auth.users,
+//     故本脚本**无法**构造真 profiles 行,账号列的写/不写没有自动化网(需 🔒 裁 E2E 能否碰 auth 表)。
+//     此处只钉两件可测的:①正常 run 不带该标记(不误伤);②带标记时解锁仍在房内正常推进(不阻断玩法)。
+try {
+  const u = mkUser('failclosed'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  let room = await getRoom(roomId)
+  ck('fail-closed:正常 run 不带 accountReadFailed 标记(kaleido 块逐字节同旧)',
+    room?.gamevars?.kaleido?.accountReadFailed === undefined, JSON.stringify(room?.gamevars?.kaleido))
+  // 注入标记 → 模拟「开局读账号集失败」的 run,验证解锁链不被闸门阻断(只是不落账号列)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    r.gamevars.kaleido.accountReadFailed = true
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  room = await act(u, roomId, 'search')
+  const me = room?.gamevars?.players?.[u.id]
+  ck('fail-closed:标记态下房内解锁仍推进(闸门只挡账号列,不挡玩法)',
+    Array.isArray(me?.uiUnlocks) && me.uiUnlocks.includes('hp_bar') && me.uiUnlocks.includes('log_panel'),
+    JSON.stringify(me?.uiUnlocks))
+  const { data: fEv } = await sb.from('player_events').select('payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
+  ck('fail-closed:标记态下 ui_unlock 事件照发(遥测不丢)', (fEv || []).length > 0, JSON.stringify((fEv || []).map((e) => e.payload?.ui_key)))
+} catch (e) { ck('⑪ fail-closed 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
 console.log('E2E_ASSERTIONS=' + JSON.stringify(A, null, 1))

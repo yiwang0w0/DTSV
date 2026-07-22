@@ -2,6 +2,15 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-22c / 🔧 ✅ 账号集 fail-closed 修（自查出的数据丢失级 bug）—— E2E 68/68·build 绿）
+
+> 来源：教义(doc 11)架构评估的地面取证顺带查出的**现网 bug**，与教义本身无关，独立修复先行。
+
+- **🩸 Bug：一次 profiles 读抖动会永久裁小老玩家的账号解锁集**。链路：`startKaleidoRun` 读 `profiles.ui_unlocks` 失败 → 回落空集 → 本 run 的 `uiUnlocks` 只剩 `['search_btn']` → `applyKaleidoPostAction` 对该列是**无条件全列覆盖写**(`merged = 本 run 集 ∪ 新键`) → 老玩家账号集被覆盖成「种子 + 本 run 那 2-3 个键」，**不可逆**。
+  - **更糟的一层(我自己写错的)**：supabase-js 是**返回** `{data, error}` 而非 throw ⇒ 原来的 `try/catch` 只兜网络级异常，**普通查询错误连日志都不打**，静默回落。
+- **修 = fail-closed**：显式接 `error` → 标 `gamevars.kaleido.accountReadFailed` → 该 run **跳过 profiles 写**（房内解锁照常推进、事件照发，只是不落账号列；下个 run 读成功即自然恢复）。「行不存在且无 error」= 新玩家正常态，**不算失败**，照常可写。写入侧也补了 `error` 显式接收（原来同样静默）。标记走**条件展开**，正常 run 的 `kaleido` 块逐字节同旧。
+- **E2E 65→68**：+§⑪ 三条（正常 run 不带标记 / 标记态下房内解锁仍推进 / 标记态下事件照发）。**诚实标注可测性边界**：E2E 用纯内存随机 uid，而 `profiles.id` 有 FK → `auth.users`，故**无法构造真 profiles 行** ⇒ 账号列的写/不写没有自动化网（需 🔒 裁 E2E 能否碰 auth 表）。§⑪ 只钉「不误伤 + 不阻断」两件可测的。
+
 ## 最近变更（2026-07-22b / 🔧 ✅ maxHpDelta 钩子 + B4 nar_line 接线 + 终态分支钉死 —— E2E 65/65·build 绿）
 
 - **✅ maxHpDelta 钩子（🧭 裁决 a·解 ⚙️ 扩容件与 08 §4 战力预算）**：

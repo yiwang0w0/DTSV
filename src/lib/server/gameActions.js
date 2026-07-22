@@ -2721,11 +2721,26 @@ export async function startKaleidoRun(client, user) {
     // KALEIDO 渐进披露 seed(06 §3.5)：run 起始镜像账号级已解锁集(跨 run 继承·元进度·兼容 R8/R9)。
     //   Commit B：读 profiles.ui_unlocks(缺行/空则回落)并 UI_SEED(['search_btn'])。client=createServerSupabase()=service_role
     //   → 过 kaleido-ui-unlocks-guard.sql 列级守卫白名单(此处只读;写在 applyKaleidoPostAction)。
+    //   ⚠ 读失败必须 **fail-closed**(2026-07-22 修):本函数读账号集,而 applyKaleidoPostAction 是
+    //   **无条件全列覆盖写**(merged = 本 run 集 ∪ 新键)。若读抖动回落空集,老玩家账号列会被本 run
+    //   覆盖成 ['search_btn'] ∪ 本 run 新键 —— **永久裁小,不可逆**。故读失败时标记 accountReadFailed,
+    //   本 run 只在内存/房内推进解锁,**禁写 profiles**(下个 run 读成功即自然恢复)。
+    //   注:supabase-js 是**返回** { data, error } 而非 throw ⇒ 必须显式接 error,catch 只兜网络级异常。
+    //   「行不存在」(prof==null 且无 error)= 新玩家正常态,不算失败,照常可写。
     let accountUnlocks = []
+    let accountReadFailed = false
     try {
-      const { data: prof } = await client.from('profiles').select('ui_unlocks').eq('id', user.id).maybeSingle()
-      if (Array.isArray(prof?.ui_unlocks)) accountUnlocks = prof.ui_unlocks.filter((k) => typeof k === 'string')
-    } catch (e) { console.error('[kaleido] profiles.ui_unlocks 读取失败(回落种子):', e?.message) }
+      const { data: prof, error: profErr } = await client.from('profiles').select('ui_unlocks').eq('id', user.id).maybeSingle()
+      if (profErr) {
+        accountReadFailed = true
+        console.error('[kaleido] profiles.ui_unlocks 读取失败(本 run 禁写账号列·防裁小):', profErr.message)
+      } else if (Array.isArray(prof?.ui_unlocks)) {
+        accountUnlocks = prof.ui_unlocks.filter((k) => typeof k === 'string')
+      }
+    } catch (e) {
+      accountReadFailed = true
+      console.error('[kaleido] profiles.ui_unlocks 读取异常(本 run 禁写账号列·防裁小):', e?.message)
+    }
     const seedUnlocks = Array.from(new Set([...UI_SEED, ...accountUnlocks])).sort()
     const player = createPlayerState(user, { ...getInitPlayerStats(rules), uiUnlocks: seedUnlocks })
     const gamevars = normalizeGamevars(room.gamevars)
@@ -2733,7 +2748,8 @@ export async function startKaleidoRun(client, user) {
       ...gamevars,
       players: { ...gamevars.players, [user.id]: player },
       raidPath: nodes,
-      kaleido: { runId: run.run_id, currentSeq: 1, clearedSeq: 0 },
+      //   accountReadFailed 只在读失败时**出现**(条件展开):正常 run 的 kaleido 块逐字节同旧。
+      kaleido: { runId: run.run_id, currentSeq: 1, clearedSeq: 0, ...(accountReadFailed ? { accountReadFailed: true } : {}) },
     }
     const nextRoom = await persistRoom(client, room, nextGamevars, [
       createLogEntry(`${getDisplayName(user)} 进入万华镜 · 第 1/${KALEIDO.LEVEL_COUNT} 关「${nodes[0].name}」`, 'system'),
@@ -2957,9 +2973,16 @@ export async function applyKaleidoPostAction(client, room, user, action, preCont
         // Commit B：账号持久 —— merged(账号种子 ∪ 本 run 已解锁 ∪ 新键·单调只增)写回 profiles.ui_unlocks。
         //   client=service_role → 过列级守卫(kaleido-ui-unlocks-guard.sql:authenticated 改此列拒/service_role 通)。
         //   全集覆盖(非增量读改写)天然幂等·永不缩;失败仅记错不阻断(下解锁动作以 merged 再写补上)。
-        try {
-          await client.from('profiles').update({ ui_unlocks: merged }).eq('id', user.id)
-        } catch (e) { console.error('[kaleido] profiles.ui_unlocks 持久化失败(不阻断·下动作补写):', e?.message) }
+        //   ⚠ fail-closed 闸门(2026-07-22):开局读账号集失败过 ⇒ merged 的基底是**残缺的**,此时全列覆盖
+        //   会把老玩家账号集永久裁小。故本 run 只在房内推进,不落账号列(下个 run 读成功即恢复)。
+        if (kal.accountReadFailed) {
+          console.warn('[kaleido] 本 run 开局账号集读取失败 → 跳过 profiles.ui_unlocks 写(防裁小);解锁仅在房内生效')
+        } else {
+          try {
+            const { error: upErr } = await client.from('profiles').update({ ui_unlocks: merged }).eq('id', user.id)
+            if (upErr) console.error('[kaleido] profiles.ui_unlocks 持久化失败(不阻断·下动作补写):', upErr.message)
+          } catch (e) { console.error('[kaleido] profiles.ui_unlocks 持久化异常(不阻断·下动作补写):', e?.message) }
+        }
       } catch (e) {
         console.error('[kaleido] uiUnlocks 持久化失败(下动作重判):', e?.message)
         // 不发 unlock 事件/不下发 unlockEvents → 幂等,下动作重新检测+持久化。
