@@ -1,5 +1,21 @@
 # 🎨 前端轨 · 变更日志(倒序置顶)
 
+## 2026-07-22 · 🎨 AVG 复刻 P1:真数据接线 + 登录直进 KALEIDO + 180ms 触发源重做
+
+> 方向沿革（🧭 两次更正）：自建 AVG 壳作废 → 改以 GPT 分支实现为**样板复刻**（主线仍是我方六轨 · Vercel/Next，**不引入 vinext/Vite**）。关键发现：GPT **没有推倒我的原型，是在它上面扩写** —— 冷开场/revealPiece/commitSearch/战斗覆盖/规则闸门/lineStyle/DevBtn 逐字节存活；且其呈现层**零构建栈绑定**（只用 next/dynamic·next/navigation·react hooks·我方模块·纯 CSS）—— 我用仓库里还在的 Next 14.2.21 + React 18.3.1 直接 build 通过即为证，这条证据被 🧭 用来把主线构建栈拉回 Next（`e917266`）。
+
+- **P1 真数据接线**：`KaleidoAvgView` 加一套**全可选** props（`unlocks`/`logs`/`me`/`encounter`/`combatMode`/`envRules`/`formulaOverrides`/`onSearch`/`onAttack`/`onRelease`/`busy`/`canAct`），`const live = Boolean(unlocks)` 分流 —— 缺省即回落内部预览 sim，`/play`（frontend-only）随时可验手感不受影响。真 logs/narLog 追加进舞台、`justUnlocked` 走因果两拍、`combatView` 归一（真 `encounterInstance` 是 `{hp,maxHp,npc:{name,atk,def}}`，sim 是扁平结构）。冷开场收尾一次性同步「进局时已解锁集」并把游标推到历史末尾（首 run 只有 search_btn；veteran 满 UI 也在这一拍落定 = B1 一次性惊艳开场）。
+- **登录直进 KALEIDO**（`d195633` · Kanata 线上实测提的：登录后首页仍要手点「立即进入」，且点进去是**多人房**不是 KALEIDO run）：
+  - `src/app/page.js`：登录态进首页即触发 `beginGameEntry`；loading/登录态渲染纯底色幕不闪 Hero。
+  - `RootShell`：`beginGameEntry` 一开始就**并行**发起 `/api/kaleido/run` 预热（幂等自愈：active 续接 / ended 开新），转场 navigate 那拍消费 → `router.replace('/game/<roomId>?kaleido=1')`。
+  - `GameClientPage` kaleido 早返回改渲染 `KaleidoAvgView`，并把 `KaleidoLevelClearBanner`/`KaleidoConvergenceScreen` 两个 fixed overlay **一并挂上**（本排在 P5，但直接切 AVG 会丢终局呈现 ⇒ 提前并入）。
+  - ⚠ 两条纪律写进代码注释：①**绝不挂 `onAuthStateChange` 做跳转**（token 刷新/切 tab 都会 fire，会把人从 admin/账户库/多人页强拽进 run·砸全站）—— 只在首页这一次性入口触发；②**逃生路径**：顶栏保留、run 创建失败一律兜到 `/rooms`。
+  - 多人零回归：改动全落在 `if (isKaleido)` 早返回块内（diff hunk 全在 1106-1183），下方 3 栏壳 return 一字未动。
+- **180ms 停顿触发源重做**（`cd6153f` · 🧭 裁决）：主判据 = **含 hp_bar 那一批的最后一条 nar** 打 `settlesFirstSearch` → 复用 sim 路径**同一个** handler（不引入第二套语义）；跨批交错 = 真数据行入**播放队列**（计数·animationend 出队），「锚点已结束 **且** 队列排空」才放行；原去抖降级为**纯兜底**（700→1800ms 并注明不作主判据）。顺手加 `currentTarget===target` 守卫，挡行内 `kaleido-inline-action-arm` 子元素冒泡误触发。
+- **新技巧 · 冻结环境下怎么验动画驱动的编舞**：浏览器面板 tab 恒 `visibilityState:hidden` ⇒ CSS 动画被**冻结**（行的 `playState` 卡在 running 30s+·`animationend` 一次都不派发）、`setTimeout` 也被节流（2000ms 实测 2928ms）。⟹ 时序测量在此环境**天然失真**（首测「最后一行→docked=2439ms」量到的其实是兜底在兜）。解法：**按 delay 值拦掉兜底**（`window.setTimeout` 包一层丢弃 `ms===1800`/`2600`）**+ 合成 `AnimationEvent('animationend',{bubbles:true})` 精确驱动** —— live：①只放锚点→false ②再等 1200ms 仍 false（队列门生效）③排空→④true；sim：全部新行 animationend→true（`playing` 恒 0·与改造前一致）。反向证据：不拦兜底且无任何 animationend 时流程仍在 ~2.4s 被救回、**不死锁**。
+- **遗留 / 待接**：① P2 = 文案（`AWAKEN_LINES`/`OPENING_NAR`/`NAR`/`STATUS_PROMPT`/`SEARCH_LOGS`）挪数据层 + `action:{word,uiKey}`；② P3 = 补齐后段 ui_key（**背包按 🧭 裁决 A 跳过**·守 GPT 契约开局不显示；12 项按 🔧 B4 已扩到 15 项对齐）；③ P4 窄屏/移动化 `is-docked`；④ P5 剩余挂载；⑤ P6 `/play` 与 `/game/[id]` 收敛路径（先别动）。
+- **两个悬而未决（已送 🧭）**：① `docs/plan/kaleido/11-diegetic-ui-doctrine.md` §2 推论禁「——已开放：XXX」宣告式，我本地 stub 文案表全是该格式；§5 又派给 🎨「隐蔽度可配·提示等级数据化」⇒ P2 的 `action` 是否一次到位扩成 `{word,uiKey,hint}`。② hp_bar 文案冲突：📖 N3 定稿该行**无可点词**，GPT `STATUS_PROMPT` 有「状态」交互词，而 `interaction:'status'` 分支会整行改渲染 ⇒ 真数据模式下**覆盖掉服务端 nar 显示文本**、与「服务端权威」相悖。倾向请 📖 补一条带交互词的 hp_bar nar。
+
 ## 2026-07-15 · 🎨 KALEIDO AVG 呈现骨架:可行性研究 → 垂直切片原型
 
 - **前端可行性研究**（🧭 命题·3 角度并行调研 + 综合·送 🧭）：判定=**改造非推倒**（解锁引擎 100% 呈现无关·~3-5 人天·冲击收敛在 KaleidoRunView render 层）。形态=文字流逐段淡入（非打字机作主体）+ UI 件材质化 + **nar_line→件 因果两拍** + 转场混合（黑幕基线 + pollution shader 坍缩增强）。落地=Kanata 拍板见 `docs/plan/kaleido/10-avg-vertical-slice.md`。
