@@ -72,7 +72,8 @@
 
 ## 5. 方向调整(2026-07-22 · Kanata 拍板:**复刻 GPT 呈现,主线仍在我方**)
 
-**背景**:GPT 侧在 main 上推了 20 条(`97e95bd..b78ec93`,fast-forward 叠在我方工作之上·我方提交零丢失),已实现:
+**背景**:GPT 侧在 main 上推了 **19 条**(`3387077..b78ec93`,fast-forward 叠在我方工作之上·我方提交零丢失),已实现:
+> ⚠ 归因订正(🔧 查证·2026-07-22):原文写「20 条 / `97e95bd..b78ec93`」有误——该区间**含我方自有提交** `3387077`(🔧 待命锚点,GPT 推送前已进 main)。凡按该区间得出的「GPT 改了 X」结论均须以 `3387077..b78ec93` 复核。
 - **登录直进 run**(`src/app/play/page.js` + login/register 跳转改)、**解码入场转场**(`src/components/EntryTransition.jsx`)、**首页纯入口**
 - **渐进 UI**:状态/体力**从对话浮现** → 对话停驻后**文字原位变按钮** → 体力在状况面板内展开(commit `f151924`/`76ca496`/`7a84fdf`)
 - **项目改名「远星」**(`8a38df7`)、frontend-only 预览模式(`src/lib/runtimeMode.js`)
@@ -101,4 +102,4 @@
 
 1. **构建栈/部署走向未定**:线上 `dtsv.vercel.app` 仍是旧版(顶栏仍「远星函馆」),GPT 新构建未上线——`vinext build` 与 Vercel 的兼容性存疑。走 Vercel(Next)还是 Cloudflare/Sites 待定。
 2. **skill 冲突条**:`.agents/skills/build-progressive-game-ui/SKILL.md` 要求「更新 `Readme_GPT`」——**与我方铁律冲突**(Readme_GPT 只读不改)。我方一律**跳过该条**,长期交互原则写入 `Claude/frontend/`。
-3. GPT 修改了 `Claude/engine/log.md`(3 行,内容无害)——对称铁律提示,已记录不追究。
+3. ~~GPT 修改了 `Claude/engine/log.md`~~ —— **该条撤销**(🔧 查证:`3387077..b78ec93` 区间内 GPT **未碰**任何 Claude 侧文档;原命中的 log.md 改动是 🔧 自己的待命锚点提交 `3387077`,被我方区间口径误归因)。**不存在对称铁律事件。**

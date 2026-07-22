@@ -21,7 +21,7 @@
 
 ## ⚠⚠ 分工重划(2026-07-22 · Kanata 拍板「A:GPT 呈现层为主」· 全轨必读)
 
-GPT 侧在 main 推了 20 条(`97e95bd..b78ec93`·fast-forward·**我方提交零丢失**),已实现登录直进 run(`/play`)+ 解码入场转场 + 首页纯入口 + **渐进 UI(状态/体力从对话浮现 · 文字原位变按钮)** + 项目改名**「远星」** + **构建栈换 vinext/Vite8/Cloudflare Worker(Next 14→16 · OpenAI Sites 托管)** + **改写 KaleidoAvgView(408 行)** + 新 skill `.agents/skills/build-progressive-game-ui/`。
+GPT 侧在 main 推了 **19 条**(`3387077..b78ec93`·fast-forward·**我方提交零丢失**;⚠ 原记「20 条/`97e95bd..`」误含我方 `3387077`,🔧 查证订正,**GPT 未碰任何 Claude 侧文档**),已实现登录直进 run(`/play`)+ 解码入场转场 + 首页纯入口 + **渐进 UI(状态/体力从对话浮现 · 文字原位变按钮)** + 项目改名**「远星」** + **构建栈换 vinext/Vite8/Cloudflare Worker(Next 14→16 · OpenAI Sites 托管)** + **改写 KaleidoAvgView(408 行)** + 新 skill `.agents/skills/build-progressive-game-ui/`。
 
 **Kanata 拍板**:**主线 = 我方六轨,部署继续走 Vercel;GPT = 分支同步开发**(其实现是**参考样板**,不交出任何域的所有权)。**呈现层仍归 🎨,但以 GPT 的操作流程与呈现效果为复刻目标**——照它的操作/呈现做,在我方主线实现、接我方 ui_unlocks 真数据。底层不变:🔧 引擎 · ⚙️ 内容数值 · 📖 叙事 · 🔒 安全(GPT 均未碰)。详见 `docs/plan/kaleido/10-avg-vertical-slice.md §5`。
 - 🎨 首个动作 = 读 GPT 实现 + skill → 产出**复刻方案**(哪些照搬/哪些适配我方 ui_unlocks) → 在主线实现;取景框原型的呈现骨架成果**保留**,按样板校准后并入。
