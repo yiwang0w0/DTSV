@@ -26,6 +26,7 @@ export default function KaleidoPreviewPage() {
   const [mode, setMode] = useState('avg')
   const [avgKey, setAvgKey] = useState(0) // 重放 AVG 冷开场
   const [avgLive, setAvgLive] = useState(false) // P1：AVG 吃真 ui_unlocks 数据 vs 内部预览 sim
+  const [avgResuming, setAvgResuming] = useState(false) // Bug③：模拟「再进」——跳觉醒行、直接延续
 
   // 谐调器：一组布尔驱动渐进披露（镜像 buildUnlockCtx 的 ctx 形状）。
   const [sim, setSim] = useState({
@@ -78,6 +79,14 @@ export default function KaleidoPreviewPage() {
               >
                 {avgLive ? '✓ 真数据模式（ui_unlocks 驱动）' : '○ 预览兜底模式（内部 sim）'}
               </button>
+              {/* Bug③：冷开场只播一次。开=模拟「再进」(跳觉醒行·直接延续)，关=账号首次醒来(完整冷开场)。 */}
+              <button
+                onClick={() => { setAvgResuming((v) => !v); setAvgKey((k) => k + 1) }}
+                style={{ padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+                  border: `1px solid ${avgResuming ? T.cyan + '66' : T.border}`, background: avgResuming ? `${T.cyan}18` : T.bg2, color: avgResuming ? T.cyan : T.text }}
+              >
+                {avgResuming ? '✓ 再进（延续·跳觉醒行）' : '○ 账号首次醒来（完整冷开场）'}
+              </button>
               {avgLive && (
                 <div style={{ fontSize: 11, color: T.dim2, lineHeight: 1.6, borderLeft: `2px solid ${T.green}55`, paddingLeft: 8 }}>
                   AVG 现在吃 <b>真 useKaleidoUiUnlocks</b>：舞台文字来自 logs + narLog，浮现由 justUnlocked 走因果两拍。
@@ -95,8 +104,9 @@ export default function KaleidoPreviewPage() {
             <div style={{ width: 390, height: 844, border: `1px solid ${avgLive ? T.green + '55' : T.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
               {avgLive ? (
                 <KaleidoAvgView
-                  key={`live-${avgKey}`}
+                  key={`live-${avgKey}-${avgResuming}`}
                   showDevControls
+                  resuming={avgResuming}
                   unlocks={unlocks}
                   logs={sim.logs}
                   me={{ hp: 78, maxHp: 100, stamina: 72, maxStamina: 100, atk: 22, def: 9 }}
@@ -111,7 +121,7 @@ export default function KaleidoPreviewPage() {
                   onExit={() => pushLog('（dev）切断信号 —— 线上此处 router.push("/rooms")。', 'system')}
                 />
               ) : (
-                <KaleidoAvgView key={avgKey} showDevControls />
+                <KaleidoAvgView key={`${avgKey}-${avgResuming}`} showDevControls resuming={avgResuming} />
               )}
             </div>
           </div>

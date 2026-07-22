@@ -17,6 +17,7 @@ import ItemCraftModal from './ItemCraftModal'
 import KaleidoAvgView from './kaleido/KaleidoAvgView'
 import { KaleidoConvergenceScreen, KaleidoLevelClearBanner } from './kaleido/kaleidoShell'
 import { useKaleidoUiUnlocks, buildUnlockCtx } from './kaleido/useKaleidoUiUnlocks'
+import { readServerUnlocks } from './kaleido/kaleidoUiUnlocks'
 import ResponsiveGameLayout from './ResponsiveGameLayout'
 import LootModal from './LootModal'
 import ExtractionModal from './ExtractionModal'
@@ -426,6 +427,17 @@ export default function GameClientPage() {
     [isKaleido, gamevars, me, kaleidoNode],
   )
   const kaleidoUnlocks = useKaleidoUiUnlocks(kaleidoUnlockCtx, { enabled: isKaleido })
+
+  // 🐛 Bug③：冷开场（觉醒行）只属于**账号首次醒来**，再进要延续而不是重播。
+  //   判据用现成信号（🧭 方向·不劳 🔧 加字段）：
+  //     ① 账号级 `uiUnlocks` 已含种子 search_btn 之外的 key ⇒ 至少搜过一次 ⇒ 必然见过觉醒行；
+  //     ② 本 run 已行动过（turnCount>0）⇒ 是「回到进行中的 run」，无论解锁集如何都该延续。
+  //   ⚠ 已知边界（已报 🧭）：**首次进、一次都没搜就退出** ⇒ 两个信号都为假 ⇒ 再进仍会重播。
+  //     刻意让它**朝重播的方向失败** —— 错误地跳过会永久吞掉全局最有分量的一次开场，
+  //     而错误地重播只是多看一遍；不对称，所以取保守侧。彻底修需要 🔧 给显式 `hasSeenAwakening`。
+  const kaleidoResuming = isKaleido && (
+    readServerUnlocks(meBase).some((k) => k !== 'search_btn') || (meBase?.turnCount ?? 0) > 0
+  )
 
   // KP0-R-C C5：beacon 发射端 —— session_end(context) · 仅 kaleido 局。
   //   /api/kaleido/beacon 走 requireRequestUser（要 Bearer 头），navigator.sendBeacon 发不了头
@@ -1147,6 +1159,7 @@ export default function GameClientPage() {
             formulaOverrides={kaleidoNode?.formulaOverrides || []}
             busy={busy}
             canAct={!!me?.alive && room.gamestate !== 2 && !kaleidoEndStatus}
+            resuming={kaleidoResuming}
             onSearch={() => runGameAction('search')}
             onAttack={() => runGameAction('attackNpc')}
             onRelease={() => runGameAction('releaseEncounter')}

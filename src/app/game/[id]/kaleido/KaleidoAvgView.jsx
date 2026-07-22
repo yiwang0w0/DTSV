@@ -17,6 +17,7 @@ import {
   AVG_SEARCH_LOGS as SEARCH_LOGS,
   AVG_FIND_LOG as FIND_LOG,
   AVG_MOCK_ENEMY as MOCK_ENEMY,
+  AVG_RESUME_LINE,
   actionText,
   narFor,
   previewNarFor,
@@ -47,6 +48,8 @@ export default function KaleidoAvgView({
   combatMode, envRules, formulaOverrides, // 真关规则（门口告示卡用）
   onSearch: onSearchLive, onAttack: onAttackLive, onRelease: onReleaseLive,
   busy = false, canAct = true,
+  // Bug③：resuming=true ⇒ 跳过觉醒行、直接延续（判据由调用方给，见 GameClientPage）。
+  resuming = false,
   onExit, showDevControls = false,
 }) {
   const live = Boolean(unlocks) // 有解锁钩子 = 真数据模式；否则预览兜底
@@ -97,6 +100,7 @@ export default function KaleidoAvgView({
   const [coldOpenDone, setColdOpenDone] = useState(false) // 冷开场结束前不放真数据进舞台，免抢跑
   const unlocksRef = useRef(unlocks); unlocksRef.current = unlocks
   const logsRef = useRef(logs); logsRef.current = logs
+  const liveRef = useRef(live); liveRef.current = live
   const [statusStage, setStatusStage] = useState('hidden') // hidden → inline → flying → docked
   const [statusFlight, setStatusFlight] = useState(null)
   const [dialogFramed, setDialogFramed] = useState(false)
@@ -119,27 +123,52 @@ export default function KaleidoAvgView({
     }, narText ? NAR_DELAY : 0)
   }, [pushLine])
 
+  // 冷开场收尾共用的一拍：同步「进局时已解锁集」+ 把游标推过历史（此后只追加新增）。
+  const settleColdOpen = useCallback(() => {
+    setUnlocked((s) => {
+      const n = new Set(s)
+      const cur = unlocksRef.current
+      if (liveRef.current && cur?.unlocked) cur.unlocked.forEach((k) => n.add(k))
+      else n.add('search_btn')
+      return n
+    })
+    seenLogs.current = Array.isArray(logsRef.current) ? logsRef.current.length : 0
+    seenNar.current = unlocksRef.current?.narLog?.length || 0
+    setColdOpenDone(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── 冷开场序列(boot → awake):黑幕 → 觉醒行逐行淡入 → 开场行 → 搜索按钮浮现 ──
+  //   🐛 Bug③（Kanata：再进不该重播「很久没有回音了」）：觉醒行是**账号首次醒来**的叙事，
+  //     重播毁掉它的分量，也和 B1「veteran 一进局满 UI」自相矛盾（UI 都记得、叙事却失忆）。
+  //     ⇒ resuming=true 走「延续」分支：不播觉醒行、不重放状况读数的飞行编舞，直接落到已就位终态。
   useEffect(() => {
+    if (resuming) {
+      // 延续：一次性把编舞的**终态**摆好（这些 ref/state 正是首次那套流程跑完后的样子），
+      //   避免 hp_bar 已解锁触发 statusStage inline→flying→docked 把「首次惊艳」再演一遍。
+      statusMaterialized.current = true
+      statusSequenceStarted.current = true
+      dialogueSettleScheduled.current = true
+      setFirstSearchDialogueSettled(true)
+      setStatusStage('docked')
+      setDialogFramed(true)
+      setDialogDocked(true)
+      // 体力读数（状况的第二层）：唯一入口是 hp_bar 那行 nar 里的「状态」交互词，而再进不会重推那行 ⇒
+      //   若这里不摊开，体力读数将**永久不可达**。账号级 hp_bar 已解锁即视为已发现，取可达性优先。
+      setStaminaRevealed(true)
+      setStaminaExpanded(true)
+      setPhase('playing')
+      settleColdOpen()
+      later(() => pushLine(AVG_RESUME_LINE, 'nar'), 350) // 「回来了」（占位待 📖）
+      return () => { timers.current.forEach(clearTimeout); timers.current = [] }
+    }
     later(() => setPhase('awake'), 700) // 黑幕停顿(shader 坍缩在 CSS 里)
     let t = 1100
     AWAKEN_LINES.forEach((l) => { later(() => pushLine(l, 'awake'), t); t += 850 })
     later(() => pushLine(OPENING_NAR, 'nar'), t) // 开场行(=search_btn nar·零硬编码同源)
-    later(() => {
-      // 冷开场收尾：预览模式点亮搜索；真数据模式把「进局时已解锁集」一次同步进来
-      //   （首 run 只有 search_btn；veteran 满 UI 也在这一拍落定，符合 B1「一次性惊艳开场」）
-      setUnlocked((s) => {
-        const n = new Set(s)
-        const cur = unlocksRef.current
-        if (live && cur?.unlocked) cur.unlocked.forEach((k) => n.add(k))
-        else n.add('search_btn')
-        return n
-      })
-      // 游标跳过冷开场之前的历史（run 起始 log / 已积累 nar），此后只追加新增
-      seenLogs.current = Array.isArray(logsRef.current) ? logsRef.current.length : 0
-      seenNar.current = unlocksRef.current?.narLog?.length || 0
-      setColdOpenDone(true)
-    }, t + 500)
+    // 冷开场收尾：预览模式点亮搜索；真数据模式把「进局时已解锁集」一次同步进来
+    //   （首 run 只有 search_btn；veteran 满 UI 也在这一拍落定，符合 B1「一次性惊艳开场」）
+    later(settleColdOpen, t + 500)
     return () => { timers.current.forEach(clearTimeout); timers.current = [] }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
