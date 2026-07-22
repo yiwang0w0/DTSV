@@ -16,7 +16,11 @@
 - **✅ LW-3 gauntlet 波次落地（`074049c`·E2E 43/43·build 绿）**：裁决 C·07 seq2 首战 2 波完整性。推进层波次编排(advanceKaleidoProgress relock 块扩):gauntlet 关当前波敌死(无活实例)∧ curWave<wavesTotal → 生成下一波(base×enemyScale^(wave-1)·waveHeal clamp maxHp)+ 重锁;波敌走 attackNpc 富战斗路径(裁决 C);exit 仍 survive_turns(波=内容非门);movePlayer 入关 gauntletWave=1。E2E +5(seq2=gauntlet waves≥2/入关 wave-1/杀 wave-1→wave-2 生成+重锁/wave-2 缩放/wave-1 死)。软锁排除:curWave<wavesTotal 封顶·survive_turns 恒收·search-while-encounter 不锁·isKaleidoRoom+template_ref 双门(多人/非 gauntlet 零变化·回归 38/38)。
 - **✅ D5 R1 战斗 seed 化落地（`bd29d02`·E2E 44/44·build 绿）**：现 kaleido 战斗走 Math.random 违 R1(P1 闸门「同 seed 回放一致」前提)。resolveNpcAttackAction 顶构 `krng = mulberry32(hashStr(runId:chamberIndex:turnCount:atk))`(每攻击唯一流·内多 roll 顺序步进);5 处战斗 Math.random→rnd()(playerHit/counterTriggered/npcHit/fragment)+ calcDamage 暴击(gameEngine.js 加可选 rng 参·玩家攻击&NPC 反击两处传 krng)。**多人局 krng=null→Math.random 逐字节不动**(isKaleidoRoom 门+calcDamage rng 默认 null·PvP/多人 PvE 不传参零变化);search 路径 Math.random 不在战斗 scope。E2E +1=同状态×2 重放 6-attack 高熵序列(跨 wave 死+累积 crit/counter)逐字节一致。mulberry32 复用 br/forbidden 既有 import(避重声明)。
 - **垂直切片引擎侧 + R1 全清**：hook① / craft_btn / LW-3 / D5 全 ✅（E2E 44/44）。**唯余 D3 mergeGameRules**——按 🧭 令**缓到 Kanata 手感/全量拍板**(服务 seq3-5 规则关·seq1-2 env_rules/formula_overrides 都空不涉及)。
-- **⏸ 全轨待命（2026-07-16 · 🧭 令）**：所有轨在 Kanata 手感门前停。**D3 + seq3-5 全量引擎影响面「先别研究」**(🧭 明令·避免方向若变白做)。本轨**零欠账·歇着待命**,手感拍板后 🧭 给 seq3-5 全量/调整信号再动。停点 = `97e95bd`(main·工作区净·seq1-2 永久 enabled·E2E 44/44 资产已随状态机更新)。恢复第一步:rebase + 读本条 + 03/07 手感相关新段。
+- **⏸ 全轨待命（2026-07-16 · 🧭 令）**：所有轨在 Kanata 手感门前停。**D3 + seq3-5 全量引擎影响面「先别研究」**(🧭 明令·避免方向若变白做)。本轨**零欠账·歇着待命**,手感拍板后 🧭 给 seq3-5 全量/调整信号再动。恢复第一步:rebase + 读本条 + 03/07 手感相关新段。
+- **📌 分工重划知会（🧭·main=`5b1071d`·停点更新）**：Kanata 拍板 **呈现层归 GPT 主导**(六轨供给底层·10-avg §5)。GPT 推 20 条(97e95bd..b78ec93 fast-forward·我方零丢失):登录直进 run(/play)+ 解码转场 + 渐进 UI + 改名「远星」+ **构建栈 Next14→16(vinext/Vite8/CF Worker)**。
+  - **我方独立核验(非听信)**:`git diff 3387077..5b1071d -- gameActions.js kaleido/ gameEngine.js kaleido-e2e.mjs` = **空**(GPT 一个引擎文件没碰)→ hook①/craft_btn/LW-3/D5 全完好。
+  - **E2E 安全网核验**(🧭 提示构建栈换了要留意):干跑 import 链(tsx·**无需 npm install**)= `IMPORTCHECK=OK`——supabase/startKaleidoRun/applyKaleidoPostAction/isKaleidoRoom/注册表 10 键全可加载。**tsx 直驱独立于 next/vinext,E2E 资产不受栈变影响**。
+  - **ui_unlocks 消费方换人**:客户端由 🎨 的 KaleidoRunView → GPT 的 `KaleidoAvgView.jsx`。**06 契约(players[uid].uiUnlocks 集 + unlockEvents 信封)仍是接口真源**,我按契约下发不变;GPT 若需新解锁信号/字段 → 经 🧭 提我。
 
 ## 研究简报（2026-07-08 / 🔧 · ui_unlocks 支撑 AVG 渐进披露引擎可行性 —— 🧭 命题·已 send）
 
