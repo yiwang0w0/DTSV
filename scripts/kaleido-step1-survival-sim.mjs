@@ -71,6 +71,49 @@ for (const c of CANDS) {
   console.log(`  ${tag.padEnd(22)} ${String(t.worst).padStart(7)} ${String(t.median).padStart(8)} ${String(t.good).padStart(9)}   ${pct(t.survRate).padStart(5)}  ${String(t.medMinHp).padStart(6)}`)
 }
 
+// ── 阈值锚点校准(答 📖:百分比锚点 vs 余量拍数锚点)──
+//   问题(📖 核出):按 60%/30%/10% HP,在推荐配置下档1 要第 ~80 搜才响、档3 在死前根本到不了
+//     ⟹ 正常玩家一次听不到、卡住玩家最该示警的档是死的。
+//   我的答案:锚点改 **有效剩余拍数**(把药算进余量)—— `beats = (hp + potions*HEAL) / d`。
+//     它 runtime 可精确算,且能区分「40血3瓶(安全)」vs「40血0瓶(危险)」——百分比做不到。
+function beatsLeft(hp, potions, d) { return (hp + potions * HEAL) / d }
+
+function anchorCalib(d, G, p, tiers_ = [20, 10, 4], horizon = 30) {
+  // 统计:normal(前 horizon 搜)与 stuck(全程至死)各档触发次数
+  let normHit = [0, 0, 0], stuckHit = [0, 0, 0], runs = 2000
+  for (let i = 0; i < runs; i++) {
+    let hp = HP0, potions = 0, n = 0
+    let seenN = [false, false, false], seenS = [false, false, false]
+    while (n < CAP && hp > 0) {
+      while (hp < USE_AT && potions > 0) { potions--; hp = Math.min(MAXHP, hp + HEAL) }
+      hp -= d; n++
+      if (hp <= 0) break
+      if (G > 0 && n % G === 0) potions++
+      else if (Math.random() < p) potions++
+      const b = beatsLeft(hp, potions, d)
+      for (let t = 0; t < 3; t++) {
+        if (b <= tiers_[t]) {
+          if (!seenS[t]) { seenS[t] = true; stuckHit[t]++ }
+          if (n <= horizon && !seenN[t]) { seenN[t] = true; normHit[t]++ }
+        }
+      }
+    }
+  }
+  return { normal: normHit.map((x) => x / runs), stuck: stuckHit.map((x) => x / runs) }
+}
+
+console.log('\n【阈值锚点校准】锚点 = 有效剩余拍数 (hp + 药×30)/d ;档 ≤20 / ≤10 / ≤4 拍')
+console.log('  (数值 = 该档在一次 run 中被触发的概率;normal=前 30 搜内 · stuck=一直搜到死)')
+//   目标形状:normal(前 30 搜)档1 常响 / 档2 偶响 / 档3 罕见 ;stuck 不早死(N ≥ 4×M,M=21)
+for (const c of [
+  { d: 3, G: 12, p: 0.00 }, { d: 3, G: 16, p: 0.04 }, { d: 3, G: 18, p: 0.05 },
+  { d: 3, G: 20, p: 0.06 }, { d: 4, G: 16, p: 0.06 }, { d: 4, G: 20, p: 0.08 },
+]) {
+  const a = anchorCalib(c.d, c.G, c.p)
+  const t = tiers(c.d, c.G, c.p)
+  console.log(`  d=${c.d} G=${String(c.G).padStart(2)} p=${c.p.toFixed(2)}:  normal[档1/2/3] = ${a.normal.map((x) => pct(x).padStart(4)).join(' /')}   stuck = ${a.stuck.map((x) => pct(x).padStart(4)).join(' /')}   N(最坏/中位)=${t.worst}/${t.median}`)
+}
+
 // ── 诱饵预算对照:N7 §2.4 复现诱饵每 M 拍一条(初 8)——问「n 次曝光」要多少拍 ──
 console.log(`\n【诱饵预算对照】N7 §2.4:复现诱饵每 8 拍 1 条(关数递减 8→5→3,但 step1 只 1-2 关 ⟹ 实际恒 8)`)
 for (const exposures of [2, 3, 4, 5]) {
