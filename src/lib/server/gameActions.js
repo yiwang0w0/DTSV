@@ -1359,6 +1359,18 @@ async function resolveSearchAction(client, room, gamevars, user) {
   const nextPlayer = getResolutionPlayer(resolution, user.id)
   if (!nextPlayer?.alive) {
     appendResolutionLog(resolution, `${player.name} 被持续效果击倒了`, 'death')
+    // ── H3 修（2026-07-22·对抗复核抓出·kaleido 局改走同步 persist）─────────────────
+    //   `persistResolutionAsync` 走 persistRoom({async:true})：DB 写 **fire-and-forget**，却
+    //   **立刻返回 version+1 的乐观 room**。随后路由边界 applyKaleidoPostAction 的 ui_unlocks persist
+    //   拿这个乐观 version 做 CAS（.eq('version', …)）⇒ 后台写还没落库就是 0 行命中 → VersionConflictError
+    //   → 被 :3057 吞掉 ⇒ **解锁不落库、事件不发**。
+    //   而这恰是 06 §1.3 明文要保的那条路径（首搜当回合污染/持续效果致死也必须下发 hp_bar），
+    //   且**死亡后玩家再也进不了 applyKaleidoPostAction（各 handler 首行对阵亡 throw）⇒ 不可自愈**。
+    //   ⟹ `:3041` 那句「单人局无并发写 → 无版本冲突」在这条路径上本就是错的：
+    //      并发写者不是别的请求，是**同一请求自己没 await 的那个 promise**。
+    //   kaleido 是单人局，这里的异步只省几十毫秒、却换来一条不可自愈的静默失败 ⇒ 换同步写。
+    //   多人局分支逐字节不变（!isKaleidoRoom 恒真 → 原样走 async）。
+    if (isKaleidoRoom(room)) return persistResolution(client, room, resolution)
     return persistResolutionAsync(client, room, resolution)
   }
 

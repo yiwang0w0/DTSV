@@ -2,6 +2,20 @@
 
 > 以下历史段由 ⚙️ 游戏性轨(时任引擎职责)交付,2026-07-07 归属移交 🔧。
 
+## 最近变更（2026-07-22e / 🔧 ✅ H3 修（铁律路径静默失败）+ 教义不变式门 —— E2E 83/83·gate 9/9·build 绿）
+
+- **✅ H3 修**：`resolveSearchAction` 的「持续效果致死」分支走 `persistResolutionAsync`（DB 写 fire-and-forget，却**立刻返回 version+1 的乐观 room**）⇒ 路由边界的 ui_unlocks persist 拿乐观 version 做 CAS ⇒ 后台写未落即 0 行命中 → `VersionConflictError` → 被吞 ⇒ **解锁不落库、事件不发**。而这正是 06 §1.3 明文要保的那条（首搜当回合致死也必须下发 hp_bar），**且死亡后玩家再进不了 `applyKaleidoPostAction` ⇒ 不可自愈**。
+  - 修法：**kaleido 局改走同步 persist**（单人局，异步只省几十毫秒却换来一条不可自愈的静默失败）。多人局逐字节不变。
+  - `:3041` 那句「单人局无并发写 → 无版本冲突」在这条路径上本就是错的：**并发写者不是别的请求，是同一请求自己没 await 的那个 promise**。
+- **⚠ 负对照两轮，第一版断言是假的（记教训）**：第一版 §⑭ 断言「解锁落库 + 事件已发」，回退修复后**仍然全绿** ⇒ 那版根本没在测 H3。原因：本地后台写通常抢在 CAS 之前落库，竞态偏向成功；H3 的真实暴露场景是 **Vercel serverless 把未 await 的 promise 随函数冻结丢掉**（同 `emitPlayerEvents` 当年要 await 的那条理由）。
+  - 重写为**零 await 间隔比对 version**（不经 `act()`，直接 `executeGameAction` 后立刻读库）：同步写 ⇒ 返回 version 必等于库内；异步写那一刻写还在飞。**负对照第二轮成功翻红**（`returned:2 / db:1`）。
+  - 原来那两条保留为**不变式守卫**，并在源码里注明「它们的绿不代表 H3 被覆盖」——避免后人误读。
+- **✅ 教义硬不变式门**（`scripts/check-doctrine-invariants.mjs`，进 gate 第 2 步）：🧭 指出「没有 gate，§3.3 三条硬约束没有任何东西在守」。
+  - **诚实边界**：三条里**现在只有第 1 条（`missCost:'fatal'` 不得 `click`）能真正执行**；第 2/3 条依赖注册表里还不存在的关系字段（`hostGatedBy`/`requires`），I9 依赖尚未落地的剥夺表。**未落地的部分明确报「⏳ 待字段」，不假装在守**；字段一落地自动开始强制。
+  - I9 的操作面集合（`search_btn`/`combat_panel`/`move_btn`/`craft_btn`）已写进代码常量。
+- **gate 增打自查清单**：把本仓踩过的三个固定模式印在每次 gate 末尾 —— ①单发假设+掷骰=flaky ②写完断言先做负对照 ③绿≠覆盖（E2E 无 profiles 行 ⇒ 账号级持久化历来静默空转）。
+- **E2E 79→83**，gate 8→9 步。
+
 ## 最近变更（2026-07-22d / 🔧 ✅ 周期保底 + 道具效果链三处 + P0 gate —— E2E 79/79×3·gate 8/8·build 绿）
 
 - **✅ 周期保底（🔴 阻塞 ⚙️ step1 定稿的载重前提）**：`event_deck.guaranteed` 是**每关一次**，而 step1 的卡关场景是**在同一关里无限搜** ⇒ 保底给完一次就不再续（⚙️ harness：N 最坏 25~32 vs 周期保底 40，对 M=21 的余量从 1.9× 掉到 1.2~1.5×）。

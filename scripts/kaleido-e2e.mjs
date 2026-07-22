@@ -551,6 +551,51 @@ try {
     !hasCol || Number(fxRow.atk_delta) >= 0, JSON.stringify({ hasCol, atk_delta: fxRow?.atk_delta, atk: fxRow?.atk }))
 } catch (e) { ck('⑬ 道具效果链执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
 
+// ═══ ⑭ H3：回合起始结算致死路径上，解锁写不得静默失败（06 §1.3 铁律路径）═══
+//   `resolveSearchAction` 的「持续效果致死」分支原走 persistResolutionAsync（fire-and-forget +
+//   立即返回 version+1 的乐观 room）⇒ 路由边界的 ui_unlocks persist 拿乐观 version 做 CAS ⇒ 后台写
+//   未落即 0 行命中 → VersionConflictError → 被吞 ⇒ **解锁不落库、事件不发**。而这正是 06 §1.3 明文
+//   要保的那条（首搜当回合致死也必须下发 hp_bar），且死亡后玩家再进不了 applyKaleidoPostAction ⇒ 不可自愈。
+//   构造：注入 DoT 债 buff（id1 中毒 · -80hp/回合）+ hp 压到 50 ⇒ **首次 search 的回合起始结算即致死**。
+try {
+  const u = mkUser('h3'); out.ids.users.push(u.id)
+  const { roomId, runId } = await startKaleidoRun(sb, u)
+  out.ids.rooms.push(roomId); out.ids.runs.push(runId)
+  { const { data: r } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+    const p = r.gamevars.players[u.id]
+    p.hp = 50                                             // < 80 ⇒ 一跳必死
+    p.buffs = [{ buffId: 1, remainingTurns: 3 }]          // buff_pool id1「中毒」dot hp -80
+    await sb.from('rooms').update({ gamevars: r.gamevars }).eq('id', roomId) }
+  // ⚠ 关键:**不经 act()**,直接调 executeGameAction 后**零 await 间隔**读库比对 version ——
+  //   同步写 ⇒ 返回的 room.version 必等于库中 version;异步写(旧行为)那一刻写还在飞,库里是旧版本。
+  //   这是本节唯一能把「同步/异步」区分开的窗口:一旦中间夹了 applyKaleidoPostAction 的多次往返,
+  //   后台写通常已落库,两者又相等了(负对照会假绿)。
+  const preRoom = await getRoom(roomId)
+  const acted = await executeGameAction(sb, u, { roomId, action: 'search' }, {})
+  const { data: dbNow } = await sb.from('rooms').select('version').eq('id', roomId).single()
+  ck('H3:kaleido 致死拍走**同步** persist(返回 version 与库内一致·非乐观值)',
+    (acted?.version ?? -1) === (dbNow?.version ?? -2), JSON.stringify({ returned: acted?.version, db: dbNow?.version, before: preRoom?.version }))
+  // 补完路由边界(act 的后半段),再验解锁落库
+  const res = await applyKaleidoPostAction(sb, acted, u, 'search', {
+    beforeMe: preRoom.gamevars.players[u.id], beforeClearedSeq: preRoom.gamevars?.kaleido?.clearedSeq ?? 0, beforeGamestate: preRoom.gamestate,
+  })
+  const room = res.room
+  const me = room?.gamevars?.players?.[u.id]
+  ck('H3:构造成立(回合起始结算即致死)', me?.alive === false, JSON.stringify({ hp: me?.hp, alive: me?.alive }))
+  // 核心断言：致死那一拍的解锁**落库**（此前 CAS 冲突被吞 ⇒ 这里会是空）
+  const { data: dbRoom } = await sb.from('rooms').select('gamevars').eq('id', roomId).single()
+  const dbUnlocks = dbRoom?.gamevars?.players?.[u.id]?.uiUnlocks || []
+  ck('H3:致死拍的解锁已落库(hp_bar 在 DB 里·非仅内存)', dbUnlocks.includes('hp_bar'), JSON.stringify(dbUnlocks))
+  const { data: h3Ev } = await sb.from('player_events').select('verb,payload').eq('player_id', u.id).eq('verb', 'ui_unlock')
+  ck('H3:致死拍的 ui_unlock 事件已发(06 §1.3 兜底不落空)',
+    (h3Ev || []).some((e) => e.payload?.ui_key === 'hp_bar'), JSON.stringify((h3Ev || []).map((e) => e.payload?.ui_key)))
+  // ⚠ 负对照实测记录(2026-07-22)：把修复回退后跑本节 ——
+  //   **只有上面那条 version 断言翻红**(returned:2 / db:1)，「解锁落库」「事件已发」两条**仍绿**。
+  //   ⇒ 本地后台写通常抢在 CAS 之前落库，竞态偏向成功；H3 的真实暴露场景是 **Vercel serverless
+  //     把未 await 的 promise 随函数冻结丢掉**（同 emitPlayerEvents 当年要 await 的那条理由）。
+  //   ⇒ 后两条是**不变式守卫**，不是 H3 的回归网；**version 那条才是**。别把它们的绿当成 H3 已被覆盖。
+} catch (e) { ck('⑭ H3 执行', false, e.stack?.split('\n')[0] + ' | ' + e.message) }
+
 // ═══ 汇总 + 自清理 ═══
 const passN = A.filter((a) => a.pass).length
 console.log('E2E_ASSERTIONS=' + JSON.stringify(A, null, 1))
