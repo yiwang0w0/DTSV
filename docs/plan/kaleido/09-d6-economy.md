@@ -121,10 +121,10 @@
 | 加防件(+2def)| 卡扣×2 | 1.0 | ✅ 已建 |
 | 顶力剂(burst)| 线圈×2 | 0.8 | ✅ 已建(kaleido buff「顶力」atk+10·1T)|
 | 撑住剂(def+5×3T)| 垫片×2 | 0.9 | ✅ 已建(kaleido buff「撑住」def+5·3T)|
-| 扩容件(+15hp)| 管段×1 + 芯子×1 | 1.0 | ⏸ **held** — `maxHpDelta` 全仓仍无实现(2026-07-22 grep 核实)|
+| 扩容件(+15hp)| 管段×1 + 芯子×1 | 1.0 | ✅ 行+配方已建;**效果值待 🔧 `maxHpDelta` 列**(一行 UPDATE 补丁)|
 
 > **战术剂通路**:`item_pool.on_use_buff_ids` → `calcItemEffect`(gameEngine.js:139)→ `newBuffIds` → `applyBuff`(gameActions.js:2331)。已建 2 条 kaleido 尺度 buff 行(多人 buff 行原样不动)。
-> **⚠ 扩容件 held 的连带影响**:08 §4 战力预算的 **+30hp 分量当前拿不到** → prepared 实为 atk16/def9/**hp100**(非 hp130)→ boss 260/34/8 比 08 §2 曲线**更硬**。待 🧭 定:(a) 🔧 补 `maxHpDelta` 后补这两行,或 (b) 我按无 hp 路径重调 boss/经济曲线。
+> **✅ 扩容件已恢复**(🧭 裁 (a)·2026-07-22:🔧 补 `maxHpDelta` 钩子已派):行与配方入经济 SQL,**效果值待该列落地后一行 UPDATE 补**(SQL 末附补丁)。→ 08 §4 的 **+30hp 分量回来** → prepared 回 atk16/def9/**hp130** → **seq5 boss 260/34/8 维持 08 §2 原曲线**(prepared 74-86%),**平衡定稿不动**。
 
 - **co-align 守则(📖)**:碎块/卡扣(硬/连接)→ 强化;线圈(蓄劲)→ 顶力;垫片(软)→ 撑住 —— 语义相符,不软垫拼爆发。
 - **搜刮基底 + 合成补足**(additive):搜刮(捡强化件)给基底,合成(散件换强化件)补足到 prepared;彻底者两者兼得,casual 者只基底停 solid+(§3/§6.2)。

@@ -15,10 +15,11 @@
 --   碎块(硬/结构)→ 加力件 · 卡扣(连接/扣紧)→ 加防件 · **线圈(蓄劲/绷着)→ 顶力剂(burst)** · **垫片(软/缓冲)→ 撑住剂(减伤)**
 --   ——不让软垫拼出爆发一击。管段(通道)/芯子(核心)预留给扩容件(见下 held)。
 --
--- ⏸ **held(依赖未落·不在本批)**:**扩容件(+15 maxHp)+ 其配方(管段+芯子)**。
---   核实(2026-07-22 grep):`maxHpDelta` 全仓**仍无实现**(resolveUseItemAction 只改 atk/def/hp)。
---   ⚠ 连带影响:08 §4 战力预算的 **+30hp 分量当前拿不到** → prepared 档实为 atk16/def9/**hp100**(非 hp130)
---   → boss 260/34/8 会比 08 §2 曲线更硬。**待 🧭 定**:(a) 🔧 补 maxHpDelta 后我补这两行,或 (b) 我按无 hp 路径重调 boss/经济。
+-- ✅ **扩容件已恢复**(🧭 裁 (a)·2026-07-22:🔧 补 `maxHpDelta` 钩子已派)。行 + 配方(管段+芯子)已入本批,
+--   → 08 §4 的 **+30hp 分量回来** → prepared 回到 atk16/def9/hp130 → **seq5 boss 260/34/8 维持 08 §2 原曲线**(prepared 74-86%),平衡定稿不动。
+-- ⚠ **一处待 🔧 确认(执行前)**:`maxHpDelta` 的**承载列名**。现 item_pool 无该列(atk/def/heal 分别驱动 atkDelta/defDelta/hpDelta),
+--   🔧 钩子落地时会加新列(拟 `max_hp` 或同类)。本批**先建行与配方**(id/配方即刻可用),**效果值留空**;
+--   🔧 列落地后补一行 UPDATE 即可(见文件末「扩容件效果值补丁」)。**不阻塞本批审执行**。
 --
 -- ⚠ 材料 kind='material'(kaleido 新 kind):craft_btn 判据(🔧)+ admin/ITEM_KIND_META(🎨)须认此 kind。
 -- 幂等:按 name 删旧再插(kaleido 新名不与多人行撞)。引用一律同事务内 name 子查询解析(重跑 id 变但内部引用一致)。
@@ -28,11 +29,11 @@ BEGIN;
 
 -- ── 幂等清理(ingredient → recipe → item → buff;均按 kaleido 新 name)──
 DELETE FROM item_recipe_ingredients WHERE recipe_id IN (
-  SELECT id FROM item_recipes WHERE name IN ('合成·加力件', '合成·加防件', '合成·顶力剂', '合成·撑住剂')
+  SELECT id FROM item_recipes WHERE name IN ('合成·加力件', '合成·加防件', '合成·扩容件', '合成·顶力剂', '合成·撑住剂')
 );
-DELETE FROM item_recipes WHERE name IN ('合成·加力件', '合成·加防件', '合成·顶力剂', '合成·撑住剂');
+DELETE FROM item_recipes WHERE name IN ('合成·加力件', '合成·加防件', '合成·扩容件', '合成·顶力剂', '合成·撑住剂');
 DELETE FROM item_pool WHERE name IN (
-  '加力件', '加防件', '修补剂', '大补剂', '顶力剂', '撑住剂',
+  '加力件', '加防件', '扩容件', '修补剂', '大补剂', '顶力剂', '撑住剂',
   '碎块', '卡扣', '线圈', '垫片', '管段', '芯子'
 );
 DELETE FROM buff_pool WHERE name IN ('顶力', '撑住');
@@ -48,6 +49,8 @@ INSERT INTO buff_pool (name, icon, description, type, target, effect_formula, va
 INSERT INTO item_pool (name, kind, use_mode, atk, def, heal, description, chamber_template_ids) VALUES
   ('加力件', 'consumable', 'consume', 2, 0, 0,  '装上，出手更重一点。',   '{}'),
   ('加防件', 'consumable', 'consume', 0, 2, 0,  '装上，挨打时少疼一点。', '{}'),
+  -- 扩容件:+15 maxHp。效果值待 🔧 `maxHpDelta` 列落地后由文件末补丁 UPDATE 写入(本行先占位建 id)
+  ('扩容件', 'consumable', 'consume', 0, 0, 0,  '把自己撑大一圈。血更多，扛得久。', '{}'),
   ('修补剂', 'consumable', 'consume', 0, 0, 30, '糊上，缝就合一阵。',     '{}'),
   ('大补剂', 'consumable', 'consume', 0, 0, 60, '一大管。糊得更实。',     '{}');
 
@@ -71,21 +74,31 @@ INSERT INTO item_pool (name, kind, use_mode, description, chamber_template_ids) 
 INSERT INTO item_recipes (name, result_item_id, result_qty, success_rate, fail_behavior, enabled, description) VALUES
   ('合成·加力件', (SELECT id FROM item_pool WHERE name='加力件'), 1, 1.0, 'lose_materials', false, '碎块拼一拼，出手更重。'),
   ('合成·加防件', (SELECT id FROM item_pool WHERE name='加防件'), 1, 1.0, 'lose_materials', false, '卡扣扣一圈，挨打少疼。'),
+  ('合成·扩容件', (SELECT id FROM item_pool WHERE name='扩容件'), 1, 1.0, 'lose_materials', false, '管段接上芯子，撑大一圈。'),
   ('合成·顶力剂', (SELECT id FROM item_pool WHERE name='顶力剂'), 1, 0.8, 'lose_materials', false, '线圈绷紧，攒一下劲。'),
   ('合成·撑住剂', (SELECT id FROM item_pool WHERE name='撑住剂'), 1, 0.9, 'lose_materials', false, '垫片叠起来，垫着挨。');
 
 INSERT INTO item_recipe_ingredients (recipe_id, item_id, quantity, is_consumed) VALUES
   ((SELECT id FROM item_recipes WHERE name='合成·加力件'), (SELECT id FROM item_pool WHERE name='碎块'), 2, true),
   ((SELECT id FROM item_recipes WHERE name='合成·加防件'), (SELECT id FROM item_pool WHERE name='卡扣'), 2, true),
+  ((SELECT id FROM item_recipes WHERE name='合成·扩容件'), (SELECT id FROM item_pool WHERE name='管段'), 1, true),  -- 通道/容纳 ✓
+  ((SELECT id FROM item_recipes WHERE name='合成·扩容件'), (SELECT id FROM item_pool WHERE name='芯子'), 1, true),  -- 核心/被围 ✓
   ((SELECT id FROM item_recipes WHERE name='合成·顶力剂'), (SELECT id FROM item_pool WHERE name='线圈'), 2, true),  -- 蓄劲→爆发 ✓
   ((SELECT id FROM item_recipes WHERE name='合成·撑住剂'), (SELECT id FROM item_pool WHERE name='垫片'), 2, true);  -- 软→减伤 ✓
 
--- 验证(审阅时手跑):
+-- 验证(审阅时手跑):应见 13 道具行(含扩容件)+ 5 配方 + 2 buff。
 -- SELECT id,name,kind,atk,def,heal,on_use_buff_ids FROM item_pool
---   WHERE name IN ('加力件','加防件','修补剂','大补剂','顶力剂','撑住剂','碎块','卡扣','线圈','垫片','管段','芯子') ORDER BY id;
+--   WHERE name IN ('加力件','加防件','扩容件','修补剂','大补剂','顶力剂','撑住剂','碎块','卡扣','线圈','垫片','管段','芯子') ORDER BY id;
 -- SELECT r.name, i.name AS material, ri.quantity FROM item_recipes r
 --   JOIN item_recipe_ingredients ri ON ri.recipe_id=r.id JOIN item_pool i ON i.id=ri.item_id
---   WHERE r.name LIKE '合成·%' ORDER BY r.name;
+--   WHERE r.name LIKE '合成·%' ORDER BY r.name, i.name;
 -- SELECT id,name,type,target,value,duration FROM buff_pool WHERE name IN ('顶力','撑住');
+
+-- ── ⏳ 扩容件效果值补丁(待 🔧 `maxHpDelta` 列落地后单独执行 · 本批不含)──
+--   本批已建「扩容件」行 + 配方(管段+芯子),但**效果值尚未写入**(现 item_pool 无 maxHp 承载列)。
+--   🔧 迁移加列后(列名以 🔧 为准),补这一行即生效 +15 maxHp:
+--     UPDATE item_pool SET <maxhp_column> = 15 WHERE name = '扩容件';
+--   届时 08 §4 的 +30hp 分量完整(2 件 × +15)→ prepared 回 hp130 → boss 260/34/8 维持 08 §2 曲线。
+--   ⚠ 在该补丁执行前,扩容件可拾可合成但**无属性效果**(不影响其余 12 行与 4 配方)。
 
 COMMIT;
