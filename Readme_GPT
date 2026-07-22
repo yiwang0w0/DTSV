@@ -5,6 +5,24 @@
 - `DTSV` 仓库名、包名、现有网址与部署标识暂时保留，除非用户明确要求迁移。
 - 「远星函馆」仅在引用历史资料或作为明确的世界观专名时保留，不再作为当前产品名。
 
+## GPT 当前交接（每次工作结束时覆写）
+
+- 更新时间：2026-07-23（Asia/Tokyo）。
+- GitHub 基线：`main@38eb288`，本地已与 `origin/main` 对齐。
+- 当前状态：已读 `Claude/HANDOFF.md`、`Claude/Readme_Claude`、Diegetic UI 教义与 step 推进结构；`npm run gate` 9/9、`npm run build` 通过。
+- 在途任务：无。下一次可从最新 GitHub 主线领取前端呈现任务。
+- GPT 主责：玩家端前端呈现、交互编舞、响应式与浏览器验收；后端仅按真实契约模拟，除非用户明确授权修改引擎或数据库。
+
+## 2026-07-23 / GPT 与 Claude 并行开发协议
+
+- 开工前先 `git fetch`，确认工作区后以 `origin/main` 为基线；读取 `Claude/HANDOFF.md`、`Claude/Readme_Claude`、`Claude/frontend/log.md` 与任务关联规范。
+- 默认在 GitHub 主线上提交短小、单一职责的前端改动；推送前再次获取远端并 rebase/fast-forward，禁止 force push。若双方正在修改同一文件，则改用独立分支并在交接中标明。
+- GPT 聚焦呈现层：页面结构、视觉、动效、渐进披露、响应式、无障碍与交互状态。引擎、数据库、数值、剧情 canon 与安全边界仍以 Claude 各轨和用户裁决为准。
+- 前端先行时可使用 fixture、adapter 或 `NEXT_PUBLIC_APP_MODE=frontend` 模拟后端，但必须保持真实 API/状态形状；模拟逻辑不得静默进入正式结算路径。
+- UI 改动优先使用 GPT 内置浏览器验证，至少覆盖桌面与约 `390x844` 移动视口，并检查控制台、关键交互、动画时序、文字溢出和最终状态。
+- 每次交接都覆写上方“GPT 当前交接”，至少记录：Git 基线与提交、改动文件、玩家可见变化、浏览器验证、模拟数据与真实后端缺口、未完成事项及下一步。
+- GPT 不修改 `Claude/**` 的交接与轨道日志；跨轨信息写入本文件，必要时写入对应的 `Claude/<轨>/GPT.md`，交由 Claude 消化。
+
 ## 2026-07-21 / 递进式 UI 复用技能
 
 - 项目内技能入口：`.agents/skills/build-progressive-game-ui/SKILL.md`。
