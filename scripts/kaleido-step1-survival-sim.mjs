@@ -109,10 +109,10 @@ function LSens(d, G, p, VAR, Ls = [20, 30, 50], tiers_ = [20, 10, 4], runs = 400
   return out.map((o) => ({ t: o.t.map((x) => x / runs), dead: o.dead / runs }))
 }
 
-console.log('\n【L 敏感度】(🧭:L 当变量铺 · L 该由"想要什么紧迫感"倒推)  d=4 G=16 p=0.06')
-for (const VAR of [0, 1]) {
-  const r = LSens(4, 16, 0.06, VAR)
-  console.log(`  方差 ±${VAR}:`)
+console.log('\n【L 敏感度】(🧭:L 当变量铺 · L 该由"想要什么紧迫感"倒推)')
+for (const [G, VAR] of [[16, 0], [16, 1], [17, 1], [18, 1], [20, 1]]) {
+  const r = LSens(4, G, 0.06, VAR)
+  console.log(`  d=4 G=${G} p=0.06 方差 ±${VAR}:`)
   ;[20, 30, 50].forEach((L, k) => {
     console.log(`    L=${String(L).padStart(2)} 搜: 档1 ${pct(r[k].t[0]).padStart(4)} · 档2 ${pct(r[k].t[1]).padStart(4)} · 档3 ${pct(r[k].t[2]).padStart(4)}   死亡率 ${pct(r[k].dead)}`)
   })
@@ -160,3 +160,12 @@ for (const exposures of [2, 3, 4, 5]) {
   console.log(`   要 ${exposures} 次曝光 ⟹ M ≈ ${exposures * 8} 拍(还要 + 首现到第 1 条诱饵的 8 拍)`)
 }
 console.log('')
+
+// ── 档2 窗口宽度诊断(答"方差为何吃掉档2"):档2 边界 vs 用药阈的间距 ──
+//   0 药时 档2 = hp ≤ 档2阈×d;玩家 hp<35 就喝 ⟹ 可观测窗口 = (35, 档2阈×d]。
+//   ≤10 拍 ⇒ hp≤40 ⇒ 窗口仅 5 HP ≈ 1 次搜索宽 ⟹ 方差一抖就跳过去了(不是曲线变安全,是"测不到")。
+console.log('\n【档2 窗口诊断】d=4 G=16 p=0.06 方差±1 · 调档2阈(拍)看触发率')
+for (const t2 of [10, 12, 13, 14]) {
+  const r = LSens(4, 16, 0.06, 1, [30], [20, t2, 4])
+  console.log(`  档2阈 ≤${t2} 拍 (0药时 hp≤${t2 * 4}·窗口 ${t2 * 4 - 35} HP): L=30 档1 ${pct(r[0].t[0])} · 档2 ${pct(r[0].t[1])} · 档3 ${pct(r[0].t[2])}  死亡 ${pct(r[0].dead)}`)
+}
