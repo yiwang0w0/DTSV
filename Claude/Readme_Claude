@@ -23,8 +23,9 @@
 
 GPT 侧在 main 推了 20 条(`97e95bd..b78ec93`·fast-forward·**我方提交零丢失**),已实现登录直进 run(`/play`)+ 解码入场转场 + 首页纯入口 + **渐进 UI(状态/体力从对话浮现 · 文字原位变按钮)** + 项目改名**「远星」** + **构建栈换 vinext/Vite8/Cloudflare Worker(Next 14→16 · OpenAI Sites 托管)** + **改写 KaleidoAvgView(408 行)** + 新 skill `.agents/skills/build-progressive-game-ui/`。
 
-**Kanata 拍板 A** → **呈现层(AVG UI/转场/渐进浮现/托管)归 GPT 主导,六轨不再自建 AVG 壳**;六轨供给底层:🔧 引擎(ui_unlocks/消费器/战斗/seed)· ⚙️ 内容数值 · 📖 叙事 · 🔒 安全(GPT 均未碰)。详见 `docs/plan/kaleido/10-avg-vertical-slice.md §5`。
-- 🎨 首个动作 = 读 main 新实现 + skill → 产出「两套差异 + 怎么合」对照 → 在其上继续(自建原型作废)。
+**Kanata 拍板**:**主线 = 我方六轨,部署继续走 Vercel;GPT = 分支同步开发**(其实现是**参考样板**,不交出任何域的所有权)。**呈现层仍归 🎨,但以 GPT 的操作流程与呈现效果为复刻目标**——照它的操作/呈现做,在我方主线实现、接我方 ui_unlocks 真数据。底层不变:🔧 引擎 · ⚙️ 内容数值 · 📖 叙事 · 🔒 安全(GPT 均未碰)。详见 `docs/plan/kaleido/10-avg-vertical-slice.md §5`。
+- 🎨 首个动作 = 读 GPT 实现 + skill → 产出**复刻方案**(哪些照搬/哪些适配我方 ui_unlocks) → 在主线实现;取景框原型的呈现骨架成果**保留**,按样板校准后并入。
+- **部署**:Vercel 主线;GPT 的 vinext/Vite/Cloudflare/Sites 路径属分支线,**不作主线构建**(main 上 package.json 已被换成 vinext,需处理——见 §5.2)。
 - **铁律补充**:GPT skill 要求「更新 Readme_GPT」——**我方一律跳过**,长期交互原则写 `Claude/frontend/`。
 - **待 Kanata**:构建栈/部署走向(线上仍旧版·`vinext build` 与 Vercel 兼容性存疑)。
 

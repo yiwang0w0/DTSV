@@ -70,7 +70,7 @@
 
 ---
 
-## 5. 方向调整(2026-07-22 · Kanata 拍板「A:GPT 呈现层为主」)
+## 5. 方向调整(2026-07-22 · Kanata 拍板:**复刻 GPT 呈现,主线仍在我方**)
 
 **背景**:GPT 侧在 main 上推了 20 条(`97e95bd..b78ec93`,fast-forward 叠在我方工作之上·我方提交零丢失),已实现:
 - **登录直进 run**(`src/app/play/page.js` + login/register 跳转改)、**解码入场转场**(`src/components/EntryTransition.jsx`)、**首页纯入口**
@@ -79,18 +79,23 @@
 - **构建栈更换**:`next dev/build` → **`vinext`**;Next 14.2.21 → **16.2.6**;新增 **Vite 8 + @cloudflare/vite-plugin + worker/** + `.openai/hosting.json`(OpenAI Sites 托管)
 - **改写 `KaleidoAvgView.jsx`(408 行)**(取代 🎨 原型)、新增 skill `.agents/skills/build-progressive-game-ui/`(含 `references/farstar-opening-spec.md` 精确到毫秒的交互不变量)
 
-### 5.1 分工重划(生效)
+### 5.1 定位(Kanata 拍板 · 生效)
+
+- **主线 = 我方六轨,部署继续走 Vercel**。
+- **GPT = 分支同步开发** —— 其实现是**参考样板**,不是主线所有权;不把任何域交给它。
+- **呈现层仍归 🎨**,但**以 GPT 的操作流程与呈现效果为复刻目标**(照着它的操作/呈现做,在我方主线上实现)。
 
 | 域 | 归属 | 说明 |
 |---|---|---|
-| **呈现层**(AVG UI / 转场 / 渐进浮现 / 托管) | **GPT 主导** | 六轨**不再自建 AVG 壳**;🎨 转为在 GPT 实现之上继续 |
+| **呈现层**(AVG UI / 转场 / 渐进浮现) | **🎨(复刻 GPT 样板)** | 以 GPT 实现的操作流与呈现效果为标准,由 🎨 在我方主线实现;接我方 ui_unlocks 真数据 |
 | 引擎(ui_unlocks / 种子关消费器 / 战斗 / seed) | 🔧 | GPT 未碰,继续供给 |
 | 内容数值(种子关 / 经济 / 平衡) | ⚙️ | 同上 |
 | 叙事(nar_line / 血肉) | 📖 + Kanata 自驱专线 | 同上 |
 | 安全(RLS / 越权) | 🔒 | 同上 |
+| 部署 | **Vercel(主线)** | GPT 的 Vite/Cloudflare/Sites 路径属分支线,不作主线构建 |
 
-- **§2.2 的「🎨 独立取景框原型 AVG 壳」作废**(已被 GPT 实现取代);原验证点(冷开局钩子 / 因果两拍 / 文字节奏)转为**对 GPT 实现的手感验证**。
-- 🎨 首个动作 = 读 main 上 GPT 新实现 + skill,产出「两套差异 + 怎么合」对照,再动手。
+- 🎨 首个动作 = 读 GPT 实现 + skill → 产出**复刻方案**(哪些操作/呈现照搬、哪些需适配我方 ui_unlocks 真数据与 12 项 ui_key)→ 在我方主线实现。
+- 原 §2.2 的取景框原型:**其呈现骨架成果保留**(转场/文字舞台/因果两拍/冷开局钩子已验),按 GPT 样板校准后并入主线实现。
 
 ### 5.2 待处理(Kanata)
 
