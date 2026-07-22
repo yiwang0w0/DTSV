@@ -22,6 +22,15 @@ export const UI_KEYS = {
   RULES_CARD: 'rules_card',
   STANCE: 'stance_ui',
   CRAFT: 'craft_btn',
+  // B4 后段披露（🔧 `31fa8d2` 已接线·服务端注册表 14 键）。本地补齐这三键 = 修存量 bug：
+  //   commitUnlocks 用 REVEAL_ORDER 当**白名单**过滤候选键，不在表里的服务端 unlockEvents 会被
+  //   **静默丢弃**（既不入解锁集、也不上舞台、也不报错）⇒ B4 那批等于白接。
+  //   ⚠ 刻意**不在** UI_UNLOCK_ENTRIES 给这三条本地 nar_line：服务端 nar_line 权威，且现稿仍是
+  //     「——已开放：X」宣告式、已被教义 §2 推论禁用 —— 不新增一份注定要删的本地副本。
+  //     unlockEntry() 对未知键返回 null，取文案处一路 `?.nar_line || ''` 兜底，不会崩。
+  LOADOUT_PANEL: 'loadout_panel',
+  PREP_READOUT: 'prep_readout',
+  CONVERGENCE_PREVIEW: 'convergence_preview',
 }
 
 // 初始态唯一 UI（Kanata 定向：开局只有一个搜索按钮）。
@@ -112,10 +121,14 @@ export const KALEIDO_STATIC_LINES = {
 }
 
 // 披露栈序（初始 → 逐步）。渐次动效按此顺序错峰；亦供 dev 预览遍历。
+// ⚠ 它同时是 commitUnlocks 的**白名单** —— 不在本表的键会被静默丢弃。
+//   顺序照服务端注册表（src/lib/server/kaleido/uiUnlocks.js）逐条对齐，勿自行重排。
 export const REVEAL_ORDER = [
   UI_KEYS.SEARCH, UI_KEYS.LOG, UI_KEYS.INVENTORY, UI_KEYS.HP, UI_KEYS.COMBAT,
   UI_KEYS.MOVE, UI_KEYS.LEVEL_HEADER, UI_KEYS.TURN_COUNTER, UI_KEYS.RULES_CARD,
   UI_KEYS.STANCE, UI_KEYS.CRAFT,
+  // B4 后段披露（服务端注册表 :82/:88/:94）
+  UI_KEYS.LOADOUT_PANEL, UI_KEYS.PREP_READOUT, UI_KEYS.CONVERGENCE_PREVIEW,
 ]
 
 // ── 读取缝：🔧 真数据源（账号级持久化解锁集，随 player 下发）──────────────────

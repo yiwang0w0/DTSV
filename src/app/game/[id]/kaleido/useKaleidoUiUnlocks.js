@@ -60,8 +60,9 @@ function nowLabel() {
 //   ctx: buildUnlockCtx(...) 的返回（或 dev 预览自造）。
 //   opts.enabled：非 kaleido 局传 false ⇒ 钩子完全惰性（多人零回归：状态恒初始集、无副作用）。
 //   opts.emitNarLog：stub 期 true（本地披露日志）；🔧 全量把 nar_line 走 unlockEvents 后置 false（客户端零本地文案表）。
+//   opts.deriveStub：**默认 false**。true = 由可观测状态本地推解锁 —— 仅 dev 谐调器可用，正式路径永不开（见下方 effect 注释）。
 export function useKaleidoUiUnlocks(ctx, opts = {}) {
-  const { enabled = true, emitNarLog = true } = opts
+  const { enabled = true, emitNarLog = true, deriveStub = false } = opts
   const [unlocked, setUnlocked] = useState(() => new Set(INITIAL_UNLOCKED))
   const [justUnlocked, setJustUnlocked] = useState([]) // 本 tick 新解锁 key（渐次动效用）
   // 初始集（search_btn）的 nar_line = 📖 N3「开场行」——run 起始即在场，播种为披露日志首行。
@@ -106,16 +107,24 @@ export function useKaleidoUiUnlocks(ctx, opts = {}) {
     commitUnlocks(keys, (k) => narMap[k] || (emitNarLog ? unlockEntry(k)?.nar_line || '' : ''))
   }, [enabled, emitNarLog, commitUnlocks])
 
-  // stub-derive 兜底：🔧 route 未 emit unlockEvents 期间由可观测状态推解锁 + 并入真集 me.uiUnlocks（渲染门）。
+  // 渲染门同步：并入服务端真集 me.uiUnlocks（🔧 06/D1）。
+  //   ⚠ deriveStubUnlocks **默认已停用**（🧭 P0-2·教义级）：它里面 `if (ctx.searched) { add(LOG); add(HP) }`
+  //     是**无条件**的，等于**客户端在替玩家「发现」UI** —— 正是 Diegetic 教义法则二禁止的事
+  //     （UI 由玩家的世界内动作获得，不由系统推导授予）。两个连带同样致命：
+  //       ① 它会把被服务端**移除**的键加回来 ⇒ 法则三「UI 可以失去」结构上无法生效；
+  //       ② 它配 emitNarLog 会补播本地旧宣告式文案（「——已开放：X」），而该句式已被教义 §2 推论禁用。
+  //     服务端已在发这些键（unlockEvents + 账号级 uiUnlocks 双路），关掉不会让 UI 消失。
+  //   opts.deriveStub=true 仅供 dev 谐调器（无服务端可发事件，靠布尔 ctx 驱动预览）——**正式路径永不开**。
   useEffect(() => {
     if (!enabled) return
-    const derived = deriveStubUnlocks(ctx || {})
-    readServerUnlocks(ctx?.me).forEach((k) => derived.add(k)) // 🔧 06/D1：真集并入渲染门集
-    // nar_line：stub 期用本地文案；emitNarLog=false（🔧 全量 live）时只维护渲染门、文案由 server-events 供。
-    commitUnlocks(derived, (k) => (emitNarLog ? unlockEntry(k)?.nar_line || '' : ''))
+    const keys = deriveStub ? deriveStubUnlocks(ctx || {}) : new Set()
+    readServerUnlocks(ctx?.me).forEach((k) => keys.add(k))
+    if (keys.size === 0) return
+    // nar_line：emitNarLog=false（🔧 全量 live）时只维护渲染门、文案一律由 server-events 供。
+    commitUnlocks(keys, (k) => (emitNarLog ? unlockEntry(k)?.nar_line || '' : ''))
     // ctx 每 hydrate 换引用 ⇒ 依赖它即「状态变化则重算」；commitUnlocks 的 diff 保证仅新解锁才 setState。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, emitNarLog, ctx, commitUnlocks])
+  }, [enabled, emitNarLog, deriveStub, ctx, commitUnlocks])
 
   const isUnlocked = useCallback((uiKey) => unlocked.has(uiKey), [unlocked])
   const justRevealed = useCallback((uiKey) => justUnlocked.includes(uiKey), [justUnlocked])

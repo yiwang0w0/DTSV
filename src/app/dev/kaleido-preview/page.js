@@ -45,7 +45,9 @@ export default function KaleidoPreviewPage() {
     clearedAny: sim.clearedAny, movedAny: sim.movedAny, ruleLevel: sim.ruleLevel, stanceLevel: sim.stanceLevel,
     hasCraftMat: false,
   }), [sim])
-  const unlocks = useKaleidoUiUnlocks(ctx, { enabled: true, emitNarLog: true })
+  // dev 谐调器无服务端可发 unlockEvents ⇒ 显式开 deriveStub 靠布尔 ctx 驱动预览。
+  //   正式路径（GameClientPage）**永不开**：那会让客户端替玩家「发现」UI（教义法则二）。
+  const unlocks = useKaleidoUiUnlocks(ctx, { enabled: true, emitNarLog: true, deriveStub: true })
 
   const combatMode = sim.stanceLevel ? STANCE_MODE : sim.ruleLevel ? GAUNTLET_MODE : STANDARD_MODE
   const exitCondition = sim.stanceLevel

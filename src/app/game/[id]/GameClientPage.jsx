@@ -426,7 +426,10 @@ export default function GameClientPage() {
     () => (isKaleido ? buildUnlockCtx(gamevars, me, kaleidoNode) : null),
     [isKaleido, gamevars, me, kaleidoNode],
   )
-  const kaleidoUnlocks = useKaleidoUiUnlocks(kaleidoUnlockCtx, { enabled: isKaleido })
+  //   emitNarLog:false（🧭 P0-2）—— 🔧 已全量下发 unlockEvents（含 nar_line），客户端不再补播本地文案：
+  //     本地那份仍是「——已开放：X」宣告式，而教义 §2 推论已禁用该句式。文案单一正源 = 服务端。
+  //   deriveStub 不传 ⇒ 默认 false ⇒ 客户端不再替玩家「发现」UI（教义法则二），也不会把服务端移除的键加回来（法则三）。
+  const kaleidoUnlocks = useKaleidoUiUnlocks(kaleidoUnlockCtx, { enabled: isKaleido, emitNarLog: false })
 
   // 🐛 Bug③：冷开场（觉醒行）只属于**账号首次醒来**，再进要延续而不是重播。
   //   判据用现成信号（🧭 方向·不劳 🔧 加字段）：
