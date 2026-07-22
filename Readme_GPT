@@ -8,9 +8,10 @@
 ## GPT 当前交接（每次工作结束时覆写）
 
 - 更新时间：2026-07-23（Asia/Tokyo）。
-- GitHub 基线：`main@38eb288`，本地已与 `origin/main` 对齐。
-- 当前状态：已读 `Claude/HANDOFF.md`、`Claude/Readme_Claude`、Diegetic UI 教义与 step 推进结构；`npm run gate` 9/9、`npm run build` 通过。
-- 在途任务：无。下一次可从最新 GitHub 主线领取前端呈现任务。
+- GitHub 基线：`main@f20b7ab`，本地已与 `origin/main` 对齐。
+- 当前状态：本地 Next 开发站点可正常启动；首页与 `/play` 已完成桌面和 `390x844` 移动视口浏览器检查，首次搜索、状态按钮及体力展开可用，控制台无错误，移动端无横向溢出。
+- 设计同步判断：Diegetic UI、step 推进和持久化边界的文档与部分引擎地基已经进入主线，但当前 `/play` 仍以无 props 的内部 preview sim 运行；旧式“可用功能”文案、前端自驱解锁与固定数值仍在。`offered/discovered/suppressed/lost`、存档点提交、场景状态和持续叙事线索尚未完整进入玩家可见流程，不能把“页面可运行”视为“新设计已上线”。
+- 在途任务：无。下一项前端工作应明确区分预览体验校准与真实 `useKaleidoUiUnlocks` 数据接线。
 - GPT 主责：玩家端前端呈现、交互编舞、响应式与浏览器验收；后端仅按真实契约模拟，除非用户明确授权修改引擎或数据库。
 
 ## 2026-07-23 / GPT 与 Claude 并行开发协议
