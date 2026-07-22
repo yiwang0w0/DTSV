@@ -25,6 +25,7 @@ export default function KaleidoPreviewPage() {
   // 预览模式:avg = AVG 呈现骨架原型(10 垂直切片·seq1-2) / runview = 旧渐进披露栈式谐调器。
   const [mode, setMode] = useState('avg')
   const [avgKey, setAvgKey] = useState(0) // 重放 AVG 冷开场
+  const [avgLive, setAvgLive] = useState(false) // P1：AVG 吃真 ui_unlocks 数据 vs 内部预览 sim
 
   // 谐调器：一组布尔驱动渐进披露（镜像 buildUnlockCtx 的 ctx 形状）。
   const [sim, setSim] = useState({
@@ -67,14 +68,49 @@ export default function KaleidoPreviewPage() {
             <b>验证点</b>：① 冷开局钩子（黑幕→觉醒行→搜索·防 10 秒跳出）② 因果两拍手感（nar 落舞台→件延迟析出 + 闪 cyan）③ 文字重复烦不烦（占位血肉测节奏）。<br /><br />
             <b>操作</b>：等冷开场结束→点「🔦 搜索」看座舱结晶一拍（log 醒 + 血条 gauge-first + 抽屉）；连点几次测文字节奏；右上「遭遇」触发首战覆盖、「规则关」触发门口告示闸门。<br /><br />
             占位文案（真血肉 &gt;2500 行 = Kanata 自驱线·不阻塞手感验证）。
-            <div style={{ marginTop: 12 }}>
-              <button onClick={() => setAvgKey((k) => k + 1)} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg2, color: T.text, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>⟲ 重放冷开场</button>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button onClick={() => { setAvgKey((k) => k + 1) }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg2, color: T.text, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>⟲ 重放冷开场</button>
+              {/* P1：真数据接线开关 —— 开启后 AVG 吃真 useKaleidoUiUnlocks(sticky 集/narLog/justUnlocked) + logs */}
+              <button
+                onClick={() => { setAvgLive((v) => !v); setAvgKey((k) => k + 1) }}
+                style={{ padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+                  border: `1px solid ${avgLive ? T.green + '66' : T.border}`, background: avgLive ? `${T.green}18` : T.bg2, color: avgLive ? T.green : T.text }}
+              >
+                {avgLive ? '✓ 真数据模式（ui_unlocks 驱动）' : '○ 预览兜底模式（内部 sim）'}
+              </button>
+              {avgLive && (
+                <div style={{ fontSize: 11, color: T.dim2, lineHeight: 1.6, borderLeft: `2px solid ${T.green}55`, paddingLeft: 8 }}>
+                  AVG 现在吃 <b>真 useKaleidoUiUnlocks</b>：舞台文字来自 logs + narLog，浮现由 justUnlocked 走因果两拍。
+                  在框内点「🔦 搜索」推进 ctx（log_panel+hp_bar 解锁）；下面 ⑨ 按钮可注入 <b>服务端 D2 unlockEvents</b> 看真信封驱动浮现。
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <Ctl on={sim.hasItems} label="② 拾得道具 → inventory 浮现" onClick={() => { set({ hasItems: true }); pushLog('缝里卡着个东西：锈蚀弹匣。', 'system') }} />
+                    <Ctl on={unlocks.unlocked.has('craft_btn')} label="⑨ 注入服务端 unlockEvents(craft_btn·D2)" onClick={() => unlocks.applyServerEvents([{ ui_key: 'craft_btn', nar_line: '（服务端权威）这两样，拼得到一起。——已开放：动手做。', timing: 'after', seq: 1 }])} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 11, color: T.dim2 }}>390 × 844（手机基线 · 沉浸全屏）</div>
-            <div style={{ width: 390, height: 844, border: `1px solid ${T.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
-              <KaleidoAvgView key={avgKey} showDevControls />
+            <div style={{ fontSize: 11, color: T.dim2 }}>390 × 844（手机基线 · 沉浸全屏）{avgLive && <span style={{ color: T.green }}> · 真数据</span>}</div>
+            <div style={{ width: 390, height: 844, border: `1px solid ${avgLive ? T.green + '55' : T.border}`, borderRadius: 20, overflow: 'hidden', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}>
+              {avgLive ? (
+                <KaleidoAvgView
+                  key={`live-${avgKey}`}
+                  showDevControls
+                  unlocks={unlocks}
+                  logs={sim.logs}
+                  me={{ hp: 78, maxHp: 100, stamina: 72, maxStamina: 100, atk: 22, def: 9 }}
+                  encounter={sim.encounter ? MOCK_ENCOUNTER : null}
+                  combatMode={combatMode}
+                  envRules={sim.ruleLevel ? [{ rule_key: 'pollution_accel', value: 1.5 }] : []}
+                  canAct
+                  onSearch={() => { set({ searched: true }); pushLog('你翻找了一下。锈迹、灰、更多的锈。', 'system') }}
+                  onAttack={() => { set({ encounter: false, everFought: true }); pushLog('你先出手。它退回暗处。', 'kill') }}
+                  onRelease={() => { set({ encounter: false }); pushLog('你绕开了它。', 'system') }}
+                />
+              ) : (
+                <KaleidoAvgView key={avgKey} showDevControls />
+              )}
             </div>
           </div>
         </div>

@@ -54,14 +54,35 @@ const STAMINA_EXPAND_MS = 640
 let _lid = 0
 const nextId = () => (_lid += 1)
 
-export default function KaleidoAvgView({ onExit, showDevControls = false }) {
+export default function KaleidoAvgView({
+  // ── P1 真数据接线（全部可选；缺省 → 内部预览 sim 兜底，保 /play frontend-only 随时可验手感）──
+  unlocks,                   // useKaleidoUiUnlocks 返回（sticky 解锁集 / narLog / justUnlocked / applyServerEvents）
+  logs,                      // 真 gamevars.log（时序流·chronological）
+  me: liveMe,                // 真玩家态
+  encounter: liveEncounter,  // 真遭遇实例
+  combatMode, envRules, formulaOverrides, // 真关规则（门口告示卡用）
+  onSearch: onSearchLive, onAttack: onAttackLive, onRelease: onReleaseLive,
+  busy = false, canAct = true,
+  onExit, showDevControls = false,
+}) {
+  const live = Boolean(unlocks) // 有解锁钩子 = 真数据模式；否则预览兜底
   // phase: boot(黑幕冷开场) → awake(觉醒行+搜索) → playing(舞台激活)
   const [phase, setPhase] = useState('boot')
   const [lines, setLines] = useState([]) // 文字舞台:{ id, text, kind:'log'|'nar'|'awake' }
+  // unlocked = 视觉已揭示集（两种模式共用）：预览由 revealPiece 推，真数据由 justUnlocked 经因果两拍延迟推。
   const [unlocked, setUnlocked] = useState(() => new Set())
   const [flashing, setFlashing] = useState(() => new Set()) // 因果两拍:正在闪 cyan 的件
-  const [me] = useState({ hp: 78, maxHp: 100, stamina: 72, maxStamina: 100, atk: 22, def: 9 })
-  const [combat, setCombat] = useState(null) // 事件覆盖层:遭遇实例
+  const [previewMe] = useState({ hp: 78, maxHp: 100, stamina: 72, maxStamina: 100, atk: 22, def: 9 })
+  const me = live ? (liveMe || previewMe) : previewMe
+  const [simCombat, setSimCombat] = useState(null) // 预览 sim 的遭遇
+  const combat = live ? (liveEncounter || null) : simCombat
+  // 归一：真 encounterInstance 是 { id, hp, maxHp, npc:{name,atk,def} }，预览 sim 是扁平结构
+  const combatView = combat ? {
+    name: combat.name || combat.npc?.name || '未知实体',
+    hp: combat.hp, maxHp: combat.maxHp,
+    atk: combat.atk ?? combat.npc?.atk ?? '?',
+    def: combat.def ?? combat.npc?.def ?? '?',
+  } : null
   const [atRuleGate, setAtRuleGate] = useState(false) // rules_card 门口告示闸门
   const [searchCount, setSearchCount] = useState(0)
   const [turnCount, setTurnCount] = useState(0) // 消耗动作计数；首搜完成后即记为第 1 回合
@@ -79,6 +100,11 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   const dialogueSettleScheduled = useRef(false)
   const searchPendingRef = useRef(false)
   const timers = useRef([])
+  const seenLogs = useRef(0) // P1：真 logs 已追加到舞台的游标
+  const seenNar = useRef(0)  // P1：解锁 nar_line 已追加的游标
+  const [coldOpenDone, setColdOpenDone] = useState(false) // 冷开场结束前不放真数据进舞台，免抢跑
+  const unlocksRef = useRef(unlocks); unlocksRef.current = unlocks
+  const logsRef = useRef(logs); logsRef.current = logs
   const [statusStage, setStatusStage] = useState('hidden') // hidden → inline → flying → docked
   const [statusFlight, setStatusFlight] = useState(null)
   const [dialogFramed, setDialogFramed] = useState(false)
@@ -107,7 +133,21 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     let t = 1100
     AWAKEN_LINES.forEach((l) => { later(() => pushLine(l, 'awake'), t); t += 850 })
     later(() => pushLine(OPENING_NAR, 'nar'), t) // 开场行(=search_btn nar·零硬编码同源)
-    later(() => setUnlocked((s) => new Set(s).add('search_btn')), t + 500) // 搜索按钮最后浮现
+    later(() => {
+      // 冷开场收尾：预览模式点亮搜索；真数据模式把「进局时已解锁集」一次同步进来
+      //   （首 run 只有 search_btn；veteran 满 UI 也在这一拍落定，符合 B1「一次性惊艳开场」）
+      setUnlocked((s) => {
+        const n = new Set(s)
+        const cur = unlocksRef.current
+        if (live && cur?.unlocked) cur.unlocked.forEach((k) => n.add(k))
+        else n.add('search_btn')
+        return n
+      })
+      // 游标跳过冷开场之前的历史（run 起始 log / 已积累 nar），此后只追加新增
+      seenLogs.current = Array.isArray(logsRef.current) ? logsRef.current.length : 0
+      seenNar.current = unlocksRef.current?.narLog?.length || 0
+      setColdOpenDone(true)
+    }, t + 500)
     return () => { timers.current.forEach(clearTimeout); timers.current = [] }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -118,7 +158,51 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
     if (el) el.scrollTop = el.scrollHeight
   }, [dialogDocked, lines])
 
+  // ── P1 真数据接线 ─────────────────────────────────────────────────────────
+  // 真 gamevars.log 新增行 → 追加进舞台（沿用 kaleido-line-in 逐段淡入，不改呈现）
+  useEffect(() => {
+    if (!live || !coldOpenDone || !Array.isArray(logs)) return
+    if (logs.length < seenLogs.current) seenLogs.current = 0 // 换 run 重置
+    const fresh = logs.slice(seenLogs.current)
+    seenLogs.current = logs.length
+    fresh.forEach((l) => pushLine(l?.text || '', l?.type || 'log'))
+  }, [live, coldOpenDone, logs, pushLine])
+
+  // 解锁 nar_line（服务端权威·D2 信封）新增 → 追加进舞台
+  //   ⚠ P2 待办：hp_bar 那行的「状态」交互词目前仍取组件常量 STATUS_PROMPT（下阶段挪到数据层 action:{word,uiKey}），
+  //     此处以 key 挂 interaction 元数据作桥（非字符串搜索，符合 skill 纪律），保住已批准的「文字原位变按钮」编舞。
+  useEffect(() => {
+    if (!live || !coldOpenDone) return
+    const nar = unlocks.narLog || []
+    if (nar.length < seenNar.current) seenNar.current = 0
+    const fresh = nar.slice(seenNar.current)
+    seenNar.current = nar.length
+    fresh.forEach((n) => pushLine(n.text, 'nar', n.key === 'hp_bar' ? { interaction: 'status' } : undefined))
+  }, [live, coldOpenDone, unlocks?.narLog, pushLine])
+
+  // 新解锁 → 因果两拍：nar 已落舞台，延迟 NAR_DELAY 后件材质化析出 + 闪 nar 同色
+  useEffect(() => {
+    if (!live || !coldOpenDone) return
+    const added = unlocks.justUnlocked || []
+    if (!added.length) return
+    later(() => {
+      setUnlocked((s) => { const n = new Set(s); added.forEach((k) => n.add(k)); return n })
+      setFlashing((s) => { const n = new Set(s); added.forEach((k) => n.add(k)); return n })
+      later(() => setFlashing((s) => { const n = new Set(s); added.forEach((k) => n.delete(k)); return n }), 1300)
+    }, NAR_DELAY)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, coldOpenDone, unlocks?.justUnlocked])
+
   const hpUnlocked = isU('hp_bar')
+
+  // live：首搜叙事批次落定 → 停顿 DIALOG_SETTLE_PAUSE → 放行 900ms 同步迁移。
+  //   sim 路径用「最后一行的 animationend」（settlesFirstSearch）；live 的解锁事件异步到达、没有确定的「最后一行」，
+  //   故用「一段时间无新行」去抖判定批次结束，再补 180ms 停顿——与规范同一节拍，只是触发源不同。
+  useEffect(() => {
+    if (!live || !coldOpenDone || !hpUnlocked || firstSearchDialogueSettled) return undefined
+    const t = setTimeout(() => setFirstSearchDialogueSettled(true), 700 + DIALOG_SETTLE_PAUSE)
+    return () => clearTimeout(t)
+  }, [live, coldOpenDone, hpUnlocked, firstSearchDialogueSettled, lines])
 
   useEffect(() => {
     if (!hpUnlocked || statusMaterialized.current) return
@@ -213,6 +297,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
 
   function commitSearch() {
     if (phase === 'awake') setPhase('playing')
+    // 真数据模式：把搜索交给服务端 action；浮现序由回来的 unlockEvents 决定（首物→inventory·再搜材料→craft…）
+    if (live) { onSearchLive?.(); return }
     const n = searchCount + 1
     setSearchCount(n)
     setTurnCount((count) => count + 1)
@@ -236,15 +322,19 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   }
 
   // ── 动作:遭遇(首战·seq2) ──────────────────────────────────────────────
-  function onEncounter() {
-    setCombat({ ...MOCK_ENEMY })
+  function onEncounter() { // 预览 sim 专用（真数据由 search 结果自然带出遭遇）
+    setSimCombat({ ...MOCK_ENEMY })
     revealPiece('combat_panel', NAR.combat_panel)
   }
   function onStrike() {
+    if (live) { onAttackLive?.(); return }
     pushLine('你先出手。它踉跄了一下，退回暗处。', 'kill')
-    setCombat(null)
+    setSimCombat(null)
   }
-  function onFlee() { pushLine('你绕开了它。', 'log'); setCombat(null) }
+  function onFlee() {
+    if (live) { onReleaseLive?.(); return }
+    pushLine('你绕开了它。', 'log'); setSimCombat(null)
+  }
 
   // ── 动作:进规则关(rules_card 门口告示闸门·seq2) ────────────────────────
   function onApproachRuleLevel() {
@@ -254,6 +344,8 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
   function onEnterRuleLevel() { setAtRuleGate(false); setSeq(2); pushLine('你迈过门口。规矩生效了。', 'system') }
 
   const searchReady = isU('search_btn')
+  // 真数据模式还要尊重服务端可行动性（阵亡/终局/请求中）；预览模式只受 sim 的遭遇/闸门约束
+  const searchDisabled = !!combat || atRuleGate || (live && (!canAct || busy))
   const statusActionReady = dialogDocked && statusStage === 'docked'
   const flightRect = statusFlight?.from || null
   const actionFlightRect = statusFlight?.actionFrom || null
@@ -327,7 +419,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
                 className="kaleido-materialize"
                 style={{ maxWidth: 440, marginTop: 8 }}
                 onSearch={onSearch}
-                disabled={!!combat || atRuleGate}
+                disabled={searchDisabled}
                 loading={searchPending}
               />
             )}
@@ -378,7 +470,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
             '--wrap-enter-left': `${-statusFlight.actionTo.width - 24}px`,
           }}
           onSearch={onSearch}
-          disabled={!!combat || atRuleGate}
+          disabled={searchDisabled}
           loading={searchPending}
         />
       )}
@@ -396,7 +488,7 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
             <SearchActions
               className="kaleido-materialize"
               onSearch={onSearch}
-              disabled={!!combat || atRuleGate}
+              disabled={searchDisabled}
               loading={searchPending}
             />
           )}
@@ -409,12 +501,12 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
           <div className={`kaleido-materialize${flashing.has('combat_panel') ? ' kaleido-flash-cyan' : ''}`}
                style={{ width: '100%', maxWidth: 560, margin: '0 16px 96px', background: T.bg1, border: `1px solid ${T.red}55`, borderLeft: `3px solid ${T.red}`, borderRadius: 12, padding: '14px 16px', boxShadow: '0 -8px 40px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div><div style={{ fontSize: 11, color: T.dimB }}>遭遇</div><div style={{ fontSize: 15, fontWeight: 700, color: T.red }}>{combat.name}</div></div>
+              <div><div style={{ fontSize: 11, color: T.dimB }}>遭遇</div><div style={{ fontSize: 15, fontWeight: 700, color: T.red }}>{combatView.name}</div></div>
             </div>
-            <HpBar hp={combat.hp} max={combat.maxHp} h={7} />
+            <HpBar hp={combatView.hp} max={combatView.maxHp} h={7} />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5, fontSize: 11 }}>
-              <span style={{ color: hpColor(combat.hp, combat.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>HP {combat.hp}/{combat.maxHp}</span>
-              <span style={{ color: T.dim }}>ATK {combat.atk} · DEF {combat.def}</span>
+              <span style={{ color: hpColor(combatView.hp, combatView.maxHp), fontFamily: 'monospace', fontWeight: 700 }}>HP {combatView.hp}/{combatView.maxHp}</span>
+              <span style={{ color: T.dim }}>ATK {combatView.atk} · DEF {combatView.def}</span>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <Btn variant="danger" sx={{ flex: 2, padding: '10px 0', fontWeight: 700 }} onClick={onStrike}>⚔️ 自卫</Btn>
@@ -429,7 +521,11 @@ export default function KaleidoAvgView({ onExit, showDevControls = false }) {
         <div style={{ position: 'absolute', inset: 0, zIndex: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(2,5,10,0.7)', backdropFilter: 'blur(3px)', padding: 16 }}>
           <div className="kaleido-materialize" style={{ width: '100%', maxWidth: 420 }}>
             <div style={{ textAlign: 'center', fontSize: 11, color: T.yellow, marginBottom: 8, letterSpacing: 0 }}>门口 · 已张贴</div>
-            <KaleidoRuleCard combatMode={{ template_ref: 'stance_duel', params: { counterMul: 1.6 } }} envRules={[{ rule_key: 'pollution_accel', value: 1.5 }]} formulaOverrides={[]} />
+            <KaleidoRuleCard
+              combatMode={live ? (combatMode || { template_ref: 'standard', params: {} }) : { template_ref: 'stance_duel', params: { counterMul: 1.6 } }}
+              envRules={live ? (envRules || []) : [{ rule_key: 'pollution_accel', value: 1.5 }]}
+              formulaOverrides={live ? (formulaOverrides || []) : []}
+            />
             <Btn variant="primary" size="lg" sx={{ width: '100%', marginTop: 12 }} onClick={onEnterRuleLevel}>读过了，迈过门口 →</Btn>
           </div>
         </div>
