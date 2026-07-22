@@ -24,7 +24,8 @@
 
 ### 🧭 恢复后的第一件事(在派任何单之前)
 
-**读 `docs/plan/kaleido/14-field-layout-draft.md` 并一次性批四件**:①存档点提交要不要单独 retry ②`hide`/`restore` 跨轨同批窗口(**方向已给:同批约束成立,不得先行下发**)③`profiles.kaleido_step` DDL ④evaluator 共用程度。
+**读 `docs/plan/kaleido/14-field-layout-draft.md` 并一次性批四件**:①存档点提交要不要单独 retry ②`hide`/`restore` 跨轨同批窗口(**方向已给:同批约束成立,不得先行下发**)
+   > **精确理由(🎨 指出,比 §5「互相打脸」准)**:`hide`/`restore` 带顶层 `ui_key`,而今天的客户端消费端是**无条件 `keys.add`** ⟹ **「失去一件 UI」会被渲染成「解锁一件 UI」,方向反了。** 这也正是「渲染判据要可收缩」这条的落点。③`profiles.kaleido_step` DDL ④evaluator 共用程度。
 🔧 **批复前不动 P1 代码**,所以这是全链的第一个闸。
 
 ⚠ `send_message` **必须传完整 UUID**,短前缀报 `not found`。
@@ -90,14 +91,26 @@
 ⚠ **形状已终裁(2026-07-23)**:`restore_at timestamptz NOT NULL`,**「永不」= `'infinity'`**。
 🔧 曾反对可空时间戳(NULL 在「未设置」与「永不」间有歧义,读错就把存档点锚重置了)—— **反对成立**,故不用 NULL;但两档枚举表达不了 Kanata 明说的「几天」。`'infinity'` 同时满足三条:无 NULL 歧义 / `DELETE WHERE restore_at <= now()` 对 `'infinity'` **结构上永不成立**(与枚举同级的保证)/ 「几天」= `now() + interval '3 days'`,加新周期零 schema 改动。
 列注释须写明:**`'infinity'` = 永不复原,当前唯一持有者 = 安全屋的门(存档点锚)**。
+**⚠ 🔧 后来撤回了自己的反对(「行只在写入时才存在 ⟹ NULL 只有一种含义」,成立),并改成了 NULL。但 🧭 实测后维持 `'infinity'`,理由换成新的一条:**
+
+| | `restore_at <= now()`(重置作业) | `restore_at > now()`(读侧「仍有效」) |
+|---|---|---|
+| `'infinity'` | **false** ✓ 扫不到 | **true** ✓ 读得到 |
+| `NULL` | 不匹配 ✓ 扫不到 | **不匹配** ✗ **永久行读不到** |
+
+⟹ NULL 在删除侧安全,**在读侧会把永久行静默丢掉** —— 最自然的写法 `WHERE restore_at > now()` 会让门**永远读不出来**。🔧 最初担心的「把存档点锚弄丢」原样发生,只是从 DELETE 挪到 SELECT。**DDL 与 doc 13 须改回 `'infinity'`。**
 已定取值:**门=永不** / 灯=当天 / 炸毁区块=数天。
 **待 🧭 定**:重置作业形态。🔧 倾向**惰性到期 + 定期清理**(读侧本就要过滤 `restore_at <= now()` ⇒ 零新增基础设施、天然幂等;DELETE 只回收行，晚跑几小时无语义影响)，优于在 Vercel serverless 上跑一个**改游戏状态**的 cron。
+
+### 4.5 `scripts/kaleido-scene-state.sql`(🔧 已出,**🧭 停工时刻意未审**)
+新建表 + partial index + RLS 照 `content_pool` 范式。**不 ALTER 任何现有表 ⟹ 多人零变化。** 值得清醒时逐行读,**恢复后与 doc 14 四件同批审**。
+- 已批的两件配套:**重置作业 = 惰性到期 + 定期清理**(不在 Vercel serverless 上跑改游戏状态的 cron,同教义 §8.4 顾虑);**stopgap(`content_pool` 新 entity_type)不做**(要改前端两处硬编码枚举且无 `(scene,prop)` 唯一键)。
 
 ### 5. P1-c 行为变更批(🎨 + 🔧 **必须同 PR**)
 渲染判据可收缩 / 冷开场后全集重同步 / 移除·被夺的呈现语言 / `statusActionReady` 解耦成逐行门 / 未 discovered 要约的常驻载体。**半批上线 = 引擎与画面互相打脸。**
 
 ### 6. 其余队列
-- 🔧:E2E 碰 profiles 的做法(账号层至今零自动化覆盖)/ `ITEM_COLS` 补三个 delta 列 + admin 内容引擎 kind 选项已坏(`itemPoolPreview.js:20,34`)
+- 🔧:E2E 碰 profiles —— **做法已批 = service_role 直插 + 用后按 uid 清理**(`auth.admin.createUser` 会触发 `handle_new_user()` 的静默吞,且固定 tag 派生 email 重跑必撞 `profiles_username_key` 且无信号)/ `ITEM_COLS` 补三个 delta 列 + admin 内容引擎 kind 选项已坏(`itemPoolPreview.js:20,34`)
 - ⚙️:`atk_delta`/`def_delta` 补值 —— **列已建(28 行全 0)· 补丁已出稿待审(`8763bb51`)**。条件:加力件/加防件旧 `atk`/`def` 归零;**id24 一律不动**
 - 📖:N3 §6 三项 → 死区告知设计(**放在基地的剧情里**,不做元层弹窗)
 - 🎨:~~SSR 直链顶栏闪~~ **已判定不治并记档**(`b0ff12cf`,含两条治法全文与代价 + **翻案条件 = 硬加载变成主路径,最可能触发点是 PWA**,🎨 自己盯)
