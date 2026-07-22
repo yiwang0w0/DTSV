@@ -24,6 +24,30 @@
 //        直链硬加载 `/game/179?kaleido=1` 仍会有一次 SSR→hydration 的顶栏闪 —— 那是 SSR 固有、
 //        本来就存在的，不在本次修复范围。
 //
+// ── 已知边界：直链硬加载 `/game/X?kaleido=1` 仍会闪一次顶栏（**刻意不治** · 🧭 会签）────────
+//   现象：硬加载走 SSR，服务端渲染 RootShell 时 `immersiveRun` 必为 false ⇒ HTML 里就带着顶栏，
+//     要等 hydration 后才收起。两条主入口（登录直进的解码转场、大厅入口卡）都是**客户端跳转**，
+//     由「发起方在 router.push 之前置位」覆盖到零帧，所以这一闪只出现在直链/刷新。
+//
+//   为什么不治 —— 两条路都比收益贵：
+//   (a) RootShell 里用 `useSearchParams` 渲染期派生：**构建直接拒绝**。RootShell 在根布局，
+//       该 hook 会让所有预渲染页 CSR bailout（实测 13 页报 missing-suspense-with-csr-bailout）。
+//   (b) 段级 CSS（🧭 提的路子）：把 `/game/[id]/page.js` 从现在的一行裸 re-export
+//       （`export { default } from './GameClientPage'`）改成读 `searchParams` 的 server 组件，
+//       条件吐一段 `<style>` 藏顶栏。CSS 首帧即生效、不需要 JS/hydration、不动根布局 —— 这些都成立。
+//       但真实代价有三条，合起来不划算：
+//         · 要复制的**不止**「藏顶栏」：`<main>` 的 padding/maxWidth 也得一起改，否则 SSR 那帧是
+//           「没顶栏 + 1200px 带边距 main」，比现在闪一下更难看（内容会跳两次）。
+//         · **判据分叉**：CSS 只能看 URL 参数，React 看的是**房间真实类型**。手工拼参进多人房时
+//           React 侧会自愈（kaleidoHint→false ⇒ 顶栏回来），而 server 吐的那段 style 不会消失
+//           ⇒ 多人局顶栏被永久藏掉 —— 直接压到「多人渲染路径零行为变化」这条红线上。
+//           要补就得让自愈额外 `router.replace` 抹参数，又多一次导航。
+//         · 顶栏显隐从此有两个来源（React 状态 + 段级 CSS），后人改顶栏很可能只改一处。
+//
+//   ⟹ 什么情况下该重新评估：**硬加载变成主路径**时。最可能的触发点是 PWA（本轨 backlog）——
+//      若 manifest 的 start_url 指向对局路由，或对局链接开始被分享/收藏，这一闪就从边缘变主路径，
+//      届时按 (b) 做，并**同时**解决上面三条代价（尤其自愈抹参数那条，否则会破多人红线）。
+//
 // ⚠ 跨文件隐式不变量（无机制约束，改动前必须回看这里）：
 //   本模块对 `/` 判沉浸的**前提**是 `src/app/page.js` 在 `loading || user` 时早返回纯黑幕。
 //   若将来放宽那个早返回（例如「登录态也想看 Hero / 首页加公告」），`/` 会变回有内容的页面，
